@@ -6,7 +6,7 @@ import pandas as pd
 from concursos.agregacao import agregar
 from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig, carregar_concurso
 from concursos.correcao import corrigir
-from concursos.gabarito import ler_gabarito_texto, validar_contagem
+from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.modelo import ItemGabarito, RespostaMarcada
 from concursos.relatorio import gerar_relatorio
 from concursos.respostas import ler_respostas_txt
@@ -56,10 +56,16 @@ def analisar_concurso(pasta: Path, destino: Path) -> None:
 
 def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabarito]:
     arquivo = prova.gabarito.arquivo
-    texto = config.caminho(arquivo).read_text(encoding='utf-8')
-    itens = ler_gabarito_texto(texto, config.formato, arquivo)
-    validar_contagem(itens, prova.questoes, prova.chave, arquivo)
-    return itens
+    gabarito = carregar_gabarito(config.caminho(arquivo), config.formato, config.banca)
+    if gabarito.status_detectado and gabarito.status_detectado != prova.gabarito.status:
+        logger.warning(
+            '%s: gabarito configurado como %s, mas o arquivo indica %s',
+            arquivo,
+            prova.gabarito.status,
+            gabarito.status_detectado,
+        )
+    validar_contagem(gabarito.itens, prova.questoes, prova.chave, arquivo)
+    return gabarito.itens
 
 
 def _ler_respostas(config: ConcursoConfig) -> list[RespostaMarcada]:
