@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv
+.pytest_cache/
+.ruff_cache/
+
+# Dados pessoais e saídas (CPF, nome, dados de terceiros)
+provas/
+analises/
+*:Zone.Identifier
+
+# Modelos de OCR
+*.traineddata
+.EasyOCR/
+.paddleocr/
+
+# Editor
+.cursor/
