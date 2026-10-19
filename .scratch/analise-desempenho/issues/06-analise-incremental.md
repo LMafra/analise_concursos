@@ -4,9 +4,9 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A segunda execução sem mudanças não reprocessa nenhum concurso, e o log informa isso.
-- [ ] Alterar um arquivo, o YAML ou a revisão reprocessa só o concurso afetado.
-- [ ] `--forcar` e `--concurso` funcionam (testes ponta a ponta).
-- [ ] Falha no meio do processamento não deixa o manifesto marcando o concurso como atualizado.
+- [x] A segunda execução sem mudanças não reprocessa nenhum concurso, e o log informa isso.
+- [x] Alterar um arquivo, o YAML ou a revisão reprocessa só o concurso afetado.
+- [x] `--forcar` e `--concurso` funcionam (testes ponta a ponta).
+- [x] Falha no meio do processamento não deixa o manifesto marcando o concurso como atualizado.

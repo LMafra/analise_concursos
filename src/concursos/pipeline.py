@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from concursos import manifesto
 from concursos.agregacao import agregar
 from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig
 from concursos.correcao import corrigir
@@ -32,22 +33,41 @@ def listar_concursos(raiz_provas: Path) -> list[Path]:
     return sorted(p for p in raiz_provas.iterdir() if (p / ARQUIVO_CONFIG).exists())
 
 
-def analisar_todos(raiz_provas: Path, raiz_analises: Path) -> bool:
-    """Analisa todos os concursos completos; retorna False se algum falhou durante a análise."""
+class ConcursoNaoEncontradoError(ValueError):
+    pass
+
+
+def analisar_todos(
+    raiz_provas: Path, raiz_analises: Path, forcar: bool = False, apenas: str | None = None
+) -> bool:
+    """Analisa os concursos completos que mudaram; retorna False se algum falhou durante a análise."""
+    pastas = listar_concursos(raiz_provas)
+    if apenas is not None:
+        pastas = [p for p in pastas if p.name == apenas]
+        if not pastas:
+            raise ConcursoNaoEncontradoError(f'{raiz_provas / apenas}: concurso não encontrado')
     sucesso = True
-    for pasta in listar_concursos(raiz_provas):
-        situacao = avaliar(pasta)
-        if situacao.situacao is not Situacao.COMPLETO:
-            logger.warning(
-                '%s: %s, pulando: %s', situacao.nome, situacao.situacao, '; '.join(situacao.motivos)
-            )
-            continue
-        try:
-            analisar_concurso(situacao.config, raiz_analises / pasta.name)
-        except (ValueError, FileNotFoundError, RuntimeError) as erro:
-            logger.error('%s: falha na análise: %s', situacao.nome, erro)
-            sucesso = False
+    for pasta in pastas:
+        sucesso &= _analisar_se_necessario(pasta, raiz_analises / pasta.name, forcar)
     return sucesso
+
+
+def _analisar_se_necessario(pasta: Path, destino: Path, forcar: bool) -> bool:
+    situacao = avaliar(pasta)
+    if situacao.situacao is not Situacao.COMPLETO:
+        logger.warning('%s: %s, pulando: %s', situacao.nome, situacao.situacao, '; '.join(situacao.motivos))
+        return True
+    if not forcar and manifesto.atualizado(pasta, destino):
+        logger.info('%s: sem mudanças desde a última análise', situacao.nome)
+        return True
+    manifesto.invalidar(destino)
+    try:
+        analisar_concurso(situacao.config, destino)
+    except (ValueError, FileNotFoundError, RuntimeError) as erro:
+        logger.error('%s: falha na análise: %s', situacao.nome, erro)
+        return False
+    manifesto.gravar(pasta, destino)
+    return True
 
 
 def analisar_concurso(config: ConcursoConfig, destino: Path) -> None:

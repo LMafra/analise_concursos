@@ -16,7 +16,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         if args.comando == 'analisar':
-            return 0 if analisar_todos(Path(args.provas), Path(args.analises)) else 1
+            sucesso = analisar_todos(Path(args.provas), Path(args.analises), args.forcar, args.concurso)
+            return 0 if sucesso else 1
         if args.comando == 'status':
             situacoes = [avaliar(pasta) for pasta in listar_concursos(Path(args.provas))]
             sys.stdout.write(formatar_tabela(situacoes) + '\n')
@@ -34,6 +35,8 @@ def _parser() -> argparse.ArgumentParser:
     analisar = subcomandos.add_parser('analisar', help='processa os concursos e gera as análises')
     analisar.add_argument('--provas', default='provas', help='pasta com um subdiretório por concurso')
     analisar.add_argument('--analises', default='analises', help='pasta de saída')
+    analisar.add_argument('--forcar', action='store_true', help='reprocessa mesmo sem mudanças')
+    analisar.add_argument('--concurso', help='processa apenas o concurso com este nome de pasta')
 
     status = subcomandos.add_parser('status', help='mostra a situação de cada concurso')
     status.add_argument('--provas', default='provas', help='pasta com um subdiretório por concurso')
