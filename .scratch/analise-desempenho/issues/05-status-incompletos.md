@@ -4,9 +4,9 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `status` mostra a tabela com concurso, status, motivo e status do gabarito.
-- [ ] Um concurso sem respostas não impede a análise de outro concurso completo (teste ponta a ponta).
-- [ ] Arquivo referenciado e ausente gera erro específico com o caminho completo.
-- [ ] YAML inválido gera erro apontando o campo.
+- [x] `status` mostra a tabela com concurso, status, motivo e status do gabarito.
+- [x] Um concurso sem respostas não impede a análise de outro concurso completo (teste ponta a ponta).
+- [x] Arquivo referenciado e ausente gera erro específico com o caminho completo.
+- [x] YAML inválido gera erro apontando o campo.

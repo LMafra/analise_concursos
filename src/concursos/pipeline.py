@@ -4,12 +4,13 @@ from pathlib import Path
 import pandas as pd
 
 from concursos.agregacao import agregar
-from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig, carregar_concurso
+from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig
 from concursos.correcao import corrigir
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.modelo import ItemGabarito, RespostaMarcada
 from concursos.relatorio import gerar_relatorio
 from concursos.respostas import ler_respostas_txt
+from concursos.status import Situacao, avaliar
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +32,25 @@ def listar_concursos(raiz_provas: Path) -> list[Path]:
     return sorted(p for p in raiz_provas.iterdir() if (p / ARQUIVO_CONFIG).exists())
 
 
-def analisar_todos(raiz_provas: Path, raiz_analises: Path) -> None:
+def analisar_todos(raiz_provas: Path, raiz_analises: Path) -> bool:
+    """Analisa todos os concursos completos; retorna False se algum falhou durante a análise."""
+    sucesso = True
     for pasta in listar_concursos(raiz_provas):
-        analisar_concurso(pasta, raiz_analises / pasta.name)
+        situacao = avaliar(pasta)
+        if situacao.situacao is not Situacao.COMPLETO:
+            logger.warning(
+                '%s: %s, pulando: %s', situacao.nome, situacao.situacao, '; '.join(situacao.motivos)
+            )
+            continue
+        try:
+            analisar_concurso(situacao.config, raiz_analises / pasta.name)
+        except (ValueError, FileNotFoundError, RuntimeError) as erro:
+            logger.error('%s: falha na análise: %s', situacao.nome, erro)
+            sucesso = False
+    return sucesso
 
 
-def analisar_concurso(pasta: Path, destino: Path) -> None:
-    config = carregar_concurso(pasta)
+def analisar_concurso(config: ConcursoConfig, destino: Path) -> None:
     logger.info('Analisando %s', config.nome)
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
     respostas = _ler_respostas(config)
