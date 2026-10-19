@@ -33,12 +33,33 @@ class GabaritoConfig:
 
 
 @dataclass(frozen=True)
+class EditalConfig:
+    arquivo: str
+    anexos: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class FolhaConfig:
+    arquivo: str
+    template: str
+    total_itens: int | None = None
+    itens_por_coluna: int | None = None
+
+
+@dataclass(frozen=True)
+class ResultadoOficialConfig:
+    arquivo: str
+    identificador: str | None = None
+
+
+@dataclass(frozen=True)
 class ProvaConfig:
     chave: str
     gabarito: GabaritoConfig
     inicio: int
     fim: int
     disciplinas: tuple[FaixaDisciplina, ...] = ()
+    caderno: str | None = None
 
     @property
     def questoes(self) -> range:
@@ -59,7 +80,11 @@ class ConcursoConfig:
     cargo: str | None = None
     tipo: str | None = None
     respostas_arquivo: str | None = None
+    folha: FolhaConfig | None = None
+    edital: EditalConfig | None = None
+    resultado_oficial: ResultadoOficialConfig | None = None
     ignorar: tuple[str, ...] = field(default_factory=tuple)
+    historico: tuple[dict, ...] = field(default_factory=tuple)
 
     def caminho(self, arquivo: str) -> Path:
         return self.pasta / arquivo
@@ -74,15 +99,24 @@ def carregar_concurso(pasta: Path) -> ConcursoConfig:
         raise ArquivoAusenteError(f'{caminho}: arquivo de configuração ausente')
     try:
         dados = yaml.safe_load(caminho.read_text(encoding='utf-8')) or {}
-        return _montar(pasta, dados)
-    except (yaml.YAMLError, KeyError, TypeError, ValueError) as erro:
+    except yaml.YAMLError as erro:
         raise ConfiguracaoInvalidaError(f'{caminho}: {erro}') from erro
+    return validar_dados(pasta, dados)
+
+
+def validar_dados(pasta: Path, dados: dict) -> ConcursoConfig:
+    try:
+        return _montar(pasta, dados)
+    except (KeyError, TypeError, ValueError) as erro:
+        raise ConfiguracaoInvalidaError(f'{pasta / ARQUIVO_CONFIG}: {erro}') from erro
 
 
 def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
     provas = tuple(_montar_prova(chave, valor) for chave, valor in _obrigatorio(dados, 'provas').items())
     _validar_faixas_disjuntas(provas)
     respostas = dados.get('respostas') or {}
+    if respostas.get('arquivo') and respostas.get('folha'):
+        raise ConfiguracaoInvalidaError("respostas: use 'arquivo' ou 'folha', não ambos")
     return ConcursoConfig(
         nome=dados.get('nome', pasta.name),
         pasta=pasta,
@@ -93,7 +127,13 @@ def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
         cargo=dados.get('cargo'),
         tipo=None if dados.get('tipo') is None else str(dados['tipo']),
         respostas_arquivo=respostas.get('arquivo'),
+        folha=_montar_folha(respostas) if respostas.get('folha') else None,
+        edital=_montar_edital(dados['edital']) if dados.get('edital') else None,
+        resultado_oficial=_montar_resultado(dados['resultado_oficial'])
+        if dados.get('resultado_oficial')
+        else None,
         ignorar=tuple(dados.get('ignorar') or ()),
+        historico=tuple(dados.get('historico') or ()),
     )
 
 
@@ -105,7 +145,32 @@ def _montar_prova(chave: str, dados: dict) -> ProvaConfig:
     faixas = tuple(
         FaixaDisciplina(f['inicio'], f['fim'], f['disciplina']) for f in dados.get('disciplinas') or ()
     )
-    return ProvaConfig(chave, GabaritoConfig(**gabarito), int(inicio), int(fim), faixas)
+    return ProvaConfig(chave, GabaritoConfig(**gabarito), int(inicio), int(fim), faixas, dados.get('caderno'))
+
+
+def _montar_folha(respostas: dict) -> FolhaConfig:
+    return FolhaConfig(
+        arquivo=respostas['folha'],
+        template=_obrigatorio(respostas, 'template', 'respostas.'),
+        total_itens=respostas.get('total_itens'),
+        itens_por_coluna=respostas.get('itens_por_coluna'),
+    )
+
+
+def _montar_edital(edital: str | dict) -> EditalConfig:
+    if isinstance(edital, str):
+        return EditalConfig(edital)
+    return EditalConfig(_obrigatorio(edital, 'arquivo', 'edital.'), tuple(edital.get('anexos') or ()))
+
+
+def _montar_resultado(resultado: str | dict) -> ResultadoOficialConfig:
+    if isinstance(resultado, str):
+        return ResultadoOficialConfig(resultado)
+    identificador = resultado.get('identificador')
+    return ResultadoOficialConfig(
+        _obrigatorio(resultado, 'arquivo', 'resultado_oficial.'),
+        None if identificador is None else str(identificador),
+    )
 
 
 def _obrigatorio(dados: dict, campo: str, prefixo: str = ''):

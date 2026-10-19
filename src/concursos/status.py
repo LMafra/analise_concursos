@@ -31,10 +31,13 @@ def avaliar(pasta: Path) -> StatusConcurso:
         for prova in config.provas
         if not config.caminho(prova.gabarito.arquivo).exists()
     ]
-    if config.respostas_arquivo is None:
+    if config.respostas_arquivo is not None:
+        if not config.caminho(config.respostas_arquivo).exists():
+            motivos.append(f'{config.caminho(config.respostas_arquivo)}: arquivo ausente (respostas)')
+    elif config.folha is not None:
+        motivos.append(f'{config.folha.arquivo}: leitura da folha de resposta ainda não disponível')
+    else:
         motivos.append('respostas não configuradas (folha de resposta ou respostas.txt)')
-    elif not config.caminho(config.respostas_arquivo).exists():
-        motivos.append(f'{config.caminho(config.respostas_arquivo)}: arquivo ausente (respostas)')
 
     situacao = Situacao.INCOMPLETO if motivos else Situacao.COMPLETO
     return StatusConcurso(config.nome, situacao, tuple(motivos), _status_gabarito(config), config)
