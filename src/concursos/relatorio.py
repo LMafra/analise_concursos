@@ -13,7 +13,12 @@ def gerar_relatorio(config: ConcursoConfig, por_disciplina: pd.DataFrame, geral:
         '',
         '## Resumo por prova',
         '',
-        _tabela(geral, ['prova', 'total', 'acertos', 'erros', 'em_branco', 'percentual']),
+        _tabela(
+            geral,
+            ['prova', 'total', 'acertos', 'erros', 'em_branco', 'anuladas', 'nota_liquida', 'percentual'],
+        ),
+        '',
+        '_Anuladas contam como acerto e ficam fora do percentual (de mérito)._',
         '',
         '## Desempenho por disciplina',
         '',

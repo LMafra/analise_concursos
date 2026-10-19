@@ -35,6 +35,8 @@ def corrigir(
 
 
 def _resultado(item: ItemGabarito, marcada: str | None) -> Resultado:
+    if item.anulada:
+        return Resultado.ACERTO
     if marcada is None:
         return Resultado.BRANCO
     return Resultado.ACERTO if marcada == item.resposta else Resultado.ERRO

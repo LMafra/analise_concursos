@@ -4,9 +4,9 @@ from pathlib import Path
 import pandas as pd
 
 from concursos.agregacao import agregar
-from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, carregar_concurso
+from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig, carregar_concurso
 from concursos.correcao import corrigir
-from concursos.gabarito import ler_gabarito_texto
+from concursos.gabarito import ler_gabarito_texto, validar_contagem
 from concursos.modelo import ItemGabarito, RespostaMarcada
 from concursos.relatorio import gerar_relatorio
 from concursos.respostas import ler_respostas_txt
@@ -39,24 +39,27 @@ def analisar_todos(raiz_provas: Path, raiz_analises: Path) -> None:
 def analisar_concurso(pasta: Path, destino: Path) -> None:
     config = carregar_concurso(pasta)
     logger.info('Analisando %s', config.nome)
-    gabaritos = {prova.chave: _ler_gabarito(config, prova.gabarito.arquivo) for prova in config.provas}
+    gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
     respostas = _ler_respostas(config)
     resultados = corrigir(config, gabaritos, respostas)
 
     destino.mkdir(parents=True, exist_ok=True)
     _tabela_respostas(config, respostas).to_csv(destino / 'respostas_extraidas.csv', index=False)
-    por_disciplina = agregar(resultados, ['concurso', 'prova', 'disciplina'])
-    por_topico = agregar(resultados, ['concurso', 'prova', 'disciplina', 'topico'])
-    geral = agregar(resultados, ['concurso', 'prova'])
+    por_disciplina = agregar(resultados, ['concurso', 'prova', 'disciplina'], config.pontuacao)
+    por_topico = agregar(resultados, ['concurso', 'prova', 'disciplina', 'topico'], config.pontuacao)
+    geral = agregar(resultados, ['concurso', 'prova'], config.pontuacao)
     por_disciplina.to_csv(destino / 'desempenho_por_disciplina.csv', index=False)
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
     (destino / 'relatorio.md').write_text(gerar_relatorio(config, por_disciplina, geral), encoding='utf-8')
     logger.info('Saídas de %s gravadas em %s', config.nome, destino)
 
 
-def _ler_gabarito(config: ConcursoConfig, arquivo: str) -> list[ItemGabarito]:
+def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabarito]:
+    arquivo = prova.gabarito.arquivo
     texto = config.caminho(arquivo).read_text(encoding='utf-8')
-    return ler_gabarito_texto(texto, config.formato, arquivo)
+    itens = ler_gabarito_texto(texto, config.formato, arquivo)
+    validar_contagem(itens, prova.questoes, prova.chave, arquivo)
+    return itens
 
 
 def _ler_respostas(config: ConcursoConfig) -> list[RespostaMarcada]:

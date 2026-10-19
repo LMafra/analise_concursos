@@ -4,10 +4,10 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Um concurso sintético C/E com `respostas.txt` produz a nota líquida correta.
-- [ ] As anuladas aparecem como acerto sinalizado e ficam fora do percentual de mérito.
-- [ ] As saídas de desempenho incluem `em_branco, anuladas, nota_liquida`.
-- [ ] Por prova, `acertos + erros + em_branco == total` e o total é igual ao tamanho da faixa. Se não fechar, a análise falha com mensagem clara.
-- [ ] Testes ponta a ponta cobrem as regras simples e Cebraspe.
+- [x] Um concurso sintético C/E com `respostas.txt` produz a nota líquida correta.
+- [x] As anuladas aparecem como acerto sinalizado e ficam fora do percentual de mérito.
+- [x] As saídas de desempenho incluem `em_branco, anuladas, nota_liquida`.
+- [x] Por prova, `acertos + erros + em_branco == total` e o total é igual ao tamanho da faixa. Se não fechar, a análise falha com mensagem clara.
+- [x] Testes ponta a ponta cobrem as regras simples e Cebraspe.
