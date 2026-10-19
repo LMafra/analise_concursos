@@ -56,6 +56,8 @@ class ConcursoConfig:
     formato: Formato
     pontuacao: Pontuacao
     provas: tuple[ProvaConfig, ...]
+    cargo: str | None = None
+    tipo: str | None = None
     respostas_arquivo: str | None = None
     ignorar: tuple[str, ...] = field(default_factory=tuple)
 
@@ -87,6 +89,8 @@ def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
         formato=Formato(dados['formato']),
         pontuacao=Pontuacao(dados.get('pontuacao', 'simples')),
         provas=provas,
+        cargo=dados.get('cargo'),
+        tipo=None if dados.get('tipo') is None else str(dados['tipo']),
         respostas_arquivo=respostas.get('arquivo'),
         ignorar=tuple(dados.get('ignorar') or ()),
     )

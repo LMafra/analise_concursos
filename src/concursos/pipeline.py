@@ -56,7 +56,9 @@ def analisar_concurso(pasta: Path, destino: Path) -> None:
 
 def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabarito]:
     arquivo = prova.gabarito.arquivo
-    gabarito = carregar_gabarito(config.caminho(arquivo), config.formato, config.banca)
+    gabarito = carregar_gabarito(
+        config.caminho(arquivo), config.formato, config.banca, config.cargo, config.tipo
+    )
     if gabarito.status_detectado and gabarito.status_detectado != prova.gabarito.status:
         logger.warning(
             '%s: gabarito configurado como %s, mas o arquivo indica %s',

@@ -49,6 +49,14 @@ def test_detecta_status_do_gabarito_pelo_texto():
     assert detectar_status('Item 1 2\nGabarito C E') is None
 
 
+def test_status_vem_do_titulo_e_nao_das_instrucoes_de_recurso():
+    texto = (
+        'GABARITO OFICIAL PRELIMINAR\n01: A 02: E\n'
+        '1.10 Não serão aceitos recursos contra o gabarito oficial definitivo.\n'
+    )
+    assert detectar_status(texto) == 'preliminar'
+
+
 def test_pdf_sem_texto_sem_tesseract_gera_erro_com_instrucao(tmp_path, monkeypatch):
     pdf = tmp_path / 'gabarito_escaneado.pdf'
     Image.new('RGB', (200, 200), 'white').save(pdf)
