@@ -1,30 +1,43 @@
+from dataclasses import dataclass, field
+
 import pandas as pd
 
 from concursos.atualizacao import COLUNAS_DIFF, impacto
 from concursos.concurso_config import ConcursoConfig
+from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.resultado_oficial import Validacao, formatar
+from concursos.topicos import ARQUIVO_REVISAO, SCORE_BAIXO
+
+MAXIMO_TOPICOS_FRACOS = 10
 
 
-def gerar_relatorio(
-    config: ConcursoConfig,
-    por_disciplina: pd.DataFrame,
-    geral: pd.DataFrame,
-    validacao: Validacao | None = None,
-    diff: pd.DataFrame | None = None,
-) -> str:
+@dataclass(frozen=True)
+class ConteudoRelatorio:
+    geral: pd.DataFrame
+    por_disciplina: pd.DataFrame
+    por_topico: pd.DataFrame
+    questoes: pd.DataFrame
+    respostas: pd.DataFrame
+    graficos: dict[str, str] = field(default_factory=dict)
+    validacao: Validacao | None = None
+    diff: pd.DataFrame | None = None
+
+
+def gerar_relatorio(config: ConcursoConfig, conteudo: ConteudoRelatorio) -> str:
     linhas = [
         f'# Relatório de desempenho: {config.nome}',
         '',
         f'- Banca: {config.banca}',
         f'- Formato: {config.formato}',
         f'- Pontuação: {config.pontuacao}',
+        f'- Gabarito: {config.status_gabarito}',
         '',
         *_selo_preliminar(config),
-        *_secao_validacao(validacao),
+        *_secao_validacao(conteudo.validacao),
         '## Resumo por prova',
         '',
-        _tabela(
-            geral,
+        tabela_markdown(
+            conteudo.geral,
             ['prova', 'total', 'acertos', 'erros', 'em_branco', 'anuladas', 'nota_liquida', 'percentual'],
         ),
         '',
@@ -32,11 +45,15 @@ def gerar_relatorio(
         '',
         '## Desempenho por disciplina',
         '',
-        _tabela(
-            por_disciplina, ['prova', 'disciplina', 'total', 'acertos', 'erros', 'em_branco', 'percentual']
+        tabela_markdown(
+            conteudo.por_disciplina,
+            ['prova', 'disciplina', 'total', 'acertos', 'erros', 'em_branco', 'percentual'],
         ),
         '',
-        *_secao_troca(config, geral, diff),
+        *_secao_graficos(conteudo.graficos),
+        *_secao_topicos_fracos(conteudo.por_topico),
+        *_secao_revisar(conteudo.respostas, conteudo.questoes),
+        *_secao_troca(config, conteudo.geral, conteudo.diff),
     ]
     return '\n'.join(linhas)
 
@@ -56,12 +73,62 @@ def _secao_validacao(validacao: Validacao | None) -> list[str]:
     if validacao is None:
         return []
     texto = validacao.descricao
-    if validacao.erro or validacao.divergente:
+    if validacao.alerta:
         texto = f'> **Atenção:** {texto}'
     linhas = ['## Validação com o resultado oficial', '', texto, '']
     if validacao.oficial is not None:
         linhas += [f'_Fonte: {validacao.arquivo}, página {validacao.oficial.pagina}._', '']
     return linhas
+
+
+def _secao_graficos(graficos: dict[str, str]) -> list[str]:
+    if not graficos:
+        return []
+    return ['## Gráficos', '', *(f'![{titulo}]({caminho})\n' for titulo, caminho in graficos.items())]
+
+
+def _secao_topicos_fracos(por_topico: pd.DataFrame) -> list[str]:
+    mapeados = por_topico[por_topico['topico'] != TOPICO_NAO_MAPEADO]
+    if mapeados.empty:
+        return []
+    fracos = mapeados.sort_values(['percentual', 'total'], ascending=[True, False]).head(
+        MAXIMO_TOPICOS_FRACOS
+    )
+    return [
+        f'## Tópicos com menor desempenho (até {MAXIMO_TOPICOS_FRACOS})',
+        '',
+        tabela_markdown(fracos, ['prova', 'disciplina', 'topico', 'total', 'acertos', 'erros', 'percentual']),
+        '',
+    ]
+
+
+def _secao_revisar(respostas: pd.DataFrame, questoes: pd.DataFrame) -> list[str]:
+    linhas = ['## Questões para revisar', '', '### Leitura das respostas', '']
+    leitura = respostas[respostas['revisar']]
+    if leitura.empty:
+        linhas += ['Nenhuma leitura abaixo do limiar de confiança.', '']
+    else:
+        linhas += [
+            tabela_markdown(
+                leitura,
+                ['questao', 'prova', 'alternativa_marcada', 'estado', 'confianca_ocr', 'arquivo', 'pagina'],
+            ),
+            '',
+        ]
+    linhas += ['### Classificação de tópico', '']
+    if (questoes['topico'] == TOPICO_NAO_MAPEADO).all() and not questoes['revisado'].any():
+        return [*linhas, 'Nenhum tópico classificado (sem edital estruturado ou sem texto do caderno).', '']
+    fracas = questoes[~questoes['revisado'] & (questoes['score'] < SCORE_BAIXO)]
+    if fracas.empty:
+        return [*linhas, 'Nenhuma sugestão de tópico com score baixo.', '']
+    return [
+        *linhas,
+        f'Sugestões com score abaixo de {formatar(SCORE_BAIXO)} ainda não revisadas; '
+        f'corrija em `{ARQUIVO_REVISAO}` (colunas disciplina e topico).',
+        '',
+        tabela_markdown(fracas, ['questao', 'prova', 'disciplina', 'topico', 'score']),
+        '',
+    ]
 
 
 def _secao_troca(config: ConcursoConfig, geral: pd.DataFrame, diff: pd.DataFrame | None) -> list[str]:
@@ -79,11 +146,11 @@ def _secao_troca(config: ConcursoConfig, geral: pd.DataFrame, diff: pd.DataFrame
         '',
     ]
     if not diff.empty:
-        linhas += [_tabela(diff, COLUNAS_DIFF), '']
+        linhas += [tabela_markdown(diff, COLUNAS_DIFF), '']
     return linhas
 
 
-def _tabela(dados: pd.DataFrame, colunas: list[str]) -> str:
+def tabela_markdown(dados: pd.DataFrame, colunas: list[str]) -> str:
     cabecalho = '| ' + ' | '.join(colunas) + ' |'
     separador = '|' + '|'.join('---' for _ in colunas) + '|'
     corpo = [

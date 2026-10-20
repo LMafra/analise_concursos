@@ -106,6 +106,11 @@ class ConcursoConfig:
     def caminho(self, arquivo: str) -> Path:
         return self.pasta / arquivo
 
+    @property
+    def status_gabarito(self) -> str:
+        estados = {prova.gabarito.status for prova in self.provas}
+        return estados.pop() if len(estados) == 1 else 'misto'
+
     def prova_da_questao(self, questao: int) -> ProvaConfig:
         return next(p for p in self.provas if questao in p.questoes)
 

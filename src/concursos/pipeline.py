@@ -7,25 +7,26 @@ from concursos import manifesto
 from concursos.agregacao import agregar
 from concursos.atualizacao import ARQUIVO_DIFF, diff_gabarito, trocar_gabaritos
 from concursos.caderno import faixas_do_caderno
-from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig
+from concursos.concurso_config import ConcursoConfig, ProvaConfig
 from concursos.configuracao import ConfiguracaoGlobal
+from concursos.consolidado import consolidar
 from concursos.correcao import TOPICO_NAO_MAPEADO, corrigir
 from concursos.edital import Edital, EditalNaoEstruturadoError, carregar_edital_manual, estruturar_edital
 from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
+from concursos.graficos import gerar_graficos
 from concursos.modelo import ItemGabarito, RespostaMarcada
 from concursos.prova import segmentar, texto_em_colunas
-from concursos.relatorio import gerar_relatorio
+from concursos.relatorio import ConteudoRelatorio, gerar_relatorio
 from concursos.respostas import ler_respostas_txt
-from concursos.resultado_oficial import validar_resultado
-from concursos.status import Situacao, avaliar
+from concursos.resultado_oficial import gravar_validacao, validar_resultado
+from concursos.status import Situacao, avaliar, listar_concursos
 from concursos.texto import MINIMO_CARACTERES_PAGINA, extrair_paginas
-from concursos.topicos import gravar_revisao, ler_revisao, sugerir_topicos
+from concursos.topicos import ARQUIVO_REVISAO, gravar_revisao, ler_revisao, sugerir_topicos
 
 logger = logging.getLogger(__name__)
 
 BANCAS_COM_CABECALHO = {'fgv', 'selecon'}
-ARQUIVO_REVISAO = 'revisao/questoes_revisado.csv'
 COLUNAS_QUESTOES = [
     'questao',
     'prova',
@@ -54,10 +55,6 @@ COLUNAS_RESPOSTAS = [
 ]
 
 
-def listar_concursos(raiz_provas: Path) -> list[Path]:
-    return sorted(p for p in raiz_provas.iterdir() if (p / ARQUIVO_CONFIG).exists())
-
-
 class ConcursoNaoEncontradoError(ValueError):
     pass
 
@@ -79,6 +76,7 @@ def analisar_todos(
     sucesso = True
     for pasta in pastas:
         sucesso &= _analisar_se_necessario(pasta, raiz_analises / pasta.name, forcar, configuracao)
+    consolidar(raiz_provas, raiz_analises, configuracao.limiar_topico_baixo)
     return sucesso
 
 
@@ -120,7 +118,7 @@ def analisar_concurso(
     resultados = corrigir(config, gabaritos, respostas, _disciplinas_por_questao(config))
     resultados = _classificar_topicos(config, edital, resultados)
     validacao = validar_resultado(config, resultados)
-    if validacao is not None and (validacao.erro or validacao.divergente):
+    if validacao is not None and validacao.alerta:
         logger.warning('%s: %s', config.nome, validacao.descricao)
 
     destino.mkdir(parents=True, exist_ok=True)
@@ -136,10 +134,18 @@ def analisar_concurso(
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
     if anterior is not None:
         diff_gabarito(anterior, resultados).to_csv(destino / ARQUIVO_DIFF, index=False)
-    diff = _ler_diff(destino / ARQUIVO_DIFF)
-    (destino / 'relatorio.md').write_text(
-        gerar_relatorio(config, por_disciplina, geral, validacao, diff), encoding='utf-8'
+    gravar_validacao(validacao, destino)
+    conteudo = ConteudoRelatorio(
+        geral=geral,
+        por_disciplina=por_disciplina,
+        por_topico=por_topico,
+        questoes=resultados,
+        respostas=tabela,
+        graficos=gerar_graficos(por_disciplina, por_topico, destino),
+        validacao=validacao,
+        diff=_ler_diff(destino / ARQUIVO_DIFF),
     )
+    (destino / 'relatorio.md').write_text(gerar_relatorio(config, conteudo), encoding='utf-8')
     logger.info('Saídas de %s gravadas em %s', config.nome, destino)
 
 

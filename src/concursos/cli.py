@@ -6,8 +6,8 @@ from pathlib import Path
 from concursos.assistente import InteracaoAutomatica, InteracaoConsole
 from concursos.cadastro import cadastrar
 from concursos.configuracao import carregar_configuracao_global
-from concursos.pipeline import analisar_todos, listar_concursos
-from concursos.status import avaliar, formatar_tabela
+from concursos.pipeline import analisar_todos
+from concursos.status import avaliar, formatar_tabela, listar_concursos
 
 logger = logging.getLogger('concursos')
 

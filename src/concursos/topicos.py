@@ -13,6 +13,8 @@ from concursos.edital import Edital
 logger = logging.getLogger(__name__)
 
 NAO_MAPEADO = 'nao_mapeado'
+SCORE_BAIXO = 0.05
+ARQUIVO_REVISAO = 'revisao/questoes_revisado.csv'
 COLUNAS_REVISAO = [
     'questao',
     'prova',
@@ -185,11 +187,11 @@ def _disciplinas_permitidas(do_edital: set[str], do_caderno: set[str]) -> dict[s
 
 
 def _equivalentes(uma: str, outra: str) -> bool:
-    a, b = _palavras(uma), _palavras(outra)
+    a, b = palavras_chave(uma), palavras_chave(outra)
     return bool(a and b) and (a <= b or b <= a)
 
 
-def _palavras(texto: str) -> set[str]:
+def palavras_chave(texto: str) -> set[str]:
     return set(re.findall(r'\w+', normalizar(texto).lower())) - set(_PALAVRAS_VAZIAS)
 
 

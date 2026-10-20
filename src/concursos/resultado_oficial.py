@@ -1,3 +1,4 @@
+import json
 import re
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from concursos.deteccao import normalizar
 from concursos.modelo import Pontuacao, Resultado
 
 _TOLERANCIA = 0.005
+ARQUIVO_VALIDACAO = 'validacao_oficial.json'
 _NUMERO = re.compile(r'^\d+(?:,\d+)?$')
 _DATA = re.compile(r'^\d{2}/\d{2}/\d{4}$')
 _LINHA_CPNU = re.compile(r'^\d+\s+\([^)]*\)')
@@ -47,6 +49,10 @@ class Validacao:
         )
 
     @property
+    def alerta(self) -> bool:
+        return self.erro is not None or self.divergente
+
+    @property
     def descricao(self) -> str:
         if self.erro is not None:
             return f'Não foi possível ler o resultado oficial: {self.erro}'
@@ -63,6 +69,21 @@ class Validacao:
                 'Confira o tipo da prova, o gabarito e a leitura das respostas.'
             )
         return f'O desempenho calculado confere com o resultado oficial ({oficial}).'
+
+
+def gravar_validacao(validacao: Validacao | None, destino: Path) -> None:
+    """Resumo da validação para o consolidado; sem resultado oficial, remove o resumo antigo."""
+    caminho = destino / ARQUIVO_VALIDACAO
+    if validacao is None:
+        caminho.unlink(missing_ok=True)
+        return
+    resumo = {'arquivo': validacao.arquivo, 'descricao': validacao.descricao, 'alerta': validacao.alerta}
+    caminho.write_text(json.dumps(resumo, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def ler_validacao(destino: Path) -> dict | None:
+    caminho = destino / ARQUIVO_VALIDACAO
+    return json.loads(caminho.read_text(encoding='utf-8')) if caminho.exists() else None
 
 
 def validar_resultado(config: ConcursoConfig, resultados: pd.DataFrame) -> Validacao | None:

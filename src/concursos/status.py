@@ -3,7 +3,12 @@ from enum import StrEnum
 from pathlib import Path
 
 from concursos.atualizacao import Troca, verificar
-from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, carregar_concurso
+from concursos.concurso_config import (
+    ARQUIVO_CONFIG,
+    ConcursoConfig,
+    ConfiguracaoInvalidaError,
+    carregar_concurso,
+)
 from concursos.folha import TEMPLATES
 
 
@@ -21,6 +26,10 @@ class StatusConcurso:
     gabarito: str
     config: ConcursoConfig | None
     trocas: tuple[Troca, ...] = ()
+
+
+def listar_concursos(raiz_provas: Path) -> list[Path]:
+    return sorted(p for p in raiz_provas.iterdir() if (p / ARQUIVO_CONFIG).exists())
 
 
 def avaliar(pasta: Path) -> StatusConcurso:
@@ -56,24 +65,19 @@ def avaliar(pasta: Path) -> StatusConcurso:
 
     if motivos:
         return StatusConcurso(
-            config.nome, Situacao.INCOMPLETO, tuple(motivos), _status_gabarito(config), config
+            config.nome, Situacao.INCOMPLETO, tuple(motivos), config.status_gabarito, config
         )
     pendencias = verificar(config)
     if pendencias.motivos:
         return StatusConcurso(
-            config.nome, Situacao.DESATUALIZADO, pendencias.motivos, _status_gabarito(config), config
+            config.nome, Situacao.DESATUALIZADO, pendencias.motivos, config.status_gabarito, config
         )
     avisos = tuple(
         f'{t.novo}: gabarito definitivo será aplicado na próxima análise' for t in pendencias.trocas
     )
     return StatusConcurso(
-        config.nome, Situacao.COMPLETO, avisos, _status_gabarito(config), config, pendencias.trocas
+        config.nome, Situacao.COMPLETO, avisos, config.status_gabarito, config, pendencias.trocas
     )
-
-
-def _status_gabarito(config: ConcursoConfig) -> str:
-    estados = {prova.gabarito.status for prova in config.provas}
-    return estados.pop() if len(estados) == 1 else 'misto'
 
 
 def formatar_tabela(status: list[StatusConcurso]) -> str:
