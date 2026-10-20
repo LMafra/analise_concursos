@@ -82,6 +82,21 @@ def test_definitivo_novo_substitui_o_preliminar(raizes):
     assert desempenho['acertos'].tolist() == [5]
 
 
+def test_diff_e_recalculado_com_as_respostas_atuais_e_sobrevive_a_reanalise(raizes):
+    provas, analises = raizes
+    pasta = criar(provas)
+    analisar(provas, analises)
+    (pasta / 'gab_def.txt').write_text(DEFINITIVO, encoding='utf-8')
+    analisar(provas, analises)
+
+    (analises / 'sintetico' / 'diff_gabarito.csv').unlink()
+    (pasta / 'respostas.txt').write_text(RESPOSTAS.replace('5 -', '5 E'), encoding='utf-8')
+    assert analisar(provas, analises) == 0
+
+    assert (analises / 'sintetico' / 'diff_gabarito.csv').exists()
+    assert 'Acertos: 5 → 6' in relatorio(analises)
+
+
 def test_sobrescrever_com_mesmo_nome_e_status_novo_dispara_a_troca(raizes):
     provas, analises = raizes
     pasta = criar(provas, gabarito='gabarito.txt')

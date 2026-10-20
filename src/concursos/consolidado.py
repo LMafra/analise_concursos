@@ -22,7 +22,11 @@ _SOMAS = ['total', 'acertos', 'erros', 'em_branco', 'anuladas', 'nota_liquida']
 def consolidar(raiz_provas: Path, raiz_analises: Path, limiar_topico_baixo: float) -> None:
     """Junta os desempenhos por tópico de todos os concursos analisados e gera o comparativo."""
     situacoes = {pasta.name: avaliar(pasta) for pasta in listar_concursos(raiz_provas)}
-    analisados = {nome: s for nome, s in situacoes.items() if _analisado(raiz_analises / nome)}
+    analisados = {
+        nome: s
+        for nome, s in situacoes.items()
+        if s.situacao is Situacao.COMPLETO and _analisado(raiz_analises / nome)
+    }
     geral = _desempenho_geral(raiz_analises, list(analisados))
     destino = raiz_analises / PASTA_CONSOLIDADO
     destino.mkdir(parents=True, exist_ok=True)

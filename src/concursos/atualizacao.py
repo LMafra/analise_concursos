@@ -26,7 +26,7 @@ COLUNAS_DIFF = [
     'acerto_antes',
     'acerto_depois',
 ]
-_COLUNAS_ANTERIOR = {'prova', 'questao', 'gabarito', 'anulada', 'resultado'}
+_COLUNAS_PRELIMINAR = {'prova', 'questao', 'gabarito', 'anulada'}
 
 
 @dataclass(frozen=True)
@@ -66,7 +66,7 @@ def verificar(config: ConcursoConfig) -> Pendencias:
         if detectado.papel is not Papel.GABARITO or detectado.status_gabarito != 'definitivo':
             motivos.append(f'{nome}: arquivo não cadastrado ({detectado.papel}); {instrucao}')
             continue
-        provas = [p for p in preliminares if _casa(config, p, detectado)]
+        provas = [p for p in preliminares if _corresponde_a_prova(config, p, detectado)]
         if not provas:
             motivos.append(
                 f'{nome}: gabarito definitivo não corresponde a nenhuma prova com gabarito preliminar '
@@ -87,9 +87,8 @@ def verificar(config: ConcursoConfig) -> Pendencias:
     return Pendencias(() if motivos else tuple(trocas), tuple(motivos))
 
 
-def trocar_gabaritos(config: ConcursoConfig, trocas: tuple[Troca, ...], destino: Path) -> pd.DataFrame | None:
-    """Guarda as saídas atuais no histórico, atualiza o concurso.yaml e devolve a tabela de questões anterior."""
-    anterior = _questoes_anteriores(destino)
+def trocar_gabaritos(config: ConcursoConfig, trocas: tuple[Troca, ...], destino: Path) -> None:
+    """Guarda as saídas atuais no histórico e atualiza o concurso.yaml."""
     _guardar_saidas(destino)
     _atualizar_config(config, trocas)
     for troca in trocas:
@@ -100,13 +99,26 @@ def trocar_gabaritos(config: ConcursoConfig, trocas: tuple[Troca, ...], destino:
             troca.anterior,
             troca.prova,
         )
-    return anterior
 
 
-def diff_gabarito(anterior: pd.DataFrame, atual: pd.DataFrame) -> pd.DataFrame:
-    """Questões alteradas ou anuladas entre o gabarito preliminar e o definitivo."""
+def questoes_preliminares(destino: Path) -> pd.DataFrame | None:
+    """Tabela de questões do snapshot mais antigo do histórico, feito antes da primeira troca de gabarito."""
+    snapshots = sorted((destino / PASTA_HISTORICO).glob('*/questoes.csv'))
+    if not snapshots:
+        return None
+    tabela = pd.read_csv(snapshots[0], keep_default_na=False, dtype={'prova': str, 'gabarito': str})
+    if not set(tabela.columns) >= _COLUNAS_PRELIMINAR:
+        logger.warning(
+            '%s: snapshot sem gabarito por questão; o diff de gabarito não será gerado', snapshots[0]
+        )
+        return None
+    return tabela
+
+
+def diff_gabarito(preliminar: pd.DataFrame, atual: pd.DataFrame) -> pd.DataFrame:
+    """Questões alteradas ou anuladas entre o gabarito preliminar e o definitivo, com as respostas atuais."""
     chaves = ['prova', 'questao']
-    antes = _normalizar_gabarito(anterior[[*chaves, 'gabarito', 'anulada', 'resultado']])
+    antes = _normalizar_gabarito(preliminar[[*chaves, 'gabarito', 'anulada']])
     depois = _normalizar_gabarito(atual[[*chaves, 'gabarito', 'anulada', 'resultado', 'resposta']])
     juntos = antes.merge(depois, on=chaves, suffixes=('_antes', '_depois'))
     juntos = juntos[
@@ -114,6 +126,8 @@ def diff_gabarito(anterior: pd.DataFrame, atual: pd.DataFrame) -> pd.DataFrame:
         | (juntos['anulada_antes'] != juntos['anulada_depois'])
     ]
     anulada = juntos['anulada_depois'] & ~juntos['anulada_antes']
+    resposta = juntos['resposta'].fillna('')
+    acerto_antes = juntos['anulada_antes'] | ((resposta != '') & (resposta == juntos['gabarito_antes']))
     return pd.DataFrame(
         {
             'prova': juntos['prova'],
@@ -121,9 +135,9 @@ def diff_gabarito(anterior: pd.DataFrame, atual: pd.DataFrame) -> pd.DataFrame:
             'gabarito_preliminar': juntos['gabarito_antes'],
             'gabarito_definitivo': juntos['gabarito_depois'],
             'mudanca': anulada.map({True: 'anulada', False: 'alterada'}),
-            'resposta': juntos['resposta'].fillna(''),
-            'acerto_antes': juntos['resultado_antes'] == Resultado.ACERTO,
-            'acerto_depois': juntos['resultado_depois'] == Resultado.ACERTO,
+            'resposta': resposta,
+            'acerto_antes': acerto_antes,
+            'acerto_depois': juntos['resultado'] == Resultado.ACERTO,
         },
         columns=COLUNAS_DIFF,
     )
@@ -162,7 +176,7 @@ def _nao_cadastrados(config: ConcursoConfig) -> list[Path]:
     ]
 
 
-def _casa(config: ConcursoConfig, prova: ProvaConfig, detectado: ArquivoDetectado) -> bool:
+def _corresponde_a_prova(config: ConcursoConfig, prova: ProvaConfig, detectado: ArquivoDetectado) -> bool:
     if detectado.banca not in (None, config.banca):
         return False
     if config.banca == 'cebraspe':
@@ -178,22 +192,9 @@ def _casa(config: ConcursoConfig, prova: ProvaConfig, detectado: ArquivoDetectad
     return [item.questao for item in itens] == list(prova.questoes)
 
 
-def _questoes_anteriores(destino: Path) -> pd.DataFrame | None:
-    caminho = destino / 'questoes.csv'
-    if not caminho.exists():
-        logger.info('%s: sem análise anterior; o diff de gabarito não será gerado', destino)
-        return None
-    tabela = pd.read_csv(caminho, keep_default_na=False, dtype={'prova': str, 'gabarito': str})
-    if not set(tabela.columns) >= _COLUNAS_ANTERIOR:
-        logger.warning(
-            '%s: análise anterior sem resultado por questão; o diff de gabarito não será gerado', caminho
-        )
-        return None
-    return tabela
-
-
 def _guardar_saidas(destino: Path) -> None:
     if not (destino / 'relatorio.md').exists():
+        logger.info('%s: sem análise com o gabarito preliminar; o diff de gabarito não será gerado', destino)
         return
     alvo = destino / PASTA_HISTORICO / f'{datetime.now():%Y-%m-%dT%H-%M-%S}_gabarito_preliminar'
     shutil.copytree(

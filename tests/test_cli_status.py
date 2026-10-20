@@ -94,7 +94,15 @@ def test_yaml_invalido_aponta_o_campo(raizes, capsys):
     formato_errado = config('formato_errado', formato='discursiva')
     criar_concurso(provas, 'formato_errado', formato_errado, ARQUIVOS)
 
+    banca_errada = config('banca_errada', banca='cespe')
+    criar_concurso(provas, 'banca_errada', banca_errada, ARQUIVOS)
+    status_errado = config('status_errado')
+    status_errado['provas']['unica']['gabarito']['status'] = 'Preliminar'
+    criar_concurso(provas, 'status_errado', status_errado, ARQUIVOS)
+
     saida = status(provas, capsys)
 
     assert "campo obrigatório 'banca' ausente" in saida
     assert "formato: valor 'discursiva' inválido" in saida
+    assert "banca: valor 'cespe' inválido" in saida
+    assert "provas.unica.gabarito.status: valor 'Preliminar' inválido" in saida

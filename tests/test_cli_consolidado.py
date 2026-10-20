@@ -126,6 +126,20 @@ def test_relatorio_referencia_graficos_existentes_e_questoes_para_revisar(raizes
     assert '- Gabarito: preliminar' in relatorio
 
 
+def test_concurso_analisado_que_perde_o_cadastro_nao_quebra_o_consolidado(raizes):
+    provas, analises = raizes
+    tres_concursos(provas)
+    analisar(provas, analises)
+
+    (provas / 'b' / 'concurso.yaml').unlink()
+    assert analisar(provas, analises) == 0
+
+    geral = ler_csv(analises / 'consolidado' / 'desempenho_geral.csv')
+    assert 'b' not in set(geral['concurso'])
+    comparativo = (analises / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
+    assert '| b | incompleto |' in secao(comparativo, 'Concursos incompletos ou desatualizados')
+
+
 def test_desempenho_geral_soma_os_desempenhos_por_concurso(raizes):
     provas, analises = raizes
     tres_concursos(provas)

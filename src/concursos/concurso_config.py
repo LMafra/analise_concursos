@@ -6,6 +6,8 @@ import yaml
 from concursos.modelo import Formato, Pontuacao
 
 ARQUIVO_CONFIG = 'concurso.yaml'
+BANCAS = ('cebraspe', 'fgv', 'selecon', 'quadrix')
+STATUS_GABARITO = ('preliminar', 'definitivo')
 
 
 class ConfiguracaoInvalidaError(ValueError):
@@ -142,7 +144,7 @@ def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
     return ConcursoConfig(
         nome=dados.get('nome', pasta.name),
         pasta=pasta,
-        banca=_obrigatorio(dados, 'banca'),
+        banca=_opcao(_obrigatorio(dados, 'banca'), BANCAS, 'banca'),
         formato=_enum(Formato, _obrigatorio(dados, 'formato'), 'formato'),
         pontuacao=_enum(Pontuacao, dados.get('pontuacao', 'simples'), 'pontuacao'),
         provas=provas,
@@ -167,7 +169,9 @@ def _montar_prova(chave: str, dados: dict) -> ProvaConfig:
     faixas = tuple(
         FaixaDisciplina(f['inicio'], f['fim'], f['disciplina']) for f in dados.get('disciplinas') or ()
     )
-    return ProvaConfig(chave, GabaritoConfig(**gabarito), int(inicio), int(fim), faixas, dados.get('caderno'))
+    gabarito = GabaritoConfig(**gabarito)
+    _opcao(gabarito.status, STATUS_GABARITO, f'provas.{chave}.gabarito.status')
+    return ProvaConfig(chave, gabarito, int(inicio), int(fim), faixas, dados.get('caderno'))
 
 
 def _montar_folha(respostas: dict) -> FolhaConfig:
@@ -206,6 +210,12 @@ def _obrigatorio(dados: dict, campo: str, prefixo: str = ''):
     if dados.get(campo) in (None, ''):
         raise ConfiguracaoInvalidaError(f"campo obrigatório '{prefixo}{campo}' ausente")
     return dados[campo]
+
+
+def _opcao(valor: str, opcoes: tuple[str, ...], campo: str) -> str:
+    if valor not in opcoes:
+        raise ConfiguracaoInvalidaError(f"{campo}: valor '{valor}' inválido (use {', '.join(opcoes)})")
+    return valor
 
 
 def _enum(tipo, valor, campo: str):

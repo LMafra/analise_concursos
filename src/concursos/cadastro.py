@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 from concursos.assistente import Interacao
-from concursos.concurso_config import ARQUIVO_CONFIG, validar_dados
+from concursos.concurso_config import ARQUIVO_CONFIG, BANCAS, validar_dados
 from concursos.deteccao import (
     ArquivoDetectado,
     Papel,
@@ -21,7 +21,6 @@ from concursos.gabarito import Secao, cargo_cebraspe, ler_gabarito_cebraspe, ler
 from concursos.modelo import Formato, Pontuacao
 from concursos.texto import extrair_texto
 
-BANCAS = ('cebraspe', 'fgv', 'selecon', 'quadrix')
 TEMPLATES_FOLHA = ('cebraspe_ce', 'fgv_mod70ae', 'fgv_cpnu_90')
 _TEMPLATE_FGV_POR_TOTAL = {70: 'fgv_mod70ae', 90: 'fgv_cpnu_90'}
 _CHAVES_CEBRASPE = (('CONHECIMENTOS GERAIS', 'cg'), ('CONHECIMENTOS BASICOS', 'cb'))
