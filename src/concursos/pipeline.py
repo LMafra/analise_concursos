@@ -8,21 +8,34 @@ from concursos.agregacao import agregar
 from concursos.caderno import faixas_do_caderno
 from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig
 from concursos.configuracao import ConfiguracaoGlobal
-from concursos.correcao import corrigir
+from concursos.correcao import TOPICO_NAO_MAPEADO, corrigir
 from concursos.edital import Edital, EditalNaoEstruturadoError, carregar_edital_manual, estruturar_edital
 from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.modelo import ItemGabarito, RespostaMarcada
+from concursos.prova import segmentar, texto_em_colunas
 from concursos.relatorio import gerar_relatorio
 from concursos.respostas import ler_respostas_txt
 from concursos.resultado_oficial import validar_resultado
 from concursos.status import Situacao, avaliar
 from concursos.texto import MINIMO_CARACTERES_PAGINA, extrair_paginas
+from concursos.topicos import gravar_revisao, ler_revisao, sugerir_topicos
 
 logger = logging.getLogger(__name__)
 
 BANCAS_COM_CABECALHO = {'fgv', 'selecon'}
-COLUNAS_QUESTOES = ['questao', 'prova', 'disciplina', 'gabarito', 'anulada']
+ARQUIVO_REVISAO = 'revisao/questoes_revisado.csv'
+COLUNAS_QUESTOES = [
+    'questao',
+    'prova',
+    'disciplina',
+    'topico_sugerido',
+    'score',
+    'topico',
+    'revisado',
+    'gabarito',
+    'anulada',
+]
 
 COLUNAS_RESPOSTAS = [
     'concurso',
@@ -92,6 +105,7 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
     respostas = _ler_respostas(config, destino, configuracao.limiar_confianca)
     resultados = corrigir(config, gabaritos, respostas, _disciplinas_por_questao(config))
+    resultados = _classificar_topicos(config, edital, resultados)
     validacao = validar_resultado(config, resultados)
     if validacao is not None and (validacao.erro or validacao.divergente):
         logger.warning('%s: %s', config.nome, validacao.descricao)
@@ -147,7 +161,7 @@ def _disciplinas_por_questao(config: ConcursoConfig) -> dict[int, str]:
     disciplinas = {}
     for prova in config.provas:
         faixas = prova.disciplinas
-        if not faixas and prova.caderno and config.banca in BANCAS_COM_CABECALHO:
+        if not faixas and _caderno_pdf(prova) and config.banca in BANCAS_COM_CABECALHO:
             faixas = tuple(faixas_do_caderno(config.caminho(prova.caderno), prova.inicio))
             cobertas = sum(f.fim - f.inicio + 1 for f in faixas)
             logger.info(
@@ -161,6 +175,68 @@ def _disciplinas_por_questao(config: ConcursoConfig) -> dict[int, str]:
                 {q: faixa.disciplina for q in range(faixa.inicio, faixa.fim + 1) if q in prova.questoes}
             )
     return disciplinas
+
+
+def _caderno_pdf(prova: ProvaConfig) -> bool:
+    return bool(prova.caderno) and prova.caderno.lower().endswith('.pdf')
+
+
+def _classificar_topicos(
+    config: ConcursoConfig, edital: Edital | None, resultados: pd.DataFrame
+) -> pd.DataFrame:
+    """Tópico sugerido por similaridade com o edital; a revisão manual (revisao/) tem prioridade."""
+    resultados = resultados.assign(topico_sugerido=TOPICO_NAO_MAPEADO, score=0.0, revisado=False)
+    if edital is None:
+        return resultados
+    textos = _textos_das_questoes(config)
+    conhecidas = {
+        q: d
+        for q, d in zip(resultados['questao'], resultados['disciplina'], strict=True)
+        if d != TOPICO_NAO_MAPEADO
+    }
+    sugestoes = sugerir_topicos(edital, {q: textos.get(q, '') for q in resultados['questao']}, conhecidas)
+    resultados['disciplina'] = [sugestoes[q].disciplina or TOPICO_NAO_MAPEADO for q in resultados['questao']]
+    resultados['topico_sugerido'] = [sugestoes[q].topico for q in resultados['questao']]
+    resultados['score'] = [sugestoes[q].score for q in resultados['questao']]
+    resultados['topico'] = resultados['topico_sugerido']
+
+    caminho = config.caminho(ARQUIVO_REVISAO)
+    revisao = ler_revisao(caminho)
+    for indice, linha in resultados.iterrows():
+        disciplina, topico = revisao.get((linha['questao'], linha['prova']), ('', ''))
+        if disciplina or topico:
+            resultados.loc[indice, ['disciplina', 'topico', 'revisado']] = [
+                disciplina or linha['disciplina'],
+                topico or linha['topico'],
+                True,
+            ]
+    gravar_revisao(
+        caminho,
+        [
+            {
+                'questao': linha.questao,
+                'prova': linha.prova,
+                'disciplina_sugerida': linha.disciplina,
+                'topico_sugerido': linha.topico_sugerido,
+                'score': linha.score,
+                'enunciado': textos.get(linha.questao, ''),
+            }
+            for linha in resultados.itertuples()
+        ],
+    )
+    return resultados
+
+
+def _textos_das_questoes(config: ConcursoConfig) -> dict[int, str]:
+    textos = {}
+    for prova in config.provas:
+        if not prova.caderno:
+            continue
+        texto = texto_em_colunas(config.caminho(prova.caderno))
+        da_prova = segmentar(texto, prova.questoes, cebraspe=config.banca == 'cebraspe')
+        logger.info('%s: texto de %d de %d questões', prova.caderno, len(da_prova), len(prova.questoes))
+        textos.update(da_prova)
+    return textos
 
 
 def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabarito]:

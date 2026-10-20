@@ -57,7 +57,17 @@ def test_edital_estruturado_e_tabela_de_questoes(raizes):
         'Direito Civil',
     ]
     questoes = ler_csv(analises / 'sintetico' / 'questoes.csv')
-    assert list(questoes.columns) == ['questao', 'prova', 'disciplina', 'gabarito', 'anulada']
+    assert list(questoes.columns) == [
+        'questao',
+        'prova',
+        'disciplina',
+        'topico_sugerido',
+        'score',
+        'topico',
+        'revisado',
+        'gabarito',
+        'anulada',
+    ]
     assert questoes['disciplina'].tolist() == [
         'Banco de Dados',
         'Banco de Dados',
