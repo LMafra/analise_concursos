@@ -58,17 +58,33 @@ Uma leitura abaixo de `limiar_confianca` fica com `revisar = True`.
 - `cebraspe`: nota líquida = acertos − erros.
 
 **Modelo de correção.** É a regra de pontuação da prova objetiva definida no edital. Tem:
-- modelo: `bruta` (acerto vale 1, sem desconto) ou `liquida` (cada erro anula `fator_penalidade` acertos);
-- fator de penalidade (1,0 na Cebraspe; 0 nas FGV analisadas);
+- modelo: `bruta` (acerto vale 1, sem desconto), `liquida` (cada erro anula `fator_penalidade` acertos, com ou sem pesos) ou `ponderada` (sem desconto, com pesos que variam entre faixas de itens);
+- fator de penalidade (1,0 na Cebraspe; 0 nas FGV analisadas; 0,25 em "a cada 4 erradas, anula-se uma certa");
+- pesos por faixa de itens (itens fora das faixas valem 1);
 - nota máxima e nota de corte do conjunto das provas objetivas;
 - fonte: `edital`, `config` ou `default`;
-- confiança da extração (0–1) e o trecho, o documento e a página de onde a regra foi lida.
+- confiança da extração (0–1) e o trecho, o documento e a página de onde a regra foi lida;
+- variante: o código do cargo, quando o concurso tem várias opções com pesos diferentes (CPNU).
 
-A regra é extraída por regex do texto dos documentos do edital (anexos primeiro, sem OCR). A precedência é edital, depois `concurso.yaml`, depois default (`bruta`, fator 0). A nota máxima e a nota de corte seguem a mesma ordem, campo a campo. Sem nota máxima em nenhuma fonte, ela é o número de itens do concurso.
+A regra é extraída por regex do texto dos documentos do edital (anexos primeiro, sem OCR). Os padrões reconhecidos são:
+- penalidade explícita ("1,00 ponto negativo … discordância") e fracionária ("a cada N erradas, anula-se uma certa", fator 1/N);
+- pontos diferentes por prova ou módulo (creci: "1,00 ponto … conhecimentos básicos; 2,00 pontos … específicos"; dataprev: "valerá 1 ponto no Módulo de Conhecimentos Gerais, e 2,5 pontos no Módulo de Conhecimentos Específicos"). Os gerais vêm antes dos específicos, e quantos itens tem cada parte sai do número de itens do concurso e da nota máxima do edital; sem solução inteira, o padrão é ignorado;
+- nota igual ao total de acertos, "valendo 1 ponto cada questão" ou "cada acerto valerá 1 ponto", sem menção a desconto (`bruta`);
+- o quadro de pesos por eixo temático e cargo (CPNU), descrito abaixo em variantes.
+
+A precedência é edital, depois `concurso.yaml`, depois default (`bruta`, fator 0). Pesos, nota máxima e nota de corte seguem a mesma ordem, campo a campo. Sem nota máxima em nenhuma fonte, ela é a soma dos pesos dos itens (o número de itens quando não há pesos).
+
+**Variantes.** O bloco `correcao.variantes` do `concurso.yaml` lista as opções de cargo (no CPNU, os códigos dos cargos em que houve inscrição), e o `correcao.json` ganha uma configuração por variante. O fator e a nota de corte são os do concurso. A nota máxima é a soma dos pesos da variante, salvo se declarada no `concurso.yaml`. Os pesos de cada variante vêm:
+1. dos `pesos` declarados na variante, que aqui prevalecem sobre o edital (fonte `config`);
+2. do quadro de pesos do edital (fonte `edital`): a linha do cargo traz um peso de 1 a 5 por eixo ("B3-08-A 1 1 2 4 2"), e as faixas saem do texto do edital (no CPNU, itens 1–30 de conhecimentos gerais com peso 1 e cinco eixos de 12 itens: 31–42, 43–54, 55–66, 67–78 e 79–90). O trecho de origem é a linha do quadro, com o documento e a página;
+3. sem nenhum dos dois, dos pesos do concurso, com aviso. O quadro também é ignorado, com aviso, quando os itens gerais e os eixos não somam o número de itens do concurso.
+
+Os pesos afetam só a nota do concurso, a nota normalizada e o ranking. O percentual por disciplina ou eixo não muda, porque cada eixo tem um peso só.
 
 A análise emite aviso quando:
 - a regra cai no default (o aviso é mais forte se o edital mencionar penalidade: "ponto negativo", "desconto de", "descontado", "anula um acerto");
-- o fator do bloco `correcao` difere do edital (vale o edital);
+- o fator ou os pesos do bloco `correcao` diferem do edital (vale o edital);
+- uma variante não tem pesos no quadro do edital nem no `concurso.yaml`;
 - a `pontuacao` declarada contradiz a regra vinda do edital ou do bloco `correcao` (`cebraspe` com fator diferente de 1, ou `simples` com fator diferente de 0). No default, vale só o aviso de default.
 
 A `pontuacao` continua alimentando a `nota_liquida` dos CSVs; o modelo de correção alimenta a análise evolutiva.
@@ -83,7 +99,7 @@ A `pontuacao` continua alimentando a `nota_liquida` dos CSVs; o modelo de corre�
 
 \(f\) é o fator de penalidade, e \(k\) é o número de alternativas: 2 em `certo_errado` (erro vale −1) e 5 em `multipla_escolha` (erro vale −0,25). A versão ajustada é a métrica padrão para comparar concursos, porque um chute puro vale 0 nos dois formatos.
 
-As anuladas ficam fora das três versões (não medem conhecimento) e os percentuais podem ser negativos. A exceção é a nota do concurso, que segue o edital: soma das pontuações corrigidas, com cada anulada valendo 1 ponto. A nota normalizada é \(\max(0, \text{nota}/\text{nota máxima} \times 100)\), truncada em 0 só ela. Na Cebraspe, a nota corrigida é igual à soma da `nota_liquida` legada.
+As anuladas ficam fora das três versões (não medem conhecimento) e os percentuais podem ser negativos. O peso do item não entra nessas pontuações. A exceção é a nota do concurso, que segue o edital: soma das pontuações corrigidas multiplicadas pelo peso de cada item, com cada anulada valendo o seu peso. A nota normalizada é \(\max(0, \text{nota}/\text{nota máxima} \times 100)\), truncada em 0 só ela. Na Cebraspe, a nota corrigida é igual à soma da `nota_liquida` legada.
 
 **EventoHistórico.** Registra mudanças no concurso. Hoje só existe a troca do gabarito preliminar pelo definitivo, com data, tipo (`gabarito_definitivo`), prova, arquivo anterior e arquivo novo.
 
@@ -130,10 +146,17 @@ resultado_oficial:             # opcional
   pesos:                       # opcional; peso por faixa de itens
     - {itens: [101, 200], peso: 2}
 correcao:                      # opcional; complementa ou substitui a regra extraída do edital
-  modelo: liquida              # bruta | liquida (liquida exige fator > 0; bruta exige fator 0)
+  modelo: liquida              # bruta | liquida | ponderada (liquida exige fator > 0; as outras, fator 0)
   fator_penalidade: 1          # acertos anulados por erro
-  nota_maxima: 200             # padrão: número de itens
+  nota_maxima: 200             # padrão: soma dos pesos dos itens
   nota_corte: 60               # nota mínima no conjunto das provas objetivas
+  pesos:                       # opcional; mesmo formato dos pesos do resultado oficial
+    - {itens: [101, 200], peso: 2}
+  variantes:                   # opcional; uma configuração de correção por opção de cargo
+    - B3-08-A                  # pesos lidos do quadro de pesos do edital
+    - nome: B3-10-A
+      pesos:                   # sobrescrevem o quadro do edital
+        - {itens: [31, 42], peso: 1}
 ignorar: [gabarito_prel.pdf]   # arquivos da pasta que não são usados
 historico:
   - {data: '2026-10-19', tipo: gabarito_definitivo, prova: cb, anterior: gabarito_prel.pdf, novo: gabarito_cb.pdf}
@@ -194,8 +217,9 @@ Por concurso, em `analises/<concurso>/`:
   - `mudanca` (`alterada | anulada`);
   - `resposta`, `acerto_antes`, `acerto_depois`.
 - **`edital_estruturado.json`:** `fonte`, `cargo` e `conhecimentos[].disciplinas[].topicos[]`. Cada tópico tem `numero`, `nome`, `descricao` e `peso`.
-- **`correcao.json`:** lista de configurações de correção (uma por variante; hoje sempre uma). Campos:
+- **`correcao.json`:** lista de configurações de correção (uma por variante; uma só quando o concurso não tem variantes). Campos:
   - `modelo`, `fator_penalidade`, `nota_maxima`, `nota_corte`;
+  - `pesos`: lista de `{inicio, fim, peso}` (vazia quando todos os itens valem 1);
   - `fonte` (`edital | config | default`), `confianca`;
   - `trecho_origem`, `documento_origem`, `pagina_origem` (preenchidos quando a fonte é o edital);
   - `variante` (`null` quando o concurso não tem variantes).

@@ -10,7 +10,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from concursos.concurso_config import ConcursoConfig, CorrecaoConfig
+from concursos.concurso_config import (
+    ConcursoConfig,
+    CorrecaoConfig,
+    PesoItens,
+    VarianteCorrecaoConfig,
+    peso_da_questao,
+    pesos_variam,
+)
 from concursos.modelo import Formato, ModeloCorrecao, Resultado
 
 logger = logging.getLogger(__name__)
@@ -18,6 +25,9 @@ logger = logging.getLogger(__name__)
 ARQUIVO_CORRECAO = 'correcao.json'
 CONFIANCA_PENALIDADE_COM_ACERTO = 0.95
 CONFIANCA_PENALIDADE_SEM_ACERTO = 0.7
+CONFIANCA_PENALIDADE_FRACIONARIA = 0.9
+CONFIANCA_PONTOS_POR_PARTE = 0.85
+CONFIANCA_QUADRO_DE_PESOS = 0.9
 CONFIANCA_BRUTA = 0.9
 CONFIANCA_CONFIG = 1.0
 
@@ -32,6 +42,7 @@ class FonteCorrecao(StrEnum):
 class ConfiguracaoCorrecao:
     modelo: ModeloCorrecao = ModeloCorrecao.BRUTA
     fator_penalidade: float = 0.0
+    pesos: tuple[PesoItens, ...] = ()
     nota_maxima: float | None = None
     nota_corte: float | None = None
     fonte: FonteCorrecao = FonteCorrecao.DEFAULT
@@ -41,11 +52,14 @@ class ConfiguracaoCorrecao:
     pagina_origem: int | None = None
     variante: str | None = None
 
+    def peso_de(self, questao: int) -> float:
+        return peso_da_questao(self.pesos, questao)
+
 
 @dataclass(frozen=True)
 class NotaCorrigida:
-    """`itens` são as questões com a pontuação nas três versões (NaN nas anuladas, que não medem
-    conhecimento); `nota` é a nota do concurso pela regra do edital, com anulada valendo ponto."""
+    """`itens` são as questões com o peso e a pontuação nas três versões (NaN nas anuladas, que não medem
+    conhecimento); `nota` é a nota do concurso pela regra do edital, ponderada e com anulada valendo ponto."""
 
     itens: pd.DataFrame
     nota: float
@@ -53,18 +67,21 @@ class NotaCorrigida:
 
 def aplicar_correcao(questoes: pd.DataFrame, cfg: ConfiguracaoCorrecao, formato: Formato) -> NotaCorrigida:
     """Pontuação de cada item: bruta (acerto vale 1), corrigida pela regra do edital e ajustada ao acaso
-    (erro vale -1/(k-1), com k alternativas)."""
+    (erro vale -1/(k-1), com k alternativas). O peso entra só na nota, para que percentuais de disciplinas
+    com pesos diferentes continuem comparáveis."""
     acerto = (questoes['resultado'] == Resultado.ACERTO).astype(float)
     erro = (questoes['resultado'] == Resultado.ERRO).astype(float)
     anulada = questoes['anulada'].astype(bool)
+    peso = questoes['questao'].map(cfg.peso_de).astype(float)
     k = len(formato.alternativas)
     corrigida = acerto - cfg.fator_penalidade * erro
     itens = questoes.assign(
+        peso=peso,
         pontos_bruta=acerto.mask(anulada),
         pontos_corrigida=corrigida.mask(anulada),
         pontos_ajustada=(acerto - erro / (k - 1)).mask(anulada),
     )
-    return NotaCorrigida(itens, float(corrigida.where(~anulada, 1.0).sum()))
+    return NotaCorrigida(itens, float((peso * corrigida.where(~anulada, 1.0)).sum()))
 
 
 def nota_normalizada(nota: float, cfg: ConfiguracaoCorrecao) -> float:
@@ -73,13 +90,36 @@ def nota_normalizada(nota: float, cfg: ConfiguracaoCorrecao) -> float:
 
 
 _NUMERO = r'\d+(?:,\d+)?'
+_POR_EXTENSO = r'(?:\([^)]*\)\s*)?'
 _PENALIDADE = re.compile(
     rf'(?:(?P<acerto>{_NUMERO})\s*pontos?,?\s+caso\s+a\s+resposta[^;]{{0,200}}?concordância[^;]{{0,200}};\s*)?'
     rf'(?P<erro>{_NUMERO})\s*pontos?\s+negativos?',
     re.IGNORECASE,
 )
+_PENALIDADE_FRACIONARIA = re.compile(
+    rf'a\s+cada\s+(?P<erros>[1-9]\d*)\s*{_POR_EXTENSO}(?:questões\s+|respostas\s+|itens\s+)?(?:errad|incorret)[oa]s'
+    r'[^.]{0,40}?anula(?:-se|rá|m)?\s+(?:uma?|1)\s+(?:\(uma?\)\s+)?(?:questão\s+|resposta\s+)?(?:certa|correta|acerto)',
+    re.IGNORECASE,
+)
+_PONTOS_POR_PARTE = (
+    re.compile(
+        rf'(?P<gerais>{_NUMERO})\s*pontos?,?\s+caso\s+a\s+resposta[^;]{{0,200}}?concordância'
+        rf'[^;]{{0,120}}?conhecimentos\s+(?:básicos|gerais)[^;]*;\s*'
+        rf'(?P<especificos>{_NUMERO})\s*pontos?,?\s+caso\s+a\s+resposta[^;]{{0,200}}?concordância'
+        r'[^;]{0,120}?específicos',
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf'valer(?:á|ão)\s+(?P<gerais>{_NUMERO})\s*{_POR_EXTENSO}pontos?\s+no\s+módulo\s+de\s+conhecimentos\s+'
+        rf'(?:básicos|gerais),?\s+e\s+(?P<especificos>{_NUMERO})\s*{_POR_EXTENSO}pontos?\s+no\s+módulo\s+de\s+'
+        r'conhecimentos\s+específicos',
+        re.IGNORECASE,
+    ),
+)
 _BRUTA = re.compile(
-    r'igual\s+ao\s+total\s+de\s+acertos|valendo\s+1\s*(?:\(um\)\s*)?ponto\s+cada\s+questão', re.IGNORECASE
+    r'igual\s+ao\s+total\s+de\s+acertos|valendo\s+1\s*(?:\(um\)\s*)?ponto\s+cada\s+questão'
+    r'|cada\s+acerto\s+valerá\s+1\s*(?:\(um\)\s*)?ponto',
+    re.IGNORECASE,
 )
 _MENCAO_PENALIDADE = re.compile(
     r'pontos?\s+negativos?|desconto\s+de|descontad[oa]\b'
@@ -87,8 +127,17 @@ _MENCAO_PENALIDADE = re.compile(
     re.IGNORECASE,
 )
 _NOTA_MAXIMA = (
-    re.compile(rf'prova\s+objetiva\s+totalizará\s+(?P<valor>{_NUMERO})\s*(?:\([^)]*\)\s*)?pontos', re.I),
+    re.compile(rf'prova\s+objetiva\s+totalizará\s+(?P<valor>{_NUMERO})\s*{_POR_EXTENSO}pontos', re.I),
+    re.compile(
+        rf'provas\s+objetivas,?[^.]{{0,80}}?valerão\s+(?P<valor>{_NUMERO})\s*{_POR_EXTENSO}pontos', re.I
+    ),
+    re.compile(rf'sendo\s+(?P<valor>{_NUMERO})\s*{_POR_EXTENSO}pontos\s+a\s+pontuação\s+máxima', re.I),
 )
+_QUESTOES_GERAIS = re.compile(rf'(?P<valor>\d+)\s*{_POR_EXTENSO}questões\s+de\s+conhecimentos\s+gerais', re.I)
+_EIXOS_TEMATICOS = re.compile(
+    rf'(?P<eixos>\d+)\s*{_POR_EXTENSO}eixos\s+temáticos,?\s+cada\s+um\s+contendo\s+(?P<itens>\d+)', re.I
+)
+_CODIGO_DE_CARGO = r'[A-Z]\d+-\d{2}-[A-Z]'
 _NOTA_CORTE = (
     re.compile(
         rf'nota\s+inferior\s+a\s+(?P<valor>{_NUMERO})\s*pontos\s+no\s+conjunto\s+das\s+provas\s+objetivas',
@@ -134,21 +183,34 @@ class _TextoCorrido:
         return self.texto[inicio : min(fim.end() if fim else limite, limite)].strip()
 
 
-def extrair_fator_correcao(paginas: list[str]) -> ConfiguracaoCorrecao | None:
-    """Regra de correção da prova objetiva lida do texto do edital; None quando nenhum padrão casa."""
+def extrair_fator_correcao(paginas: list[str], total_itens: int | None = None) -> ConfiguracaoCorrecao | None:
+    """Regra de correção da prova objetiva lida do texto do edital; None quando nenhum padrão casa.
+
+    Pontos diferentes por prova ou módulo só viram pesos quando `total_itens` e a nota máxima permitem
+    deduzir quantos itens tem cada parte.
+    """
     texto = _TextoCorrido.de(paginas)
+    nota_maxima = _valor_do_primeiro_padrao(texto, _NOTA_MAXIMA)
+    pesos: tuple[PesoItens, ...] = ()
     if match := _PENALIDADE.search(texto.texto):
         acerto = _numero(match['acerto']) if match['acerto'] else 1.0
         confianca = CONFIANCA_PENALIDADE_COM_ACERTO if match['acerto'] else CONFIANCA_PENALIDADE_SEM_ACERTO
-        modelo, fator = ModeloCorrecao.LIQUIDA, _numero(match['erro']) / acerto
+        fator = _numero(match['erro']) / acerto
+    elif match := _PENALIDADE_FRACIONARIA.search(texto.texto):
+        fator, confianca = 1 / int(match['erros']), CONFIANCA_PENALIDADE_FRACIONARIA
+    elif (match := _primeiro_match(texto, _PONTOS_POR_PARTE)) and (
+        pesos := _pesos_por_parte(match, total_itens, nota_maxima)
+    ):
+        fator, confianca = 0.0, CONFIANCA_PONTOS_POR_PARTE
     elif (match := _BRUTA.search(texto.texto)) and not _MENCAO_PENALIDADE.search(texto.texto):
-        modelo, fator, confianca = ModeloCorrecao.BRUTA, 0.0, CONFIANCA_BRUTA
+        fator, confianca = 0.0, CONFIANCA_BRUTA
     else:
         return None
     return ConfiguracaoCorrecao(
-        modelo=modelo,
+        modelo=ModeloCorrecao.pelo_fator(fator, ponderada=pesos_variam(pesos)),
         fator_penalidade=fator,
-        nota_maxima=_valor_do_primeiro_padrao(texto, _NOTA_MAXIMA),
+        pesos=pesos,
+        nota_maxima=nota_maxima,
         nota_corte=_valor_do_primeiro_padrao(texto, _NOTA_CORTE),
         fonte=FonteCorrecao.EDITAL,
         confianca=confianca,
@@ -163,33 +225,21 @@ def mencao_penalidade(paginas: list[str]) -> bool:
 
 
 def resolver_correcao(config: ConcursoConfig, documentos: dict[str, list[str]]) -> list[ConfiguracaoCorrecao]:
-    """Regra de correção do concurso, com precedência edital, depois configuração, depois default.
+    """Regra de correção do concurso, uma por variante, com precedência edital, depois configuração, depois default.
 
     `documentos` mapeia cada documento do edital às suas páginas, na ordem de leitura (anexos primeiro).
-    Campos que a fonte vencedora não define (nota máxima, nota de corte) são completados pelas seguintes;
-    sem nota máxima declarada, ela é o número de itens do concurso.
+    Campos que a fonte vencedora não define (pesos, nota máxima, nota de corte) são completados pelas
+    seguintes; sem nota máxima declarada, ela é a soma dos pesos dos itens. Nos pesos de uma variante a
+    precedência se inverte: os declarados no concurso.yaml sobrescrevem o quadro de pesos do edital.
     """
     declarada = config.correcao or CorrecaoConfig()
-    extraida = _extrair_dos_documentos(documentos)
-    if extraida is not None:
-        _avisar_divergencia_da_configuracao(config.nome, extraida, declarada)
-        cfg = extraida
-    elif declarada.define_regra:
-        fator = declarada.fator_penalidade or 0.0
-        cfg = ConfiguracaoCorrecao(
-            ModeloCorrecao.pelo_fator(fator), fator, fonte=FonteCorrecao.CONFIG, confianca=CONFIANCA_CONFIG
-        )
+    base = _resolver_regra(config, documentos, declarada)
+    if declarada.variantes:
+        quadro = _extrair_quadro_de_pesos(config, documentos)
+        configuracoes = [_resolver_variante(config.nome, v, base, quadro) for v in declarada.variantes]
     else:
-        cfg = ConfiguracaoCorrecao()
-        _avisar_default(config.nome, documentos)
-    cfg = replace(
-        cfg,
-        nota_maxima=_primeiro_definido(cfg.nota_maxima, declarada.nota_maxima, float(config.total_itens)),
-        nota_corte=_primeiro_definido(cfg.nota_corte, declarada.nota_corte),
-    )
-    if cfg.fonte is not FonteCorrecao.DEFAULT:
-        _avisar_contradicao_com_pontuacao(config, cfg)
-    return [cfg]
+        configuracoes = [base]
+    return [_completar(config, cfg, declarada) for cfg in configuracoes]
 
 
 def gravar_correcao(configuracoes: list[ConfiguracaoCorrecao], destino: Path) -> None:
@@ -197,11 +247,174 @@ def gravar_correcao(configuracoes: list[ConfiguracaoCorrecao], destino: Path) ->
     (destino / ARQUIVO_CORRECAO).write_text(conteudo, encoding='utf-8')
 
 
-def _extrair_dos_documentos(documentos: dict[str, list[str]]) -> ConfiguracaoCorrecao | None:
+def ler_correcao(pasta: Path) -> list[ConfiguracaoCorrecao]:
+    dados = json.loads((pasta / ARQUIVO_CORRECAO).read_text(encoding='utf-8'))
+    return [
+        ConfiguracaoCorrecao(
+            **{
+                **cfg,
+                'modelo': ModeloCorrecao(cfg['modelo']),
+                'fonte': FonteCorrecao(cfg['fonte']),
+                'pesos': tuple(PesoItens(**faixa) for faixa in cfg['pesos']),
+            }
+        )
+        for cfg in dados
+    ]
+
+
+def _resolver_regra(
+    config: ConcursoConfig, documentos: dict[str, list[str]], declarada: CorrecaoConfig
+) -> ConfiguracaoCorrecao:
+    extraida = _extrair_dos_documentos(documentos, config.total_itens)
+    if extraida is not None:
+        _avisar_divergencia_da_configuracao(config.nome, extraida, declarada)
+        cfg = extraida if extraida.pesos else replace(extraida, pesos=declarada.pesos)
+    elif declarada.define_regra:
+        cfg = ConfiguracaoCorrecao(
+            fator_penalidade=declarada.fator_penalidade or 0.0,
+            pesos=declarada.pesos,
+            fonte=FonteCorrecao.CONFIG,
+            confianca=CONFIANCA_CONFIG,
+        )
+    else:
+        cfg = ConfiguracaoCorrecao()
+        _avisar_default(config.nome, documentos)
+    if cfg.fonte is not FonteCorrecao.DEFAULT:
+        _avisar_contradicao_com_pontuacao(config, cfg)
+    return cfg
+
+
+@dataclass(frozen=True)
+class _LinhaDoQuadro:
+    pesos: tuple[PesoItens, ...]
+    trecho: str
+    documento: str
+    pagina: int
+
+
+def _resolver_variante(
+    nome: str, variante: VarianteCorrecaoConfig, base: ConfiguracaoCorrecao, quadro: dict[str, _LinhaDoQuadro]
+) -> ConfiguracaoCorrecao:
+    """Com pesos próprios, a variante descarta a nota máxima do edital, que vale para os pesos do concurso."""
+    if variante.pesos:
+        return replace(
+            base,
+            pesos=variante.pesos,
+            nota_maxima=None,
+            fonte=FonteCorrecao.CONFIG,
+            confianca=CONFIANCA_CONFIG,
+            trecho_origem=None,
+            documento_origem=None,
+            pagina_origem=None,
+            variante=variante.nome,
+        )
+    if (linha := quadro.get(variante.nome)) is not None:
+        return replace(
+            base,
+            pesos=linha.pesos,
+            nota_maxima=None,
+            fonte=FonteCorrecao.EDITAL,
+            confianca=CONFIANCA_QUADRO_DE_PESOS,
+            trecho_origem=linha.trecho,
+            documento_origem=linha.documento,
+            pagina_origem=linha.pagina,
+            variante=variante.nome,
+        )
+    logger.warning(
+        '%s: variante %s sem pesos no quadro do edital nem no concurso.yaml; usando os pesos gerais do concurso',
+        nome,
+        variante.nome,
+    )
+    return replace(base, variante=variante.nome)
+
+
+def _completar(
+    config: ConcursoConfig, cfg: ConfiguracaoCorrecao, declarada: CorrecaoConfig
+) -> ConfiguracaoCorrecao:
+    soma_dos_pesos = sum(cfg.peso_de(questao) for prova in config.provas for questao in prova.questoes)
+    return replace(
+        cfg,
+        modelo=ModeloCorrecao.pelo_fator(cfg.fator_penalidade, ponderada=pesos_variam(cfg.pesos)),
+        nota_maxima=_primeiro_definido(cfg.nota_maxima, declarada.nota_maxima, float(soma_dos_pesos)),
+        nota_corte=_primeiro_definido(cfg.nota_corte, declarada.nota_corte),
+    )
+
+
+def _extrair_dos_documentos(
+    documentos: dict[str, list[str]], total_itens: int
+) -> ConfiguracaoCorrecao | None:
     for documento, paginas in documentos.items():
-        if (cfg := extrair_fator_correcao(paginas)) is not None:
+        if (cfg := extrair_fator_correcao(paginas, total_itens)) is not None:
             return replace(cfg, documento_origem=documento)
     return None
+
+
+def _extrair_quadro_de_pesos(
+    config: ConcursoConfig, documentos: dict[str, list[str]]
+) -> dict[str, _LinhaDoQuadro]:
+    """Pesos por eixo temático de cada variante, lidos do quadro de pesos (CPNU).
+
+    As faixas vêm do texto do edital: primeiro os itens de conhecimentos gerais, com peso 1, e depois um
+    bloco de itens consecutivos por eixo. A linha do quadro é o código do cargo seguido de um peso de 1 a 5
+    por eixo; a tabela de vagas repete o código com quantidades e não pode casar.
+    """
+    textos = {documento: _TextoCorrido.de(paginas) for documento, paginas in documentos.items()}
+    gerais, eixos = _primeiro_em(textos, _QUESTOES_GERAIS), _primeiro_em(textos, _EIXOS_TEMATICOS)
+    if gerais is None or eixos is None:
+        return {}
+    n_gerais, n_eixos, por_eixo = int(gerais['valor']), int(eixos['eixos']), int(eixos['itens'])
+    if n_gerais + n_eixos * por_eixo != config.total_itens:
+        logger.warning(
+            '%s: o edital divide a prova em %d itens gerais e %d eixos de %d, mas o concurso tem %d itens; '
+            'quadro de pesos ignorado',
+            config.nome,
+            n_gerais,
+            n_eixos,
+            por_eixo,
+            config.total_itens,
+        )
+        return {}
+    encontrados = {}
+    for variante in config.correcao.variantes:
+        linha = re.compile(
+            rf'(?<![\w-]){re.escape(variante.nome)}(?![\w-])(?:(?!{_CODIGO_DE_CARGO})\D){{0,80}}?'
+            rf'(?P<pesos>[1-5](?:\s[1-5]){{{n_eixos - 1}}})(?!\s?\d)'
+        )
+        for documento, texto in textos.items():
+            if match := linha.search(texto.texto):
+                pesos = _faixas_dos_eixos(n_gerais, por_eixo, [float(p) for p in match['pesos'].split()])
+                encontrados[variante.nome] = _LinhaDoQuadro(
+                    pesos, match[0], documento, texto.pagina(match.start())
+                )
+                break
+    return encontrados
+
+
+def _faixas_dos_eixos(n_gerais: int, por_eixo: int, pesos_eixos: list[float]) -> tuple[PesoItens, ...]:
+    eixos = (
+        PesoItens(n_gerais + i * por_eixo + 1, n_gerais + (i + 1) * por_eixo, peso)
+        for i, peso in enumerate(pesos_eixos)
+    )
+    return (PesoItens(1, n_gerais, 1.0), *eixos)
+
+
+def _primeiro_em(textos: dict[str, _TextoCorrido], padrao: re.Pattern) -> re.Match | None:
+    return next((match for texto in textos.values() if (match := padrao.search(texto.texto))), None)
+
+
+def _pesos_por_parte(
+    match: re.Match, total_itens: int | None, nota_maxima: float | None
+) -> tuple[PesoItens, ...]:
+    """Pesos de conhecimentos gerais e específicos, nessa ordem de itens. Quantos itens tem cada parte sai de
+    itens = gerais + específicos e nota máxima = soma dos pesos; sem solução inteira, não há pesos."""
+    gerais, especificos = _numero(match['gerais']), _numero(match['especificos'])
+    if total_itens is None or nota_maxima is None or gerais == especificos:
+        return ()
+    n_especificos = (nota_maxima - gerais * total_itens) / (especificos - gerais)
+    if abs(n_especificos - round(n_especificos)) > 1e-9 or not 0 < round(n_especificos) < total_itens:
+        return ()
+    fim_gerais = total_itens - round(n_especificos)
+    return (PesoItens(1, fim_gerais, gerais), PesoItens(fim_gerais + 1, total_itens, especificos))
 
 
 def _avisar_default(nome: str, documentos: dict[str, list[str]]) -> None:
@@ -228,6 +441,8 @@ def _avisar_divergencia_da_configuracao(
             declarada.fator_penalidade,
             extraida.fator_penalidade,
         )
+    if declarada.pesos and extraida.pesos and declarada.pesos != extraida.pesos:
+        logger.warning('%s: correcao.pesos declarados diferem dos pesos do edital; vale o edital', nome)
 
 
 def _avisar_contradicao_com_pontuacao(config: ConcursoConfig, cfg: ConfiguracaoCorrecao) -> None:
@@ -247,11 +462,13 @@ def _primeiro_definido(*valores: float | None) -> float | None:
     return next((v for v in valores if v is not None), None)
 
 
+def _primeiro_match(texto: _TextoCorrido, padroes: tuple[re.Pattern, ...]) -> re.Match | None:
+    return next((match for padrao in padroes if (match := padrao.search(texto.texto))), None)
+
+
 def _valor_do_primeiro_padrao(texto: _TextoCorrido, padroes: tuple[re.Pattern, ...]) -> float | None:
-    for padrao in padroes:
-        if match := padrao.search(texto.texto):
-            return _numero(match['valor'])
-    return None
+    match = _primeiro_match(texto, padroes)
+    return None if match is None else _numero(match['valor'])
 
 
 def _numero(valor: str) -> float:

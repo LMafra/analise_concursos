@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 ARQUIVO_MANIFESTO = '.manifesto.json'
-VERSAO_ANALISE = 4
+VERSAO_ANALISE = 5
 _IGNORADOS = (':Zone.Identifier',)
 
 

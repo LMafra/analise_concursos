@@ -15,7 +15,7 @@ from concursos.analytics.correcao import (
     nota_normalizada,
     resolver_correcao,
 )
-from concursos.concurso_config import validar_dados
+from concursos.concurso_config import PesoItens, validar_dados
 from concursos.modelo import Formato, Pontuacao
 
 CEBRASPE = """8.11 DOS CRITÉRIOS DE AVALIAÇÃO DAS PROVAS OBJETIVAS
@@ -305,3 +305,239 @@ def test_pontuacao_coerente_com_o_edital_nao_gera_aviso(caplog):
         resolver_correcao(concurso('cebraspe'), {'edital.pdf': [CEBRASPE]})
 
     assert caplog.text == ''
+
+
+CRECI = """11 DAS PROVAS OBJETIVAS 11.1 As provas objetivas, de caráter eliminatório e classificatório, valerão
+60,00 pontos e abrangerão os objetos de avaliação constantes do item 22 deste edital.
+12.2 Para todos os cargos, a nota em cada questão das provas objetivas, feita com base nas marcações da folha
+de respostas, será igual a 1,00 ponto, caso a resposta do candidato esteja em concordância com o gabarito oficial
+definitivo da prova de conhecimentos básicos (P ); 2,00 pontos, caso a resposta do candidato esteja em
+concordância com o gabarito oficial definitivo da prova de conhecimentos 1 específicos (P ); e 0,00 ponto, caso a
+resposta do candidato esteja em discordância com o gabarito oficial definitivo das provas, caso 2
+"""
+
+DATAPREV = """9.7 Cada questão de múltipla escolha valerá 1 (um) ponto no Módulo de Conhecimentos Gerais, e 2,5
+(dois virgula cinco) pontos no Módulo de Conhecimentos Específicos, sendo 115 (cento e quinze)
+pontos a pontuação máxima, para todos os cargos/perfis.
+"""
+
+
+def test_creci_pontos_por_prova_viram_pesos_por_faixa_de_itens():
+    cfg = extrair_fator_correcao([CRECI], total_itens=40)
+
+    assert (cfg.modelo, cfg.fator_penalidade) == (ModeloCorrecao.PONDERADA, 0.0)
+    assert cfg.pesos == (PesoItens(1, 20, 1.0), PesoItens(21, 40, 2.0))
+    assert cfg.nota_maxima == 60.0
+    assert cfg.trecho_origem.startswith('12.2 Para todos os cargos')
+
+
+def test_dataprev_pontos_por_modulo_viram_pesos_por_faixa_de_itens():
+    cfg = extrair_fator_correcao(['Capa', DATAPREV], total_itens=70)
+
+    assert cfg.modelo is ModeloCorrecao.PONDERADA
+    assert cfg.pesos == (PesoItens(1, 40, 1.0), PesoItens(41, 70, 2.5))
+    assert cfg.nota_maxima == 115.0
+    assert cfg.pagina_origem == 2
+    assert cfg.trecho_origem.startswith('9.7 Cada questão de múltipla escolha')
+
+
+@pytest.mark.parametrize('total_itens', [None, 70])
+def test_pontos_por_prova_sem_faixas_dedutiveis_nao_viram_regra(total_itens):
+    assert extrair_fator_correcao([CRECI], total_itens=total_itens) is None
+
+
+def test_penalidade_fracionaria_a_cada_quatro_erradas_e_liquida_com_fator_025():
+    texto = '10.4 Na correção da prova objetiva, a cada 4 (quatro) questões erradas, anula-se uma certa.'
+
+    cfg = extrair_fator_correcao([texto])
+
+    assert (cfg.modelo, cfg.fator_penalidade) == (ModeloCorrecao.LIQUIDA, 0.25)
+    assert cfg.trecho_origem == texto
+
+
+EDITAL_CPNU = """8.9. Para os cargos de Nível Superior, a Prova Objetiva será composta por 90 (noventa) questões, sendo 30
+(trinta) questões de Conhecimentos Gerais e 60 (sessenta) questões de Conhecimentos Específicos.
+8.9.1. A Nota Final das Provas Objetivas será obtida por meio da soma da pontuação das questões de
+Conhecimentos Gerais e da pontuação ponderada das questões de Conhecimentos Específicos,
+conforme os critérios estabelecidos a seguir:
+a) A pontuação das questões de Conhecimentos Gerais será calculada com base no número de
+acertos nas 30 (trinta) questões correspondentes, sendo atribuído peso 1 (um) a cada questão.
+Assim, cada acerto valerá 1 (um) ponto, totalizando até 30 (trinta) pontos;
+b) A pontuação das questões de Conhecimentos Específicos será calculada com base no número de
+acertos nas 60 (sessenta) questões correspondentes, distribuídas em 5 (cinco) eixos temáticos, cada
+um contendo 12 (doze) questões ponderadas de acordo com os respectivos pesos atribuídos a cada
+eixo temático.
+8.9.2. Os pesos atribuídos a cada eixo temático variam de 1 (um) a 5 (cinco), totalizando, em conjunto, o
+valor de 10 (dez).
+"""
+
+VAGAS_CPNU = """CÓD CARGOS ESPECIALIDADE AC PCD PN PQ PI TOTAL
+Analista do Tecnologia da
+B3-08-A 12 1 5 0 1 19
+Seguro Social informação
+Tecnologia da
+B3-10-A Analista I 2 0 1 0 0 3
+Informação
+"""
+
+QUADRO_CPNU_P91 = """Analista de
+B3-07-A Ciência e Geral 1 2 2 3 2
+Tecnologia
+B3-07-B Pesquisador Geral 1 2 1 3 3
+B3-07-C Tecnologista Geral 1 2 1 4 2
+B3-08 – Instituto Nacional do Seguro Social (INSS)
+EIXO 4–
+EIXO 2 – EIXO 3–
+DADOS
+Analista do Tecnologia da
+B3-08-A 1 1 2 4 2
+Seguro Social Informação
+B3-09 – Ministério da Saúde (MS)
+"""
+
+QUADRO_CPNU_P92 = """B3-10 – Instituto Brasileiro de Museus (IBRAM)
+DADOS
+Tecnologia
+B3-10-A Analista I da 1 2 3 3 1
+Informação
+CONTEÚDO PROGRAMÁTICO PARA AS PROVAS
+"""
+
+DOCUMENTOS_CPNU = {
+    'anexo_bloco3.pdf': ['Anexo III', VAGAS_CPNU, QUADRO_CPNU_P91, QUADRO_CPNU_P92],
+    'edital.pdf': ['Capa', EDITAL_CPNU],
+}
+
+
+def cpnu(correcao: dict | None = None):
+    correcao = correcao or {'variantes': ['B3-08-A', 'B3-10-A', 'B3-07-C']}
+    return validar_dados(
+        Path('provas/cpnu'),
+        {
+            'nome': 'cpnu',
+            'banca': 'fgv',
+            'formato': 'multipla_escolha',
+            'provas': {'unica': {'gabarito': 'g.pdf', 'itens': [1, 90]}},
+            'respostas': {'arquivo': 'respostas.txt'},
+            'correcao': correcao,
+        },
+    )
+
+
+def pesos_cpnu(*eixos: float) -> tuple[PesoItens, ...]:
+    faixas = [PesoItens(1, 30, 1.0)]
+    for i, peso in enumerate(eixos):
+        faixas.append(PesoItens(31 + 12 * i, 42 + 12 * i, float(peso)))
+    return tuple(faixas)
+
+
+def test_cpnu_tem_uma_variante_ponderada_por_cargo_lida_do_quadro_do_anexo(caplog):
+    with caplog.at_level(logging.WARNING):
+        variantes = resolver_correcao(cpnu(), DOCUMENTOS_CPNU)
+
+    assert [cfg.variante for cfg in variantes] == ['B3-08-A', 'B3-10-A', 'B3-07-C']
+    assert [cfg.pesos for cfg in variantes] == [
+        pesos_cpnu(1, 1, 2, 4, 2),
+        pesos_cpnu(1, 2, 3, 3, 1),
+        pesos_cpnu(1, 2, 1, 4, 2),
+    ]
+    assert [cfg.pagina_origem for cfg in variantes] == [3, 4, 3]
+    for cfg in variantes:
+        assert (cfg.modelo, cfg.fator_penalidade, cfg.fonte) == (
+            ModeloCorrecao.PONDERADA,
+            0.0,
+            FonteCorrecao.EDITAL,
+        )
+        assert cfg.documento_origem == 'anexo_bloco3.pdf'
+        assert cfg.trecho_origem.startswith(cfg.variante)
+        assert cfg.nota_maxima == 150.0
+    assert caplog.text == ''
+
+
+def questoes_cpnu() -> pd.DataFrame:
+    acertos_por_faixa = [(30, 16), (12, 8), (12, 3), (12, 11), (12, 9), (12, 5)]
+    resultados = [r for n, a in acertos_por_faixa for r in ['acerto'] * a + ['erro'] * (n - a)]
+    return questoes(*resultados)
+
+
+def test_notas_das_variantes_do_cpnu_batem_com_o_resultado_oficial():
+    variantes = resolver_correcao(cpnu(), DOCUMENTOS_CPNU)
+
+    notas = {
+        cfg.variante: aplicar_correcao(questoes_cpnu(), cfg, Formato.MULTIPLA_ESCOLHA).nota
+        for cfg in variantes
+    }
+
+    assert notas == {'B3-08-A': 95.0, 'B3-10-A': 95.0, 'B3-07-C': 87.0}
+
+
+def test_pesos_nao_mudam_a_pontuacao_por_item_so_a_nota():
+    cfg = ConfiguracaoCorrecao(ModeloCorrecao.PONDERADA, pesos=(PesoItens(2, 3, 4.0),))
+
+    corrigida = aplicar_correcao(
+        questoes('acerto', 'acerto', 'erro', 'acerto', anuladas=(4,)), cfg, Formato.MULTIPLA_ESCOLHA
+    )
+
+    assert corrigida.itens['pontos_corrigida'].tolist()[:3] == [1.0, 1.0, 0.0]
+    assert corrigida.itens['peso'].tolist() == [1.0, 4.0, 4.0, 1.0]
+    assert corrigida.nota == 1 + 4 + 0 + 1
+
+
+def test_liquida_com_pesos_desconta_o_erro_pelo_peso_do_item():
+    cfg = ConfiguracaoCorrecao(ModeloCorrecao.LIQUIDA, 1.0, pesos=(PesoItens(2, 2, 2.0),))
+
+    assert aplicar_correcao(questoes('acerto', 'erro'), cfg, Formato.CERTO_ERRADO).nota == 1 - 2
+
+
+def test_pesos_da_variante_na_configuracao_prevalecem_sobre_o_quadro():
+    pesos = [{'itens': [31, 90], 'peso': 2}]
+    correcao = {'variantes': ['B3-08-A', {'nome': 'B3-10-A', 'pesos': pesos}]}
+
+    b3_08, b3_10 = resolver_correcao(cpnu(correcao), DOCUMENTOS_CPNU)
+
+    assert b3_08.fonte is FonteCorrecao.EDITAL
+    assert (b3_10.fonte, b3_10.modelo) == (FonteCorrecao.CONFIG, ModeloCorrecao.PONDERADA)
+    assert b3_10.pesos == (PesoItens(31, 90, 2.0),)
+    assert b3_10.trecho_origem is None
+    assert b3_10.nota_maxima == 30 + 60 * 2
+
+
+def test_nota_maxima_do_edital_nao_vale_para_variante_com_pesos_proprios():
+    documentos = {**DOCUMENTOS_CPNU, 'edital.pdf': ['A Prova Objetiva totalizará 90 pontos.', EDITAL_CPNU]}
+    correcao = {'variantes': ['B3-08-A', {'nome': 'B3-10-A', 'pesos': [{'itens': [31, 90], 'peso': 3}]}]}
+
+    b3_08, b3_10 = resolver_correcao(cpnu(correcao), documentos)
+
+    assert (b3_08.nota_maxima, b3_10.nota_maxima) == (150.0, 30 + 60 * 3)
+
+
+def test_quadro_com_faixas_que_nao_somam_os_itens_do_concurso_e_ignorado_com_aviso(caplog):
+    documentos = {**DOCUMENTOS_CPNU, 'edital.pdf': [EDITAL_CPNU.replace('12 (doze)', '10 (dez)')]}
+
+    with caplog.at_level(logging.WARNING):
+        [cfg] = resolver_correcao(cpnu({'variantes': ['B3-08-A']}), documentos)
+
+    assert cfg.pesos == ()
+    assert 'quadro de pesos ignorado' in caplog.text
+
+
+def test_variante_fora_do_quadro_e_sem_pesos_declarados_avisa_e_fica_sem_pesos(caplog):
+    with caplog.at_level(logging.WARNING):
+        [cfg] = resolver_correcao(cpnu({'variantes': ['B3-99-Z']}), DOCUMENTOS_CPNU)
+
+    assert (cfg.variante, cfg.pesos, cfg.modelo) == ('B3-99-Z', (), ModeloCorrecao.BRUTA)
+    assert 'B3-99-Z' in caplog.text
+
+
+def test_pesos_por_faixa_declarados_sem_regra_no_edital_viram_ponderada_de_configuracao():
+    correcao = {'pesos': [{'itens': [51, 120], 'peso': 2}]}
+
+    [cfg] = resolver_correcao(concurso('simples', correcao), {'edital.pdf': ['Das inscrições.']})
+
+    assert (cfg.modelo, cfg.fator_penalidade, cfg.fonte) == (
+        ModeloCorrecao.PONDERADA,
+        0.0,
+        FonteCorrecao.CONFIG,
+    )
+    assert cfg.pesos == (PesoItens(51, 120, 2.0),)
+    assert cfg.nota_maxima == 50 + 70 * 2

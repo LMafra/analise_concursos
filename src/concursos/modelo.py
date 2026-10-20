@@ -28,8 +28,11 @@ class ModeloCorrecao(StrEnum):
     PONDERADA = 'ponderada'
 
     @classmethod
-    def pelo_fator(cls, fator: float) -> 'ModeloCorrecao':
-        return cls.LIQUIDA if fator > 0 else cls.BRUTA
+    def pelo_fator(cls, fator: float, *, ponderada: bool = False) -> 'ModeloCorrecao':
+        """Com penalidade é sempre líquida, mesmo com pesos; sem ela, ponderada se os pesos variam."""
+        if fator > 0:
+            return cls.LIQUIDA
+        return cls.PONDERADA if ponderada else cls.BRUTA
 
 
 class Estado(StrEnum):

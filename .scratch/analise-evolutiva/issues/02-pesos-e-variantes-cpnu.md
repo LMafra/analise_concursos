@@ -20,16 +20,17 @@ Ver `docs/spec-fase2.md` (histórias 3, 4, 13 e 14) e a seção "Pesos do CPNU".
 
 **Blocked by:** 01 (Correção do edital ponta a ponta)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Testes com trechos reais (quadro do CPNU, pesos por prova do creci e do dataprev) e sintéticos:
+- [x] Testes com trechos reais (quadro do CPNU, pesos por prova do creci e do dataprev) e sintéticos:
   - pesos por faixa;
   - variantes por cargo;
   - fator fracionário 0,25;
   - precedência da configuração sobre o edital nos pesos de uma variante.
-- [ ] Aceitação do CPNU contra o resultado oficial. Com 16 acertos nos gerais e 8, 3, 11, 9 e 5 nos eixos, as notas são B3-08-A = 95, B3-10-A = 95 e B3-07-C = 87.
-- [ ] Confirmar que as faixas de eixo do CPNU batem com as faixas de disciplina do caderno, cada uma com 12 itens. Se não baterem, ajustar e registrar.
-- [ ] Com dados reais, o CPNU resolve como `ponderada` com 3 variantes, fonte `edital`, documento de origem igual ao anexo do bloco 3 e trecho e página do quadro de pesos (p.91–92).
-- [ ] `concurso.yaml` do CPNU com as 3 variantes declaradas.
-- [ ] `docs/modelo.md` atualizado com pesos e variantes.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Aceitação do CPNU contra o resultado oficial. Com 16 acertos nos gerais e 8, 3, 11, 9 e 5 nos eixos, as notas são B3-08-A = 95, B3-10-A = 95 e B3-07-C = 87.
+- [x] Confirmar que as faixas de eixo do CPNU batem com as faixas de disciplina do caderno, cada uma com 12 itens. Se não baterem, ajustar e registrar.
+  - Conferido no `questoes.csv`: gerais 1–30 e eixos 31–42, 43–54, 55–66, 67–78 e 79–90, 12 itens cada. A anulada (questão 49, eixo 2) já entra como acerto nos 3 acertos do eixo.
+- [x] Com dados reais, o CPNU resolve como `ponderada` com 3 variantes, fonte `edital`, documento de origem igual ao anexo do bloco 3 e trecho e página do quadro de pesos (p.91–92).
+- [x] `concurso.yaml` do CPNU com as 3 variantes declaradas.
+- [x] `docs/modelo.md` atualizado com pesos e variantes.
+- [x] `uv run pytest` e `ruff` verdes.

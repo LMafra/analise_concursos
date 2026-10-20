@@ -165,6 +165,8 @@ class _Cadastro:
             dados['resultado_oficial'] = resultado
         if ignorar := self._ignorados(dados):
             dados['ignorar'] = ignorar
+        if correcao := self.anterior.get('correcao'):
+            dados['correcao'] = correcao
         if historico := self.anterior.get('historico'):
             dados['historico'] = historico
         return dados

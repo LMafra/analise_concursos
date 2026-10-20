@@ -8,7 +8,6 @@ from concursos.modelo import Formato, ModeloCorrecao, Pontuacao
 ARQUIVO_CONFIG = 'concurso.yaml'
 BANCAS = ('cebraspe', 'fgv', 'selecon', 'quadrix')
 STATUS_GABARITO = ('preliminar', 'definitivo')
-MODELOS_DECLARAVEIS = (ModeloCorrecao.BRUTA, ModeloCorrecao.LIQUIDA)
 
 
 class ConfiguracaoInvalidaError(ValueError):
@@ -62,6 +61,15 @@ class PesoItens:
     peso: float
 
 
+def peso_da_questao(pesos: tuple[PesoItens, ...], questao: int) -> float:
+    """Itens fora de todas as faixas valem 1."""
+    return next((p.peso for p in pesos if p.inicio <= questao <= p.fim), 1.0)
+
+
+def pesos_variam(pesos: tuple[PesoItens, ...]) -> bool:
+    return any(p.peso != 1 for p in pesos)
+
+
 @dataclass(frozen=True)
 class ResultadoOficialConfig:
     arquivo: str
@@ -69,7 +77,15 @@ class ResultadoOficialConfig:
     pesos: tuple[PesoItens, ...] = ()
 
     def peso_de(self, questao: int) -> float:
-        return next((p.peso for p in self.pesos if p.inicio <= questao <= p.fim), 1.0)
+        return peso_da_questao(self.pesos, questao)
+
+
+@dataclass(frozen=True)
+class VarianteCorrecaoConfig:
+    """Opção de cargo com pesos próprios (no CPNU, o código do cargo); sem pesos, eles vêm do edital."""
+
+    nome: str
+    pesos: tuple[PesoItens, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -80,10 +96,12 @@ class CorrecaoConfig:
     fator_penalidade: float | None = None
     nota_maxima: float | None = None
     nota_corte: float | None = None
+    pesos: tuple[PesoItens, ...] = ()
+    variantes: tuple[VarianteCorrecaoConfig, ...] = ()
 
     @property
     def define_regra(self) -> bool:
-        return self.modelo is not None or self.fator_penalidade is not None
+        return self.modelo is not None or self.fator_penalidade is not None or bool(self.pesos)
 
 
 @dataclass(frozen=True)
@@ -216,35 +234,66 @@ def _montar_resultado(resultado: str | dict) -> ResultadoOficialConfig:
     if isinstance(resultado, str):
         return ResultadoOficialConfig(resultado)
     identificador = resultado.get('identificador')
-    pesos = tuple(
-        PesoItens(int(p['itens'][0]), int(p['itens'][1]), float(p['peso']))
-        for p in resultado.get('pesos') or ()
-    )
     return ResultadoOficialConfig(
         _obrigatorio(resultado, 'arquivo', 'resultado_oficial.'),
         None if identificador is None else str(identificador),
-        pesos,
+        _montar_pesos(resultado.get('pesos'), 'resultado_oficial.pesos'),
     )
+
+
+def _montar_pesos(pesos: list[dict] | None, campo: str) -> tuple[PesoItens, ...]:
+    faixas = tuple(PesoItens(int(p['itens'][0]), int(p['itens'][1]), float(p['peso'])) for p in pesos or ())
+    for faixa in faixas:
+        if faixa.inicio > faixa.fim:
+            raise ConfiguracaoInvalidaError(f'{campo}: faixa {faixa.inicio}-{faixa.fim} inválida')
+        if faixa.peso <= 0:
+            raise ConfiguracaoInvalidaError(f'{campo}: peso {faixa.peso:g} deve ser maior que 0')
+    return faixas
 
 
 def _montar_correcao(correcao: dict) -> CorrecaoConfig:
     modelo = correcao.get('modelo')
     if modelo is not None:
-        modelo = ModeloCorrecao(_opcao(modelo, MODELOS_DECLARAVEIS, 'correcao.modelo'))
+        modelo = _enum(ModeloCorrecao, modelo, 'correcao.modelo')
     fator, maxima, corte = (
         _numero_opcional(correcao, campo, 'correcao.')
         for campo in ('fator_penalidade', 'nota_maxima', 'nota_corte')
     )
     if fator is not None and fator < 0:
         raise ConfiguracaoInvalidaError('correcao.fator_penalidade: não pode ser negativo')
-    if modelo is not None and fator is not None and ModeloCorrecao.pelo_fator(fator) is not modelo:
+    ponderada = modelo is ModeloCorrecao.PONDERADA
+    if (
+        modelo is not None
+        and fator is not None
+        and ModeloCorrecao.pelo_fator(fator, ponderada=ponderada) is not modelo
+    ):
         raise ConfiguracaoInvalidaError(
             f"correcao: modelo '{modelo}' incompatível com fator_penalidade {fator:g} "
-            '(liquida exige fator maior que 0; bruta, fator 0)'
+            '(liquida exige fator maior que 0; bruta e ponderada, fator 0)'
         )
     if modelo is ModeloCorrecao.LIQUIDA and fator is None:
         raise ConfiguracaoInvalidaError("correcao: modelo 'liquida' exige fator_penalidade maior que 0")
-    return CorrecaoConfig(modelo, fator, maxima, corte)
+    pesos = _montar_pesos(correcao.get('pesos'), 'correcao.pesos')
+    variantes = _montar_variantes(correcao.get('variantes'))
+    if ponderada and not pesos and not variantes:
+        raise ConfiguracaoInvalidaError("correcao: modelo 'ponderada' exige pesos ou variantes")
+    return CorrecaoConfig(modelo, fator, maxima, corte, pesos, variantes)
+
+
+def _montar_variantes(variantes: list | None) -> tuple[VarianteCorrecaoConfig, ...]:
+    montadas = []
+    for variante in variantes or ():
+        if not isinstance(variante, dict):
+            variante = {'nome': variante}
+        nome = str(_obrigatorio(variante, 'nome', 'correcao.variantes.'))
+        if any(v.nome == nome for v in montadas):
+            raise ConfiguracaoInvalidaError(f"correcao.variantes: '{nome}' repetida")
+        montadas.append(
+            VarianteCorrecaoConfig(
+                nome, _montar_pesos(variante.get('pesos'), f'correcao.variantes.{nome}.pesos')
+            )
+        )
+    return tuple(montadas)
 
 
 def _numero_opcional(dados: dict, campo: str, prefixo: str = '') -> float | None:

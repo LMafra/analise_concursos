@@ -9,7 +9,7 @@ from test_cli_edital import MANUAL
 from test_edital import PAGINAS
 
 from concursos import pipeline
-from concursos.analytics.correcao import ConfiguracaoCorrecao, aplicar_correcao
+from concursos.analytics.correcao import aplicar_correcao, ler_correcao
 from concursos.cli import main
 from concursos.modelo import Formato
 
@@ -76,7 +76,8 @@ def test_cebraspe_liquida_e_nota_corrigida_igual_a_nota_liquida_legada(raizes):
     assert (cfg['modelo'], cfg['fator_penalidade'], cfg['fonte']) == ('liquida', 1.0, 'edital')
     assert (cfg['nota_maxima'], cfg['nota_corte']) == (4.0, 60.0)
     questoes = ler_csv(analises / 'sintetico' / 'questoes.csv')
-    nota = aplicar_correcao(questoes, ConfiguracaoCorrecao(**cfg), Formato.CERTO_ERRADO).nota
+    [lida] = ler_correcao(analises / 'sintetico')
+    nota = aplicar_correcao(questoes, lida, Formato.CERTO_ERRADO).nota
     legado = ler_csv(analises / 'sintetico' / 'desempenho_por_disciplina.csv')
     assert nota == legado['nota_liquida'].sum() == 0
 
@@ -197,7 +198,15 @@ def test_analise_de_versao_anterior_e_refeita_e_ganha_o_arquivo_de_correcao(raiz
         ({'modelo': 'escalonada'}, "correcao.modelo: valor 'escalonada' inválido"),
         ({'modelo': 'liquida'}, "modelo 'liquida' exige fator_penalidade maior que 0"),
         ({'modelo': 'bruta', 'fator_penalidade': 1}, "modelo 'bruta' incompatível com fator_penalidade 1"),
-        ({'modelo': 'ponderada'}, "correcao.modelo: valor 'ponderada' inválido"),
+        (
+            {'modelo': 'ponderada', 'fator_penalidade': 1},
+            "modelo 'ponderada' incompatível com fator_penalidade 1",
+        ),
+        ({'modelo': 'ponderada'}, "modelo 'ponderada' exige pesos ou variantes"),
+        ({'pesos': [{'itens': [3, 1], 'peso': 2}]}, 'correcao.pesos: faixa 3-1 inválida'),
+        ({'pesos': [{'itens': [1, 4], 'peso': 0}]}, 'correcao.pesos: peso 0 deve ser maior que 0'),
+        ({'variantes': ['A', 'A']}, "correcao.variantes: 'A' repetida"),
+        ({'variantes': [{'pesos': []}]}, "campo obrigatório 'correcao.variantes.nome' ausente"),
         ({'fator_penalidade': 'um'}, "correcao.fator_penalidade: valor 'um' não é numérico"),
     ],
 )
@@ -208,3 +217,18 @@ def test_bloco_correcao_invalido_aponta_o_campo(raizes, capsys, bloco, mensagem)
     assert main(['status', '--provas', str(provas)]) == 0
 
     assert mensagem in capsys.readouterr().out
+
+
+def test_variantes_declaradas_viram_uma_configuracao_por_variante_no_arquivo(raizes):
+    provas, analises = raizes
+    variantes = ['geral', {'nome': 'ti', 'pesos': [{'itens': [3, 4], 'peso': 3}]}]
+    criar(provas, MULTIPLA_ESCOLHA, correcao={'variantes': variantes})
+
+    assert analisar(provas, analises) == 0
+
+    geral, ti = ler_correcao(analises / 'sintetico')
+    assert (geral.variante, geral.modelo, geral.pesos, geral.nota_maxima) == ('geral', 'bruta', (), 4.0)
+    assert (ti.variante, ti.modelo, ti.fonte, ti.nota_maxima) == ('ti', 'ponderada', 'config', 1 + 1 + 3 + 3)
+    assert ti.pesos[0].peso == 3.0
+    questoes = ler_csv(analises / 'sintetico' / 'questoes.csv')
+    assert aplicar_correcao(questoes, ti, Formato.MULTIPLA_ESCOLHA).nota == 1 + 3

@@ -173,6 +173,7 @@ def test_recadastro_mostra_diff_e_preserva_ajustes_manuais(raizes, monkeypatch, 
     assert adicionar(pasta, '--aceitar-sugestoes') == 0
     config = ler_config(pasta)
     config['provas']['unica']['disciplinas'] = [{'inicio': 1, 'fim': 6, 'disciplina': 'Português'}]
+    config['correcao'] = {'variantes': ['B3-08-A']}
     (pasta / 'concurso.yaml').write_text(yaml.safe_dump(config, allow_unicode=True), encoding='utf-8')
     (pasta / 'gab.txt').write_text(GABARITO_FGV, encoding='utf-8')
     capsys.readouterr()
@@ -189,6 +190,7 @@ def test_recadastro_mostra_diff_e_preserva_ajustes_manuais(raizes, monkeypatch, 
     novo = ler_config(pasta)['provas']['unica']
     assert novo['gabarito']['status'] == 'definitivo'
     assert novo['disciplinas'] == [{'inicio': 1, 'fim': 6, 'disciplina': 'Português'}]
+    assert ler_config(pasta)['correcao'] == {'variantes': ['B3-08-A']}
 
 
 def test_recadastro_sem_mudancas_nao_pergunta(raizes, monkeypatch, capsys):
