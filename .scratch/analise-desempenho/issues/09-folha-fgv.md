@@ -4,8 +4,24 @@
 
 **Blocked by:** 08
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Testes com imagens sintéticas de 5 alternativas cobrem os estados marcada, branco e múltipla.
-- [ ] A calibração manual em `agsus`, `cprm` e `cpnu` lista todas as questões, e as questões marcadas para revisão são conferidas.
-- [ ] Imagem de depuração gerada para cada folha.
+- [x] Testes com imagens sintéticas de 5 alternativas cobrem os estados marcada, branco e múltipla.
+- [x] A calibração manual em `agsus`, `cprm` e `cpnu` lista todas as questões, e as questões marcadas para revisão são conferidas.
+- [x] Imagem de depuração gerada para cada folha.
+
+## Calibração manual
+
+Mudanças comuns às bancas:
+- Página normalizada para 2480 px de largura.
+- Bolhas detectadas como círculos escuros (anel ou bolha cheia) e claros (miolo branco sobre faixa cinza).
+- Preenchimento medido como tinta: pixels abaixo de metade do branco do papel.
+- Colunas escolhidas pelas de maior contagem, porque os números dos itens geram colunas fracas.
+
+| Concurso | Template | Questões listadas | `revisar` | Conferência |
+|---|---|---|---|---|
+| agsus | fgv_mod70ae (4×20) | 70/70 | 0 | sobreposição conferida; itens 1–20 e 61–70 conferidos um a um |
+| cprm | fgv_mod70ae (4×20) | 70/70 | 0 | confiança mínima 1,0 |
+| cpnu | fgv_cpnu_90 (5×18) | 90/90 | 0 | itens 1–18 conferidos; 52 acertos = resultado oficial (16 CG + 8+3+11+9+5 eixos) |
+
+As folhas Cebraspe do ticket 08 continuam lidas por inteiro, com confiança mínima 1,0.

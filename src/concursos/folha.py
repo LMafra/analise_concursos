@@ -10,12 +10,25 @@ from concursos.modelo import Estado, Origem, RespostaMarcada
 
 logger = logging.getLogger(__name__)
 
-TEMPLATES = {'cebraspe_ce': 'CE'}
-DPI = 300
+
+@dataclass(frozen=True)
+class Template:
+    alternativas: str
+    itens_por_coluna: int | None = None
+
+
+TEMPLATES = {
+    'cebraspe_ce': Template('CE'),
+    'fgv_mod70ae': Template('ABCDE', 20),
+    'fgv_cpnu_90': Template('ABCDE', 18),
+}
+LARGURA = 2480
 VAZIO = 0.2
 CHEIO = 0.9
 LIMIAR_MARCADA = 0.5
 _CIRCULARIDADE_MINIMA = 0.8
+_FRACAO_TINTA = 0.5
+_FRACAO_LINHA = 0.25
 _RAIO_AMOSTRA = 0.35
 _ANGULO_MAXIMO = 5.0
 _PASSO_ANGULO = 0.1
@@ -45,15 +58,17 @@ def ler_folha(
     limiar: float,
 ) -> list[RespostaMarcada]:
     """Lê a primeira página do arquivo que contenha a grade e grava a imagem de depuração."""
-    alternativas = TEMPLATES.get(template)
-    if alternativas is None:
+    modelo = TEMPLATES.get(template)
+    if modelo is None:
         raise FolhaIlegivelError(
             f'{caminho.name}: template {template!r} não suportado (use {", ".join(TEMPLATES)})'
         )
     erros = []
     for pagina, imagem in enumerate(carregar_paginas(caminho), start=1):
         try:
-            marcacoes = ler_marcacoes(imagem, alternativas, total_itens, itens_por_coluna)
+            marcacoes = ler_marcacoes(
+                imagem, modelo.alternativas, total_itens, itens_por_coluna or modelo.itens_por_coluna
+            )
         except FolhaIlegivelError as erro:
             erros.append(f'página {pagina}: {erro}')
             continue
@@ -74,28 +89,37 @@ def ler_folha(
 
 
 def carregar_paginas(caminho: Path) -> list[np.ndarray]:
-    """Páginas em tons de cinza: PDFs renderizados a 300 dpi, imagens lidas diretamente."""
+    """Páginas em tons de cinza com largura normalizada (A4 a 300 dpi), de PDF ou imagem."""
     if caminho.suffix.lower() != '.pdf':
         imagem = cv2.imread(str(caminho), cv2.IMREAD_GRAYSCALE)
         if imagem is None:
             raise FolhaIlegivelError(f'{caminho.name}: imagem ilegível ou formato não suportado')
-        return [imagem]
-    documento = pdfium.PdfDocument(caminho)
+        return [_normalizar_largura(imagem)]
     paginas = []
-    for pagina in documento:
-        rgb = pagina.render(scale=DPI / 72, grayscale=True).to_numpy()
-        paginas.append(rgb if rgb.ndim == 2 else cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY))
+    for pagina in pdfium.PdfDocument(caminho):
+        renderizada = pagina.render(scale=LARGURA / pagina.get_width(), grayscale=True).to_numpy()
+        if renderizada.ndim == 3:
+            renderizada = cv2.cvtColor(renderizada, cv2.COLOR_BGR2GRAY)
+        paginas.append(_normalizar_largura(renderizada))
     return paginas
+
+
+def _normalizar_largura(imagem: np.ndarray) -> np.ndarray:
+    altura, largura = imagem.shape
+    if largura == LARGURA:
+        return imagem
+    return cv2.resize(imagem, (LARGURA, round(altura * LARGURA / largura)), interpolation=cv2.INTER_AREA)
 
 
 def ler_marcacoes(
     imagem: np.ndarray, alternativas: str, total_itens: int, itens_por_coluna: int | None = None
 ) -> list[Marcacao]:
-    """Localiza a grade de bolhas (itens numerados por coluna) e mede o preenchimento de cada bolha."""
-    binaria = cv2.threshold(
-        cv2.GaussianBlur(imagem, (3, 3), 0), 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
-    )[1]
-    candidatos = _candidatos(binaria)
+    """Localiza a grade de bolhas (itens numerados por coluna) e mede a tinta dentro de cada bolha."""
+    suave = cv2.GaussianBlur(imagem, (5, 5), 0)
+    escuras = cv2.adaptiveThreshold(suave, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 51, 4)
+    claras = cv2.adaptiveThreshold(suave, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 51, -4)
+    candidatos = _candidatos([*_circulos(escuras), *_circulos(claras)])
+    tinta = ((imagem < np.median(imagem) * _FRACAO_TINTA) * 255).astype(np.uint8)
     if len(candidatos) < len(alternativas):
         raise FolhaIlegivelError('nenhuma grade de bolhas encontrada')
     diametro = float(np.median(candidatos[:, 2]))
@@ -107,8 +131,8 @@ def ler_marcacoes(
         raise FolhaIlegivelError(
             f'grade detectada com {len(linhas)} linhas, mas itens_por_coluna = {itens_por_coluna}'
         )
-    colunas = _colunas(alinhados, linhas, diametro)
     grupos = -(-total_itens // len(linhas))
+    colunas = _colunas(alinhados, linhas, diametro, grupos * len(alternativas))
     if len(colunas) != grupos * len(alternativas):
         raise FolhaIlegivelError(
             f'grade de bolhas não reconhecida: {len(colunas)} colunas de bolhas e {len(linhas)} linhas; '
@@ -122,13 +146,13 @@ def ler_marcacoes(
         xs = colunas[grupo * len(alternativas) : (grupo + 1) * len(alternativas)]
         pontos = _transformar(inversa, np.array([(x, linhas[linha]) for x in xs]))
         centros = tuple((round(x), round(y)) for x, y in pontos)
-        preenchimentos = tuple(_preenchimento(binaria, c, raio) for c in centros)
+        preenchimentos = tuple(_preenchimento(tinta, c, raio) for c in centros)
         marcacoes.append(_classificar(questao, alternativas, preenchimentos, centros, round(diametro / 2)))
     return marcacoes
 
 
-def _candidatos(binaria: np.ndarray) -> np.ndarray:
-    """Contornos aproximadamente circulares (x, y, diâmetro), sem duplicatas de anéis concêntricos."""
+def _circulos(binaria: np.ndarray) -> list[tuple[float, float, float]]:
+    """Contornos aproximadamente circulares (x, y, diâmetro) do tamanho de uma bolha."""
     largura = binaria.shape[1]
     minimo, maximo = largura * 0.008, largura * 0.035
     contornos, _ = cv2.findContours(binaria, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -140,6 +164,11 @@ def _candidatos(binaria: np.ndarray) -> np.ndarray:
         perimetro = cv2.arcLength(contorno, True)
         if perimetro and 4 * np.pi * cv2.contourArea(contorno) / perimetro**2 >= _CIRCULARIDADE_MINIMA:
             achados.append((x + w / 2, y + h / 2, (w + h) / 2))
+    return achados
+
+
+def _candidatos(achados: list[tuple[float, float, float]]) -> np.ndarray:
+    """Círculos sem duplicatas (anel e miolo da mesma bolha) e com o diâmetro típico da folha."""
     if not achados:
         return np.empty((0, 3))
     achados.sort(key=lambda c: -c[2])
@@ -176,13 +205,16 @@ def _agrupar(valores: np.ndarray, distancia: float) -> list[np.ndarray]:
 def _linhas(ys: np.ndarray, diametro: float) -> list[float]:
     grupos = _agrupar(ys, diametro / 2)
     maior = max(len(g) for g in grupos)
-    return [float(g.mean()) for g in grupos if len(g) >= maior / 2]
+    return [float(g.mean()) for g in grupos if len(g) >= maior * _FRACAO_LINHA]
 
 
-def _colunas(pontos: np.ndarray, linhas: list[float], diametro: float) -> list[float]:
+def _colunas(pontos: np.ndarray, linhas: list[float], diametro: float, esperadas: int) -> list[float]:
+    """As `esperadas` colunas com mais bolhas nas linhas da grade; números dos itens geram colunas fracas."""
     na_grade = np.min(np.abs(pontos[:, 1, None] - np.array(linhas)[None, :]), axis=1) < diametro / 2
     grupos = _agrupar(pontos[na_grade, 0], diametro / 2)
-    return [float(g.mean()) for g in grupos if len(g) >= len(linhas) * 0.3]
+    fortes = [g for g in grupos if len(g) >= len(linhas) * 0.3]
+    escolhidas = sorted(fortes, key=len, reverse=True)[:esperadas]
+    return sorted(float(g.mean()) for g in escolhidas)
 
 
 def _preenchimento(binaria: np.ndarray, centro: tuple[int, int], raio: int) -> float:

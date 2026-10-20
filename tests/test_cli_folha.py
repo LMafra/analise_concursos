@@ -2,7 +2,7 @@ from pathlib import Path
 
 import cv2
 from conftest import analisar, criar_concurso, ler_csv
-from folha_sintetica import folha_cebraspe
+from folha_sintetica import folha_cebraspe, folha_fgv
 from PIL import Image
 
 TOTAL = 105
@@ -77,6 +77,30 @@ def test_limiar_de_revisao_vem_da_configuracao_global(raizes, tmp_path):
     assert analisar(provas, analises, '--config', str(configuracao)) == 0
 
     assert not ler_csv(analises / 'cebraspe' / 'respostas_extraidas.csv')['revisar'].any()
+
+
+def test_cartao_fgv_pelo_template(raizes):
+    provas, analises = raizes
+    gabarito = ''.join(f'{q} A\n' for q in range(1, 71))
+    criar_concurso(
+        provas,
+        'fgv',
+        {
+            'banca': 'fgv',
+            'formato': 'multipla_escolha',
+            'provas': {'unica': {'gabarito': 'gabarito.txt', 'itens': [1, 70]}},
+            'respostas': {'folha': 'cartao.png', 'template': 'fgv_mod70ae', 'total_itens': 70},
+        },
+        {'gabarito.txt': gabarito},
+    )
+    marcas = {q: 'ABCDE'[q % 5] for q in range(1, 71)}
+    cv2.imwrite(str(provas / 'fgv' / 'cartao.png'), folha_fgv(marcas, 70, 20))
+
+    assert analisar(provas, analises) == 0
+
+    respostas = ler_csv(analises / 'fgv' / 'respostas_extraidas.csv')
+    assert ''.join(respostas['alternativa_marcada']) == ''.join(marcas[q] for q in range(1, 71))
+    assert (analises / 'fgv' / 'depuracao' / 'cartao_p1.png').exists()
 
 
 def test_folha_ilegivel_falha_apontando_arquivo_e_pagina(raizes, caplog):

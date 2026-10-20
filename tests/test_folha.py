@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from folha_sintetica import folha_cebraspe
+from folha_sintetica import folha_cebraspe, folha_fgv
 
 from concursos.folha import FolhaIlegivelError, ler_marcacoes
 from concursos.modelo import Estado
@@ -65,6 +65,18 @@ def test_bolha_parcial_tem_confianca_baixa():
 
     assert marcacoes[5].confianca < 0.75
     assert all(m.confianca >= 0.75 for q, m in marcacoes.items() if q != 5)
+
+
+@pytest.mark.parametrize(('total', 'por_coluna'), [(70, 20), (90, 18)], ids=['mod70ae', 'cpnu_90'])
+def test_le_cartao_fgv_de_cinco_alternativas_com_faixas_cinzas(total, por_coluna):
+    sorteio = random.Random(11)
+    marcas = {q: sorteio.choice(['A', 'B', 'C', 'D', 'E', '', 'AC']) for q in range(1, total + 1)}
+    imagem = folha_fgv(marcas, total, por_coluna)
+
+    marcacoes = ler_marcacoes(imagem, 'ABCDE', total, por_coluna)
+
+    assert lidas(marcacoes) == esperado(marcas)
+    assert min(m.confianca for m in marcacoes) >= 0.75
 
 
 def test_itens_por_coluna_informado_diferente_do_detectado_falha():
