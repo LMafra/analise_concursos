@@ -47,9 +47,20 @@ class FolhaConfig:
 
 
 @dataclass(frozen=True)
+class PesoItens:
+    inicio: int
+    fim: int
+    peso: float
+
+
+@dataclass(frozen=True)
 class ResultadoOficialConfig:
     arquivo: str
     identificador: str | None = None
+    pesos: tuple[PesoItens, ...] = ()
+
+    def peso_de(self, questao: int) -> float:
+        return next((p.peso for p in self.pesos if p.inicio <= questao <= p.fim), 1.0)
 
 
 @dataclass(frozen=True)
@@ -167,9 +178,14 @@ def _montar_resultado(resultado: str | dict) -> ResultadoOficialConfig:
     if isinstance(resultado, str):
         return ResultadoOficialConfig(resultado)
     identificador = resultado.get('identificador')
+    pesos = tuple(
+        PesoItens(int(p['itens'][0]), int(p['itens'][1]), float(p['peso']))
+        for p in resultado.get('pesos') or ()
+    )
     return ResultadoOficialConfig(
         _obrigatorio(resultado, 'arquivo', 'resultado_oficial.'),
         None if identificador is None else str(identificador),
+        pesos,
     )
 
 

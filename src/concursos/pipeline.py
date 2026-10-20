@@ -13,6 +13,7 @@ from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.modelo import ItemGabarito, RespostaMarcada
 from concursos.relatorio import gerar_relatorio
 from concursos.respostas import ler_respostas_txt
+from concursos.resultado_oficial import validar_resultado
 from concursos.status import Situacao, avaliar
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,9 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
     respostas = _ler_respostas(config, destino, configuracao.limiar_confianca)
     resultados = corrigir(config, gabaritos, respostas)
+    validacao = validar_resultado(config, resultados)
+    if validacao is not None and (validacao.erro or validacao.divergente):
+        logger.warning('%s: %s', config.nome, validacao.descricao)
 
     destino.mkdir(parents=True, exist_ok=True)
     tabela = _tabela_respostas(config, respostas, configuracao.limiar_confianca)
@@ -93,7 +97,9 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     geral = agregar(resultados, ['concurso', 'prova'], config.pontuacao)
     por_disciplina.to_csv(destino / 'desempenho_por_disciplina.csv', index=False)
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
-    (destino / 'relatorio.md').write_text(gerar_relatorio(config, por_disciplina, geral), encoding='utf-8')
+    (destino / 'relatorio.md').write_text(
+        gerar_relatorio(config, por_disciplina, geral, validacao), encoding='utf-8'
+    )
     logger.info('Saídas de %s gravadas em %s', config.nome, destino)
 
 
