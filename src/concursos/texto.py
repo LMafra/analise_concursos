@@ -15,12 +15,15 @@ class OcrIndisponivelError(RuntimeError):
     pass
 
 
-def extrair_paginas(caminho: Path) -> list[str]:
-    """Texto de cada página do PDF; páginas sem camada de texto passam por OCR (Tesseract)."""
+def extrair_paginas(caminho: Path, ocr: bool = True) -> list[str]:
+    """Texto de cada página (PDF ou txt com páginas separadas por form feed); páginas sem camada de
+    texto passam por OCR (Tesseract), a menos que ocr=False."""
+    if caminho.suffix.lower() != '.pdf':
+        return caminho.read_text(encoding='utf-8').split('\f')
     with pdfplumber.open(caminho) as pdf:
         paginas = [pagina.extract_text() or '' for pagina in pdf.pages]
     sem_texto = [i for i, texto in enumerate(paginas) if len(texto.strip()) < MINIMO_CARACTERES_PAGINA]
-    if sem_texto:
+    if sem_texto and ocr:
         logger.info('%s: %d página(s) sem texto, aplicando OCR', caminho.name, len(sem_texto))
         for indice, texto in zip(sem_texto, _ocr(caminho, sem_texto), strict=True):
             paginas[indice] = texto

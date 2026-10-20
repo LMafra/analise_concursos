@@ -10,8 +10,12 @@ def corrigir(
     config: ConcursoConfig,
     gabaritos: dict[str, list[ItemGabarito]],
     respostas: list[RespostaMarcada],
+    disciplinas: dict[int, str] | None = None,
 ) -> pd.DataFrame:
-    """Uma linha por questão com gabarito, resposta e resultado (acerto/erro/branco)."""
+    """Uma linha por questão com gabarito, resposta e resultado (acerto/erro/branco).
+
+    `disciplinas` (questão → disciplina) substitui as faixas do concurso.yaml quando informado.
+    """
     por_questao = {r.questao: r for r in respostas}
     linhas = []
     for prova in config.provas:
@@ -23,7 +27,9 @@ def corrigir(
                     'concurso': config.nome,
                     'prova': prova.chave,
                     'questao': item.questao,
-                    'disciplina': prova.disciplina_de(item.questao),
+                    'disciplina': disciplinas.get(item.questao, TOPICO_NAO_MAPEADO)
+                    if disciplinas is not None
+                    else prova.disciplina_de(item.questao),
                     'topico': TOPICO_NAO_MAPEADO,
                     'gabarito': item.resposta,
                     'resposta': marcada,

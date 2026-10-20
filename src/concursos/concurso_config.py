@@ -34,8 +34,14 @@ class GabaritoConfig:
 
 @dataclass(frozen=True)
 class EditalConfig:
-    arquivo: str
+    arquivo: str | None
     anexos: tuple[str, ...] = ()
+    manual: str | None = None
+
+    @property
+    def documentos(self) -> list[str]:
+        """Anexos primeiro: em editais fragmentados (CPNU), o conteúdo programático fica no anexo."""
+        return [*self.anexos, *([self.arquivo] if self.arquivo else [])]
 
 
 @dataclass(frozen=True)
@@ -171,7 +177,9 @@ def _montar_folha(respostas: dict) -> FolhaConfig:
 def _montar_edital(edital: str | dict) -> EditalConfig:
     if isinstance(edital, str):
         return EditalConfig(edital)
-    return EditalConfig(_obrigatorio(edital, 'arquivo', 'edital.'), tuple(edital.get('anexos') or ()))
+    manual = edital.get('manual')
+    arquivo = edital.get('arquivo') if manual else _obrigatorio(edital, 'arquivo', 'edital.')
+    return EditalConfig(arquivo, tuple(edital.get('anexos') or ()), manual)
 
 
 def _montar_resultado(resultado: str | dict) -> ResultadoOficialConfig:

@@ -25,6 +25,7 @@ BANCAS = ('cebraspe', 'fgv', 'selecon', 'quadrix')
 TEMPLATES_FOLHA = ('cebraspe_ce', 'fgv_mod70ae', 'fgv_cpnu_90')
 _TEMPLATE_FGV_POR_TOTAL = {70: 'fgv_mod70ae', 90: 'fgv_cpnu_90'}
 _CHAVES_CEBRASPE = (('CONHECIMENTOS GERAIS', 'cg'), ('CONHECIMENTOS BASICOS', 'cb'))
+_CARGO_CEBRASPE = re.compile(r'((?:CARGO|EMPREGO)\s+\d+\s*:.+?)(?:\s+-\s+C[ÓO]DIGO\b.*)?$', re.MULTILINE)
 _IGNORAR = 'ignorar'
 _NENHUM = '(nenhum)'
 
@@ -148,6 +149,8 @@ class _Cadastro:
                 if secao.tipo:
                     dados['tipo'] = secao.tipo
             provas[chave] = self._prova(chave, gabarito, secao, cadernos, banca)
+        if 'cargo' not in dados and self.anterior.get('cargo'):
+            dados['cargo'] = self.anterior['cargo']
         valores = {i.resposta for g in gabaritos.values() for s in g.secoes for i in s.itens if not i.anulada}
         certo_errado = banca == 'cebraspe' or valores <= set(Formato.CERTO_ERRADO.alternativas)
         dados['formato'] = (Formato.CERTO_ERRADO if certo_errado else Formato.MULTIPLA_ESCOLHA).value
@@ -170,10 +173,11 @@ class _Cadastro:
 
     def _ler_gabarito(self, detectado: ArquivoDetectado, banca: str) -> _Gabarito:
         nome = self._nome(detectado)
+        cargo = _cargo_cebraspe(detectado.texto) if banca == 'cebraspe' else ''
         if detectado.caminho.suffix.lower() != '.pdf':
-            secoes = [Secao('', None, ler_gabarito_texto(detectado.texto, Formato.MULTIPLA_ESCOLHA, nome))]
+            secoes = [Secao(cargo, None, ler_gabarito_texto(detectado.texto, Formato.MULTIPLA_ESCOLHA, nome))]
         elif banca == 'cebraspe':
-            secoes = [Secao('', None, ler_gabarito_cebraspe(extrair_texto(detectado.caminho), nome))]
+            secoes = [Secao(cargo, None, ler_gabarito_cebraspe(extrair_texto(detectado.caminho), nome))]
         else:
             secoes = listar_secoes(detectado.caminho, banca)
         return _Gabarito(nome, detectado.status_gabarito, _chave_prova(detectado.texto, banca), secoes)
@@ -252,8 +256,10 @@ class _Cadastro:
         return self._nome(escolhido)
 
     def _edital(self, editais: list[ArquivoDetectado]) -> str | dict | None:
+        anterior = self.anterior.get('edital')
+        manual = anterior.get('manual') if isinstance(anterior, dict) else None
         if not editais:
-            return None
+            return {'manual': manual} if manual else None
         nomes = [self._nome(e) for e in editais]
         principais = [self._nome(e) for e in editais if not eh_anexo(e.texto)]
         if len(editais) == 1 or len(principais) == 1:
@@ -261,7 +267,14 @@ class _Cadastro:
         else:
             principal = self.interacao.escolher('Qual é o edital principal? (os demais serão anexos)', nomes)
         anexos = [n for n in nomes if n != principal]
-        return {'arquivo': principal, 'anexos': anexos} if anexos else principal
+        if not anexos and not manual:
+            return principal
+        edital: dict = {'arquivo': principal}
+        if anexos:
+            edital['anexos'] = anexos
+        if manual:
+            edital['manual'] = manual
+        return edital
 
     def _respostas(self, fontes: list[ArquivoDetectado], banca: str, total_itens: int) -> dict | None:
         if not fontes:
@@ -303,7 +316,12 @@ class _Cadastro:
         identificador = self.interacao.perguntar(
             'Seu identificador no resultado oficial (inscrição; vazio se não souber)', sugestao
         )
-        return {'arquivo': nome, 'identificador': identificador} if identificador else {'arquivo': nome}
+        resultado: dict = {'arquivo': nome}
+        if identificador:
+            resultado['identificador'] = identificador
+        if isinstance(anterior, dict) and anterior.get('pesos'):
+            resultado['pesos'] = anterior['pesos']
+        return resultado
 
     def _ignorados(self, dados: dict) -> list[str]:
         referenciados = set()
@@ -311,7 +329,7 @@ class _Cadastro:
             referenciados |= {prova['gabarito']['arquivo'], prova.get('caderno')}
         edital = dados.get('edital')
         if isinstance(edital, dict):
-            referenciados |= {edital['arquivo'], *edital['anexos']}
+            referenciados |= {edital.get('arquivo'), *edital.get('anexos', ())}
         else:
             referenciados.add(edital)
         respostas = dados.get('respostas') or {}
@@ -356,6 +374,12 @@ def _chave_prova(texto: str, banca: str) -> str:
         return 'unica'
     cabecalho = normalizar(texto[:1500])
     return next((chave for marca, chave in _CHAVES_CEBRASPE if marca in cabecalho), 'ce')
+
+
+def _cargo_cebraspe(texto: str) -> str:
+    """'CARGO 2: TÉCNICO LEGISLATIVO – ... - CÓDIGO: X' no cabeçalho do gabarito de conhecimentos específicos."""
+    encontrado = _CARGO_CEBRASPE.search(texto[:1500])
+    return encontrado.group(1).strip() if encontrado else ''
 
 
 def _itens(secao: Secao) -> list[int]:

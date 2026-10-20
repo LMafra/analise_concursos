@@ -76,7 +76,11 @@ def test_cebraspe_gera_uma_prova_por_gabarito_com_regra_cebraspe(raizes, monkeyp
         provas,
         {
             'g1.txt': '# CEBRASPE - CONHECIMENTOS GERAIS - gabarito definitivo\n1 C\n2 E\n3 C\n',
-            'g2.txt': '# CEBRASPE - CONHECIMENTOS ESPECIFICOS - gabarito definitivo\n4 E\n5 X\n6 C\n',
+            'g2.txt': (
+                '# CEBRASPE - gabarito definitivo\n'
+                '# CARGO 2: ANALISTA DE TI – ESPECIALIDADE: DADOS - CÓDIGO: X-02\n'
+                '4 E\n5 X\n6 C\n'
+            ),
             'respostas.txt': '1 C\n2 C\n3 C\n4 E\n5 -\n6 -\n',
         },
     )
@@ -92,6 +96,7 @@ def test_cebraspe_gera_uma_prova_por_gabarito_com_regra_cebraspe(raizes, monkeyp
     )
     assert config['provas']['cg']['itens'] == [1, 3]
     assert config['provas']['ce']['itens'] == [4, 6]
+    assert config['cargo'] == 'CARGO 2: ANALISTA DE TI – ESPECIALIDADE: DADOS'
     assert analisar(provas, analises) == 0
 
 

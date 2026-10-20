@@ -44,6 +44,13 @@ def avaliar(pasta: Path) -> StatusConcurso:
             )
     else:
         motivos.append('respostas não configuradas (folha de resposta ou respostas.txt)')
+    if config.edital is not None:
+        documentos = [*config.edital.documentos, *([config.edital.manual] if config.edital.manual else [])]
+        motivos += [
+            f'{config.caminho(arquivo)}: arquivo ausente (edital)'
+            for arquivo in documentos
+            if not config.caminho(arquivo).exists()
+        ]
 
     situacao = Situacao.INCOMPLETO if motivos else Situacao.COMPLETO
     return StatusConcurso(config.nome, situacao, tuple(motivos), _status_gabarito(config), config)

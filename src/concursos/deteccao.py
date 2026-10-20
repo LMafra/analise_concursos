@@ -160,6 +160,7 @@ def arquivo_do_sistema(caminho: Path, pasta: Path) -> bool:
     relativo = caminho.relative_to(pasta)
     return (
         caminho.name in ARQUIVOS_DO_SISTEMA
+        or caminho.suffix.lower() in {'.yaml', '.yml'}
         or caminho.name.endswith(':Zone.Identifier')
         or relativo.parts[0] in PASTAS_DO_SISTEMA
     )

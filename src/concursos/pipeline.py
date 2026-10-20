@@ -5,9 +5,11 @@ import pandas as pd
 
 from concursos import manifesto
 from concursos.agregacao import agregar
+from concursos.caderno import faixas_do_caderno
 from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig
 from concursos.configuracao import ConfiguracaoGlobal
 from concursos.correcao import corrigir
+from concursos.edital import Edital, EditalNaoEstruturadoError, carregar_edital_manual, estruturar_edital
 from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.modelo import ItemGabarito, RespostaMarcada
@@ -15,8 +17,12 @@ from concursos.relatorio import gerar_relatorio
 from concursos.respostas import ler_respostas_txt
 from concursos.resultado_oficial import validar_resultado
 from concursos.status import Situacao, avaliar
+from concursos.texto import MINIMO_CARACTERES_PAGINA, extrair_paginas
 
 logger = logging.getLogger(__name__)
+
+BANCAS_COM_CABECALHO = {'fgv', 'selecon'}
+COLUNAS_QUESTOES = ['questao', 'prova', 'disciplina', 'gabarito', 'anulada']
 
 COLUNAS_RESPOSTAS = [
     'concurso',
@@ -82,9 +88,10 @@ def _analisar_se_necessario(
 
 def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: ConfiguracaoGlobal) -> None:
     logger.info('Analisando %s', config.nome)
+    edital = _ler_edital(config)
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
     respostas = _ler_respostas(config, destino, configuracao.limiar_confianca)
-    resultados = corrigir(config, gabaritos, respostas)
+    resultados = corrigir(config, gabaritos, respostas, _disciplinas_por_questao(config))
     validacao = validar_resultado(config, resultados)
     if validacao is not None and (validacao.erro or validacao.divergente):
         logger.warning('%s: %s', config.nome, validacao.descricao)
@@ -92,6 +99,9 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     destino.mkdir(parents=True, exist_ok=True)
     tabela = _tabela_respostas(config, respostas, configuracao.limiar_confianca)
     tabela.to_csv(destino / 'respostas_extraidas.csv', index=False)
+    resultados[COLUNAS_QUESTOES].to_csv(destino / 'questoes.csv', index=False)
+    if edital is not None:
+        edital.gravar_json(destino / 'edital_estruturado.json')
     por_disciplina = agregar(resultados, ['concurso', 'prova', 'disciplina'], config.pontuacao)
     por_topico = agregar(resultados, ['concurso', 'prova', 'disciplina', 'topico'], config.pontuacao)
     geral = agregar(resultados, ['concurso', 'prova'], config.pontuacao)
@@ -101,6 +111,56 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
         gerar_relatorio(config, por_disciplina, geral, validacao), encoding='utf-8'
     )
     logger.info('Saídas de %s gravadas em %s', config.nome, destino)
+
+
+def _ler_edital(config: ConcursoConfig) -> Edital | None:
+    if config.edital is None:
+        return None
+    if config.edital.manual:
+        return carregar_edital_manual(config.caminho(config.edital.manual), config.cargo)
+    erros = []
+    for arquivo in config.edital.documentos:
+        caminho = config.caminho(arquivo)
+        try:
+            return _estruturar_documento(caminho, config.cargo)
+        except EditalNaoEstruturadoError as erro:
+            erros.append(str(erro))
+    raise EditalNaoEstruturadoError(
+        f'{"; ".join(erros)}. Forneça o conteúdo programático num edital manual '
+        '(edital.manual no concurso.yaml; formato em docs/modelo.md)'
+    )
+
+
+def _estruturar_documento(caminho: Path, cargo: str | None) -> Edital:
+    paginas = extrair_paginas(caminho, ocr=False)
+    try:
+        return estruturar_edital(paginas, cargo, caminho.name)
+    except EditalNaoEstruturadoError:
+        if all(len(p.strip()) >= MINIMO_CARACTERES_PAGINA for p in paginas):
+            raise
+    logger.info('%s: conteúdo programático não encontrado no texto; tentando com OCR', caminho.name)
+    return estruturar_edital(extrair_paginas(caminho), cargo, caminho.name)
+
+
+def _disciplinas_por_questao(config: ConcursoConfig) -> dict[int, str]:
+    """Faixas manuais do concurso.yaml; sem elas, cabeçalhos do caderno (FGV e SELECON)."""
+    disciplinas = {}
+    for prova in config.provas:
+        faixas = prova.disciplinas
+        if not faixas and prova.caderno and config.banca in BANCAS_COM_CABECALHO:
+            faixas = tuple(faixas_do_caderno(config.caminho(prova.caderno), prova.inicio))
+            cobertas = sum(f.fim - f.inicio + 1 for f in faixas)
+            logger.info(
+                '%s: disciplinas de %d de %d questões pelo caderno',
+                prova.caderno,
+                cobertas,
+                len(prova.questoes),
+            )
+        for faixa in faixas:
+            disciplinas.update(
+                {q: faixa.disciplina for q in range(faixa.inicio, faixa.fim + 1) if q in prova.questoes}
+            )
+    return disciplinas
 
 
 def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabarito]:
