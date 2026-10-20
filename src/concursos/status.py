@@ -29,10 +29,14 @@ class StatusConcurso:
 
 
 def listar_concursos(raiz_provas: Path) -> list[Path]:
-    return sorted(p for p in raiz_provas.iterdir() if (p / ARQUIVO_CONFIG).exists())
+    """Subpastas de provas/, cadastradas ou não (as não cadastradas aparecem como incompletas)."""
+    return sorted(p for p in raiz_provas.iterdir() if p.is_dir() and not p.name.startswith('.'))
 
 
 def avaliar(pasta: Path) -> StatusConcurso:
+    if not (pasta / ARQUIVO_CONFIG).exists():
+        motivo = f'{ARQUIVO_CONFIG} ausente; rode `concursos adicionar {pasta}`'
+        return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
     try:
         config = carregar_concurso(pasta)
     except ConfiguracaoInvalidaError as erro:
