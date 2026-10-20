@@ -6,7 +6,9 @@ import pandas as pd
 from concursos import manifesto
 from concursos.agregacao import agregar
 from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig
+from concursos.configuracao import ConfiguracaoGlobal
 from concursos.correcao import corrigir
+from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.modelo import ItemGabarito, RespostaMarcada
 from concursos.relatorio import gerar_relatorio
@@ -38,9 +40,14 @@ class ConcursoNaoEncontradoError(ValueError):
 
 
 def analisar_todos(
-    raiz_provas: Path, raiz_analises: Path, forcar: bool = False, apenas: str | None = None
+    raiz_provas: Path,
+    raiz_analises: Path,
+    forcar: bool = False,
+    apenas: str | None = None,
+    configuracao: ConfiguracaoGlobal | None = None,
 ) -> bool:
     """Analisa os concursos completos que mudaram; retorna False se algum falhou durante a análise."""
+    configuracao = configuracao or ConfiguracaoGlobal()
     pastas = listar_concursos(raiz_provas)
     if apenas is not None:
         pastas = [p for p in pastas if p.name == apenas]
@@ -48,11 +55,13 @@ def analisar_todos(
             raise ConcursoNaoEncontradoError(f'{raiz_provas / apenas}: concurso não encontrado')
     sucesso = True
     for pasta in pastas:
-        sucesso &= _analisar_se_necessario(pasta, raiz_analises / pasta.name, forcar)
+        sucesso &= _analisar_se_necessario(pasta, raiz_analises / pasta.name, forcar, configuracao)
     return sucesso
 
 
-def _analisar_se_necessario(pasta: Path, destino: Path, forcar: bool) -> bool:
+def _analisar_se_necessario(
+    pasta: Path, destino: Path, forcar: bool, configuracao: ConfiguracaoGlobal
+) -> bool:
     situacao = avaliar(pasta)
     if situacao.situacao is not Situacao.COMPLETO:
         logger.warning('%s: %s, pulando: %s', situacao.nome, situacao.situacao, '; '.join(situacao.motivos))
@@ -62,7 +71,7 @@ def _analisar_se_necessario(pasta: Path, destino: Path, forcar: bool) -> bool:
         return True
     manifesto.invalidar(destino)
     try:
-        analisar_concurso(situacao.config, destino)
+        analisar_concurso(situacao.config, destino, configuracao)
     except (ValueError, FileNotFoundError, RuntimeError) as erro:
         logger.error('%s: falha na análise: %s', situacao.nome, erro)
         return False
@@ -70,14 +79,15 @@ def _analisar_se_necessario(pasta: Path, destino: Path, forcar: bool) -> bool:
     return True
 
 
-def analisar_concurso(config: ConcursoConfig, destino: Path) -> None:
+def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: ConfiguracaoGlobal) -> None:
     logger.info('Analisando %s', config.nome)
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
-    respostas = _ler_respostas(config)
+    respostas = _ler_respostas(config, destino, configuracao.limiar_confianca)
     resultados = corrigir(config, gabaritos, respostas)
 
     destino.mkdir(parents=True, exist_ok=True)
-    _tabela_respostas(config, respostas).to_csv(destino / 'respostas_extraidas.csv', index=False)
+    tabela = _tabela_respostas(config, respostas, configuracao.limiar_confianca)
+    tabela.to_csv(destino / 'respostas_extraidas.csv', index=False)
     por_disciplina = agregar(resultados, ['concurso', 'prova', 'disciplina'], config.pontuacao)
     por_topico = agregar(resultados, ['concurso', 'prova', 'disciplina', 'topico'], config.pontuacao)
     geral = agregar(resultados, ['concurso', 'prova'], config.pontuacao)
@@ -103,13 +113,31 @@ def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabari
     return gabarito.itens
 
 
-def _ler_respostas(config: ConcursoConfig) -> list[RespostaMarcada]:
+def _ler_respostas(config: ConcursoConfig, destino: Path, limiar: float) -> list[RespostaMarcada]:
     questoes = [q for prova in config.provas for q in prova.questoes]
-    texto = config.caminho(config.respostas_arquivo).read_text(encoding='utf-8')
-    return ler_respostas_txt(texto, config.formato, questoes, config.respostas_arquivo)
+    if config.respostas_arquivo is not None:
+        texto = config.caminho(config.respostas_arquivo).read_text(encoding='utf-8')
+        return ler_respostas_txt(texto, config.formato, questoes, config.respostas_arquivo)
+    folha = config.folha
+    lidas = ler_folha(
+        config.caminho(folha.arquivo),
+        folha.template,
+        folha.total_itens or max(questoes),
+        folha.itens_por_coluna,
+        destino / 'depuracao',
+        limiar,
+    )
+    por_questao = {r.questao: r for r in lidas}
+    if faltando := [q for q in questoes if q not in por_questao]:
+        raise FolhaIlegivelError(
+            f'{folha.arquivo}: a folha tem {len(lidas)} itens, faltam as questões {faltando[0]}-{faltando[-1]}'
+        )
+    return [por_questao[q] for q in questoes]
 
 
-def _tabela_respostas(config: ConcursoConfig, respostas: list[RespostaMarcada]) -> pd.DataFrame:
+def _tabela_respostas(
+    config: ConcursoConfig, respostas: list[RespostaMarcada], limiar: float
+) -> pd.DataFrame:
     linhas = []
     for resposta in respostas:
         linhas.append(
@@ -120,7 +148,7 @@ def _tabela_respostas(config: ConcursoConfig, respostas: list[RespostaMarcada]) 
                 'alternativa_marcada': resposta.alternativa or '',
                 'estado': resposta.estado.value,
                 'confianca_ocr': resposta.confianca,
-                'revisar': False,
+                'revisar': resposta.confianca < limiar,
                 'origem': resposta.origem.value,
                 'arquivo': resposta.arquivo,
                 'pagina': resposta.pagina if resposta.pagina is not None else '',

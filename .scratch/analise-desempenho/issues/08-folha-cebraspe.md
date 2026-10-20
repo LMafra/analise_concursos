@@ -4,9 +4,20 @@
 
 **Blocked by:** 01, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Testes com imagens sintéticas: bolha cheia, vazia, dupla e parcial, grade levemente rotacionada e dimensões de grade diferentes.
-- [ ] A confiança é a margem entre a bolha mais preenchida e a segunda, e o limiar vem da configuração global.
-- [ ] A calibração manual em `cd_25`, `telebras` e `infrasa` tem 100% das questões listadas. As questões com `revisar` são conferidas visualmente e o resultado fica registrado no ticket.
-- [ ] Falha de leitura é rastreável até arquivo, página e questão.
+- [x] Testes com imagens sintéticas: bolha cheia, vazia, dupla e parcial, grade levemente rotacionada e dimensões de grade diferentes.
+- [x] A confiança é a margem entre a bolha mais preenchida e a segunda, e o limiar vem da configuração global.
+- [x] A calibração manual em `cd_25`, `telebras` e `infrasa` tem 100% das questões listadas. As questões com `revisar` são conferidas visualmente e o resultado fica registrado no ticket.
+- [x] Falha de leitura é rastreável até arquivo, página e questão.
+
+## Calibração manual (folhas reais, limiar 0,75)
+
+Preenchimento medido no centro das bolhas: vazias entre 0,0 e 0,2; marcadas acima de 0,9. Normalização: `VAZIO = 0,2`, `CHEIO = 0,9`.
+
+| Concurso | Grade | Questões listadas | `revisar` | Conferência visual |
+|---|---|---|---|---|
+| cd_25 | 9×20 | 180/180 | 0 | itens 1–20 conferidos um a um; sobreposição alinhada em toda a grade |
+| telebras | 8×15 | 120/120 | 0 | sobreposição alinhada em toda a grade |
+| infrasa | 7×15 (última coluna 91–100) | 100/100 | 0 | sobreposição alinhada, coluna parcial lida |
+| tcu_25, funpresp_jud, pf_perito | 10×20, 8×15, 8×15 | 200, 120, 120 | 0 | confiança mínima 1,0 |

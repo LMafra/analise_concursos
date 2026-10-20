@@ -5,6 +5,7 @@ from pathlib import Path
 
 from concursos.assistente import InteracaoAutomatica, InteracaoConsole
 from concursos.cadastro import cadastrar
+from concursos.configuracao import carregar_configuracao_global
 from concursos.pipeline import analisar_todos, listar_concursos
 from concursos.status import avaliar, formatar_tabela
 
@@ -21,7 +22,10 @@ def main(argv: list[str] | None = None) -> int:
             interacao = InteracaoAutomatica() if args.aceitar_sugestoes else InteracaoConsole()
             return 0 if cadastrar(Path(args.pasta), interacao) else 1
         if args.comando == 'analisar':
-            sucesso = analisar_todos(Path(args.provas), Path(args.analises), args.forcar, args.concurso)
+            configuracao = carregar_configuracao_global(Path(args.config))
+            sucesso = analisar_todos(
+                Path(args.provas), Path(args.analises), args.forcar, args.concurso, configuracao
+            )
             return 0 if sucesso else 1
         if args.comando == 'status':
             situacoes = [avaliar(pasta) for pasta in listar_concursos(Path(args.provas))]
@@ -53,6 +57,7 @@ def _parser() -> argparse.ArgumentParser:
     analisar.add_argument('--analises', default='analises', help='pasta de saída')
     analisar.add_argument('--forcar', action='store_true', help='reprocessa mesmo sem mudanças')
     analisar.add_argument('--concurso', help='processa apenas o concurso com este nome de pasta')
+    analisar.add_argument('--config', default='config.yaml', help='limiares globais (opcional)')
 
     status = subcomandos.add_parser('status', help='mostra a situação de cada concurso')
     status.add_argument('--provas', default='provas', help='pasta com um subdiretório por concurso')

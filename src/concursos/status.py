@@ -3,6 +3,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, carregar_concurso
+from concursos.folha import TEMPLATES
 
 
 class Situacao(StrEnum):
@@ -35,7 +36,12 @@ def avaliar(pasta: Path) -> StatusConcurso:
         if not config.caminho(config.respostas_arquivo).exists():
             motivos.append(f'{config.caminho(config.respostas_arquivo)}: arquivo ausente (respostas)')
     elif config.folha is not None:
-        motivos.append(f'{config.folha.arquivo}: leitura da folha de resposta ainda não disponível')
+        if not config.caminho(config.folha.arquivo).exists():
+            motivos.append(f'{config.caminho(config.folha.arquivo)}: arquivo ausente (folha de resposta)')
+        elif config.folha.template not in TEMPLATES:
+            motivos.append(
+                f'{config.folha.arquivo}: leitura do template {config.folha.template!r} ainda não disponível'
+            )
     else:
         motivos.append('respostas não configuradas (folha de resposta ou respostas.txt)')
 
