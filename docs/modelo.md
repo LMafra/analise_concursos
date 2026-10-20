@@ -57,6 +57,34 @@ Uma leitura abaixo de `limiar_confianca` fica com `revisar = True`.
 - `simples`: nota líquida = acertos;
 - `cebraspe`: nota líquida = acertos − erros.
 
+**Modelo de correção.** É a regra de pontuação da prova objetiva definida no edital. Tem:
+- modelo: `bruta` (acerto vale 1, sem desconto) ou `liquida` (cada erro anula `fator_penalidade` acertos);
+- fator de penalidade (1,0 na Cebraspe; 0 nas FGV analisadas);
+- nota máxima e nota de corte do conjunto das provas objetivas;
+- fonte: `edital`, `config` ou `default`;
+- confiança da extração (0–1) e o trecho, o documento e a página de onde a regra foi lida.
+
+A regra é extraída por regex do texto dos documentos do edital (anexos primeiro, sem OCR). A precedência é edital, depois `concurso.yaml`, depois default (`bruta`, fator 0). A nota máxima e a nota de corte seguem a mesma ordem, campo a campo. Sem nota máxima em nenhuma fonte, ela é o número de itens do concurso.
+
+A análise emite aviso quando:
+- a regra cai no default (o aviso é mais forte se o edital mencionar penalidade: "ponto negativo", "desconto de", "descontado", "anula um acerto");
+- o fator do bloco `correcao` difere do edital (vale o edital);
+- a `pontuacao` declarada contradiz a regra vinda do edital ou do bloco `correcao` (`cebraspe` com fator diferente de 1, ou `simples` com fator diferente de 0). No default, vale só o aviso de default.
+
+A `pontuacao` continua alimentando a `nota_liquida` dos CSVs; o modelo de correção alimenta a análise evolutiva.
+
+**Pontuação por item.** Cada questão não anulada recebe três pontuações:
+
+| versão | acerto | erro | branco |
+|---|---|---|---|
+| bruta | 1 | 0 | 0 |
+| corrigida (regra do edital) | 1 | \(-f\) | 0 |
+| ajustada ao acaso | 1 | \(-1/(k-1)\) | 0 |
+
+\(f\) é o fator de penalidade, e \(k\) é o número de alternativas: 2 em `certo_errado` (erro vale −1) e 5 em `multipla_escolha` (erro vale −0,25). A versão ajustada é a métrica padrão para comparar concursos, porque um chute puro vale 0 nos dois formatos.
+
+As anuladas ficam fora das três versões (não medem conhecimento) e os percentuais podem ser negativos. A exceção é a nota do concurso, que segue o edital: soma das pontuações corrigidas, com cada anulada valendo 1 ponto. A nota normalizada é \(\max(0, \text{nota}/\text{nota máxima} \times 100)\), truncada em 0 só ela. Na Cebraspe, a nota corrigida é igual à soma da `nota_liquida` legada.
+
 **EventoHistórico.** Registra mudanças no concurso. Hoje só existe a troca do gabarito preliminar pelo definitivo, com data, tipo (`gabarito_definitivo`), prova, arquivo anterior e arquivo novo.
 
 **Validação oficial.** Compara o desempenho calculado com o resultado oficial da banca. A medida é acertos ou pontos, com pesos opcionais por faixa de itens. Uma divergência vira alerta. Se o resultado inclui outras fases, a comparação é só informativa.
@@ -101,6 +129,11 @@ resultado_oficial:             # opcional
   identificador: '12345678'    # inscrição do candidato
   pesos:                       # opcional; peso por faixa de itens
     - {itens: [101, 200], peso: 2}
+correcao:                      # opcional; complementa ou substitui a regra extraída do edital
+  modelo: liquida              # bruta | liquida (liquida exige fator > 0; bruta exige fator 0)
+  fator_penalidade: 1          # acertos anulados por erro
+  nota_maxima: 200             # padrão: número de itens
+  nota_corte: 60               # nota mínima no conjunto das provas objetivas
 ignorar: [gabarito_prel.pdf]   # arquivos da pasta que não são usados
 historico:
   - {data: '2026-10-19', tipo: gabarito_definitivo, prova: cb, anterior: gabarito_prel.pdf, novo: gabarito_cb.pdf}
@@ -161,6 +194,11 @@ Por concurso, em `analises/<concurso>/`:
   - `mudanca` (`alterada | anulada`);
   - `resposta`, `acerto_antes`, `acerto_depois`.
 - **`edital_estruturado.json`:** `fonte`, `cargo` e `conhecimentos[].disciplinas[].topicos[]`. Cada tópico tem `numero`, `nome`, `descricao` e `peso`.
+- **`correcao.json`:** lista de configurações de correção (uma por variante; hoje sempre uma). Campos:
+  - `modelo`, `fator_penalidade`, `nota_maxima`, `nota_corte`;
+  - `fonte` (`edital | config | default`), `confianca`;
+  - `trecho_origem`, `documento_origem`, `pagina_origem` (preenchidos quando a fonte é o edital);
+  - `variante` (`null` quando o concurso não tem variantes).
 - **`validacao_oficial.json`:** `arquivo`, `descricao` e `alerta`. Só existe quando há resultado oficial.
 - **`relatorio.md` e `graficos/*.png`:** o relatório; os gráficos ficam na pasta indicada.
 - **`historico/<data>_gabarito_preliminar/`:** cópia das saídas anteriores à troca de gabarito.

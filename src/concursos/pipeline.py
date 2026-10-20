@@ -5,6 +5,7 @@ import pandas as pd
 
 from concursos import manifesto
 from concursos.agregacao import agregar
+from concursos.analytics.correcao import gravar_correcao, resolver_correcao
 from concursos.atualizacao import ARQUIVO_DIFF, diff_gabarito, questoes_preliminares, trocar_gabaritos
 from concursos.caderno import faixas_do_caderno
 from concursos.concurso_config import ConcursoConfig, ProvaConfig
@@ -105,7 +106,8 @@ def _analisar_se_necessario(
 
 def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: ConfiguracaoGlobal) -> None:
     logger.info('Analisando %s', config.nome)
-    edital = _ler_edital(config)
+    documentos = _paginas_dos_documentos(config)
+    edital = _ler_edital(config, documentos)
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
     respostas = _ler_respostas(config, destino, configuracao.limiar_confianca)
     resultados = corrigir(config, gabaritos, respostas, _disciplinas_por_questao(config))
@@ -125,6 +127,7 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     geral = agregar(resultados, ['concurso', 'prova'], config.pontuacao)
     por_disciplina.to_csv(destino / 'desempenho_por_disciplina.csv', index=False)
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
+    gravar_correcao(resolver_correcao(config, documentos), destino)
     diff = _diff_da_troca(destino, resultados)
     gravar_validacao(validacao, destino)
     conteudo = ConteudoRelatorio(
@@ -151,16 +154,24 @@ def _diff_da_troca(destino: Path, resultados: pd.DataFrame) -> pd.DataFrame | No
     return diff
 
 
-def _ler_edital(config: ConcursoConfig) -> Edital | None:
+def _paginas_dos_documentos(config: ConcursoConfig) -> dict[str, list[str]]:
+    """Texto (sem OCR) de cada documento do edital, lido uma vez para o conteúdo programático e a correção."""
+    if config.edital is None:
+        return {}
+    return {
+        arquivo: extrair_paginas(config.caminho(arquivo), ocr=False) for arquivo in config.edital.documentos
+    }
+
+
+def _ler_edital(config: ConcursoConfig, documentos: dict[str, list[str]]) -> Edital | None:
     if config.edital is None:
         return None
     if config.edital.manual:
         return carregar_edital_manual(config.caminho(config.edital.manual), config.cargo)
     erros = []
-    for arquivo in config.edital.documentos:
-        caminho = config.caminho(arquivo)
+    for arquivo, paginas in documentos.items():
         try:
-            return _estruturar_documento(caminho, config.cargo)
+            return _estruturar_documento(config.caminho(arquivo), paginas, config.cargo)
         except EditalNaoEstruturadoError as erro:
             erros.append(str(erro))
     raise EditalNaoEstruturadoError(
@@ -169,8 +180,7 @@ def _ler_edital(config: ConcursoConfig) -> Edital | None:
     )
 
 
-def _estruturar_documento(caminho: Path, cargo: str | None) -> Edital:
-    paginas = extrair_paginas(caminho, ocr=False)
+def _estruturar_documento(caminho: Path, paginas: list[str], cargo: str | None) -> Edital:
     try:
         return estruturar_edital(paginas, cargo, caminho.name)
     except EditalNaoEstruturadoError:

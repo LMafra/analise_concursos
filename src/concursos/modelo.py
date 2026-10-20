@@ -17,6 +17,20 @@ class Pontuacao(StrEnum):
     SIMPLES = 'simples'
     CEBRASPE = 'cebraspe'
 
+    @property
+    def fator_penalidade(self) -> float:
+        return 1.0 if self is Pontuacao.CEBRASPE else 0.0
+
+
+class ModeloCorrecao(StrEnum):
+    BRUTA = 'bruta'
+    LIQUIDA = 'liquida'
+    PONDERADA = 'ponderada'
+
+    @classmethod
+    def pelo_fator(cls, fator: float) -> 'ModeloCorrecao':
+        return cls.LIQUIDA if fator > 0 else cls.BRUTA
+
 
 class Estado(StrEnum):
     MARCADA = 'marcada'

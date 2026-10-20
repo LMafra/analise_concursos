@@ -3,11 +3,12 @@ from pathlib import Path
 
 import yaml
 
-from concursos.modelo import Formato, Pontuacao
+from concursos.modelo import Formato, ModeloCorrecao, Pontuacao
 
 ARQUIVO_CONFIG = 'concurso.yaml'
 BANCAS = ('cebraspe', 'fgv', 'selecon', 'quadrix')
 STATUS_GABARITO = ('preliminar', 'definitivo')
+MODELOS_DECLARAVEIS = (ModeloCorrecao.BRUTA, ModeloCorrecao.LIQUIDA)
 
 
 class ConfiguracaoInvalidaError(ValueError):
@@ -72,6 +73,20 @@ class ResultadoOficialConfig:
 
 
 @dataclass(frozen=True)
+class CorrecaoConfig:
+    """Regra de correção declarada; complementa ou substitui a extraída do edital."""
+
+    modelo: ModeloCorrecao | None = None
+    fator_penalidade: float | None = None
+    nota_maxima: float | None = None
+    nota_corte: float | None = None
+
+    @property
+    def define_regra(self) -> bool:
+        return self.modelo is not None or self.fator_penalidade is not None
+
+
+@dataclass(frozen=True)
 class ProvaConfig:
     chave: str
     gabarito: GabaritoConfig
@@ -102,6 +117,7 @@ class ConcursoConfig:
     folha: FolhaConfig | None = None
     edital: EditalConfig | None = None
     resultado_oficial: ResultadoOficialConfig | None = None
+    correcao: CorrecaoConfig | None = None
     ignorar: tuple[str, ...] = field(default_factory=tuple)
     historico: tuple[dict, ...] = field(default_factory=tuple)
 
@@ -115,6 +131,10 @@ class ConcursoConfig:
 
     def prova_da_questao(self, questao: int) -> ProvaConfig:
         return next(p for p in self.provas if questao in p.questoes)
+
+    @property
+    def total_itens(self) -> int:
+        return sum(len(prova.questoes) for prova in self.provas)
 
 
 def carregar_concurso(pasta: Path) -> ConcursoConfig:
@@ -156,6 +176,7 @@ def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
         resultado_oficial=_montar_resultado(dados['resultado_oficial'])
         if dados.get('resultado_oficial')
         else None,
+        correcao=_montar_correcao(dados['correcao']) if dados.get('correcao') else None,
         ignorar=tuple(dados.get('ignorar') or ()),
         historico=tuple(dados.get('historico') or ()),
     )
@@ -204,6 +225,36 @@ def _montar_resultado(resultado: str | dict) -> ResultadoOficialConfig:
         None if identificador is None else str(identificador),
         pesos,
     )
+
+
+def _montar_correcao(correcao: dict) -> CorrecaoConfig:
+    modelo = correcao.get('modelo')
+    if modelo is not None:
+        modelo = ModeloCorrecao(_opcao(modelo, MODELOS_DECLARAVEIS, 'correcao.modelo'))
+    fator, maxima, corte = (
+        _numero_opcional(correcao, campo, 'correcao.')
+        for campo in ('fator_penalidade', 'nota_maxima', 'nota_corte')
+    )
+    if fator is not None and fator < 0:
+        raise ConfiguracaoInvalidaError('correcao.fator_penalidade: não pode ser negativo')
+    if modelo is not None and fator is not None and ModeloCorrecao.pelo_fator(fator) is not modelo:
+        raise ConfiguracaoInvalidaError(
+            f"correcao: modelo '{modelo}' incompatível com fator_penalidade {fator:g} "
+            '(liquida exige fator maior que 0; bruta, fator 0)'
+        )
+    if modelo is ModeloCorrecao.LIQUIDA and fator is None:
+        raise ConfiguracaoInvalidaError("correcao: modelo 'liquida' exige fator_penalidade maior que 0")
+    return CorrecaoConfig(modelo, fator, maxima, corte)
+
+
+def _numero_opcional(dados: dict, campo: str, prefixo: str = '') -> float | None:
+    valor = dados.get(campo)
+    if valor is None:
+        return None
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        raise ConfiguracaoInvalidaError(f"{prefixo}{campo}: valor '{valor}' não é numérico") from None
 
 
 def _obrigatorio(dados: dict, campo: str, prefixo: str = ''):

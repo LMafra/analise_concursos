@@ -1,0 +1,210 @@
+import json
+import logging
+
+import pandas as pd
+import pytest
+from conftest import analisar, criar_concurso, ler_csv
+from test_analytics_correcao import AGSUS, CEBRASPE
+from test_cli_edital import MANUAL
+from test_edital import PAGINAS
+
+from concursos import pipeline
+from concursos.analytics.correcao import ConfiguracaoCorrecao, aplicar_correcao
+from concursos.cli import main
+from concursos.modelo import Formato
+
+CERTO_ERRADO = {
+    'formato': 'certo_errado',
+    'pontuacao': 'cebraspe',
+    'arquivos': {'gabarito.txt': '1 C\n2 E\n3 X\n4 C\n', 'respostas.txt': '1 C\n2 C\n3 E\n4 E\n'},
+}
+MULTIPLA_ESCOLHA = {
+    'formato': 'multipla_escolha',
+    'pontuacao': 'simples',
+    'arquivos': {'gabarito.txt': '1 A\n2 B\n3 *\n4 D\n', 'respostas.txt': '1 A\n2 C\n'},
+}
+
+
+def criar(provas, prova: dict, edital=None, arquivos: dict | None = None, **extra):
+    config = {
+        'nome': 'sintetico',
+        'banca': 'cebraspe' if prova['pontuacao'] == 'cebraspe' else 'fgv',
+        'cargo': 'Analista de TI - Ciência de Dados',
+        'formato': prova['formato'],
+        'pontuacao': prova['pontuacao'],
+        'provas': {'unica': {'gabarito': 'gabarito.txt', 'itens': [1, 4]}},
+        'respostas': {'arquivo': 'respostas.txt'},
+        **extra,
+    }
+    if edital is not None:
+        config['edital'] = edital
+    criar_concurso(provas, 'sintetico', config, {**prova['arquivos'], **(arquivos or {})})
+
+
+def correcao(analises) -> list[dict]:
+    return json.loads((analises / 'sintetico' / 'correcao.json').read_text(encoding='utf-8'))
+
+
+def edital_com(*regra: str) -> dict[str, str]:
+    return {'edital.txt': '\f'.join([*PAGINAS, *regra])}
+
+
+def test_regra_do_edital_e_gravada_com_fonte_documento_pagina_e_trecho(raizes):
+    provas, analises = raizes
+    criar(provas, MULTIPLA_ESCOLHA, 'edital.txt', edital_com(AGSUS))
+
+    assert analisar(provas, analises) == 0
+
+    [cfg] = correcao(analises)
+    assert cfg['modelo'] == 'bruta'
+    assert cfg['fator_penalidade'] == 0.0
+    assert cfg['fonte'] == 'edital'
+    assert cfg['documento_origem'] == 'edital.txt'
+    assert cfg['pagina_origem'] == len(PAGINAS) + 1
+    assert 'valendo 1 (um) ponto cada questão' in cfg['trecho_origem']
+    assert cfg['nota_maxima'] == 70.0
+    assert cfg['variante'] is None
+
+
+def test_cebraspe_liquida_e_nota_corrigida_igual_a_nota_liquida_legada(raizes):
+    provas, analises = raizes
+    criar(provas, CERTO_ERRADO, 'edital.txt', edital_com(CEBRASPE))
+
+    assert analisar(provas, analises) == 0
+
+    [cfg] = correcao(analises)
+    assert (cfg['modelo'], cfg['fator_penalidade'], cfg['fonte']) == ('liquida', 1.0, 'edital')
+    assert (cfg['nota_maxima'], cfg['nota_corte']) == (4.0, 60.0)
+    questoes = ler_csv(analises / 'sintetico' / 'questoes.csv')
+    nota = aplicar_correcao(questoes, ConfiguracaoCorrecao(**cfg), Formato.CERTO_ERRADO).nota
+    legado = ler_csv(analises / 'sintetico' / 'desempenho_por_disciplina.csv')
+    assert nota == legado['nota_liquida'].sum() == 0
+
+
+def test_sem_edital_nem_configuracao_grava_default_e_avisa(raizes, caplog):
+    provas, analises = raizes
+    criar(provas, MULTIPLA_ESCOLHA)
+
+    with caplog.at_level(logging.WARNING):
+        assert analisar(provas, analises) == 0
+
+    [cfg] = correcao(analises)
+    assert (cfg['modelo'], cfg['fonte'], cfg['trecho_origem']) == ('bruta', 'default', None)
+    assert 'usando o default' in caplog.text
+
+
+def test_bloco_correcao_do_concurso_yaml_vira_fonte_config(raizes):
+    provas, analises = raizes
+    bloco = {'modelo': 'liquida', 'fator_penalidade': 1, 'nota_corte': 2}
+    criar(provas, CERTO_ERRADO, correcao=bloco)
+
+    assert analisar(provas, analises) == 0
+
+    [cfg] = correcao(analises)
+    assert (cfg['modelo'], cfg['fator_penalidade'], cfg['fonte']) == ('liquida', 1.0, 'config')
+    assert (cfg['nota_maxima'], cfg['nota_corte']) == (4.0, 2.0)
+
+
+def test_edital_manual_com_pdf_declarado_le_cada_documento_uma_vez(raizes, monkeypatch):
+    provas, analises = raizes
+    edital = {'arquivo': 'edital.txt', 'anexos': ['anexo.txt'], 'manual': 'edital_manual.yaml'}
+    arquivos = {**edital_com(CEBRASPE), 'anexo.txt': 'ANEXO I', 'edital_manual.yaml': MANUAL}
+    criar(provas, CERTO_ERRADO, edital, arquivos)
+    lidos = []
+    original = pipeline.extrair_paginas
+    monkeypatch.setattr(
+        pipeline,
+        'extrair_paginas',
+        lambda caminho, ocr=True: lidos.append(caminho.name) or original(caminho, ocr),
+    )
+
+    assert analisar(provas, analises) == 0
+
+    assert sorted(lidos) == ['anexo.txt', 'edital.txt']
+    [cfg] = correcao(analises)
+    assert (cfg['fonte'], cfg['documento_origem']) == ('edital', 'edital.txt')
+
+
+def test_estrutura_dos_csvs_nao_muda(raizes):
+    provas, analises = raizes
+    criar(provas, CERTO_ERRADO, 'edital.txt', edital_com(CEBRASPE))
+
+    assert analisar(provas, analises) == 0
+
+    pasta = analises / 'sintetico'
+    desempenho = [
+        'concurso',
+        'prova',
+        'disciplina',
+        'topico',
+        'total',
+        'acertos',
+        'erros',
+        'percentual',
+        'em_branco',
+        'anuladas',
+        'nota_liquida',
+    ]
+    assert list(ler_csv(pasta / 'desempenho_por_disciplina.csv').columns) == desempenho
+    assert list(ler_csv(pasta / 'desempenho_por_topico.csv').columns) == desempenho
+    assert list(ler_csv(pasta / 'questoes.csv').columns) == [
+        'questao',
+        'prova',
+        'disciplina',
+        'topico_sugerido',
+        'score',
+        'topico',
+        'revisado',
+        'gabarito',
+        'anulada',
+        'resposta',
+        'resultado',
+    ]
+    assert list(pd.read_csv(pasta / 'respostas_extraidas.csv').columns) == [
+        'concurso',
+        'prova',
+        'questao',
+        'alternativa_marcada',
+        'estado',
+        'confianca_ocr',
+        'revisar',
+        'origem',
+        'arquivo',
+        'pagina',
+    ]
+
+
+def test_analise_de_versao_anterior_e_refeita_e_ganha_o_arquivo_de_correcao(raizes, caplog):
+    provas, analises = raizes
+    criar(provas, MULTIPLA_ESCOLHA)
+    assert analisar(provas, analises) == 0
+    pasta = analises / 'sintetico'
+    caminho_manifesto = pasta / '.manifesto.json'
+    manifesto = json.loads(caminho_manifesto.read_text(encoding='utf-8'))
+    caminho_manifesto.write_text(json.dumps({**manifesto, 'versao': 3}), encoding='utf-8')
+    (pasta / 'correcao.json').unlink()
+
+    with caplog.at_level(logging.INFO):
+        assert analisar(provas, analises) == 0
+
+    assert (pasta / 'correcao.json').exists()
+    assert 'sem mudanças' not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ('bloco', 'mensagem'),
+    [
+        ({'modelo': 'escalonada'}, "correcao.modelo: valor 'escalonada' inválido"),
+        ({'modelo': 'liquida'}, "modelo 'liquida' exige fator_penalidade maior que 0"),
+        ({'modelo': 'bruta', 'fator_penalidade': 1}, "modelo 'bruta' incompatível com fator_penalidade 1"),
+        ({'modelo': 'ponderada'}, "correcao.modelo: valor 'ponderada' inválido"),
+        ({'fator_penalidade': 'um'}, "correcao.fator_penalidade: valor 'um' não é numérico"),
+    ],
+)
+def test_bloco_correcao_invalido_aponta_o_campo(raizes, capsys, bloco, mensagem):
+    provas, _ = raizes
+    criar(provas, CERTO_ERRADO, correcao=bloco)
+
+    assert main(['status', '--provas', str(provas)]) == 0
+
+    assert mensagem in capsys.readouterr().out
