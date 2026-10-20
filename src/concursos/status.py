@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from concursos.atualizacao import Troca, verificar
 from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, carregar_concurso
 from concursos.folha import TEMPLATES
 
@@ -19,6 +20,7 @@ class StatusConcurso:
     motivos: tuple[str, ...]
     gabarito: str
     config: ConcursoConfig | None
+    trocas: tuple[Troca, ...] = ()
 
 
 def avaliar(pasta: Path) -> StatusConcurso:
@@ -52,8 +54,21 @@ def avaliar(pasta: Path) -> StatusConcurso:
             if not config.caminho(arquivo).exists()
         ]
 
-    situacao = Situacao.INCOMPLETO if motivos else Situacao.COMPLETO
-    return StatusConcurso(config.nome, situacao, tuple(motivos), _status_gabarito(config), config)
+    if motivos:
+        return StatusConcurso(
+            config.nome, Situacao.INCOMPLETO, tuple(motivos), _status_gabarito(config), config
+        )
+    pendencias = verificar(config)
+    if pendencias.motivos:
+        return StatusConcurso(
+            config.nome, Situacao.DESATUALIZADO, pendencias.motivos, _status_gabarito(config), config
+        )
+    avisos = tuple(
+        f'{t.novo}: gabarito definitivo será aplicado na próxima análise' for t in pendencias.trocas
+    )
+    return StatusConcurso(
+        config.nome, Situacao.COMPLETO, avisos, _status_gabarito(config), config, pendencias.trocas
+    )
 
 
 def _status_gabarito(config: ConcursoConfig) -> str:

@@ -11,6 +11,7 @@ MARCAS_ANULADA = frozenset({'X', '*'})
 _PRELIMINAR = re.compile(r'gabaritos?\s+(oficia(l|is)\s+)?preliminar', re.IGNORECASE)
 _DEFINITIVO = re.compile(r'gabaritos?\s+(oficia(l|is)\s+)?definitivos?', re.IGNORECASE)
 _PADROES_STATUS = (('preliminar', _PRELIMINAR), ('definitivo', _DEFINITIVO))
+_CARGO_CEBRASPE = re.compile(r'((?:CARGO|EMPREGO)\s+\d+\s*:.+?)(?:\s+-\s+C[ÓO]DIGO\b.*)?$', re.MULTILINE)
 
 
 class GabaritoInvalidoError(ValueError):
@@ -21,6 +22,12 @@ def detectar_status(texto: str) -> str | None:
     """Status pela primeira menção no texto (o título vem antes das instruções de recurso)."""
     mencoes = [(m.start(), status) for status, padrao in _PADROES_STATUS if (m := padrao.search(texto))]
     return min(mencoes)[1] if mencoes else None
+
+
+def cargo_cebraspe(texto: str) -> str:
+    """'CARGO 2: TÉCNICO LEGISLATIVO – ... - CÓDIGO: X' no cabeçalho do gabarito de conhecimentos específicos."""
+    encontrado = _CARGO_CEBRASPE.search(texto[:1500])
+    return encontrado.group(1).strip() if encontrado else ''
 
 
 def ler_gabarito_cebraspe(texto: str, arquivo: str) -> list[ItemGabarito]:

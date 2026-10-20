@@ -5,6 +5,7 @@ import pandas as pd
 
 from concursos import manifesto
 from concursos.agregacao import agregar
+from concursos.atualizacao import ARQUIVO_DIFF, diff_gabarito, trocar_gabaritos
 from concursos.caderno import faixas_do_caderno
 from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig
 from concursos.configuracao import ConfiguracaoGlobal
@@ -35,6 +36,8 @@ COLUNAS_QUESTOES = [
     'revisado',
     'gabarito',
     'anulada',
+    'resposta',
+    'resultado',
 ]
 
 COLUNAS_RESPOSTAS = [
@@ -83,15 +86,19 @@ def _analisar_se_necessario(
     pasta: Path, destino: Path, forcar: bool, configuracao: ConfiguracaoGlobal
 ) -> bool:
     situacao = avaliar(pasta)
+    anterior = None
+    if situacao.trocas:
+        anterior = trocar_gabaritos(situacao.config, situacao.trocas, destino)
+        situacao = avaliar(pasta)
+    elif situacao.situacao is Situacao.COMPLETO and not forcar and manifesto.atualizado(pasta, destino):
+        logger.info('%s: sem mudanças desde a última análise', situacao.nome)
+        return True
     if situacao.situacao is not Situacao.COMPLETO:
         logger.warning('%s: %s, pulando: %s', situacao.nome, situacao.situacao, '; '.join(situacao.motivos))
         return True
-    if not forcar and manifesto.atualizado(pasta, destino):
-        logger.info('%s: sem mudanças desde a última análise', situacao.nome)
-        return True
     manifesto.invalidar(destino)
     try:
-        analisar_concurso(situacao.config, destino, configuracao)
+        analisar_concurso(situacao.config, destino, configuracao, anterior)
     except (ValueError, FileNotFoundError, RuntimeError) as erro:
         logger.error('%s: falha na análise: %s', situacao.nome, erro)
         return False
@@ -99,7 +106,13 @@ def _analisar_se_necessario(
     return True
 
 
-def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: ConfiguracaoGlobal) -> None:
+def analisar_concurso(
+    config: ConcursoConfig,
+    destino: Path,
+    configuracao: ConfiguracaoGlobal,
+    anterior: pd.DataFrame | None = None,
+) -> None:
+    """`anterior` é a tabela de questões da análise com o gabarito preliminar, para gerar o diff da troca."""
     logger.info('Analisando %s', config.nome)
     edital = _ler_edital(config)
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
@@ -121,10 +134,19 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     geral = agregar(resultados, ['concurso', 'prova'], config.pontuacao)
     por_disciplina.to_csv(destino / 'desempenho_por_disciplina.csv', index=False)
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
+    if anterior is not None:
+        diff_gabarito(anterior, resultados).to_csv(destino / ARQUIVO_DIFF, index=False)
+    diff = _ler_diff(destino / ARQUIVO_DIFF)
     (destino / 'relatorio.md').write_text(
-        gerar_relatorio(config, por_disciplina, geral, validacao), encoding='utf-8'
+        gerar_relatorio(config, por_disciplina, geral, validacao, diff), encoding='utf-8'
     )
     logger.info('Saídas de %s gravadas em %s', config.nome, destino)
+
+
+def _ler_diff(caminho: Path) -> pd.DataFrame | None:
+    if not caminho.exists():
+        return None
+    return pd.read_csv(caminho, keep_default_na=False, dtype={'prova': str, 'resposta': str})
 
 
 def _ler_edital(config: ConcursoConfig) -> Edital | None:

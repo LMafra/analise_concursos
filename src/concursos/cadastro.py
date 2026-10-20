@@ -17,7 +17,7 @@ from concursos.deteccao import (
     eh_anexo,
     normalizar,
 )
-from concursos.gabarito import Secao, ler_gabarito_cebraspe, ler_gabarito_texto, listar_secoes
+from concursos.gabarito import Secao, cargo_cebraspe, ler_gabarito_cebraspe, ler_gabarito_texto, listar_secoes
 from concursos.modelo import Formato, Pontuacao
 from concursos.texto import extrair_texto
 
@@ -25,7 +25,6 @@ BANCAS = ('cebraspe', 'fgv', 'selecon', 'quadrix')
 TEMPLATES_FOLHA = ('cebraspe_ce', 'fgv_mod70ae', 'fgv_cpnu_90')
 _TEMPLATE_FGV_POR_TOTAL = {70: 'fgv_mod70ae', 90: 'fgv_cpnu_90'}
 _CHAVES_CEBRASPE = (('CONHECIMENTOS GERAIS', 'cg'), ('CONHECIMENTOS BASICOS', 'cb'))
-_CARGO_CEBRASPE = re.compile(r'((?:CARGO|EMPREGO)\s+\d+\s*:.+?)(?:\s+-\s+C[ÓO]DIGO\b.*)?$', re.MULTILINE)
 _IGNORAR = 'ignorar'
 _NENHUM = '(nenhum)'
 
@@ -173,7 +172,7 @@ class _Cadastro:
 
     def _ler_gabarito(self, detectado: ArquivoDetectado, banca: str) -> _Gabarito:
         nome = self._nome(detectado)
-        cargo = _cargo_cebraspe(detectado.texto) if banca == 'cebraspe' else ''
+        cargo = cargo_cebraspe(detectado.texto) if banca == 'cebraspe' else ''
         if detectado.caminho.suffix.lower() != '.pdf':
             secoes = [Secao(cargo, None, ler_gabarito_texto(detectado.texto, Formato.MULTIPLA_ESCOLHA, nome))]
         elif banca == 'cebraspe':
@@ -374,12 +373,6 @@ def _chave_prova(texto: str, banca: str) -> str:
         return 'unica'
     cabecalho = normalizar(texto[:1500])
     return next((chave for marca, chave in _CHAVES_CEBRASPE if marca in cabecalho), 'ce')
-
-
-def _cargo_cebraspe(texto: str) -> str:
-    """'CARGO 2: TÉCNICO LEGISLATIVO – ... - CÓDIGO: X' no cabeçalho do gabarito de conhecimentos específicos."""
-    encontrado = _CARGO_CEBRASPE.search(texto[:1500])
-    return encontrado.group(1).strip() if encontrado else ''
 
 
 def _itens(secao: Secao) -> list[int]:

@@ -67,6 +67,8 @@ def test_edital_estruturado_e_tabela_de_questoes(raizes):
         'revisado',
         'gabarito',
         'anulada',
+        'resposta',
+        'resultado',
     ]
     assert questoes['disciplina'].tolist() == [
         'Banco de Dados',
