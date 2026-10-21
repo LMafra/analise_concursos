@@ -71,6 +71,7 @@ _VERIFICA_TIPO = {
 }
 _TOPICO_NA_PROVA = ['concurso', 'prova', 'disciplina', 'topico']
 CONFIANCA_MINIMA_SEM_AVISO = 0.8
+N_MINIMO_TOPICO = 5
 
 
 class SchemaInvalidoError(ValueError):
@@ -214,6 +215,44 @@ def disciplinas_por_quantidade_de_concursos(consolidado: pd.DataFrame) -> pd.Dat
     return pd.DataFrame(linhas)
 
 
+def perfil_de_n(consolidado: pd.DataFrame, min_n: int = N_MINIMO_TOPICO) -> pd.DataFrame:
+    """Por concurso e prova: questões, anuladas, tópicos, tópicos com pelo menos `min_n` questões e a
+    mediana de questões por tópico. Questões sem tópico classificado não formam tópico."""
+    questoes = consolidado.groupby(['concurso', 'prova']).agg(
+        questoes=('questao', 'size'), anuladas=('anulada', 'sum')
+    )
+    topicos = (
+        _tamanho_dos_topicos(consolidado)
+        .groupby(['concurso', 'prova'])
+        .agg(
+            topicos='size',
+            topicos_com_n_minimo=lambda n: int((n >= min_n).sum()),
+            mediana_n_topico='median',
+        )
+    )
+    perfil = questoes.join(topicos).fillna({'topicos': 0, 'topicos_com_n_minimo': 0})
+    return perfil.astype({'topicos': int, 'topicos_com_n_minimo': int}).reset_index()
+
+
+def n_por_topico(consolidado: pd.DataFrame) -> pd.DataFrame:
+    """Cada combinação de tópico e prova com a sua quantidade de questões, da maior para a menor."""
+    classificadas = consolidado[consolidado['topico'] != TOPICO_NAO_MAPEADO]
+    topicos = classificadas.drop_duplicates(_TOPICO_NA_PROVA)[
+        [*_TOPICO_NA_PROVA, 'disciplina_canonica', 'n_topico']
+    ]
+    return topicos.rename(columns={'n_topico': 'n'}).sort_values(
+        ['n', *_TOPICO_NA_PROVA], ascending=[False, True, True, True, True], ignore_index=True
+    )
+
+
+def topicos_por_n(consolidado: pd.DataFrame, min_n: int = N_MINIMO_TOPICO) -> pd.DataFrame:
+    """Quantas combinações de tópico e prova têm 1, 2, ... e `min_n` ou mais questões."""
+    tamanhos = _tamanho_dos_topicos(consolidado)
+    faixas = [*(str(n) for n in range(1, min_n)), f'{min_n} ou mais']
+    rotulos = tamanhos.clip(upper=min_n).map(lambda n: faixas[n - 1])
+    return pd.DataFrame({'n': faixas, 'topicos': [int((rotulos == faixa).sum()) for faixa in faixas]})
+
+
 def colunas_de_peso(consolidado: pd.DataFrame) -> list[str]:
     return [coluna for coluna in consolidado.columns if coluna.startswith(PREFIXO_PESO)]
 
@@ -254,6 +293,10 @@ def _ordem(consolidado: pd.DataFrame) -> pd.Series:
     """Datas iguais empatam."""
     datas = _por_concurso(consolidado)['data_prova'].dropna()
     return consolidado['concurso'].map(datas.rank(method='dense')).astype('Int64')
+
+
+def _tamanho_dos_topicos(consolidado: pd.DataFrame) -> pd.Series:
+    return n_por_topico(consolidado).set_index(_TOPICO_NA_PROVA)['n']
 
 
 def _por_concurso(consolidado: pd.DataFrame) -> pd.DataFrame:

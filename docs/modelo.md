@@ -101,6 +101,13 @@ A `pontuacao` continua alimentando a `nota_liquida` dos CSVs; o modelo de corre�
 
 As anuladas ficam fora das três versões (não medem conhecimento) e os percentuais podem ser negativos. O peso do item não entra nessas pontuações. A exceção é a nota do concurso, que segue o edital: soma das pontuações corrigidas multiplicadas pelo peso de cada item, com cada anulada valendo o seu peso. A nota normalizada é \(\max(0, \text{nota}/\text{nota máxima} \times 100)\), truncada em 0 só ela. Na Cebraspe, a nota corrigida é igual à soma da `nota_liquida` legada.
 
+**Ranking entre concursos** (`comparar_bruto_vs_corrigido`). Uma linha por concurso e variante, sem as anuladas, com o percentual nas três versões:
+
+- bruto e ajustado: média simples das pontuações dos itens;
+- corrigido: média das pontuações corrigidas ponderada pelo peso da variante, que é a regra do edital.
+
+A posição 1 é o maior percentual, e empates dividem a posição. As posições contam concursos, não linhas: cada variante é posicionada contra os outros concursos, e um concurso com variantes entra no ranking dos outros pela sua melhor variante. O deslocamento é a posição no bruto menos a posição na versão, ou seja, quantas posições a linha sobe.
+
 **Data da prova e metadados.** Cada concurso tem:
 - data da prova: a do `concurso.yaml` (`data_prova`) ou, sem ela, a extraída do edital. A configuração vem antes porque no edital a data é sempre "provável" e pode ser retificada. O edital é lido em dois formatos:
   - cronograma: "Aplicação das provas objetivas e discursiva 22/2/2026" (Cebraspe, CPNU);

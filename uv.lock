@@ -629,6 +629,7 @@ analise = [
     { name = "scipy" },
 ]
 dev = [
+    { name = "plotly" },
     { name = "pre-commit" },
     { name = "pyarrow" },
     { name = "pytest" },
@@ -661,6 +662,7 @@ analise = [
     { name = "scipy", specifier = ">=1.18.1" },
 ]
 dev = [
+    { name = "plotly", specifier = ">=7.1.0" },
     { name = "pre-commit", specifier = ">=4.7.0" },
     { name = "pyarrow", specifier = ">=26.0.0" },
     { name = "pytest", specifier = ">=9.1.1" },

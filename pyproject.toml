@@ -39,6 +39,7 @@ analise = [
     "scipy>=1.18.1",
 ]
 dev = [
+    "plotly>=7.1.0",
     "pre-commit>=4.7.0",
     "pyarrow>=26.0.0",
     "pytest>=9.1.1",

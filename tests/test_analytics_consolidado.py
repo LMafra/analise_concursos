@@ -15,7 +15,10 @@ from concursos.analytics.consolidado import (
     construir_consolidado,
     contar_questoes,
     disciplinas_por_quantidade_de_concursos,
+    n_por_topico,
+    perfil_de_n,
     perfil_por_concurso,
+    topicos_por_n,
     validar_schema,
 )
 from concursos.analytics.correcao import ConfiguracaoCorrecao, FonteCorrecao, gravar_correcao
@@ -375,6 +378,51 @@ def test_perfil_por_concurso_em_ordem_cronologica(base):
         5,
         1,
         1,
+    ]
+
+
+def test_perfil_de_n_por_concurso_e_prova(base):
+    criar_analise(
+        base,
+        'pf',
+        ['acerto'] * 4,
+        [LIQUIDA],
+        prova='ce',
+        disciplinas=['TI', 'TI', 'TI', 'nao_mapeado'],
+        topicos=['Redes', 'Redes', 'Redes', 'nao_mapeado'],
+        anuladas=(1,),
+    )
+
+    perfil = perfil_de_n(construir_consolidado(*base), min_n=3).set_index(['concurso', 'prova'])
+
+    assert perfil.loc[('pf', 'ce')].to_dict() == {
+        'questoes': 4,
+        'anuladas': 1,
+        'topicos': 1,
+        'topicos_com_n_minimo': 1,
+        'mediana_n_topico': 3.0,
+    }
+    assert perfil.loc[('agsus', 'unica'), ['topicos', 'topicos_com_n_minimo']].tolist() == [2, 1]
+
+
+def test_n_por_topico_do_maior_para_o_menor(base):
+    tabela = n_por_topico(construir_consolidado(*base))
+
+    assert tabela[['concurso', 'topico', 'disciplina_canonica', 'n']].to_dict('records') == [
+        {'concurso': 'agsus', 'topico': 'Redes', 'disciplina_canonica': 'Tecnologia da Informação', 'n': 3},
+        {'concurso': 'agsus', 'topico': 'Crase', 'disciplina_canonica': 'Língua Portuguesa', 'n': 2},
+        {'concurso': 'tcu', 'topico': 'Crase', 'disciplina_canonica': 'Língua Portuguesa', 'n': 2},
+        {'concurso': 'tcu', 'topico': 'Redes', 'disciplina_canonica': 'Tecnologia da Informação', 'n': 2},
+    ]
+
+
+def test_topicos_por_n_conta_combinacoes_de_topico_e_prova(base):
+    tabela = topicos_por_n(construir_consolidado(*base), min_n=3)
+
+    assert tabela.to_dict('records') == [
+        {'n': '1', 'topicos': 0},
+        {'n': '2', 'topicos': 3},
+        {'n': '3 ou mais', 'topicos': 1},
     ]
 
 

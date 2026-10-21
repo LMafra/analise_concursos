@@ -16,15 +16,15 @@ Ver `docs/spec-fase2.md` (histórias 47, 50 e 51) e a tabela de percentuais apro
 
 **Blocked by:** 02 (Pesos por faixa de itens e variantes), 04 (Consolidado em parquet e notebook de carregamento)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Testes de `comparar_bruto_vs_corrigido`:
+- [x] Testes de `comparar_bruto_vs_corrigido`:
   - um concurso só;
   - correção líquida comparada à bruta, com mudança de posição detectada;
   - variantes viram linhas;
   - anuladas fora;
   - empates.
-- [ ] Teste de que a função do painel recebe o DataFrame pronto e devolve uma figura com as três séries e o hover com modelo e fator.
-- [ ] Com dados reais, os percentuais por concurso reproduzem a tabela da spec dentro do arredondamento, descontado o efeito de tirar as anuladas.
-- [ ] O notebook 01 executa do zero pelo script.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Teste de que a função do painel recebe o DataFrame pronto e devolve uma figura com as três séries e o hover com modelo e fator.
+- [x] Com dados reais, os percentuais por concurso reproduzem a tabela da spec dentro do arredondamento, descontado o efeito de tirar as anuladas.
+- [x] O notebook 01 executa do zero pelo script.
+- [x] `uv run pytest` e `ruff` verdes.
