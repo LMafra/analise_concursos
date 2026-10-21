@@ -1,17 +1,25 @@
 """Apresentação para os notebooks; cada função recebe um DataFrame já calculado."""
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from matplotlib.colors import ListedColormap
+from matplotlib.figure import Figure
 from plotly.colors import qualitative
 from plotly.subplots import make_subplots
 
 from concursos.analytics.consolidado import N_MINIMO_TOPICO
+from concursos.analytics.evolucao import MINIMO_PONTOS_TENDENCIA
 
 OPACIDADE_AMOSTRA_INSUFICIENTE = 0.35
 TAMANHO_ROTULO_TOPICO = 50
+_VERSOES_DO_PAINEL = (('bruta', 'bruto'), ('corrigida', 'corrigido'), ('ajustada', 'ajustado'))
+ESCALA_PERCENTUAL = 'RdYlGn'
+LIMITES_PERCENTUAL = (-100, 100)
+DPI_EXPORTACAO = 120
 _CORES_DOS_RESULTADOS = (('acertos', 'seagreen'), ('erros', 'indianred'), ('brancos', 'lightgray'))
 _METRICAS_DA_LINHA = (('percentual', 'percentual'), ('zscore', 'z-score'))
 _COLUNAS_DO_HOVER = ['concurso', 'banca', 'n']
@@ -55,13 +63,10 @@ def aviso_modelos(modelos: list[str]) -> Aviso:
 def painel_correcao(comparacao: pd.DataFrame) -> go.Figure:
     """Barras agrupadas de bruto, corrigido e ajustado por concurso (e variante), a partir da tabela de
     `comparar_bruto_vs_corrigido`, com modelo, fator e n no hover."""
-    rotulos = [
-        f'{concurso} ({variante})' if pd.notna(variante) else concurso
-        for concurso, variante in zip(comparacao['concurso'], comparacao['variante'], strict=True)
-    ]
+    rotulos = _rotulos_da_comparacao(comparacao)
     detalhes = comparacao[['modelo_correcao', 'fator_penalidade', 'n']].to_numpy()
     figura = go.Figure()
-    for versao, nome in (('bruta', 'bruto'), ('corrigida', 'corrigido'), ('ajustada', 'ajustado')):
+    for versao, nome in _VERSOES_DO_PAINEL:
         figura.add_bar(
             name=nome,
             x=rotulos,
@@ -155,44 +160,24 @@ def heatmap_topicos(percentuais: pd.DataFrame, min_n: int = N_MINIMO_TOPICO) -> 
     """Tópicos (linhas, por disciplina) por concurso (colunas, em ordem cronológica), a partir de
     `percentual_por_topico`. Só as células com n ≥ `min_n` têm cor e percentual anotado; as outras ficam
     cinza com "n<`min_n`", e as de tópico não cobrado, em branco."""
-    tabela = percentuais.sort_values(['disciplina', 'topico']).assign(rotulo=_rotulo_topico)
-    concursos = tabela.sort_values(['ordem', 'concurso'], na_position='last')['concurso'].unique()
-    topicos = tabela.drop_duplicates('chave_topico')
-    suficiente = tabela['n'] >= min_n
-
-    def grade(valores: pd.Series) -> pd.DataFrame:
-        return (
-            tabela.assign(valor=valores)
-            .pivot(index='chave_topico', columns='concurso', values='valor')
-            .reindex(index=topicos['chave_topico'], columns=concursos)
-        )
-
-    def textos(valores: pd.Series) -> list[list[str]]:
-        return grade(valores).fillna('').to_numpy().tolist()
-
-    vazio = pd.Series('', index=tabela.index)
-    eixos_e_n = {
-        'x': concursos,
-        'y': topicos['rotulo'],
-        'customdata': grade(tabela['n']).to_numpy(),
-        'xgap': 1,
-    }
+    grade = _GradeDeTopicos.de(percentuais, min_n)
+    eixos_e_n = {'x': grade.concursos, 'y': grade.rotulos, 'customdata': grade.n, 'xgap': 1}
     figura = go.Figure()
     figura.add_heatmap(
         **eixos_e_n,
-        z=grade(tabela['percentual'].where(suficiente)).to_numpy(),
-        text=textos(tabela['percentual'].map('{:.0f}%'.format).where(suficiente, vazio)),
+        colorscale=ESCALA_PERCENTUAL,
+        zmin=LIMITES_PERCENTUAL[0],
+        zmax=LIMITES_PERCENTUAL[1],
+        z=grade.percentual,
+        text=grade.textos_percentual,
         texttemplate='%{text}',
-        colorscale='RdYlGn',
-        zmin=-100,
-        zmax=100,
         colorbar={'title': '%'},
         hovertemplate='%{y}<br>%{x}: %{z:.0f}%<br>n = %{customdata}<extra></extra>',
     )
     figura.add_heatmap(
         **eixos_e_n,
-        z=grade(pd.Series(1.0, index=tabela.index).where(~suficiente)).to_numpy(),
-        text=textos(vazio.mask(~suficiente, f'n<{min_n}')),
+        z=np.where(grade.insuficiente, 1.0, np.nan),
+        text=grade.textos_insuficiente,
         texttemplate='%{text}',
         colorscale=[[0, 'lightgray'], [1, 'lightgray']],
         showscale=False,
@@ -200,7 +185,7 @@ def heatmap_topicos(percentuais: pd.DataFrame, min_n: int = N_MINIMO_TOPICO) -> 
     )
     figura.update_layout(
         title='Percentual por tópico e concurso',
-        height=200 + 22 * len(topicos),
+        height=200 + 22 * len(grade.rotulos),
         yaxis={'autorange': 'reversed'},
     )
     return figura
@@ -235,6 +220,135 @@ def barras_fracos(fracos: pd.DataFrame) -> go.Figure:
         height=200 + 30 * len(tabela),
     )
     return figura
+
+
+def exportar_linha_evolucao(
+    zscores: pd.DataFrame, caminho: Path, min_pontos: int = MINIMO_PONTOS_TENDENCIA
+) -> Figure:
+    """PNG do z-score ao longo da ordem, a partir de `zscore_por_disciplina`, só das disciplinas com pelo
+    menos `min_pontos` concursos de n suficiente (as que podem ter tendência). Pontos com amostra
+    insuficiente ficam soltos e vazados."""
+    datadas = zscores[zscores['ordem'].notna() & zscores['zscore'].notna()].sort_values('ordem')
+    datadas = datadas.assign(rotulo=_rotulo_disciplina)
+    suficientes = datadas[~datadas['amostra_insuficiente']]
+    pontos = suficientes.groupby('rotulo')['ordem'].nunique()
+    figura = Figure(figsize=(10, 6))
+    eixo = figura.subplots()
+    eixo.axhline(0, color='gray', linewidth=0.8)
+    for rotulo in sorted(pontos[pontos >= min_pontos].index):
+        serie = suficientes[suficientes['rotulo'] == rotulo]
+        (linha,) = eixo.plot(serie['ordem'].astype(int), serie['zscore'], marker='o', label=rotulo)
+        soltos = datadas[(datadas['rotulo'] == rotulo) & datadas['amostra_insuficiente']]
+        eixo.scatter(
+            soltos['ordem'].astype(int), soltos['zscore'], facecolors='none', edgecolors=linha.get_color()
+        )
+    eixo.set(
+        xlabel='ordem cronológica',
+        ylabel='z-score',
+        title=(
+            f'Evolução do z-score por disciplina ({min_pontos} concursos ou mais com n ≥ {N_MINIMO_TOPICO})'
+        ),
+    )
+    if (pontos >= min_pontos).any():
+        eixo.legend(loc='upper left', bbox_to_anchor=(1.01, 1), fontsize=8)
+    else:
+        eixo.text(
+            0.5, 0.5, 'nenhuma disciplina com pontos suficientes', transform=eixo.transAxes, ha='center'
+        )
+    return _salvar(figura, caminho)
+
+
+def exportar_heatmap_topicos(
+    percentuais: pd.DataFrame, caminho: Path, min_n: int = N_MINIMO_TOPICO
+) -> Figure:
+    """PNG do heatmap de `heatmap_topicos`, com as mesmas regras de anotação."""
+    grade = _GradeDeTopicos.de(percentuais, min_n)
+    figura = Figure(figsize=(2 + 0.9 * len(grade.concursos), 1.5 + 0.35 * len(grade.rotulos)))
+    eixo = figura.subplots()
+    eixo.imshow(np.where(grade.insuficiente, 1.0, np.nan), cmap=ListedColormap(['lightgray']), aspect='auto')
+    minimo, maximo = LIMITES_PERCENTUAL
+    imagem = eixo.imshow(grade.percentual, cmap=ESCALA_PERCENTUAL, vmin=minimo, vmax=maximo, aspect='auto')
+    figura.colorbar(imagem, ax=eixo, label='%')
+    for textos in (grade.textos_percentual, grade.textos_insuficiente):
+        for (linha, coluna), texto in np.ndenumerate(np.array(textos, dtype=object)):
+            if texto:
+                eixo.text(coluna, linha, texto, ha='center', va='center', fontsize=8)
+    eixo.set_xticks(range(len(grade.concursos)), grade.concursos, rotation=45, ha='right')
+    eixo.set_yticks(range(len(grade.rotulos)), grade.rotulos, fontsize=8)
+    eixo.set_title('Percentual por tópico e concurso')
+    return _salvar(figura, caminho)
+
+
+def exportar_painel_correcao(comparacao: pd.DataFrame, caminho: Path) -> Figure:
+    """PNG das barras de `painel_correcao`: bruto, corrigido e ajustado por concurso e variante."""
+    rotulos = _rotulos_da_comparacao(comparacao)
+    posicoes = np.arange(len(rotulos))
+    largura = 0.8 / len(_VERSOES_DO_PAINEL)
+    figura = Figure(figsize=(max(6, 0.9 * len(rotulos)), 5))
+    eixo = figura.subplots()
+    for i, (versao, nome) in enumerate(_VERSOES_DO_PAINEL):
+        eixo.bar(posicoes + (i - 1) * largura, comparacao[f'percentual_{versao}'], largura, label=nome)
+    eixo.axhline(0, color='gray', linewidth=0.8)
+    eixo.set_xticks(posicoes, rotulos, rotation=45, ha='right')
+    eixo.set(ylabel='percentual (sem anuladas)', title='Percentual por concurso em cada versão da correção')
+    eixo.legend(title='versão')
+    return _salvar(figura, caminho)
+
+
+@dataclass(frozen=True)
+class _GradeDeTopicos:
+    """Tópicos por concursos: percentual só onde n ≥ min_n e texto de n pequeno onde há questões de menos."""
+
+    concursos: list[str]
+    rotulos: list[str]
+    n: np.ndarray
+    percentual: np.ndarray
+    insuficiente: np.ndarray
+    textos_percentual: list[list[str]]
+    textos_insuficiente: list[list[str]]
+
+    @classmethod
+    def de(cls, percentuais: pd.DataFrame, min_n: int) -> '_GradeDeTopicos':
+        tabela = percentuais.sort_values(['disciplina', 'topico']).assign(rotulo=_rotulo_topico)
+        concursos = (
+            tabela.sort_values(['ordem', 'concurso'], na_position='last')['concurso'].unique().tolist()
+        )
+        topicos = tabela.drop_duplicates('chave_topico')
+
+        def grade(coluna: str) -> np.ndarray:
+            return (
+                tabela.pivot(index='chave_topico', columns='concurso', values=coluna)
+                .reindex(index=topicos['chave_topico'], columns=concursos)
+                .to_numpy(dtype=float)
+            )
+
+        n = grade('n')
+        percentual = grade('percentual')
+        insuficiente = n < min_n
+        return cls(
+            concursos=concursos,
+            rotulos=topicos['rotulo'].tolist(),
+            n=n,
+            percentual=np.where(n >= min_n, percentual, np.nan),
+            insuficiente=insuficiente,
+            textos_percentual=np.where(
+                n >= min_n, np.char.mod('%.0f%%', np.nan_to_num(percentual)), ''
+            ).tolist(),
+            textos_insuficiente=np.where(insuficiente, f'n<{min_n}', '').tolist(),
+        )
+
+
+def _salvar(figura: Figure, caminho: Path) -> Figure:
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    figura.savefig(caminho, dpi=DPI_EXPORTACAO, bbox_inches='tight')
+    return figura
+
+
+def _rotulos_da_comparacao(comparacao: pd.DataFrame) -> list[str]:
+    return [
+        f'{concurso} ({variante})' if pd.notna(variante) else concurso
+        for concurso, variante in zip(comparacao['concurso'], comparacao['variante'], strict=True)
+    ]
 
 
 def _pontos_da_linha(

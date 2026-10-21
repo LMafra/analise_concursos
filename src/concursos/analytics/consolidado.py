@@ -19,6 +19,7 @@ from concursos.modelo import Bloco, Escolaridade, Formato, ModeloCorrecao, Nivel
 logger = logging.getLogger(__name__)
 
 ARQUIVO_PARQUET = 'consolidado.parquet'
+PASTA_ANALISES = 'analises'
 ARQUIVO_QUESTOES = 'questoes.csv'
 PREFIXO_PESO = 'peso__'
 VARIANTE_PADRAO = 'padrao'
@@ -106,9 +107,9 @@ def carregar_consolidado(
     taxonomia) é mais nova que ele, ou quando o conjunto de concursos analisados mudou. Sem caminhos, usa os
     do projeto."""
     raiz = raiz_do_projeto()
-    raiz_provas, raiz_analises = raiz_provas or raiz / 'provas', raiz_analises or raiz / 'analises'
+    raiz_provas, raiz_analises = raiz_provas or raiz / 'provas', raiz_das_analises(raiz_analises)
     arquivo_taxonomia = arquivo_taxonomia or raiz / ARQUIVO_TAXONOMIA
-    cache = raiz_analises / PASTA_CONSOLIDADO / ARQUIVO_PARQUET
+    cache = pasta_consolidado(raiz_analises) / ARQUIVO_PARQUET
     nomes = concursos_analisados(raiz_provas, raiz_analises)
     entradas = [*_entradas(raiz_provas, raiz_analises, nomes), arquivo_taxonomia]
     if cache.exists() and arquivo_taxonomia.exists() and not _alguma_mais_nova(cache, entradas):
@@ -141,7 +142,7 @@ def contar_questoes(raiz_analises: Path) -> int:
 
 def topicos_do_edital(raiz_analises: Path | None = None) -> pd.DataFrame:
     """Uma linha por tópico do edital estruturado de cada concurso (concurso, disciplina, tópico)."""
-    raiz_analises = raiz_analises or raiz_do_projeto() / 'analises'
+    raiz_analises = raiz_das_analises(raiz_analises)
     linhas = [
         {'concurso': arquivo.parent.name, 'disciplina': disciplina['nome'], 'topico': topico['nome']}
         for arquivo in sorted(raiz_analises.glob(f'*/{ARQUIVO_EDITAL_ESTRUTURADO}'))
@@ -333,6 +334,15 @@ def _entradas(raiz_provas: Path, raiz_analises: Path, nomes: list[str]) -> list[
 def _alguma_mais_nova(cache: Path, entradas: list[Path]) -> bool:
     limite = cache.stat().st_mtime
     return any(entrada.stat().st_mtime > limite for entrada in entradas)
+
+
+def raiz_das_analises(raiz_analises: Path | None = None) -> Path:
+    return raiz_analises or raiz_do_projeto() / PASTA_ANALISES
+
+
+def pasta_consolidado(raiz_analises: Path | None = None) -> Path:
+    """Onde ficam o cache do consolidado e o relatório de evolução."""
+    return raiz_das_analises(raiz_analises) / PASTA_CONSOLIDADO
 
 
 def raiz_do_projeto() -> Path:

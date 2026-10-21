@@ -1,6 +1,7 @@
 """Métricas da análise evolutiva: funções puras sobre o consolidado (uma linha por questão)."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from itertools import permutations
 
 import numpy as np
@@ -8,6 +9,7 @@ import pandas as pd
 from scipy import stats
 
 from concursos.analytics.consolidado import N_MINIMO_TOPICO, PREFIXO_PESO, VARIANTE_PADRAO, colunas_de_peso
+from concursos.analytics.correcao import nota_normalizada
 from concursos.configuracao import ConfiguracaoGlobal
 from concursos.consolidado import MINIMO_CONCURSOS
 from concursos.correcao import TOPICO_NAO_MAPEADO
@@ -22,6 +24,7 @@ TENDENCIA = 'tendência'
 AMOSTRA_INSUFICIENTE = 'amostra insuficiente'
 MAXIMO_PONTOS_P_EXATO = 9
 LIMIAR_TOPICO_FRACO = ConfiguracaoGlobal.limiar_topico_baixo
+META_PADRAO = 0.7
 _CASAS_NO_EMPATE = 9
 _DISCIPLINA_NO_CONCURSO = ['concurso', 'banca', 'ordem', 'bloco', 'disciplina_canonica']
 _TOPICO_NO_CONCURSO = ['concurso', 'banca', 'ordem', 'disciplina_canonica', 'chave_topico']
@@ -52,15 +55,12 @@ def comparar_bruto_vs_corrigido(consolidado: pd.DataFrame) -> pd.DataFrame:
             'percentual_bruta': 100 * validas['pontos_bruta'].sum() / len(validas),
             'percentual_ajustada': 100 * validas['pontos_ajustada'].sum() / len(validas),
         }
-        for coluna in colunas_de_peso(concurso):
-            if concurso[coluna].isna().all():
-                continue
-            peso = validas[coluna]
-            variante = coluna.removeprefix(PREFIXO_PESO)
+        for variante, peso in _variantes(concurso):
+            peso = peso.loc[validas.index]
             linhas.append(
                 {
                     **comum,
-                    'variante': None if variante == VARIANTE_PADRAO else variante,
+                    'variante': variante,
                     'percentual_corrigida': 100 * (peso * validas['pontos_corrigida']).sum() / peso.sum(),
                 }
             )
@@ -80,6 +80,66 @@ def comparar_bruto_vs_corrigido(consolidado: pd.DataFrame) -> pd.DataFrame:
         *(f'deslocamento_{versao}' for versao in VERSOES_COMPARADAS_AO_BRUTO),
     ]
     return tabela.sort_values(['posicao_ajustada', 'concurso', 'variante'], ignore_index=True)[colunas]
+
+
+@dataclass(frozen=True)
+class Correlacao:
+    rho: float
+    p_valor: float
+    pontos: int
+
+
+def comparar_com_meta(consolidado: pd.DataFrame, meta: float = META_PADRAO) -> pd.DataFrame:
+    """Por concurso e variante: a nota pela regra do edital (peso da variante, anulada vale ponto), a nota
+    normalizada (0–100 da nota máxima, truncada em 0) e a distância até a meta. `meta` é uma fração; a
+    distância fica em pontos percentuais, positiva quando a meta foi batida."""
+    linhas = []
+    for nome, concurso in consolidado.groupby('concurso', sort=False):
+        pelo_edital = _pontos_pelo_edital(concurso)
+        for variante, peso in _variantes(concurso):
+            nota = float((peso * pelo_edital).sum())
+            nota_maxima = float(concurso['nota_maxima'].iloc[0])
+            normalizada = nota_normalizada(nota, nota_maxima)
+            linhas.append(
+                {
+                    'concurso': nome,
+                    'variante': variante,
+                    'ordem': concurso['ordem'].iloc[0],
+                    'modelo_correcao': concurso['modelo_correcao'].iloc[0],
+                    'nota': nota,
+                    'nota_maxima': nota_maxima,
+                    'nota_normalizada': normalizada,
+                    'meta': 100 * meta,
+                    'distancia': normalizada - 100 * meta,
+                    'atingiu': normalizada >= 100 * meta,
+                }
+            )
+    return pd.DataFrame(linhas).sort_values(
+        ['ordem', 'concurso', 'variante'], na_position='last', ignore_index=True
+    )
+
+
+def correlacao_tempo_percentual(consolidado: pd.DataFrame, usar: str = 'ajustada') -> Correlacao:
+    """Spearman entre a ordem e o percentual de cada concurso na versão `usar` (sem anuladas): a medida
+    única de tendência geral. Concursos sem data ficam fora; concursos na mesma ordem viram um ponto só."""
+    validas = _validas(consolidado)
+    validas = validas[validas['ordem'].notna()]
+    por_ordem = 100 * validas.groupby('ordem')[_coluna_de_pontos(usar)].mean()
+    return Correlacao(**_spearman(por_ordem), pontos=len(por_ordem))
+
+
+def _variantes(concurso: pd.DataFrame) -> Iterator[tuple[str | None, pd.Series]]:
+    """Cada variante com peso declarado (None no concurso sem variantes) e o peso de cada item."""
+    for coluna in colunas_de_peso(concurso):
+        if concurso[coluna].isna().all():
+            continue
+        variante = coluna.removeprefix(PREFIXO_PESO)
+        yield (None if variante == VARIANTE_PADRAO else variante), concurso[coluna]
+
+
+def _pontos_pelo_edital(tabela: pd.DataFrame) -> pd.Series:
+    """Pontuação corrigida com a anulada valendo ponto, como o edital conta a nota."""
+    return tabela['pontos_corrigida'].where(~tabela['anulada'], 1.0)
 
 
 def _posicoes(tabela: pd.DataFrame, coluna: str) -> pd.Series:
@@ -110,8 +170,11 @@ def percentual_por_disciplina_ao_longo_do_tempo(consolidado: pd.DataFrame) -> pd
     )
     for versao in VERSOES:
         tabela[f'percentual_{versao}'] *= 100
-    pelo_edital = consolidado['pontos_corrigida'].where(~consolidado['anulada'], 1.0)
-    nota = pelo_edital.groupby([consolidado[c] for c in _DISCIPLINA_NO_CONCURSO], dropna=False).mean()
+    nota = (
+        _pontos_pelo_edital(consolidado)
+        .groupby([consolidado[c] for c in _DISCIPLINA_NO_CONCURSO], dropna=False)
+        .mean()
+    )
     tabela['nota_normalizada'] = (100 * nota).clip(lower=0)
     colunas = [
         *(f'percentual_{versao}' for versao in VERSOES),
@@ -173,16 +236,7 @@ def correlacao_tempo_zscore(
     """
 
     def calcular(serie: pd.DataFrame) -> dict:
-        por_ordem = serie.groupby('ordem')['zscore'].mean()
-        if len(por_ordem) < MINIMO_PONTOS_TENDENCIA or por_ordem.nunique() < 2:
-            return {'rho': np.nan, 'p_valor': np.nan}
-        resultado = stats.spearmanr(por_ordem.index.astype(float), por_ordem.to_numpy())
-        p_valor = (
-            _p_spearman_exato(por_ordem.to_numpy())
-            if len(por_ordem) <= MAXIMO_PONTOS_P_EXATO
-            else float(resultado.pvalue)
-        )
-        return {'rho': float(resultado.statistic), 'p_valor': p_valor}
+        return _spearman(serie.groupby('ordem')['zscore'].mean())
 
     return _por_serie(
         _com_zscore(consolidado, usar), _SERIE_DA_DISCIPLINA, estrato, calcular, ['rho', 'p_valor']
@@ -361,6 +415,19 @@ def _por_serie(
         )
     tabela = pd.DataFrame(linhas, columns=[*chaves, 'pontos', 'n', 'n_total', *colunas_calculadas])
     return tabela.sort_values('p_valor', na_position='last', kind='stable', ignore_index=True)
+
+
+def _spearman(por_ordem: pd.Series) -> dict:
+    """rho e p entre o índice (ordem) e os valores; sem 3 pontos distintos, ambos ficam vazios."""
+    if len(por_ordem) < MINIMO_PONTOS_TENDENCIA or por_ordem.nunique() < 2:
+        return {'rho': np.nan, 'p_valor': np.nan}
+    resultado = stats.spearmanr(por_ordem.index.astype(float), por_ordem.to_numpy())
+    p_valor = (
+        _p_spearman_exato(por_ordem.to_numpy())
+        if len(por_ordem) <= MAXIMO_PONTOS_P_EXATO
+        else float(resultado.pvalue)
+    )
+    return {'rho': float(resultado.statistic), 'p_valor': p_valor}
 
 
 def _p_spearman_exato(valores_em_ordem: np.ndarray) -> float:

@@ -4,10 +4,15 @@ from concursos.analytics.visualizacao import (
     aviso_modelos,
     barras_fracos,
     box_por_disciplina,
+    exportar_heatmap_topicos,
+    exportar_linha_evolucao,
+    exportar_painel_correcao,
     heatmap_topicos,
     linha_evolucao,
     painel_correcao,
 )
+
+PNG = b'\x89PNG'
 
 COMPARACAO = pd.DataFrame(
     {
@@ -158,3 +163,37 @@ def test_barras_de_fracos_empilham_acertos_e_erros_com_n():
     assert [serie.name for serie in figura.data] == ['acertos', 'erros', 'brancos']
     assert list(figura.data[1].x) == [3, 5]
     assert [nota.text for nota in figura.layout.annotations] == ['n = 6', 'n = 7']
+
+
+def rotulos(eixo) -> list[str]:
+    return [linha.get_label() for linha in eixo.get_lines() if not linha.get_label().startswith('_')]
+
+
+def test_exporta_a_linha_so_com_series_de_pontos_suficientes(tmp_path):
+    caminho = tmp_path / 'linha.png'
+
+    figura = exportar_linha_evolucao(EVOLUCAO, caminho, min_pontos=2)
+
+    assert caminho.read_bytes().startswith(PNG)
+    assert rotulos(figura.axes[0]) == ['Português (geral)', 'TI (especifico)']
+    assert rotulos(exportar_linha_evolucao(EVOLUCAO, tmp_path / 'vazia.png').axes[0]) == []
+    assert (tmp_path / 'vazia.png').exists()
+
+
+def test_exporta_o_heatmap_anotado_so_com_n_minimo(tmp_path):
+    caminho = tmp_path / 'heatmap.png'
+
+    figura = exportar_heatmap_topicos(PERCENTUAIS, caminho)
+
+    assert caminho.read_bytes().startswith(PNG)
+    assert sorted(texto.get_text() for texto in figura.axes[0].texts) == ['40%', '70%', '83%', 'n<5', 'n<5']
+
+
+def test_exporta_o_painel_com_as_tres_versoes(tmp_path):
+    caminho = tmp_path / 'painel.png'
+
+    figura = exportar_painel_correcao(COMPARACAO, caminho)
+
+    assert caminho.read_bytes().startswith(PNG)
+    assert [barras.get_label() for barras in figura.axes[0].containers] == ['bruto', 'corrigido', 'ajustado']
+    assert len(figura.axes[0].containers[0]) == len(COMPARACAO)

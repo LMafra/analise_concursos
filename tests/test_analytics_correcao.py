@@ -293,8 +293,8 @@ def test_nota_negativa_e_truncada_em_zero_so_na_nota_normalizada():
 
     assert corrigida.nota == -1.0
     assert corrigida.itens['pontos_corrigida'].mean() < 0
-    assert nota_normalizada(corrigida.nota, LIQUIDA) == 0.0
-    assert nota_normalizada(3.0, LIQUIDA) == 50.0
+    assert nota_normalizada(corrigida.nota, LIQUIDA.nota_maxima) == 0.0
+    assert nota_normalizada(3.0, LIQUIDA.nota_maxima) == 50.0
 
 
 def test_default_nao_acusa_contradicao_com_a_pontuacao_alem_do_aviso_de_default(caplog):

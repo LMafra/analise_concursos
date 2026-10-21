@@ -87,9 +87,9 @@ def aplicar_correcao(questoes: pd.DataFrame, cfg: ConfiguracaoCorrecao, formato:
     return NotaCorrigida(itens, float((peso * corrigida.where(~anulada, 1.0)).sum()))
 
 
-def nota_normalizada(nota: float, cfg: ConfiguracaoCorrecao) -> float:
+def nota_normalizada(nota: float, nota_maxima: float) -> float:
     """Nota na escala 0–100 da nota máxima, truncada em 0."""
-    return max(0.0, nota / cfg.nota_maxima * 100)
+    return max(0.0, nota / nota_maxima * 100)
 
 
 _NUMERO = r'\d+(?:,\d+)?'

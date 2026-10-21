@@ -121,6 +121,14 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
 - **Tendência por tópico:** slope do percentual (padrão: ajustado) pela ordem, com as mesmas regras da tendência por disciplina. O n mínimo por ponto é configurável (padrão 5). Tópico nunca cobrado não tem linha.
 - **Fracos persistentes:** tópicos abaixo do limiar (padrão 60%; o notebook passa o `limiar_topico_baixo` do `config.yaml`, o mesmo do comparativo da fase 1) em pelo menos 2 concursos, com acertos, erros e brancos somados entre concursos e n agregado ≥ 5. O n de cada concurso não importa, porque só a soma dá amostra. O percentual agregado é a média dos itens de todos os concursos.
 
+**Insights e relatório de evolução** (`concursos.analytics.insights`).
+
+- **Meta** (`comparar_com_meta`, em `evolucao`): por concurso e variante, a nota pela regra do edital (peso da variante, anulada vale ponto), a nota normalizada (0–100 da nota máxima, truncada em 0) e a distância até a meta (padrão 70%), em pontos percentuais.
+- **Correlação geral** (`correlacao_tempo_percentual`, em `evolucao`): Spearman entre a ordem e o percentual ajustado de cada concurso. É a medida única de tendência geral; a média dos z-scores de um concurso não serve, porque fica perto de 0 por construção.
+- **Achados:** melhoras e pioras são as tendências por disciplina com p < 0,05; os fracos usam o limiar do `config.yaml`; o ranking muda quando alguma linha tem deslocamento no corrigido ou no ajustado.
+- **Sensibilidade:** os achados são recalculados sem os concursos de nível médio (`escolaridade: medio`), e as diferenças são declaradas.
+- **Relatório:** `relatorio_evolucao.md`, na pasta do consolidado, traz as quatro respostas, a sensibilidade e três PNGs gravados com matplotlib: `evolucao_zscore.png` (só disciplinas com 3 concursos ou mais de n ≥ 5), `heatmap_topicos.png` (tópicos em 2 concursos ou mais) e `painel_correcao.png`.
+
 **Data da prova e metadados.** Cada concurso tem:
 - data da prova: a do `concurso.yaml` (`data_prova`) ou, sem ela, a extraída do edital. A configuração vem antes porque no edital a data é sempre "provável" e pode ser retificada. O edital é lido em dois formatos:
   - cronograma: "Aplicação das provas objetivas e discursiva 22/2/2026" (Cebraspe, CPNU);

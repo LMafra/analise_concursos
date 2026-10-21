@@ -2,10 +2,13 @@ import math
 
 import pandas as pd
 import pytest
+from consolidado_sintetico import concurso, consolidado
 
 from concursos.analytics.evolucao import (
     cobertura_edital,
     comparar_bruto_vs_corrigido,
+    comparar_com_meta,
+    correlacao_tempo_percentual,
     correlacao_tempo_zscore,
     evolucao_por_topico,
     modelos_distintos,
@@ -15,61 +18,6 @@ from concursos.analytics.evolucao import (
     topicos_fracos_persistentes,
     zscore_por_disciplina,
 )
-
-ALTERNATIVAS = {'certo_errado': 2, 'multipla_escolha': 5}
-
-
-def concurso(
-    nome: str,
-    resultados: list[str],
-    formato: str = 'certo_errado',
-    anuladas: tuple[int, ...] = (),
-    pesos: dict[str, list[float]] | None = None,
-    ordem: int | None = None,
-    disciplinas: list[str] | None = None,
-    blocos: list[str] | None = None,
-    topicos: list[str] | None = None,
-    banca: str | None = None,
-) -> pd.DataFrame:
-    """Linhas mínimas do consolidado: Cebraspe líquida (fator 1) ou FGV bruta, com pontuação por item."""
-    fator = 1.0 if formato == 'certo_errado' else 0.0
-    k = ALTERNATIVAS[formato]
-    anulada = [i + 1 in anuladas for i in range(len(resultados))]
-    pontos = {
-        'bruta': {'acerto': 1.0, 'erro': 0.0, 'branco': 0.0},
-        'corrigida': {'acerto': 1.0, 'erro': -fator, 'branco': 0.0},
-        'ajustada': {'acerto': 1.0, 'erro': -1 / (k - 1), 'branco': 0.0},
-    }
-    tabela = pd.DataFrame(
-        {
-            'concurso': nome,
-            'banca': banca or ('cebraspe' if formato == 'certo_errado' else 'fgv'),
-            'prova': 'unica',
-            'questao': range(1, len(resultados) + 1),
-            'disciplina_canonica': disciplinas or ['Português'] * len(resultados),
-            'bloco': blocos or ['geral'] * len(resultados),
-            'topico': topicos or ['Crase'] * len(resultados),
-            'anulada': anulada,
-            'resultado': resultados,
-            'modelo_correcao': 'liquida' if fator else ('ponderada' if pesos else 'bruta'),
-            'fator_penalidade': fator,
-            'nota_maxima': float(len(resultados)),
-            'ordem': pd.array([ordem] * len(resultados), dtype='Int64'),
-        }
-    )
-    tabela['disciplina'] = tabela['disciplina_canonica']
-    tabela['chave_topico'] = (tabela['disciplina_canonica'] + ' | ' + tabela['topico']).mask(
-        tabela['topico'] == 'nao_mapeado'
-    )
-    for versao, valores in pontos.items():
-        tabela[f'pontos_{versao}'] = tabela['resultado'].map(valores).mask(tabela['anulada'])
-    for variante, valores in (pesos or {'padrao': [1.0] * len(resultados)}).items():
-        tabela[f'peso__{variante}'] = valores
-    return tabela
-
-
-def consolidado(*concursos: pd.DataFrame) -> pd.DataFrame:
-    return pd.concat(concursos, ignore_index=True)
 
 
 def test_um_concurso_so_fica_em_primeiro_nas_tres_versoes():
@@ -590,3 +538,58 @@ def test_topico_sem_gabarito_fica_fora_das_metricas_mas_conta_como_cobrado():
     assert evolucao_por_topico(base)['topico'].tolist() == ['Crase']
     assert topicos_fracos_persistentes(base, limiar=1.1)['topico'].tolist() == ['Crase']
     assert cobertura_edital(base, edital).set_index('concurso').loc['a', 'topicos_cobrados'] == 2
+
+
+def test_meta_por_variante_com_os_pesos_da_variante():
+    cpnu = concurso(
+        'cpnu',
+        ['acerto', 'acerto', 'erro', 'erro'],
+        formato='multipla_escolha',
+        pesos={'v1': [1.0, 1.0, 2.0, 2.0], 'v2': [2.0, 2.0, 1.0, 1.0]},
+        ordem=1,
+    ).assign(nota_maxima=6.0)
+
+    tabela = comparar_com_meta(consolidado(cpnu), meta=0.6).set_index('variante')
+
+    assert tabela.loc['v1', ['nota', 'nota_maxima']].tolist() == [2.0, 6.0]
+    assert tabela.loc['v1', 'nota_normalizada'] == pytest.approx(100 / 3)
+    assert tabela.loc['v2', 'nota_normalizada'] == pytest.approx(200 / 3)
+    assert tabela.loc['v1', 'distancia'] == pytest.approx(100 / 3 - 60)
+    assert tabela.loc['v2', 'distancia'] == pytest.approx(200 / 3 - 60)
+    assert tabela['atingiu'].tolist() == [False, True]
+    assert tabela['meta'].tolist() == [60.0, 60.0]
+
+
+def test_meta_com_nota_truncada_em_zero_e_anulada_valendo_ponto():
+    tcu = concurso('tcu', ['erro', 'erro', 'erro', 'acerto'], ordem=1)
+    pf = concurso('pf', ['acerto', 'acerto', 'erro', 'erro'], anuladas=(3,), ordem=2)
+
+    tabela = comparar_com_meta(consolidado(tcu, pf)).set_index('concurso')
+
+    assert tabela.loc['tcu', ['nota', 'nota_normalizada', 'distancia']].tolist() == [-2.0, 0.0, -70.0]
+    assert tabela.loc['pf', ['nota', 'nota_normalizada']].tolist() == [2.0, 50.0]
+    assert tabela.index.tolist() == ['tcu', 'pf']
+
+
+def test_meta_com_um_concurso_so():
+    tabela = comparar_com_meta(consolidado(concurso('tcu', ['acerto'] * 3 + ['erro'])))
+
+    assert len(tabela) == 1
+    assert pd.isna(tabela.loc[0, 'variante'])
+    assert tabela.loc[0, 'nota_normalizada'] == 50.0
+
+
+def test_correlacao_entre_a_ordem_e_o_percentual_de_cada_concurso():
+    base = consolidado(
+        concurso('a', ['acerto', 'erro', 'erro', 'erro'], ordem=1),
+        concurso('b', ['acerto', 'acerto', 'erro', 'erro'], ordem=2),
+        concurso('c', ['acerto', 'acerto', 'acerto', 'erro'], ordem=3),
+        concurso('sem_data', ['erro'] * 4),
+    )
+
+    correlacao = correlacao_tempo_percentual(base)
+
+    assert correlacao.rho == pytest.approx(1.0)
+    assert correlacao.p_valor == pytest.approx(1 / 3)
+    assert correlacao.pontos == 3
+    assert math.isnan(correlacao_tempo_percentual(consolidado(concurso('a', ['acerto'], ordem=1))).rho)

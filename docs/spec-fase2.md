@@ -167,7 +167,7 @@ O código novo vive num subpacote de análise dentro do pacote existente, para n
     - O aviso de menção a penalidade usa só expressões específicas: "ponto negativo", "desconto de", "descontado" e "anula um acerto" (e variações de número). Palavras soltas como "anulação", "anulada" ou "descontos" não contam, porque aparecem em todos os editais (anulação de questão, de inscrição ou de nomeação) e em trechos sobre salário ("descontos legais", no TCU).
     - Quando nem o edital nem a configuração definem a nota máxima, ela é a soma dos pesos dos itens do concurso, ou seja, o número de itens quando não há pesos. Nem todo edital declara a nota máxima: o agsus declara ("totalizará 70 pontos"), mas a regra da Cebraspe e a do cprm não.
   - `aplicar_correcao(questoes, cfg) -> NotaCorrigida`: pontuação de cada item nas três versões, a partir do formato da prova e do peso.
-  - `nota_normalizada(nota, cfg) -> float`: escala de 0 a 100, truncada em 0.
+  - `nota_normalizada(nota, nota_maxima) -> float`: escala de 0 a 100, truncada em 0.
 - **Pipeline (retrofit cirúrgico).**
   - Ao fim da análise de um concurso, o pipeline resolve a correção a partir do texto do edital e dos anexos, extraído sem OCR, e grava um arquivo de correção (JSON) na pasta de análise do concurso.
   - O texto de cada documento é lido uma única vez e serve tanto para estruturar o conteúdo programático quanto para resolver a correção. A extração do PDF é a etapa mais lenta da leitura do edital, e lê-lo de novo só para a correção dobraria esse tempo.
