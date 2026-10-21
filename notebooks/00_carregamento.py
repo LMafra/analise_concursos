@@ -18,13 +18,15 @@
 #
 # Íntegra: uma linha por questão de cada concurso analisado, com colunas, tipos e domínios esperados.
 # Comparável: cada concurso tem data da prova (para entrar na ordem cronológica) e regra de correção
-# vinda do edital ou declarada no `concurso.yaml`, não do default.
+# vinda do edital ou declarada no `concurso.yaml`, não do default; e cada disciplina tem uma disciplina
+# canônica na `taxonomia.yaml`, para que a mesma matéria seja comparada entre editais.
 
 # %%
 from concursos.analytics.consolidado import (
     avisos_do_consolidado,
     carregar_consolidado,
     contar_questoes,
+    disciplinas_por_quantidade_de_concursos,
     perfil_por_concurso,
     raiz_do_projeto,
     validar_schema,
@@ -37,7 +39,8 @@ consolidado = carregar_consolidado()
 # ## Validação
 #
 # Colunas, tipos e domínios, e o número de linhas igual à soma das tabelas de questões. Um concurso
-# analisado sem `correcao.json` ou `concurso.yaml` fica fora do consolidado e reprova a contagem.
+# analisado sem `correcao.json` ou `concurso.yaml` fica fora do consolidado e reprova a contagem, e um nome
+# de disciplina ausente da `taxonomia.yaml` reprova a validação com a lista de nomes.
 # Se algo estiver errado, a célula abaixo falha listando todos os problemas.
 
 # %%
@@ -54,6 +57,15 @@ resumir(consolidado, n=5, contar='concurso')
 perfil_por_concurso(consolidado)
 
 # %% [markdown]
+# ## Disciplinas comparáveis entre concursos
+#
+# Quantas disciplinas canônicas aparecem em 1, 2 e 3 ou mais concursos. Só as que aparecem em mais de um
+# concurso têm evolução; as de um concurso só entram nos totais por bloco.
+
+# %%
+disciplinas_por_quantidade_de_concursos(consolidado)
+
+# %% [markdown]
 # ## Avisos de data e de correção
 #
 # Concursos sem data ficam fora das análises de tendência; correção no default ou com confiança baixa
@@ -67,7 +79,9 @@ avisos if len(avisos) else 'Nenhum aviso: todos os concursos têm data e regra d
 # ## Conclusão
 #
 # Se a validação passou e não há avisos, a base está íntegra e comparável: cada questão aparece uma vez,
-# cada concurso tem posição na ordem cronológica e a pontuação de cada item segue a regra do próprio
-# edital. Os notebooks seguintes podem agregar por tópico e por concurso sem conferir a base de novo.
+# cada concurso tem posição na ordem cronológica, a pontuação de cada item segue a regra do próprio
+# edital e cada disciplina tem nome canônico e bloco. Os notebooks seguintes podem agregar por tópico e
+# por concurso sem conferir a base de novo.
 # Avisos de data tiram o concurso das tendências; avisos de correção tornam a nota daquele concurso
-# provisória até a regra ser confirmada.
+# provisória até a regra ser confirmada. Disciplinas presentes em um concurso só não têm tendência: se uma
+# delas for a mesma matéria de outra com nome diferente, junte as duas na `taxonomia.yaml`.

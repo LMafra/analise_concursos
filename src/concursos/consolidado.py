@@ -10,7 +10,7 @@ from concursos.manifesto import ARQUIVO_MANIFESTO
 from concursos.relatorio import tabela_markdown
 from concursos.resultado_oficial import formatar, ler_validacao
 from concursos.status import Situacao, StatusConcurso, avaliar, listar_concursos
-from concursos.topicos import palavras_chave
+from concursos.topicos import chave_de_palavras
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +143,7 @@ def _baixos(geral: pd.DataFrame, colunas: list[str], limiar: float, rotulo: str)
 
 
 def _chave(nomes: pd.Series) -> str:
-    return ' | '.join(' '.join(sorted(palavras_chave(nome))) for nome in nomes)
+    return ' | '.join(chave_de_palavras(nome) for nome in nomes)
 
 
 def _percentual(tabela: pd.DataFrame) -> pd.Series:

@@ -35,6 +35,12 @@ class Escolaridade(StrEnum):
     NAO_INFORMADO = 'nao_informado'
 
 
+class Bloco(StrEnum):
+    GERAL = 'geral'
+    ESPECIFICO = 'especifico'
+    NAO_INFORMADO = 'nao_informado'
+
+
 class ModeloCorrecao(StrEnum):
     BRUTA = 'bruta'
     LIQUIDA = 'liquida'

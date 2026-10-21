@@ -182,6 +182,26 @@ Todo arquivo da pasta precisa aparecer no `concurso.yaml` (num campo ou em `igno
 - compactados;
 - arquivos `:Zone.Identifier`.
 
+## Taxonomia de disciplinas
+
+A `taxonomia.yaml`, na raiz do projeto, é escrita e revisada à mão. Ela mapeia cada nome de disciplina, como aparece nos `questoes.csv`, para uma **disciplina canônica**. Assim, a mesma matéria é comparada entre editais que usam nomes diferentes:
+
+```yaml
+Raciocínio Lógico:
+  bloco: geral                 # geral | especifico
+  nomes:                       # o próprio nome canônico já está incluído
+    - Raciocínio Lógico Matemático
+    - Raciocínio Análitico
+```
+
+- **Nomes:** um nome só pode aparecer em uma disciplina canônica. A taxonomia não tem fallback: um nome ausente reprova a validação do consolidado, com a lista dos nomes que faltam. A disciplina `nao_mapeado`, das questões que o pipeline não classificou, passa direto, sem entrada na taxonomia.
+- **Bloco:**
+  - Nas provas divididas, o bloco vem da própria prova: `cg` e `cb` são `geral`, e `ce` é `especifico`.
+  - Na prova única, vem do bloco da disciplina canônica. Uma questão `nao_mapeado` em prova única fica com bloco `nao_informado`.
+- **Identidade de tópico** (`chave_topico`): a disciplina canônica mais as palavras-chave do nome do tópico, sem acento, caixa ou palavras vazias, em ordem alfabética. É a mesma normalização do comparativo entre concursos. Por exemplo, "Emprego do sinal indicativo de crase" e "EMPREGO DO SINAL INDICATIVO DA CRASE", ambos em Língua Portuguesa, têm a mesma chave.
+
+Editar a taxonomia reconstrói o consolidado na próxima carga.
+
 ## Edital manual
 
 Use quando o conteúdo programático não puder ser extraído do PDF, ou para corrigir a estrutura extraída. O caminho vai em `edital.manual`.
@@ -250,8 +270,9 @@ No consolidado, em `analises/consolidado/`:
   - tópicos e disciplinas abaixo de `limiar_topico_baixo` em pelo menos dois concursos (nomes comparados por palavras-chave);
   - concursos incompletos ou desatualizados, com o motivo;
   - validação com o resultado oficial.
-- **`consolidado.parquet`:** cache da análise evolutiva (`concursos.analytics.consolidado`), com uma linha por questão de cada concurso que tem `questoes.csv`, `correcao.json` e `concurso.yaml`. É reconstruído quando um `questoes.csv`, `correcao.json` ou `concurso.yaml` fica mais novo que ele, ou quando o conjunto de concursos analisados muda. Colunas:
-  - de `questoes.csv`: `concurso` (nome da pasta), `prova`, `questao`, `disciplina`, `topico`, `gabarito`, `anulada`, `resposta`, `resultado` (`acerto | erro | branco`);
+- **`consolidado.parquet`:** cache da análise evolutiva (`concursos.analytics.consolidado`), com uma linha por questão de cada concurso que tem `questoes.csv`, `correcao.json` e `concurso.yaml`. É reconstruído quando um `questoes.csv`, `correcao.json`, `concurso.yaml` ou a `taxonomia.yaml` fica mais novo que ele, ou quando o conjunto de concursos analisados muda. Colunas:
+  - de `questoes.csv`: `concurso` (nome da pasta), `prova`, `questao`, `disciplina` (nome bruto), `topico`, `gabarito`, `anulada`, `resposta`, `resultado` (`acerto | erro | branco`);
+  - da [taxonomia](#taxonomia-de-disciplinas): `disciplina_canonica`, `bloco` (`geral | especifico | nao_informado`) e `chave_topico`;
   - do `concurso.yaml`: `formato`, `banca`, `cargo`, `nivel` (`federal | estadual | municipal | nao_informado`), `escolaridade` (`superior | medio | nao_informado`);
   - do `correcao.json` (a primeira configuração, quando há variantes): `data_prova` (data, vazia sem data), `modelo_correcao` (`bruta | liquida | ponderada`), `fator_penalidade`, `nota_maxima`, `nota_corte` (vazia sem corte), `fonte_correcao` (`edital | config | default`), `confianca_correcao`;
   - `pontos_bruta`, `pontos_corrigida` e `pontos_ajustada`: a pontuação por item da tabela acima, sem peso, vazia nas anuladas;
@@ -259,4 +280,4 @@ No consolidado, em `analises/consolidado/`:
   - `ordem`: posição cronológica do concurso pela data da prova, a partir de 1 (datas iguais empatam), vazia sem data;
   - `n_topico`: quantidade de questões do tópico naquela prova (o `total` de `desempenho_por_topico.csv`).
 
-  `validar_schema` confere colunas, tipos, domínios, a existência de ao menos uma coluna `peso__` e o número de linhas igual à soma das linhas de todos os `questoes.csv` (um concurso analisado que ficou fora reprova a contagem).
+  `validar_schema` confere colunas, tipos, domínios, nomes de disciplina sem mapeamento na taxonomia, a existência de ao menos uma coluna `peso__` e o número de linhas igual à soma das linhas de todos os `questoes.csv` (um concurso analisado que ficou fora reprova a contagem).

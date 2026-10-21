@@ -153,6 +153,8 @@ Depois de mudar um limiar, rode `analisar --forcar`.
 
 O `concurso.yaml` de cada pasta é gerado pelo `adicionar` e pode ser editado à mão. O schema completo está em [docs/modelo.md](docs/modelo.md).
 
+A `taxonomia.yaml` na raiz mapeia cada nome de disciplina para uma disciplina canônica e um bloco (geral ou específico), para comparar a mesma matéria entre editais na análise evolutiva. Um concurso novo com nome de disciplina inédito precisa de uma entrada nela; veja [Taxonomia de disciplinas](docs/modelo.md#taxonomia-de-disciplinas).
+
 ## Privacidade
 
 `provas/` e `analises/` ficam fora do git (`.gitignore`) por conterem dados pessoais (nome, CPF, notas). Modelos de OCR também são ignorados.

@@ -195,6 +195,11 @@ def palavras_chave(texto: str) -> set[str]:
     return set(re.findall(r'\w+', normalizar(texto).lower())) - set(_PALAVRAS_VAZIAS)
 
 
+def chave_de_palavras(texto: str) -> str:
+    """Palavras-chave em ordem alfabética: iguala nomes que só diferem em acento, caixa e palavras vazias."""
+    return ' '.join(sorted(palavras_chave(texto)))
+
+
 def gravar_revisao(caminho: Path, linhas: list[dict]) -> bool:
     """Cria o CSV de revisão (sugestões + colunas vazias a preencher); nunca sobrescreve o do usuário."""
     if caminho.exists():

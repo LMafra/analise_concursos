@@ -14,6 +14,7 @@ from concursos.analytics.consolidado import (
     carregar_consolidado,
     construir_consolidado,
     contar_questoes,
+    disciplinas_por_quantidade_de_concursos,
     perfil_por_concurso,
     validar_schema,
 )
@@ -28,25 +29,42 @@ LIQUIDA = ConfiguracaoCorrecao(
 BRUTA = ConfiguracaoCorrecao(
     ModeloCorrecao.BRUTA, 0.0, nota_maxima=4.0, fonte=FonteCorrecao.EDITAL, confianca=0.9
 )
+TAXONOMIA = {
+    'Língua Portuguesa': {'bloco': 'geral', 'nomes': ['Português']},
+    'Tecnologia da Informação': {'bloco': 'especifico', 'nomes': ['TI']},
+}
+
+
+def gravar_taxonomia(caminho: Path, dados: dict) -> None:
+    caminho.write_text(yaml.safe_dump(dados, allow_unicode=True), encoding='utf-8')
+
+
+def preparar_raizes(tmp_path: Path) -> tuple[Path, Path, Path]:
+    raizes = (tmp_path / 'provas', tmp_path / 'analises', tmp_path / 'taxonomia.yaml')
+    gravar_taxonomia(raizes[2], TAXONOMIA)
+    return raizes
 
 
 def criar_analise(
-    raizes: tuple[Path, Path],
+    raizes: tuple[Path, Path, Path],
     nome: str,
     resultados: list[str],
     correcoes: list[ConfiguracaoCorrecao],
     formato: str = 'certo_errado',
     data_prova: date | None = None,
     anuladas: tuple[int, ...] = (),
+    prova: str = 'unica',
+    disciplinas: list[str] | None = None,
+    topicos: list[str] | None = None,
     **config,
 ) -> None:
-    provas, analises = raizes
+    provas, analises, _ = raizes
     (provas / nome).mkdir(parents=True)
     dados = {
         'nome': nome,
         'banca': 'cebraspe' if formato == 'certo_errado' else 'fgv',
         'formato': formato,
-        'provas': {'unica': {'gabarito': 'g.txt', 'itens': [1, len(resultados)]}},
+        'provas': {prova: {'gabarito': 'g.txt', 'itens': [1, len(resultados)]}},
         'respostas': {'arquivo': 'r.txt'},
         **config,
     }
@@ -56,11 +74,11 @@ def criar_analise(
     pd.DataFrame(
         {
             'questao': range(1, len(resultados) + 1),
-            'prova': 'unica',
-            'disciplina': ['Português', 'Português', *['TI'] * (len(resultados) - 2)],
+            'prova': prova,
+            'disciplina': disciplinas or ['Português', 'Português', *['TI'] * (len(resultados) - 2)],
             'topico_sugerido': 'x',
             'score': 0.5,
-            'topico': ['Crase', 'Crase', *['Redes'] * (len(resultados) - 2)],
+            'topico': topicos or ['Crase', 'Crase', *['Redes'] * (len(resultados) - 2)],
             'revisado': False,
             'gabarito': ['' if i + 1 in anuladas else 'C' for i in range(len(resultados))],
             'anulada': [i + 1 in anuladas for i in range(len(resultados))],
@@ -78,8 +96,8 @@ def criar_analise(
 
 
 @pytest.fixture
-def base(tmp_path) -> tuple[Path, Path]:
-    raizes = (tmp_path / 'provas', tmp_path / 'analises')
+def base(tmp_path) -> tuple[Path, Path, Path]:
+    raizes = preparar_raizes(tmp_path)
     criar_analise(
         raizes, 'tcu', ['acerto', 'erro', 'branco', 'acerto'], [LIQUIDA], data_prova=date(2026, 2, 22)
     )
@@ -116,7 +134,7 @@ def test_uma_linha_por_questao_com_metadados_do_concurso(base):
 
 
 def test_ordem_cronologica_pela_data_e_vazia_sem_data(tmp_path):
-    raizes = (tmp_path / 'provas', tmp_path / 'analises')
+    raizes = preparar_raizes(tmp_path)
     criar_analise(raizes, 'b', ['acerto'] * 3, [LIQUIDA], data_prova=date(2026, 2, 22))
     criar_analise(raizes, 'a', ['acerto'] * 3, [LIQUIDA], data_prova=date(2025, 7, 27))
     criar_analise(raizes, 'sem_data', ['acerto'] * 3, [LIQUIDA])
@@ -165,6 +183,92 @@ def test_quantidade_de_questoes_do_topico(base):
     assert consolidado[consolidado['concurso'] == 'agsus']['n_topico'].tolist() == [2, 2, 3, 3, 3]
 
 
+def test_disciplina_canonica_vem_da_taxonomia(base):
+    tcu = construir_consolidado(*base).query("concurso == 'tcu'")
+
+    assert tcu['disciplina'].tolist() == ['Português', 'Português', 'TI', 'TI']
+    assert tcu['disciplina_canonica'].tolist() == ['Língua Portuguesa'] * 2 + ['Tecnologia da Informação'] * 2
+
+
+def test_bloco_vem_da_prova_dividida_e_da_taxonomia_na_prova_unica(base):
+    criar_analise(base, 'pf_cb', ['acerto'] * 3, [LIQUIDA], prova='cb')
+    criar_analise(base, 'pf_cg', ['acerto'] * 3, [LIQUIDA], prova='cg')
+    criar_analise(base, 'pf_ce', ['acerto'] * 3, [LIQUIDA], prova='ce')
+
+    blocos = construir_consolidado(*base).groupby('concurso')['bloco'].agg(list)
+
+    assert blocos['pf_cb'] == ['geral'] * 3
+    assert blocos['pf_cg'] == ['geral'] * 3
+    assert blocos['pf_ce'] == ['especifico'] * 3
+    assert blocos['tcu'] == ['geral', 'geral', 'especifico', 'especifico']
+
+
+def test_disciplina_nao_mapeada_pelo_pipeline_fica_sem_bloco_na_prova_unica(base):
+    criar_analise(base, 'fgv', ['acerto'] * 3, [BRUTA], disciplinas=['nao_mapeado', 'Português', 'TI'])
+    criar_analise(
+        base, 'cespe', ['acerto'] * 3, [LIQUIDA], prova='ce', disciplinas=['nao_mapeado', 'TI', 'TI']
+    )
+    consolidado = construir_consolidado(*base).set_index(['concurso', 'questao'])
+
+    assert consolidado.loc[('fgv', 1), ['disciplina_canonica', 'bloco']].tolist() == [
+        'nao_mapeado',
+        'nao_informado',
+    ]
+    assert consolidado.loc[('cespe', 1), 'bloco'] == 'especifico'
+    validar_schema(consolidado.reset_index(), contar_questoes(base[1]))
+
+
+def test_chave_de_topico_junta_disciplina_canonica_e_palavras_do_topico(base):
+    criar_analise(base, 'outro', ['acerto'] * 3, [LIQUIDA], disciplinas=['Língua Portuguesa', 'TI', 'TI'])
+    consolidado = construir_consolidado(*base).set_index(['concurso', 'questao'])
+
+    assert consolidado.loc[('tcu', 1), 'chave_topico'] == consolidado.loc[('outro', 1), 'chave_topico']
+    assert consolidado.loc[('tcu', 1), 'chave_topico'] != consolidado.loc[('tcu', 3), 'chave_topico']
+
+
+def test_topico_nao_classificado_fica_sem_chave(base):
+    criar_analise(
+        base,
+        'outro',
+        ['acerto'] * 3,
+        [LIQUIDA],
+        disciplinas=['Português', 'nao_mapeado', 'TI'],
+        topicos=['nao_mapeado', 'nao_mapeado', 'Redes'],
+    )
+    chaves = construir_consolidado(*base).query("concurso == 'outro'")['chave_topico']
+
+    assert chaves.isna().tolist() == [True, True, False]
+
+
+def test_disciplina_sem_mapeamento_reprova_a_validacao_com_os_nomes(base):
+    gravar_taxonomia(base[2], {'Língua Portuguesa': {'bloco': 'geral'}})
+    criar_analise(base, 'outro', ['acerto'] * 3, [LIQUIDA], disciplinas=['Português', 'Redes', 'TI'])
+    consolidado = construir_consolidado(*base)
+
+    with pytest.raises(
+        SchemaInvalidoError, match=r"sem mapeamento na taxonomia: \['Português', 'Redes', 'TI'\]"
+    ):
+        validar_schema(consolidado, contar_questoes(base[1]))
+
+
+def test_disciplinas_por_quantidade_de_concursos(base):
+    criar_analise(base, 'terceiro', ['acerto'] * 3, [LIQUIDA], disciplinas=['Português', 'Atualidades', 'TI'])
+    criar_analise(base, 'quarto', ['acerto'] * 3, [LIQUIDA], disciplinas=['nao_mapeado', 'Português', 'TI'])
+    gravar_taxonomia(base[2], {**TAXONOMIA, 'Atualidades': {'bloco': 'geral'}})
+
+    tabela = disciplinas_por_quantidade_de_concursos(construir_consolidado(*base))
+
+    assert tabela.to_dict('records') == [
+        {'concursos': '1', 'disciplinas': 1, 'nomes': 'Atualidades'},
+        {'concursos': '2', 'disciplinas': 0, 'nomes': ''},
+        {
+            'concursos': '3 ou mais',
+            'disciplinas': 2,
+            'nomes': 'Língua Portuguesa, Tecnologia da Informação',
+        },
+    ]
+
+
 def test_consolidado_construido_passa_na_validacao(base):
     consolidado = construir_consolidado(*base)
 
@@ -209,7 +313,8 @@ def test_carregar_grava_o_cache_e_nao_reconstroi_sem_mudanca(base, construcoes):
 
 
 @pytest.mark.parametrize(
-    'arquivo', ['analises/tcu/questoes.csv', 'analises/tcu/correcao.json', 'provas/tcu/concurso.yaml']
+    'arquivo',
+    ['analises/tcu/questoes.csv', 'analises/tcu/correcao.json', 'provas/tcu/concurso.yaml', 'taxonomia.yaml'],
 )
 def test_carregar_reconstroi_quando_uma_entrada_fica_mais_nova_que_o_cache(base, construcoes, arquivo):
     carregar_consolidado(*base)

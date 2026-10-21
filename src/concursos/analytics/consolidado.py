@@ -8,9 +8,11 @@ import pandas as pd
 from pandas.api import types
 
 from concursos.analytics.correcao import ARQUIVO_CORRECAO, FonteCorrecao, aplicar_correcao, ler_correcao
+from concursos.analytics.taxonomia import ARQUIVO_TAXONOMIA, carregar_taxonomia, classificar
 from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso
 from concursos.consolidado import PASTA_CONSOLIDADO
-from concursos.modelo import Escolaridade, Formato, ModeloCorrecao, Nivel, Resultado
+from concursos.correcao import TOPICO_NAO_MAPEADO
+from concursos.modelo import Bloco, Escolaridade, Formato, ModeloCorrecao, Nivel, Resultado
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,10 @@ COLUNAS = {
     'prova': _TEXTO,
     'questao': _INTEIRO,
     'disciplina': _TEXTO,
+    'disciplina_canonica': _TEXTO,
+    'bloco': _TEXTO,
     'topico': _TEXTO,
+    'chave_topico': _TEXTO,
     'gabarito': _TEXTO,
     'anulada': _LOGICO,
     'resposta': _TEXTO,
@@ -55,6 +60,7 @@ DOMINIOS: dict[str, type[StrEnum]] = {
     'escolaridade': Escolaridade,
     'modelo_correcao': ModeloCorrecao,
     'fonte_correcao': FonteCorrecao,
+    'bloco': Bloco,
 }
 _VERIFICA_TIPO = {
     _TEXTO: lambda serie: types.is_string_dtype(serie) or types.is_object_dtype(serie),
@@ -63,7 +69,7 @@ _VERIFICA_TIPO = {
     _LOGICO: types.is_bool_dtype,
     _DATA: types.is_datetime64_any_dtype,
 }
-_CHAVE_TOPICO = ['concurso', 'prova', 'disciplina', 'topico']
+_TOPICO_NA_PROVA = ['concurso', 'prova', 'disciplina', 'topico']
 CONFIANCA_MINIMA_SEM_AVISO = 0.8
 
 
@@ -71,35 +77,42 @@ class SchemaInvalidoError(ValueError):
     pass
 
 
-def construir_consolidado(raiz_provas: Path, raiz_analises: Path) -> pd.DataFrame:
-    """Junta as questões, a correção e os metadados de cada concurso com análise e arquivo de correção.
+def construir_consolidado(raiz_provas: Path, raiz_analises: Path, arquivo_taxonomia: Path) -> pd.DataFrame:
+    """Junta as questões, a correção e os metadados de cada concurso com análise e arquivo de correção, e
+    classifica cada disciplina pela taxonomia.
 
     O peso de cada item vem numa coluna por variante (`peso__<variante>`, ou `peso__padrao` sem
     variantes), vazia nos concursos que não têm aquela variante.
     """
+    taxonomia = carregar_taxonomia(arquivo_taxonomia)
     nomes = concursos_analisados(raiz_provas, raiz_analises)
     partes = [_questoes_do_concurso(raiz_provas / nome, raiz_analises / nome) for nome in nomes]
     if not partes:
         return pd.DataFrame(columns=list(COLUNAS))
-    consolidado = pd.concat(partes, ignore_index=True)
+    consolidado = classificar(pd.concat(partes, ignore_index=True), taxonomia)
     consolidado['data_prova'] = consolidado['data_prova'].astype('datetime64[ms]')
     consolidado['ordem'] = _ordem(consolidado)
-    consolidado['n_topico'] = consolidado.groupby(_CHAVE_TOPICO, dropna=False)['questao'].transform('size')
+    consolidado['n_topico'] = consolidado.groupby(_TOPICO_NA_PROVA, dropna=False)['questao'].transform('size')
     return consolidado[[*COLUNAS, *sorted(colunas_de_peso(consolidado))]]
 
 
-def carregar_consolidado(raiz_provas: Path | None = None, raiz_analises: Path | None = None) -> pd.DataFrame:
-    """Lê o parquet em cache ou o reconstrói quando alguma entrada (questões, correção, concurso.yaml) é mais
-    nova que ele, ou quando o conjunto de concursos analisados mudou. Sem raízes, usa as do projeto."""
+def carregar_consolidado(
+    raiz_provas: Path | None = None, raiz_analises: Path | None = None, arquivo_taxonomia: Path | None = None
+) -> pd.DataFrame:
+    """Lê o parquet em cache ou o reconstrói quando alguma entrada (questões, correção, concurso.yaml ou
+    taxonomia) é mais nova que ele, ou quando o conjunto de concursos analisados mudou. Sem caminhos, usa os
+    do projeto."""
     raiz = raiz_do_projeto()
     raiz_provas, raiz_analises = raiz_provas or raiz / 'provas', raiz_analises or raiz / 'analises'
+    arquivo_taxonomia = arquivo_taxonomia or raiz / ARQUIVO_TAXONOMIA
     cache = raiz_analises / PASTA_CONSOLIDADO / ARQUIVO_PARQUET
     nomes = concursos_analisados(raiz_provas, raiz_analises)
-    if cache.exists() and not _alguma_mais_nova(cache, _entradas(raiz_provas, raiz_analises, nomes)):
+    entradas = [*_entradas(raiz_provas, raiz_analises, nomes), arquivo_taxonomia]
+    if cache.exists() and arquivo_taxonomia.exists() and not _alguma_mais_nova(cache, entradas):
         consolidado = pd.read_parquet(cache)
         if sorted(consolidado['concurso'].unique()) == nomes:
             return consolidado
-    consolidado = construir_consolidado(raiz_provas, raiz_analises)
+    consolidado = construir_consolidado(raiz_provas, raiz_analises, arquivo_taxonomia)
     cache.parent.mkdir(parents=True, exist_ok=True)
     consolidado.to_parquet(cache, index=False)
     logger.info('Consolidado de %d questões gravado em %s', len(consolidado), cache)
@@ -134,6 +147,10 @@ def validar_schema(consolidado: pd.DataFrame, linhas_esperadas: int) -> None:
             fora = sorted(set(consolidado[coluna].dropna()) - {item.value for item in dominio})
             if fora:
                 problemas.append(f'{coluna}: valores fora do domínio {fora}')
+    if 'disciplina_canonica' in consolidado:
+        sem_mapeamento = consolidado.loc[consolidado['disciplina_canonica'].isna(), 'disciplina']
+        if len(sem_mapeamento):
+            problemas.append(f'disciplinas sem mapeamento na taxonomia: {sorted(sem_mapeamento.unique())}')
     if not colunas_de_peso(consolidado):
         problemas.append(f'nenhuma coluna de peso ({PREFIXO_PESO}<variante>)')
     if len(consolidado) != linhas_esperadas:
@@ -179,6 +196,22 @@ def perfil_por_concurso(consolidado: pd.DataFrame) -> pd.DataFrame:
     ]
     perfil = _por_concurso(consolidado)[colunas].join(contagens).assign(variantes=variantes)
     return perfil.sort_values(['ordem', 'data_prova'], na_position='last').reset_index()
+
+
+def disciplinas_por_quantidade_de_concursos(consolidado: pd.DataFrame) -> pd.DataFrame:
+    """Quantas disciplinas canônicas aparecem em 1, 2 e 3 ou mais concursos, com os nomes."""
+    classificadas = consolidado[consolidado['disciplina_canonica'] != TOPICO_NAO_MAPEADO]
+    rotulos = {1: '1', 2: '2', 3: '3 ou mais'}
+    faixas = classificadas.groupby('disciplina_canonica')['concurso'].nunique().clip(upper=3).map(rotulos)
+    linhas = [
+        {
+            'concursos': faixa,
+            'disciplinas': int((faixas == faixa).sum()),
+            'nomes': ', '.join(sorted(faixas.index[faixas == faixa])),
+        }
+        for faixa in rotulos.values()
+    ]
+    return pd.DataFrame(linhas)
 
 
 def colunas_de_peso(consolidado: pd.DataFrame) -> list[str]:
