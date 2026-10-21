@@ -634,6 +634,7 @@ dev = [
     { name = "pyarrow" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "scipy" },
 ]
 
 [package.metadata]
@@ -667,6 +668,7 @@ dev = [
     { name = "pyarrow", specifier = ">=26.0.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.17.1" },
+    { name = "scipy", specifier = ">=1.18.1" },
 ]
 
 [[package]]

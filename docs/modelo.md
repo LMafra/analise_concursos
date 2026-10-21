@@ -108,6 +108,13 @@ As anuladas ficam fora das três versões (não medem conhecimento) e os percent
 
 A posição 1 é o maior percentual, e empates dividem a posição. As posições contam concursos, não linhas: cada variante é posicionada contra os outros concursos, e um concurso com variantes entra no ranking dos outros pela sua melhor variante. O deslocamento é a posição no bruto menos a posição na versão, ou seja, quantas posições a linha sobe.
 
+**Evolução por disciplina** (`concursos.analytics.evolucao`). Todas as métricas são por concurso, bloco e disciplina canônica e vêm com o n. Só a nota normalizada conta as anuladas, como ponto, seguindo o edital; as demais as excluem. Disciplina com n < 5 é marcada como amostra insuficiente.
+
+- **z-score:** \(z_d = (\bar s_d - \bar s_g)/(\sigma_g/\sqrt{n_d})\). Aqui \(s\) é a pontuação de cada item na versão escolhida (padrão: ajustada), \(g\) são os itens não anulados do concurso, e \(\sigma_g\) é o desvio populacional deles. Numa prova sem brancos, o z não muda entre versões que diferem por transformação afim; é o caso de bruta e ajustada na FGV.
+- **Tendência:** slope do z pela ordem (regressão linear), com p-value. Só contam concursos com data e pontos com n ≥ 5, e a série precisa de 3 ordens distintas ou mais; senão, fica como amostra insuficiente.
+- **Correlação:** Spearman entre a ordem e o z, com os mesmos concursos da tendência; concursos na mesma ordem viram um ponto só, pela média dos z. É calculada por disciplina, porque a média dos z de um concurso fica perto de 0 por construção. Com até 9 pontos, o p-value é exato, por permutação de todas as ordenações.
+- **Estrato:** a tendência e a correlação aceitam uma série única ou uma série por banca.
+
 **Data da prova e metadados.** Cada concurso tem:
 - data da prova: a do `concurso.yaml` (`data_prova`) ou, sem ela, a extraída do edital. A configuração vem antes porque no edital a data é sempre "provável" e pode ser retificada. O edital é lido em dois formatos:
   - cronograma: "Aplicação das provas objetivas e discursiva 22/2/2026" (Cebraspe, CPNU);

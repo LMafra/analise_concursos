@@ -44,6 +44,7 @@ dev = [
     "pyarrow>=26.0.0",
     "pytest>=9.1.1",
     "ruff>=0.17.1",
+    "scipy>=1.18.1",
 ]
 
 [tool.pytest.ini_options]
