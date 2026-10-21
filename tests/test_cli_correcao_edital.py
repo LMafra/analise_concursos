@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import date
 
 import pandas as pd
 import pytest
@@ -9,9 +10,10 @@ from test_cli_edital import MANUAL
 from test_edital import PAGINAS
 
 from concursos import pipeline
-from concursos.analytics.correcao import aplicar_correcao, ler_correcao
+from concursos.analytics.correcao import FonteCorrecao, aplicar_correcao, ler_correcao
 from concursos.cli import main
-from concursos.modelo import Formato
+from concursos.concurso_config import carregar_concurso
+from concursos.modelo import Escolaridade, Formato, Nivel
 
 CERTO_ERRADO = {
     'formato': 'certo_errado',
@@ -232,3 +234,70 @@ def test_variantes_declaradas_viram_uma_configuracao_por_variante_no_arquivo(rai
     assert ti.pesos[0].peso == 3.0
     questoes = ler_csv(analises / 'sintetico' / 'questoes.csv')
     assert aplicar_correcao(questoes, ti, Formato.MULTIPLA_ESCOLHA).nota == 1 + 3
+
+
+def test_data_da_prova_e_metadados_declarados_sao_aceitos_e_a_data_vai_para_o_arquivo(raizes):
+    provas, analises = raizes
+    criar(provas, MULTIPLA_ESCOLHA, data_prova=date(2025, 10, 5), nivel='federal', escolaridade='medio')
+
+    assert analisar(provas, analises) == 0
+
+    config = carregar_concurso(provas / 'sintetico')
+    assert (config.data_prova, config.nivel, config.escolaridade) == (
+        date(2025, 10, 5),
+        Nivel.FEDERAL,
+        Escolaridade.MEDIO,
+    )
+    [cfg] = ler_correcao(analises / 'sintetico')
+    assert (cfg.data_prova, cfg.fonte_data) == (date(2025, 10, 5), FonteCorrecao.CONFIG)
+
+
+def test_metadados_ausentes_ficam_nao_informados(raizes):
+    provas, _ = raizes
+    criar(provas, MULTIPLA_ESCOLHA)
+
+    config = carregar_concurso(provas / 'sintetico')
+
+    assert (config.data_prova, config.nivel, config.escolaridade) == (
+        None,
+        Nivel.NAO_INFORMADO,
+        Escolaridade.NAO_INFORMADO,
+    )
+
+
+@pytest.mark.parametrize(
+    ('campos', 'mensagem'),
+    [
+        ({'data_prova': '22/02/2026'}, "data_prova: valor '22/02/2026' não é uma data ISO 8601 (aaaa-mm-dd)"),
+        ({'data_prova': 20260222}, "data_prova: valor '20260222' não é uma data ISO 8601"),
+        ({'nivel': 'distrital'}, "nivel: valor 'distrital' inválido"),
+        ({'escolaridade': 'fundamental'}, "escolaridade: valor 'fundamental' inválido"),
+    ],
+)
+def test_data_e_metadados_invalidos_apontam_o_campo(raizes, capsys, campos, mensagem):
+    provas, _ = raizes
+    criar(provas, MULTIPLA_ESCOLHA, **campos)
+
+    assert main(['status', '--provas', str(provas)]) == 0
+
+    assert mensagem in capsys.readouterr().out
+
+
+def test_data_impossivel_sem_aspas_no_yaml_aponta_o_campo_sem_derrubar_os_outros(raizes, capsys):
+    provas, _ = raizes
+    criar(provas, MULTIPLA_ESCOLHA)
+    caminho = provas / 'sintetico' / 'concurso.yaml'
+    caminho.write_text(caminho.read_text(encoding='utf-8') + 'data_prova: 2026-02-30\n', encoding='utf-8')
+
+    assert main(['status', '--provas', str(provas)]) == 0
+
+    assert "data_prova: valor '2026-02-30' não é uma data ISO 8601" in capsys.readouterr().out
+
+
+def test_nivel_e_escolaridade_vazios_ficam_nao_informados(raizes):
+    provas, _ = raizes
+    criar(provas, MULTIPLA_ESCOLHA, nivel=None, escolaridade=None)
+
+    config = carregar_concurso(provas / 'sintetico')
+
+    assert (config.nivel, config.escolaridade) == (Nivel.NAO_INFORMADO, Escolaridade.NAO_INFORMADO)

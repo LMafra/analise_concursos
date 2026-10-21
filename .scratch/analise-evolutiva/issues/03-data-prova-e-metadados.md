@@ -14,11 +14,12 @@ Ver `docs/spec-fase2.md` (histórias 19, 20, 22, 23 e 24) e a tabela de datas es
 
 **Blocked by:** 01 (Correção do edital ponta a ponta)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Testes de extração da data nos dois formatos, com trechos reais.
-- [ ] Testes da precedência configuração, depois edital, depois ausente com aviso.
-- [ ] Teste de CLI: os campos novos opcionais do `concurso.yaml` são aceitos e validados, e valores inválidos geram erro claro com o campo.
-- [ ] Com dados reais, as datas resolvidas batem com a tabela da spec. Do mais antigo para o mais recente: pf_perito 27/07/2025, cpnu 05/10/2025, agsus 12/10/2025, cprm 30/11/2025, telebras 08/02/2026, tcu_25 22/02/2026, cd_25 08/03/2026, infrasa 15/03/2026 e funpresp_jud 05/07/2026.
-- [ ] `docs/modelo.md` atualizado com `data_prova`, `nivel` e `escolaridade`.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Testes de extração da data nos dois formatos, com trechos reais.
+- [x] Testes da precedência configuração, depois edital, depois ausente com aviso.
+- [x] Teste de CLI: os campos novos opcionais do `concurso.yaml` são aceitos e validados, e valores inválidos geram erro claro com o campo.
+- [x] Com dados reais, as datas resolvidas batem com a tabela da spec. Do mais antigo para o mais recente: pf_perito 27/07/2025, cpnu 05/10/2025, agsus 12/10/2025, cprm 30/11/2025, telebras 08/02/2026, tcu_25 22/02/2026, cd_25 08/03/2026, infrasa 15/03/2026 e funpresp_jud 05/07/2026.
+  - Todas vieram do edital (fonte `edital`); nenhum `concurso.yaml` precisou de `data_prova`.
+- [x] `docs/modelo.md` atualizado com `data_prova`, `nivel` e `escolaridade`.
+- [x] `uv run pytest` e `ruff` verdes.

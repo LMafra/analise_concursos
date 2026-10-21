@@ -22,6 +22,19 @@ class Pontuacao(StrEnum):
         return 1.0 if self is Pontuacao.CEBRASPE else 0.0
 
 
+class Nivel(StrEnum):
+    FEDERAL = 'federal'
+    ESTADUAL = 'estadual'
+    MUNICIPAL = 'municipal'
+    NAO_INFORMADO = 'nao_informado'
+
+
+class Escolaridade(StrEnum):
+    SUPERIOR = 'superior'
+    MEDIO = 'medio'
+    NAO_INFORMADO = 'nao_informado'
+
+
 class ModeloCorrecao(StrEnum):
     BRUTA = 'bruta'
     LIQUIDA = 'liquida'

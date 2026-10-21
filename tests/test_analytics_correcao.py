@@ -137,8 +137,13 @@ def test_ponto_por_questao_com_mencao_a_desconto_nao_e_bruta():
     assert extrair_fator_correcao([texto]) is None
 
 
-def concurso(pontuacao: str = 'cebraspe', correcao: dict | None = None):
+def avisos_de_correcao(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records if 'data da prova' not in r.getMessage()]
+
+
+def concurso(pontuacao: str = 'cebraspe', correcao: dict | None = None, **extra):
     dados = {
+        **extra,
         'nome': 'sintetico',
         'banca': 'cebraspe',
         'formato': 'certo_errado',
@@ -201,7 +206,7 @@ def test_configuracao_vale_quando_o_edital_nao_define_a_regra(caplog):
         FonteCorrecao.CONFIG,
     )
     assert (cfg.nota_maxima, cfg.nota_corte) == (100.0, 50.0)
-    assert caplog.text == ''
+    assert avisos_de_correcao(caplog) == []
 
 
 def test_edital_prevalece_sobre_a_configuracao_e_ela_completa_o_que_falta(caplog):
@@ -304,7 +309,7 @@ def test_pontuacao_coerente_com_o_edital_nao_gera_aviso(caplog):
     with caplog.at_level(logging.WARNING):
         resolver_correcao(concurso('cebraspe'), {'edital.pdf': [CEBRASPE]})
 
-    assert caplog.text == ''
+    assert avisos_de_correcao(caplog) == []
 
 
 CRECI = """11 DAS PROVAS OBJETIVAS 11.1 As provas objetivas, de caráter eliminatório e classificatório, valerão
@@ -451,7 +456,7 @@ def test_cpnu_tem_uma_variante_ponderada_por_cargo_lida_do_quadro_do_anexo(caplo
         assert cfg.documento_origem == 'anexo_bloco3.pdf'
         assert cfg.trecho_origem.startswith(cfg.variante)
         assert cfg.nota_maxima == 150.0
-    assert caplog.text == ''
+    assert avisos_de_correcao(caplog) == []
 
 
 def questoes_cpnu() -> pd.DataFrame:

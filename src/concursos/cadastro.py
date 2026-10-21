@@ -26,6 +26,7 @@ _TEMPLATE_FGV_POR_TOTAL = {70: 'fgv_mod70ae', 90: 'fgv_cpnu_90'}
 _CHAVES_CEBRASPE = (('CONHECIMENTOS GERAIS', 'cg'), ('CONHECIMENTOS BASICOS', 'cb'))
 _IGNORAR = 'ignorar'
 _NENHUM = '(nenhum)'
+_CAMPOS_MANUAIS = ('data_prova', 'nivel', 'escolaridade', 'correcao')
 
 
 @dataclass(frozen=True)
@@ -165,8 +166,9 @@ class _Cadastro:
             dados['resultado_oficial'] = resultado
         if ignorar := self._ignorados(dados):
             dados['ignorar'] = ignorar
-        if correcao := self.anterior.get('correcao'):
-            dados['correcao'] = correcao
+        for campo in _CAMPOS_MANUAIS:
+            if self.anterior.get(campo):
+                dados[campo] = self.anterior[campo]
         if historico := self.anterior.get('historico'):
             dados['historico'] = historico
         return dados

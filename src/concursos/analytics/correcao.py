@@ -5,6 +5,7 @@ import json
 import logging
 import re
 from dataclasses import asdict, dataclass, replace
+from datetime import date
 from enum import StrEnum
 from pathlib import Path
 
@@ -51,6 +52,8 @@ class ConfiguracaoCorrecao:
     documento_origem: str | None = None
     pagina_origem: int | None = None
     variante: str | None = None
+    data_prova: date | None = None
+    fonte_data: FonteCorrecao | None = None
 
     def peso_de(self, questao: int) -> float:
         return peso_da_questao(self.pesos, questao)
@@ -138,6 +141,37 @@ _EIXOS_TEMATICOS = re.compile(
     rf'(?P<eixos>\d+)\s*{_POR_EXTENSO}eixos\s+temáticos,?\s+cada\s+um\s+contendo\s+(?P<itens>\d+)', re.I
 )
 _CODIGO_DE_CARGO = r'[A-Z]\d+-\d{2}-[A-Z]'
+_MESES = {
+    nome: numero
+    for numero, nomes in enumerate(
+        [
+            ('janeiro',),
+            ('fevereiro',),
+            ('março', 'marco'),
+            ('abril',),
+            ('maio',),
+            ('junho',),
+            ('julho',),
+            ('agosto',),
+            ('setembro',),
+            ('outubro',),
+            ('novembro',),
+            ('dezembro',),
+        ],
+        start=1,
+    )
+    for nome in nomes
+}
+_DATA_NO_CRONOGRAMA = re.compile(
+    r'aplicação\s+d[ao]s?\s+provas?\s+objetivas?(?:\s+e\s+(?:da\s+)?discursivas?)?\.?\s+'
+    r'(?P<dia>\d{1,2})/(?P<mes>\d{1,2})/(?P<ano>\d{4})',
+    re.IGNORECASE,
+)
+_DATA_POR_EXTENSO = re.compile(
+    r'prova\s+objetiva[^.]{0,200}?ser(?:á|ão)\s+realizad[ao]s?[^.]{0,80}?\bno\s+dia\s+'
+    rf'(?P<dia>\d{{1,2}})\s+de\s+(?P<mes>{"|".join(_MESES)})\s+de\s+(?P<ano>\d{{4}})',
+    re.IGNORECASE,
+)
 _NOTA_CORTE = (
     re.compile(
         rf'nota\s+inferior\s+a\s+(?P<valor>{_NUMERO})\s*pontos\s+no\s+conjunto\s+das\s+provas\s+objetivas',
@@ -219,6 +253,22 @@ def extrair_fator_correcao(paginas: list[str], total_itens: int | None = None) -
     )
 
 
+def extrair_data_prova(paginas: list[str]) -> date | None:
+    """Data (provável) de aplicação da prova objetiva: no cronograma ("Aplicação das provas objetivas 22/2/2026")
+    ou no texto corrido ("a Prova Objetiva será realizada … no dia 12 de outubro de 2025")."""
+    texto = _TextoCorrido.de(paginas).texto
+    if match := _DATA_NO_CRONOGRAMA.search(texto):
+        mes = int(match['mes'])
+    elif match := _DATA_POR_EXTENSO.search(texto):
+        mes = _MESES[match['mes'].lower()]
+    else:
+        return None
+    try:
+        return date(int(match['ano']), mes, int(match['dia']))
+    except ValueError:
+        return None
+
+
 def mencao_penalidade(paginas: list[str]) -> bool:
     """O texto fala em descontar pontos por erro? "Anulação" e "descontos" soltos não contam."""
     return _MENCAO_PENALIDADE.search(_TextoCorrido.de(paginas).texto) is not None
@@ -239,11 +289,17 @@ def resolver_correcao(config: ConcursoConfig, documentos: dict[str, list[str]]) 
         configuracoes = [_resolver_variante(config.nome, v, base, quadro) for v in declarada.variantes]
     else:
         configuracoes = [base]
-    return [_completar(config, cfg, declarada) for cfg in configuracoes]
+    data_prova, fonte_data = _resolver_data_prova(config, documentos)
+    return [
+        replace(_completar(config, cfg, declarada), data_prova=data_prova, fonte_data=fonte_data)
+        for cfg in configuracoes
+    ]
 
 
 def gravar_correcao(configuracoes: list[ConfiguracaoCorrecao], destino: Path) -> None:
-    conteudo = json.dumps([asdict(cfg) for cfg in configuracoes], indent=2, ensure_ascii=False)
+    conteudo = json.dumps(
+        [asdict(cfg) for cfg in configuracoes], indent=2, ensure_ascii=False, default=date.isoformat
+    )
     (destino / ARQUIVO_CORRECAO).write_text(conteudo, encoding='utf-8')
 
 
@@ -256,10 +312,29 @@ def ler_correcao(pasta: Path) -> list[ConfiguracaoCorrecao]:
                 'modelo': ModeloCorrecao(cfg['modelo']),
                 'fonte': FonteCorrecao(cfg['fonte']),
                 'pesos': tuple(PesoItens(**faixa) for faixa in cfg['pesos']),
+                'data_prova': cfg['data_prova'] and date.fromisoformat(cfg['data_prova']),
+                'fonte_data': cfg['fonte_data'] and FonteCorrecao(cfg['fonte_data']),
             }
         )
         for cfg in dados
     ]
+
+
+def _resolver_data_prova(
+    config: ConcursoConfig, documentos: dict[str, list[str]]
+) -> tuple[date | None, FonteCorrecao | None]:
+    """A configuração vem antes porque a data do edital é só provável e pode ter sido retificada."""
+    if config.data_prova is not None:
+        return config.data_prova, FonteCorrecao.CONFIG
+    for paginas in documentos.values():
+        if (data := extrair_data_prova(paginas)) is not None:
+            return data, FonteCorrecao.EDITAL
+    logger.warning(
+        '%s: data da prova não encontrada no edital nem no concurso.yaml (data_prova); '
+        'o concurso fica sem data e fora das análises de tendência',
+        config.nome,
+    )
+    return None, None
 
 
 def _resolver_regra(

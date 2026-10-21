@@ -1,13 +1,26 @@
+import re
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 import yaml
 
-from concursos.modelo import Formato, ModeloCorrecao, Pontuacao
+from concursos.modelo import Escolaridade, Formato, ModeloCorrecao, Nivel, Pontuacao
 
 ARQUIVO_CONFIG = 'concurso.yaml'
 BANCAS = ('cebraspe', 'fgv', 'selecon', 'quadrix')
 STATUS_GABARITO = ('preliminar', 'definitivo')
+
+
+class _CarregadorSemDatas(yaml.SafeLoader):
+    """Datas chegam como texto, para que uma data inválida vire erro de validação com o nome do campo."""
+
+
+_CarregadorSemDatas.yaml_implicit_resolvers = {
+    inicial: [(tag, padrao) for tag, padrao in resolvedores if tag != 'tag:yaml.org,2002:timestamp']
+    for inicial, resolvedores in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+_DATA_ISO = re.compile(r'\d{4}-\d{2}-\d{2}')
 
 
 class ConfiguracaoInvalidaError(ValueError):
@@ -136,6 +149,9 @@ class ConcursoConfig:
     edital: EditalConfig | None = None
     resultado_oficial: ResultadoOficialConfig | None = None
     correcao: CorrecaoConfig | None = None
+    data_prova: date | None = None
+    nivel: Nivel = Nivel.NAO_INFORMADO
+    escolaridade: Escolaridade = Escolaridade.NAO_INFORMADO
     ignorar: tuple[str, ...] = field(default_factory=tuple)
     historico: tuple[dict, ...] = field(default_factory=tuple)
 
@@ -160,7 +176,7 @@ def carregar_concurso(pasta: Path) -> ConcursoConfig:
     if not caminho.exists():
         raise ArquivoAusenteError(f'{caminho}: arquivo de configuração ausente')
     try:
-        dados = yaml.safe_load(caminho.read_text(encoding='utf-8')) or {}
+        dados = yaml.load(caminho.read_text(encoding='utf-8'), Loader=_CarregadorSemDatas) or {}
     except yaml.YAMLError as erro:
         raise ConfiguracaoInvalidaError(f'{caminho}: {erro}') from erro
     return validar_dados(pasta, dados)
@@ -195,6 +211,11 @@ def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
         if dados.get('resultado_oficial')
         else None,
         correcao=_montar_correcao(dados['correcao']) if dados.get('correcao') else None,
+        data_prova=_data_opcional(dados, 'data_prova'),
+        nivel=_enum(Nivel, dados.get('nivel') or Nivel.NAO_INFORMADO, 'nivel'),
+        escolaridade=_enum(
+            Escolaridade, dados.get('escolaridade') or Escolaridade.NAO_INFORMADO, 'escolaridade'
+        ),
         ignorar=tuple(dados.get('ignorar') or ()),
         historico=tuple(dados.get('historico') or ()),
     )
@@ -304,6 +325,20 @@ def _numero_opcional(dados: dict, campo: str, prefixo: str = '') -> float | None
         return float(valor)
     except (TypeError, ValueError):
         raise ConfiguracaoInvalidaError(f"{prefixo}{campo}: valor '{valor}' não é numérico") from None
+
+
+def _data_opcional(dados: dict, campo: str) -> date | None:
+    valor = dados.get(campo)
+    if valor is None:
+        return None
+    try:
+        if not _DATA_ISO.fullmatch(str(valor)):
+            raise ValueError
+        return date.fromisoformat(str(valor))
+    except ValueError:
+        raise ConfiguracaoInvalidaError(
+            f"{campo}: valor '{valor}' não é uma data ISO 8601 (aaaa-mm-dd)"
+        ) from None
 
 
 def _obrigatorio(dados: dict, campo: str, prefixo: str = ''):

@@ -101,6 +101,17 @@ A `pontuacao` continua alimentando a `nota_liquida` dos CSVs; o modelo de corre�
 
 As anuladas ficam fora das três versões (não medem conhecimento) e os percentuais podem ser negativos. O peso do item não entra nessas pontuações. A exceção é a nota do concurso, que segue o edital: soma das pontuações corrigidas multiplicadas pelo peso de cada item, com cada anulada valendo o seu peso. A nota normalizada é \(\max(0, \text{nota}/\text{nota máxima} \times 100)\), truncada em 0 só ela. Na Cebraspe, a nota corrigida é igual à soma da `nota_liquida` legada.
 
+**Data da prova e metadados.** Cada concurso tem:
+- data da prova: a do `concurso.yaml` (`data_prova`) ou, sem ela, a extraída do edital. A configuração vem antes porque no edital a data é sempre "provável" e pode ser retificada. O edital é lido em dois formatos:
+  - cronograma: "Aplicação das provas objetivas e discursiva 22/2/2026" (Cebraspe, CPNU);
+  - texto corrido: "a Prova Objetiva … será realizada … no dia 12 de outubro de 2025" (FGV).
+
+  Sem data em nenhuma fonte, a análise avisa e o concurso fica sem data, fora das análises de tendência. Nada é imputado (nem data de arquivo, nem data de publicação do edital);
+- nível: `federal`, `estadual` ou `municipal`;
+- escolaridade: `superior` ou `medio`.
+
+Nível e escolaridade são opcionais e ficam `nao_informado` quando ausentes.
+
 **EventoHistórico.** Registra mudanças no concurso. Hoje só existe a troca do gabarito preliminar pelo definitivo, com data, tipo (`gabarito_definitivo`), prova, arquivo anterior e arquivo novo.
 
 **Validação oficial.** Compara o desempenho calculado com o resultado oficial da banca. A medida é acertos ou pontos, com pesos opcionais por faixa de itens. Uma divergência vira alerta. Se o resultado inclui outras fases, a comparação é só informativa.
@@ -140,6 +151,9 @@ respostas:                     # use 'arquivo' OU 'folha'
   itens_por_coluna: 20         # opcional; detectado pela grade
 # respostas:
 #   arquivo: respostas.txt
+data_prova: 2026-02-22         # opcional; ISO 8601, prevalece sobre a data provável do edital
+nivel: federal                 # opcional; federal | estadual | municipal (padrão: nao_informado)
+escolaridade: superior         # opcional; superior | medio (padrão: nao_informado)
 resultado_oficial:             # opcional
   arquivo: resultado.pdf
   identificador: '12345678'    # inscrição do candidato
@@ -222,7 +236,8 @@ Por concurso, em `analises/<concurso>/`:
   - `pesos`: lista de `{inicio, fim, peso}` (vazia quando todos os itens valem 1);
   - `fonte` (`edital | config | default`), `confianca`;
   - `trecho_origem`, `documento_origem`, `pagina_origem` (preenchidos quando a fonte é o edital);
-  - `variante` (`null` quando o concurso não tem variantes).
+  - `variante` (`null` quando o concurso não tem variantes);
+  - `data_prova` (ISO 8601 ou `null`) e `fonte_data` (`edital | config`, `null` sem data), iguais em todas as variantes.
 - **`validacao_oficial.json`:** `arquivo`, `descricao` e `alerta`. Só existe quando há resultado oficial.
 - **`relatorio.md` e `graficos/*.png`:** o relatório; os gráficos ficam na pasta indicada.
 - **`historico/<data>_gabarito_preliminar/`:** cópia das saídas anteriores à troca de gabarito.
