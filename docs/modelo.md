@@ -250,3 +250,13 @@ No consolidado, em `analises/consolidado/`:
   - tópicos e disciplinas abaixo de `limiar_topico_baixo` em pelo menos dois concursos (nomes comparados por palavras-chave);
   - concursos incompletos ou desatualizados, com o motivo;
   - validação com o resultado oficial.
+- **`consolidado.parquet`:** cache da análise evolutiva (`concursos.analytics.consolidado`), com uma linha por questão de cada concurso que tem `questoes.csv`, `correcao.json` e `concurso.yaml`. É reconstruído quando um `questoes.csv`, `correcao.json` ou `concurso.yaml` fica mais novo que ele, ou quando o conjunto de concursos analisados muda. Colunas:
+  - de `questoes.csv`: `concurso` (nome da pasta), `prova`, `questao`, `disciplina`, `topico`, `gabarito`, `anulada`, `resposta`, `resultado` (`acerto | erro | branco`);
+  - do `concurso.yaml`: `formato`, `banca`, `cargo`, `nivel` (`federal | estadual | municipal | nao_informado`), `escolaridade` (`superior | medio | nao_informado`);
+  - do `correcao.json` (a primeira configuração, quando há variantes): `data_prova` (data, vazia sem data), `modelo_correcao` (`bruta | liquida | ponderada`), `fator_penalidade`, `nota_maxima`, `nota_corte` (vazia sem corte), `fonte_correcao` (`edital | config | default`), `confianca_correcao`;
+  - `pontos_bruta`, `pontos_corrigida` e `pontos_ajustada`: a pontuação por item da tabela acima, sem peso, vazia nas anuladas;
+  - `peso__<variante>`: o peso do item em cada variante (`peso__padrao` quando o concurso não tem variantes), vazio nos concursos sem aquela variante;
+  - `ordem`: posição cronológica do concurso pela data da prova, a partir de 1 (datas iguais empatam), vazia sem data;
+  - `n_topico`: quantidade de questões do tópico naquela prova (o `total` de `desempenho_por_topico.csv`).
+
+  `validar_schema` confere colunas, tipos, domínios, a existência de ao menos uma coluna `peso__` e o número de linhas igual à soma das linhas de todos os `questoes.csv` (um concurso analisado que ficou fora reprova a contagem).

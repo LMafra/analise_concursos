@@ -14,6 +14,10 @@ provas/
 analises/
 *:Zone.Identifier
 
+# Notebooks gerados a partir dos scripts jupytext em notebooks/*.py
+notebooks/*.ipynb
+.ipynb_checkpoints/
+
 # Modelos de OCR
 *.traineddata
 .EasyOCR/

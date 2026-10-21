@@ -27,14 +27,14 @@ Ver `docs/spec-fase2.md` (histórias 21, 25–27, 31, 49 e 60–64).
 
 **Blocked by:** 01 (Correção do edital ponta a ponta), 03 (Data da prova e metadados do concurso)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Testes sobre consolidados mínimos montados por uma factory de teste:
+- [x] Testes sobre consolidados mínimos montados por uma factory de teste:
   - construção, `ordem` com e sem data;
   - as três versões da pontuação por item;
   - rebuild por mtime (reconstrói quando um CSV fica mais novo e não reconstrói sem mudança);
   - a validação de schema falha com coluna ausente, domínio inválido e contagem divergente.
-- [ ] Com dados reais, o parquet tem tantas linhas quanto a soma das tabelas de questões (1.070 hoje), e todo concurso tem `modelo_correcao` e `fonte_correcao` preenchidos.
-- [ ] O script de execução roda o notebook 00 do zero sem erro.
-- [ ] `docs/modelo.md` atualizado com o schema do consolidado.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Com dados reais, o parquet tem tantas linhas quanto a soma das tabelas de questões (1.070 hoje), e todo concurso tem `modelo_correcao` e `fonte_correcao` preenchidos.
+- [x] O script de execução roda o notebook 00 do zero sem erro.
+- [x] `docs/modelo.md` atualizado com o schema do consolidado.
+- [x] `uv run pytest` e `ruff` verdes.
