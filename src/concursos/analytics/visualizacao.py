@@ -8,7 +8,11 @@ import plotly.graph_objects as go
 from plotly.colors import qualitative
 from plotly.subplots import make_subplots
 
+from concursos.analytics.consolidado import N_MINIMO_TOPICO
+
 OPACIDADE_AMOSTRA_INSUFICIENTE = 0.35
+TAMANHO_ROTULO_TOPICO = 50
+_CORES_DOS_RESULTADOS = (('acertos', 'seagreen'), ('erros', 'indianred'), ('brancos', 'lightgray'))
 _METRICAS_DA_LINHA = (('percentual', 'percentual'), ('zscore', 'z-score'))
 _COLUNAS_DO_HOVER = ['concurso', 'banca', 'n']
 
@@ -147,6 +151,92 @@ def box_por_disciplina(zscores: pd.DataFrame, coluna: str = 'zscore') -> go.Figu
     return figura
 
 
+def heatmap_topicos(percentuais: pd.DataFrame, min_n: int = N_MINIMO_TOPICO) -> go.Figure:
+    """Tópicos (linhas, por disciplina) por concurso (colunas, em ordem cronológica), a partir de
+    `percentual_por_topico`. Só as células com n ≥ `min_n` têm cor e percentual anotado; as outras ficam
+    cinza com "n<`min_n`", e as de tópico não cobrado, em branco."""
+    tabela = percentuais.sort_values(['disciplina', 'topico']).assign(rotulo=_rotulo_topico)
+    concursos = tabela.sort_values(['ordem', 'concurso'], na_position='last')['concurso'].unique()
+    topicos = tabela.drop_duplicates('chave_topico')
+    suficiente = tabela['n'] >= min_n
+
+    def grade(valores: pd.Series) -> pd.DataFrame:
+        return (
+            tabela.assign(valor=valores)
+            .pivot(index='chave_topico', columns='concurso', values='valor')
+            .reindex(index=topicos['chave_topico'], columns=concursos)
+        )
+
+    def textos(valores: pd.Series) -> list[list[str]]:
+        return grade(valores).fillna('').to_numpy().tolist()
+
+    vazio = pd.Series('', index=tabela.index)
+    eixos_e_n = {
+        'x': concursos,
+        'y': topicos['rotulo'],
+        'customdata': grade(tabela['n']).to_numpy(),
+        'xgap': 1,
+    }
+    figura = go.Figure()
+    figura.add_heatmap(
+        **eixos_e_n,
+        z=grade(tabela['percentual'].where(suficiente)).to_numpy(),
+        text=textos(tabela['percentual'].map('{:.0f}%'.format).where(suficiente, vazio)),
+        texttemplate='%{text}',
+        colorscale='RdYlGn',
+        zmin=-100,
+        zmax=100,
+        colorbar={'title': '%'},
+        hovertemplate='%{y}<br>%{x}: %{z:.0f}%<br>n = %{customdata}<extra></extra>',
+    )
+    figura.add_heatmap(
+        **eixos_e_n,
+        z=grade(pd.Series(1.0, index=tabela.index).where(~suficiente)).to_numpy(),
+        text=textos(vazio.mask(~suficiente, f'n<{min_n}')),
+        texttemplate='%{text}',
+        colorscale=[[0, 'lightgray'], [1, 'lightgray']],
+        showscale=False,
+        hovertemplate='%{y}<br>%{x}: n = %{customdata}<extra></extra>',
+    )
+    figura.update_layout(
+        title='Percentual por tópico e concurso',
+        height=200 + 22 * len(topicos),
+        yaxis={'autorange': 'reversed'},
+    )
+    return figura
+
+
+def barras_fracos(fracos: pd.DataFrame) -> go.Figure:
+    """Barras horizontais empilhadas de acertos, erros e brancos somados entre concursos, a partir de
+    `topicos_fracos_persistentes`, com o n anotado e os concursos abaixo do limiar no hover."""
+    tabela = fracos.assign(rotulo=_rotulo_topico)
+    detalhes = np.column_stack([tabela['concursos_abaixo'].map(', '.join), tabela['percentual']])
+    figura = go.Figure()
+    for coluna, cor in _CORES_DOS_RESULTADOS:
+        figura.add_bar(
+            name=coluna,
+            x=tabela[coluna],
+            y=tabela['rotulo'],
+            orientation='h',
+            marker_color=cor,
+            customdata=detalhes,
+            hovertemplate=(
+                f'%{{y}}<br>{coluna}: %{{x}}<br>percentual %{{customdata[1]:.0f}}%<br>'
+                'abaixo do limiar em %{customdata[0]}<extra></extra>'
+            ),
+        )
+    for rotulo, n in zip(tabela['rotulo'], tabela['n'], strict=True):
+        figura.add_annotation(x=n, y=rotulo, text=f'n = {n}', xanchor='left', showarrow=False)
+    figura.update_layout(
+        barmode='stack',
+        title='Tópicos fracos persistentes',
+        xaxis_title='questões somadas entre concursos',
+        yaxis={'autorange': 'reversed'},
+        height=200 + 30 * len(tabela),
+    )
+    return figura
+
+
 def _pontos_da_linha(
     pontos: pd.DataFrame, coluna: str, cores: dict[str, str], insuficiente: bool, cor_da_linha: str | None
 ) -> dict:
@@ -173,6 +263,14 @@ def _hover(eixo_x: str) -> str:
 
 def _rotulo_disciplina(tabela: pd.DataFrame) -> pd.Series:
     return tabela['disciplina'] + ' (' + tabela['bloco'] + ')'
+
+
+def _rotulo_topico(tabela: pd.DataFrame) -> pd.Series:
+    topico = tabela['topico'].where(
+        tabela['topico'].str.len() <= TAMANHO_ROTULO_TOPICO,
+        tabela['topico'].str.slice(0, TAMANHO_ROTULO_TOPICO - 1) + '…',
+    )
+    return topico + ' (' + tabela['disciplina'] + ')'
 
 
 def _cores_por_banca(bancas: pd.Series) -> dict[str, str]:

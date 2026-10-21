@@ -18,12 +18,14 @@ from concursos.analytics.consolidado import (
     n_por_topico,
     perfil_de_n,
     perfil_por_concurso,
+    topicos_do_edital,
     topicos_por_n,
     validar_schema,
 )
 from concursos.analytics.correcao import ConfiguracaoCorrecao, FonteCorrecao, gravar_correcao
 from concursos.analytics.visualizacao import resumir
 from concursos.concurso_config import PesoItens
+from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, Conhecimento, Disciplina, Edital, Topico
 from concursos.modelo import ModeloCorrecao
 
 LIQUIDA = ConfiguracaoCorrecao(
@@ -435,3 +437,31 @@ def test_resumo_mostra_as_primeiras_linhas_e_o_total():
     assert resumo.primeiras['x'].tolist() == [0, 1, 2, 3, 4]
     assert resumo.contagens.to_dict() == {'a': 20, 'b': 10}
     assert '30 linhas' in resumo._repr_html_()
+
+
+def test_topicos_do_edital_de_cada_concurso(tmp_path):
+    edital = Edital(
+        'edital.pdf',
+        None,
+        (
+            Conhecimento(
+                'Gerais',
+                (
+                    Disciplina(
+                        'Português', (Topico('1', 'Crase', 'Crase.'), Topico('2', 'Regência', 'Regência.'))
+                    ),
+                ),
+            ),
+        ),
+    )
+    (tmp_path / 'tcu').mkdir()
+    edital.gravar_json(tmp_path / 'tcu' / ARQUIVO_EDITAL_ESTRUTURADO)
+    (tmp_path / 'sem_edital').mkdir()
+
+    tabela = topicos_do_edital(tmp_path)
+
+    assert tabela.to_dict('records') == [
+        {'concurso': 'tcu', 'disciplina': 'Português', 'topico': 'Crase'},
+        {'concurso': 'tcu', 'disciplina': 'Português', 'topico': 'Regência'},
+    ]
+    assert topicos_do_edital(tmp_path / 'vazia').columns.tolist() == ['concurso', 'disciplina', 'topico']

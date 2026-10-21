@@ -4,11 +4,15 @@ import pandas as pd
 import pytest
 
 from concursos.analytics.evolucao import (
+    cobertura_edital,
     comparar_bruto_vs_corrigido,
     correlacao_tempo_zscore,
+    evolucao_por_topico,
     modelos_distintos,
     percentual_por_disciplina_ao_longo_do_tempo,
+    percentual_por_topico,
     tendencia_por_disciplina,
+    topicos_fracos_persistentes,
     zscore_por_disciplina,
 )
 
@@ -402,3 +406,187 @@ def test_modelos_distintos():
 
     assert modelos_distintos(consolidado(cebraspe, fgv)) == ['bruta', 'liquida']
     assert modelos_distintos(consolidado(cebraspe)) == ['liquida']
+
+
+def por_topico(nome: str, ordem: int | None, itens: dict[str, list[str]], **kwargs) -> pd.DataFrame:
+    """Concurso Cebraspe com os resultados de cada tópico de Português, na ordem do dicionário."""
+    return concurso(
+        nome,
+        [resultado for resultados in itens.values() for resultado in resultados],
+        ordem=ordem,
+        topicos=[topico for topico, resultados in itens.items() for _ in resultados],
+        **kwargs,
+    )
+
+
+def test_percentual_por_topico_com_contagens_e_amostra_insuficiente():
+    a = por_topico(
+        'a', 1, {'Crase': ['acerto', 'acerto', 'erro', 'branco', 'acerto'], 'Regência': ['erro'] * 2}
+    )
+
+    tabela = percentual_por_topico(consolidado(a)).set_index('topico')
+
+    assert tabela.loc['Crase', ['n', 'acertos', 'erros', 'brancos', 'amostra_insuficiente']].tolist() == [
+        5,
+        3,
+        1,
+        1,
+        False,
+    ]
+    assert tabela.loc['Crase', 'percentual'] == pytest.approx(40.0)
+    assert tabela.loc['Regência', ['n', 'amostra_insuficiente', 'percentual']].tolist() == [2, True, -100.0]
+    assert tabela.loc['Crase', ['concurso', 'ordem', 'disciplina', 'chave_topico']].tolist() == [
+        'a',
+        1,
+        PT,
+        f'{PT} | Crase',
+    ]
+
+
+def test_percentual_por_topico_filtra_por_quantidade_de_concursos():
+    base = consolidado(
+        por_topico('a', 1, {'Crase': ['acerto'], 'Regência': ['acerto']}),
+        por_topico('b', 2, {'Crase': ['erro']}),
+    )
+
+    assert set(percentual_por_topico(base)['topico']) == {'Crase', 'Regência'}
+    assert percentual_por_topico(base, min_concursos=2)['topico'].tolist() == ['Crase', 'Crase']
+
+
+def test_cobertura_conta_topicos_do_edital_cobrados_e_os_fora_do_edital():
+    base = consolidado(
+        por_topico('a', 1, {'crase': ['acerto'], 'Regência verbal': ['erro'], 'Pontuação': ['acerto']}),
+        por_topico('b', 2, {'Crase': ['acerto'], 'nao_mapeado': ['erro']}),
+    )
+    edital = pd.DataFrame(
+        {
+            'concurso': ['a'] * 5,
+            'disciplina': [PT] * 4 + ['Redação'],
+            'topico': ['Crase.', 'Regência verbal', 'Concordância', 'Crase', 'Concordância'],
+        }
+    )
+
+    tabela = cobertura_edital(base, edital).set_index('concurso')
+
+    assert tabela.loc['a', ['topicos_edital', 'topicos_cobrados', 'topicos_fora_do_edital']].tolist() == [
+        3,
+        2,
+        1,
+    ]
+    assert tabela.loc['a', 'percentual_cobertura'] == pytest.approx(200 / 3)
+    assert tabela.loc['b', ['topicos_edital', 'topicos_cobrados', 'topicos_fora_do_edital']].tolist() == [
+        0,
+        0,
+        1,
+    ]
+    assert pd.isna(tabela.loc['b', 'percentual_cobertura'])
+    assert 'Concordância' not in set(evolucao_por_topico(base)['topico'])
+
+
+def test_evolucao_por_topico_so_com_tres_pontos_de_n_minimo():
+    base = consolidado(
+        *(
+            por_topico(
+                nome,
+                ordem,
+                {
+                    'Crase': ['acerto'] * acertos + ['erro'] * (5 - acertos),
+                    'Regência': ['acerto', 'erro', 'erro', 'acerto'],
+                    **({'Pontuação': ['acerto'] * 5} if ordem < 3 else {}),
+                    **({'Concordância': ['erro'] * 5} if ordem == 1 else {}),
+                },
+            )
+            for nome, ordem, acertos in (('a', 1, 2), ('b', 2, 3), ('c', 3, 5))
+        )
+    )
+
+    tabela = evolucao_por_topico(base).set_index('topico')
+
+    assert tabela.loc['Crase', ['pontos', 'n', 'situacao']].tolist() == [3, 15, 'tendência']
+    assert tabela.loc['Crase', 'slope'] > 0
+    assert 0 <= tabela.loc['Crase', 'p_valor'] <= 1
+    assert tabela.loc['Regência', ['pontos', 'n', 'n_total']].tolist() == [0, 0, 12]
+    assert tabela.loc['Crase', 'n_total'] == 15
+    assert tabela.loc['Pontuação', 'pontos'] == 2
+    assert tabela.loc['Concordância', 'pontos'] == 1
+    insuficientes = tabela.loc[['Regência', 'Pontuação', 'Concordância']]
+    assert insuficientes['situacao'].eq('amostra insuficiente').all()
+    assert insuficientes['slope'].isna().all()
+    assert evolucao_por_topico(base, min_n=4).set_index('topico').loc['Regência', 'situacao'] == 'tendência'
+
+
+def test_evolucao_por_topico_estratificada_por_banca():
+    base = consolidado(
+        *(
+            por_topico(nome, ordem, {'Crase': ['acerto'] * acertos + ['erro'] * (5 - acertos)}, banca=banca)
+            for nome, ordem, acertos, banca in (
+                ('a', 1, 1, 'cebraspe'),
+                ('b', 2, 3, 'cebraspe'),
+                ('c', 3, 5, 'cebraspe'),
+                ('f', 4, 0, 'fgv'),
+            )
+        )
+    )
+
+    tabela = evolucao_por_topico(base, estrato='banca').set_index('banca')
+
+    assert tabela.loc['cebraspe', ['pontos', 'situacao']].tolist() == [3, 'tendência']
+    assert tabela.loc['fgv', ['pontos', 'situacao']].tolist() == [1, 'amostra insuficiente']
+
+
+def test_fracos_persistentes_somam_entre_concursos_e_exigem_dois_concursos():
+    base = consolidado(
+        por_topico(
+            'a',
+            1,
+            {'Crase': ['acerto', 'erro', 'erro'], 'Regência': ['erro'] * 3, 'Pontuação': ['erro'] * 2},
+        ),
+        por_topico(
+            'b',
+            2,
+            {'Crase': ['acerto', 'acerto', 'erro'], 'Regência': ['acerto'] * 3, 'Pontuação': ['erro'] * 2},
+        ),
+    )
+
+    tabela = topicos_fracos_persistentes(base).set_index('topico')
+
+    assert tabela.index.tolist() == ['Crase']
+    assert tabela.loc['Crase', ['concursos', 'n', 'acertos', 'erros', 'brancos']].tolist() == [2, 6, 3, 3, 0]
+    assert tabela.loc['Crase', 'percentual'] == pytest.approx(0.0)
+    assert tabela.loc['Crase', 'concursos_abaixo'] == ['a', 'b']
+    assert 'Regência' in set(topicos_fracos_persistentes(base, min_concursos=1)['topico'])
+
+
+def test_topico_em_geral_e_especifico_do_mesmo_concurso_conta_uma_vez():
+    itens = ['erro'] * 3
+    a = concurso('a', itens, ordem=1, blocos=['geral', 'geral', 'especifico'])
+    b = concurso('b', itens, ordem=2)
+
+    assert percentual_por_topico(consolidado(a))['n'].tolist() == [3]
+    assert topicos_fracos_persistentes(consolidado(a), min_n=1).empty
+    assert topicos_fracos_persistentes(consolidado(a, b))['concursos_abaixo'].tolist() == [['a', 'b']]
+
+
+def test_fracos_persistentes_pela_correcao_liquida_e_nao_pela_bruta():
+    itens = {'Crase': ['acerto'] * 3 + ['erro'] * 2}
+    base = consolidado(por_topico('a', 1, itens), por_topico('b', 2, itens))
+
+    assert topicos_fracos_persistentes(base, usar='bruta').empty
+    assert topicos_fracos_persistentes(base, usar='corrigida')['topico'].tolist() == ['Crase']
+
+
+def test_topico_sem_gabarito_fica_fora_das_metricas_mas_conta_como_cobrado():
+    base = consolidado(
+        *(
+            por_topico(
+                nome, ordem, {'Crase': ['acerto'] * 5, 'Regência': ['erro'] * 5}, anuladas=(6, 7, 8, 9, 10)
+            )
+            for nome, ordem in (('a', 1), ('b', 2), ('c', 3))
+        )
+    )
+    edital = pd.DataFrame({'concurso': ['a', 'a'], 'disciplina': [PT, PT], 'topico': ['Crase', 'Regência']})
+
+    assert set(percentual_por_topico(base)['topico']) == {'Crase'}
+    assert evolucao_por_topico(base)['topico'].tolist() == ['Crase']
+    assert topicos_fracos_persistentes(base, limiar=1.1)['topico'].tolist() == ['Crase']
+    assert cobertura_edital(base, edital).set_index('concurso').loc['a', 'topicos_cobrados'] == 2

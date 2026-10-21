@@ -8,6 +8,8 @@ import yaml
 
 from concursos.deteccao import normalizar
 
+ARQUIVO_EDITAL_ESTRUTURADO = 'edital_estruturado.json'
+
 
 class EditalNaoEstruturadoError(ValueError):
     pass

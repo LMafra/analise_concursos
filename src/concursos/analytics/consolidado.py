@@ -1,5 +1,6 @@
 """Consolidado da análise evolutiva: uma linha por questão de todos os concursos analisados, cacheada em parquet."""
 
+import json
 import logging
 from enum import StrEnum
 from pathlib import Path
@@ -12,6 +13,7 @@ from concursos.analytics.taxonomia import ARQUIVO_TAXONOMIA, carregar_taxonomia,
 from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso
 from concursos.consolidado import PASTA_CONSOLIDADO
 from concursos.correcao import TOPICO_NAO_MAPEADO
+from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
 from concursos.modelo import Bloco, Escolaridade, Formato, ModeloCorrecao, Nivel, Resultado
 
 logger = logging.getLogger(__name__)
@@ -135,6 +137,19 @@ def concursos_analisados(raiz_provas: Path, raiz_analises: Path) -> list[str]:
 def contar_questoes(raiz_analises: Path) -> int:
     """Soma das linhas de todos os questoes.csv, inclusive de concursos que ficaram fora do consolidado."""
     return sum(len(pd.read_csv(arquivo)) for arquivo in raiz_analises.glob(f'*/{ARQUIVO_QUESTOES}'))
+
+
+def topicos_do_edital(raiz_analises: Path | None = None) -> pd.DataFrame:
+    """Uma linha por tópico do edital estruturado de cada concurso (concurso, disciplina, tópico)."""
+    raiz_analises = raiz_analises or raiz_do_projeto() / 'analises'
+    linhas = [
+        {'concurso': arquivo.parent.name, 'disciplina': disciplina['nome'], 'topico': topico['nome']}
+        for arquivo in sorted(raiz_analises.glob(f'*/{ARQUIVO_EDITAL_ESTRUTURADO}'))
+        for conhecimento in json.loads(arquivo.read_text(encoding='utf-8'))['conhecimentos']
+        for disciplina in conhecimento['disciplinas']
+        for topico in disciplina['topicos']
+    ]
+    return pd.DataFrame(linhas, columns=['concurso', 'disciplina', 'topico'])
 
 
 def validar_schema(consolidado: pd.DataFrame, linhas_esperadas: int) -> None:

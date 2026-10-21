@@ -2,7 +2,9 @@ import pandas as pd
 
 from concursos.analytics.visualizacao import (
     aviso_modelos,
+    barras_fracos,
     box_por_disciplina,
+    heatmap_topicos,
     linha_evolucao,
     painel_correcao,
 )
@@ -107,3 +109,52 @@ def test_box_por_disciplina_com_os_pontos():
 def test_aviso_de_modelos_distintos():
     assert '⚠ modelos de correção distintos' in aviso_modelos(['bruta', 'liquida'])._repr_markdown_()
     assert '⚠' not in aviso_modelos(['liquida'])._repr_markdown_()
+
+
+PERCENTUAIS = pd.DataFrame(
+    {
+        'concurso': ['b', 'a', 'a', 'b', 'b'],
+        'ordem': [2, 1, 1, 2, 2],
+        'disciplina': 'Português',
+        'topico': ['Crase', 'Crase', 'Regência', 'Regência', 'Pontuação'],
+        'chave_topico': ['crase', 'crase', 'regencia', 'regencia', 'pontuacao'],
+        'n': [5, 2, 6, 1, 7],
+        'amostra_insuficiente': [False, True, False, True, False],
+        'percentual': [40.0, 50.0, 83.3, -100.0, 70.0],
+    }
+)
+
+
+def test_heatmap_anota_so_as_celulas_com_n_minimo():
+    figura = heatmap_topicos(PERCENTUAIS)
+    percentual, cinza = figura.data
+
+    assert list(percentual.x) == ['a', 'b']
+    assert list(percentual.y) == ['Crase (Português)', 'Pontuação (Português)', 'Regência (Português)']
+    assert [list(linha) for linha in percentual.text] == [['', '40%'], ['', '70%'], ['83%', '']]
+    assert [list(linha) for linha in cinza.text] == [['n<5', ''], ['', ''], ['', 'n<5']]
+    assert pd.isna(percentual.z[0][0])
+    assert cinza.showscale is False
+    assert [list(linha) for linha in heatmap_topicos(PERCENTUAIS, min_n=6).data[1].text][0] == ['n<6', 'n<6']
+
+
+def test_barras_de_fracos_empilham_acertos_e_erros_com_n():
+    fracos = pd.DataFrame(
+        {
+            'disciplina': 'Português',
+            'topico': ['Crase', 'Regência'],
+            'n': [6, 7],
+            'acertos': [3, 1],
+            'erros': [3, 5],
+            'brancos': [0, 1],
+            'percentual': [0.0, -57.1],
+            'concursos_abaixo': [['a', 'b'], ['a', 'c']],
+        }
+    )
+
+    figura = barras_fracos(fracos)
+
+    assert figura.layout.barmode == 'stack'
+    assert [serie.name for serie in figura.data] == ['acertos', 'erros', 'brancos']
+    assert list(figura.data[1].x) == [3, 5]
+    assert [nota.text for nota in figura.layout.annotations] == ['n = 6', 'n = 7']

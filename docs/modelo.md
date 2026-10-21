@@ -111,9 +111,15 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
 **Evolução por disciplina** (`concursos.analytics.evolucao`). Todas as métricas são por concurso, bloco e disciplina canônica e vêm com o n. Só a nota normalizada conta as anuladas, como ponto, seguindo o edital; as demais as excluem. Disciplina com n < 5 é marcada como amostra insuficiente.
 
 - **z-score:** \(z_d = (\bar s_d - \bar s_g)/(\sigma_g/\sqrt{n_d})\). Aqui \(s\) é a pontuação de cada item na versão escolhida (padrão: ajustada), \(g\) são os itens não anulados do concurso, e \(\sigma_g\) é o desvio populacional deles. Numa prova sem brancos, o z não muda entre versões que diferem por transformação afim; é o caso de bruta e ajustada na FGV.
-- **Tendência:** slope do z pela ordem (regressão linear), com p-value. Só contam concursos com data e pontos com n ≥ 5, e a série precisa de 3 ordens distintas ou mais; senão, fica como amostra insuficiente.
+- **Tendência:** slope do z pela ordem (regressão linear), com p-value. Só contam concursos com data e pontos com n ≥ 5, e a série precisa de 3 ordens distintas ou mais; senão, fica como amostra insuficiente. Toda série com algum concurso datado tem linha: `pontos` e `n` contam só os pontos com n ≥ 5, e `n_total` soma todos.
 - **Correlação:** Spearman entre a ordem e o z, com os mesmos concursos da tendência; concursos na mesma ordem viram um ponto só, pela média dos z. É calculada por disciplina, porque a média dos z de um concurso fica perto de 0 por construção. Com até 9 pontos, o p-value é exato, por permutação de todas as ordenações.
 - **Estrato:** a tendência e a correlação aceitam uma série única ou uma série por banca.
+
+**Evolução e fraquezas por tópico** (`concursos.analytics.evolucao`). O tópico é a `chave_topico`: disciplina canônica mais as palavras-chave do nome. O bloco não separa tópicos, ao contrário das disciplinas, então o mesmo tópico nas provas geral e específica de um concurso é uma linha só. Tópicos não mapeados e anuladas ficam fora, e os percentuais não são truncados.
+
+- **Cobertura do edital:** por concurso, conta os tópicos distintos do `edital_estruturado.json`, quantos foram cobrados na prova (questão anulada também cobra) e quantos tópicos da prova não casam com o edital. O casamento é só pelas palavras-chave do nome do tópico, dentro do concurso, porque a disciplina da prova nem sempre repete a do edital; pelo mesmo motivo, um tópico repetido em duas disciplinas do edital conta uma vez.
+- **Tendência por tópico:** slope do percentual (padrão: ajustado) pela ordem, com as mesmas regras da tendência por disciplina. O n mínimo por ponto é configurável (padrão 5). Tópico nunca cobrado não tem linha.
+- **Fracos persistentes:** tópicos abaixo do limiar (padrão 60%; o notebook passa o `limiar_topico_baixo` do `config.yaml`, o mesmo do comparativo da fase 1) em pelo menos 2 concursos, com acertos, erros e brancos somados entre concursos e n agregado ≥ 5. O n de cada concurso não importa, porque só a soma dá amostra. O percentual agregado é a média dos itens de todos os concursos.
 
 **Data da prova e metadados.** Cada concurso tem:
 - data da prova: a do `concurso.yaml` (`data_prova`) ou, sem ela, a extraída do edital. A configuração vem antes porque no edital a data é sempre "provável" e pode ser retificada. O edital é lido em dois formatos:

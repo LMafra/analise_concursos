@@ -12,7 +12,13 @@ from concursos.concurso_config import ConcursoConfig, ProvaConfig
 from concursos.configuracao import ConfiguracaoGlobal
 from concursos.consolidado import consolidar
 from concursos.correcao import TOPICO_NAO_MAPEADO, corrigir
-from concursos.edital import Edital, EditalNaoEstruturadoError, carregar_edital_manual, estruturar_edital
+from concursos.edital import (
+    ARQUIVO_EDITAL_ESTRUTURADO,
+    Edital,
+    EditalNaoEstruturadoError,
+    carregar_edital_manual,
+    estruturar_edital,
+)
 from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.graficos import gerar_graficos
@@ -121,7 +127,7 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     tabela.to_csv(destino / 'respostas_extraidas.csv', index=False)
     resultados[COLUNAS_QUESTOES].to_csv(destino / 'questoes.csv', index=False)
     if edital is not None:
-        edital.gravar_json(destino / 'edital_estruturado.json')
+        edital.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
     por_disciplina = agregar(resultados, ['concurso', 'prova', 'disciplina'], config.pontuacao)
     por_topico = agregar(resultados, ['concurso', 'prova', 'disciplina', 'topico'], config.pontuacao)
     geral = agregar(resultados, ['concurso', 'prova'], config.pontuacao)

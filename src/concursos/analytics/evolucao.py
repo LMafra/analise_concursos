@@ -8,6 +8,11 @@ import pandas as pd
 from scipy import stats
 
 from concursos.analytics.consolidado import N_MINIMO_TOPICO, PREFIXO_PESO, VARIANTE_PADRAO, colunas_de_peso
+from concursos.configuracao import ConfiguracaoGlobal
+from concursos.consolidado import MINIMO_CONCURSOS
+from concursos.correcao import TOPICO_NAO_MAPEADO
+from concursos.modelo import Resultado
+from concursos.topicos import chave_de_palavras
 
 VERSOES = ('bruta', 'corrigida', 'ajustada')
 VERSOES_COMPARADAS_AO_BRUTO = ('corrigida', 'ajustada')
@@ -16,9 +21,15 @@ MINIMO_PONTOS_TENDENCIA = 3
 TENDENCIA = 'tendência'
 AMOSTRA_INSUFICIENTE = 'amostra insuficiente'
 MAXIMO_PONTOS_P_EXATO = 9
+LIMIAR_TOPICO_FRACO = ConfiguracaoGlobal.limiar_topico_baixo
 _CASAS_NO_EMPATE = 9
 _DISCIPLINA_NO_CONCURSO = ['concurso', 'banca', 'ordem', 'bloco', 'disciplina_canonica']
-_CHAVES_DA_SERIE = ['bloco', 'disciplina']
+_TOPICO_NO_CONCURSO = ['concurso', 'banca', 'ordem', 'disciplina_canonica', 'chave_topico']
+_LINHA_DA_DISCIPLINA = ['concurso', 'banca', 'ordem', 'bloco', 'disciplina']
+_LINHA_DO_TOPICO = ['concurso', 'banca', 'ordem', 'disciplina', 'chave_topico', 'topico']
+_SERIE_DA_DISCIPLINA = ['bloco', 'disciplina']
+_SERIE_DO_TOPICO = ['disciplina', 'chave_topico', 'topico']
+_COLUNAS_DA_TENDENCIA = ['slope', 'p_valor', 'situacao']
 
 
 def comparar_bruto_vs_corrigido(consolidado: pd.DataFrame) -> pd.DataFrame:
@@ -142,15 +153,12 @@ def tendencia_por_disciplina(
     Só entram concursos com data e pontos com n de pelo menos N_MINIMO_TOPICO. Com menos de
     MINIMO_PONTOS_TENDENCIA ordens distintas, a série fica como amostra insuficiente, sem slope.
     """
-
-    def calcular(serie: pd.DataFrame) -> dict:
-        if serie['ordem'].nunique() < MINIMO_PONTOS_TENDENCIA:
-            return {'slope': np.nan, 'p_valor': np.nan, 'situacao': AMOSTRA_INSUFICIENTE}
-        regressao = stats.linregress(serie['ordem'].astype(float), serie['zscore'])
-        return {'slope': regressao.slope, 'p_valor': regressao.pvalue, 'situacao': TENDENCIA}
-
     return _por_serie(
-        zscore_por_disciplina(consolidado, usar), estrato, calcular, ['slope', 'p_valor', 'situacao']
+        _com_zscore(consolidado, usar),
+        _SERIE_DA_DISCIPLINA,
+        estrato,
+        _tendencia('zscore'),
+        _COLUNAS_DA_TENDENCIA,
     )
 
 
@@ -176,7 +184,9 @@ def correlacao_tempo_zscore(
         )
         return {'rho': float(resultado.statistic), 'p_valor': p_valor}
 
-    return _por_serie(zscore_por_disciplina(consolidado, usar), estrato, calcular, ['rho', 'p_valor'])
+    return _por_serie(
+        _com_zscore(consolidado, usar), _SERIE_DA_DISCIPLINA, estrato, calcular, ['rho', 'p_valor']
+    )
 
 
 def modelos_distintos(consolidado: pd.DataFrame) -> list[str]:
@@ -184,26 +194,172 @@ def modelos_distintos(consolidado: pd.DataFrame) -> list[str]:
     return sorted(consolidado['modelo_correcao'].unique())
 
 
+def percentual_por_topico(
+    consolidado: pd.DataFrame, usar: str = 'ajustada', min_n: int = N_MINIMO_TOPICO, min_concursos: int = 1
+) -> pd.DataFrame:
+    """Uma linha por concurso e tópico (disciplina canônica + palavras-chave do nome): acertos, erros,
+    brancos, n e percentual na versão `usar`, sem anuladas e sem truncar. O bloco não separa tópicos: o
+    mesmo tópico nas provas geral e específica de um concurso é uma linha só.
+
+    Tópicos sem mapeamento ficam fora; o nome exibido é o do concurso datado mais recente. Só ficam
+    tópicos cobrados em pelo menos `min_concursos` concursos.
+    """
+    coluna = _coluna_de_pontos(usar)
+    validas = _validas(consolidado)
+    validas = validas[validas['chave_topico'].notna()]
+    contagens = {f'{resultado}s': validas['resultado'].eq(resultado) for resultado in Resultado}
+    tabela = (
+        validas.assign(**contagens)
+        .groupby(_TOPICO_NO_CONCURSO, dropna=False)
+        .agg(
+            topico=('topico', 'first'),
+            n=('questao', 'size'),
+            **{nome: (nome, 'sum') for nome in contagens},
+            percentual=(coluna, 'mean'),
+        )
+        .reset_index()
+    )
+    tabela['percentual'] *= 100
+    tabela = _por_ordem(tabela, [*contagens, 'percentual'], _LINHA_DO_TOPICO, min_n)
+    mais_recente = tabela.sort_values('ordem', na_position='first').groupby('chave_topico')['topico'].last()
+    tabela['topico'] = tabela['chave_topico'].map(mais_recente)
+    concursos = tabela.groupby('chave_topico')['concurso'].transform('nunique')
+    return tabela[concursos >= min_concursos].reset_index(drop=True)
+
+
+def cobertura_edital(consolidado: pd.DataFrame, topicos_edital: pd.DataFrame) -> pd.DataFrame:
+    """Por concurso: tópicos distintos do edital estruturado, quantos foram cobrados na prova (questão
+    anulada também cobra) e quantos tópicos da prova não casam com nenhum do edital.
+
+    O casamento é só pelas palavras-chave do nome do tópico, dentro do concurso, porque a disciplina da
+    prova nem sempre repete a do edital. Pelo mesmo motivo, um tópico repetido em duas disciplinas do
+    edital conta uma vez. Concurso sem edital estruturado fica sem percentual.
+    """
+    do_edital = _palavras_por_concurso(topicos_edital)
+    da_prova = _palavras_por_concurso(consolidado[consolidado['topico'] != TOPICO_NAO_MAPEADO])
+    concursos = consolidado.drop_duplicates('concurso')
+    linhas = []
+    for concurso, ordem in zip(concursos['concurso'], concursos['ordem'], strict=True):
+        edital, prova = do_edital.get(concurso, set()), da_prova.get(concurso, set())
+        linhas.append(
+            {
+                'concurso': concurso,
+                'ordem': ordem,
+                'topicos_edital': len(edital),
+                'topicos_cobrados': len(edital & prova),
+                'percentual_cobertura': 100 * len(edital & prova) / len(edital) if edital else np.nan,
+                'topicos_fora_do_edital': len(prova - edital),
+            }
+        )
+    return pd.DataFrame(linhas).sort_values(['ordem', 'concurso'], na_position='last', ignore_index=True)
+
+
+def evolucao_por_topico(
+    consolidado: pd.DataFrame,
+    usar: str = 'ajustada',
+    min_n: int = N_MINIMO_TOPICO,
+    estrato: str | None = None,
+) -> pd.DataFrame:
+    """Slope do percentual de cada tópico ao longo da ordem (regressão linear), com p-value, pontos e n.
+
+    Só contam concursos com data e pontos com n de pelo menos `min_n`; com menos de
+    MINIMO_PONTOS_TENDENCIA, o tópico fica como amostra insuficiente, sem slope. Tópico nunca cobrado
+    não tem linha.
+    """
+    return _por_serie(
+        percentual_por_topico(consolidado, usar, min_n),
+        _SERIE_DO_TOPICO,
+        estrato,
+        _tendencia('percentual'),
+        _COLUNAS_DA_TENDENCIA,
+    )
+
+
+def topicos_fracos_persistentes(
+    consolidado: pd.DataFrame,
+    limiar: float = LIMIAR_TOPICO_FRACO,
+    min_concursos: int = MINIMO_CONCURSOS,
+    min_n: int = N_MINIMO_TOPICO,
+    usar: str = 'ajustada',
+) -> pd.DataFrame:
+    """Tópicos abaixo do limiar (fração) em pelo menos `min_concursos` concursos, com acertos, erros e
+    brancos somados entre concursos e n agregado de pelo menos `min_n`.
+
+    O n de cada concurso não importa: com a mediana de 2 questões por tópico e prova, só a soma dá amostra.
+    `concursos_abaixo` lista, em ordem cronológica, os concursos em que o tópico ficou abaixo do limiar.
+    """
+    por_concurso = percentual_por_topico(consolidado, usar)
+    tabela = (
+        por_concurso.assign(soma_percentual=por_concurso['percentual'] * por_concurso['n'])
+        .groupby('chave_topico')
+        .agg(
+            disciplina=('disciplina', 'first'),
+            topico=('topico', 'first'),
+            concursos=('concurso', 'nunique'),
+            n=('n', 'sum'),
+            acertos=('acertos', 'sum'),
+            erros=('erros', 'sum'),
+            brancos=('brancos', 'sum'),
+            soma_percentual=('soma_percentual', 'sum'),
+        )
+    )
+    tabela['percentual'] = tabela['soma_percentual'] / tabela['n']
+    abaixo = por_concurso[por_concurso['percentual'] < 100 * limiar]
+    tabela['concursos_abaixo'] = abaixo.groupby('chave_topico')['concurso'].agg(list).reindex(tabela.index)
+    fracos = tabela[(tabela['n'] >= min_n) & (tabela['concursos_abaixo'].str.len() >= min_concursos)]
+    colunas = ['disciplina', 'topico', 'chave_topico', 'concursos', 'concursos_abaixo', 'n']
+    return fracos.reset_index().sort_values(['percentual', 'n'], ascending=[True, False], ignore_index=True)[
+        [*colunas, 'acertos', 'erros', 'brancos', 'percentual']
+    ]
+
+
+def _com_zscore(consolidado: pd.DataFrame, usar: str) -> pd.DataFrame:
+    zscores = zscore_por_disciplina(consolidado, usar)
+    return zscores[zscores['zscore'].notna()]
+
+
+def _tendencia(coluna: str) -> Callable[[pd.DataFrame], dict]:
+    def calcular(serie: pd.DataFrame) -> dict:
+        if serie['ordem'].nunique() < MINIMO_PONTOS_TENDENCIA:
+            return {'slope': np.nan, 'p_valor': np.nan, 'situacao': AMOSTRA_INSUFICIENTE}
+        regressao = stats.linregress(serie['ordem'].astype(float), serie[coluna])
+        return {'slope': regressao.slope, 'p_valor': regressao.pvalue, 'situacao': TENDENCIA}
+
+    return calcular
+
+
+def _palavras_por_concurso(tabela: pd.DataFrame) -> dict[str, set[str]]:
+    return {
+        concurso: {chave_de_palavras(topico) for topico in grupo['topico']}
+        for concurso, grupo in tabela.groupby('concurso')
+    }
+
+
 def _por_serie(
-    zscores: pd.DataFrame,
+    tabela: pd.DataFrame,
+    chaves_da_serie: list[str],
     estrato: str | None,
     calcular: Callable[[pd.DataFrame], dict],
     colunas_calculadas: list[str],
 ) -> pd.DataFrame:
+    """Uma linha por série (chaves e estrato) com algum concurso datado. Só os pontos sem amostra
+    insuficiente entram no cálculo, nos pontos e no n; `n_total` soma todos os pontos datados."""
     if estrato not in ESTRATOS:
         raise ValueError(f"estrato: '{estrato}' inválido (use banca ou nenhum)")
-    chaves = [*_CHAVES_DA_SERIE, *([estrato] if estrato else [])]
-    datadas = zscores[zscores['ordem'].notna() & zscores['zscore'].notna() & ~zscores['amostra_insuficiente']]
-    linhas = [
-        {
-            **dict(zip(chaves, chave, strict=True)),
-            'pontos': serie['ordem'].nunique(),
-            'n': int(serie['n'].sum()),
-            **calcular(serie),
-        }
-        for chave, serie in datadas.groupby(chaves, sort=True)
-    ]
-    tabela = pd.DataFrame(linhas, columns=[*chaves, 'pontos', 'n', *colunas_calculadas])
+    chaves = [*chaves_da_serie, *([estrato] if estrato else [])]
+    linhas = []
+    for chave, serie in tabela[tabela['ordem'].notna()].groupby(chaves, sort=True):
+        suficientes = serie[~serie['amostra_insuficiente']]
+        linhas.append(
+            {
+                **dict(zip(chaves, chave, strict=True)),
+                'pontos': suficientes['ordem'].nunique(),
+                'n': int(suficientes['n'].sum()),
+                'n_total': int(serie['n'].sum()),
+                **calcular(suficientes),
+            }
+        )
+    tabela = pd.DataFrame(linhas, columns=[*chaves, 'pontos', 'n', 'n_total', *colunas_calculadas])
     return tabela.sort_values('p_valor', na_position='last', kind='stable', ignore_index=True)
 
 
@@ -230,11 +386,17 @@ def _coluna_de_pontos(usar: str) -> str:
     return f'pontos_{usar}'
 
 
-def _por_ordem(tabela: pd.DataFrame, colunas: list[str]) -> pd.DataFrame:
-    """Uma linha por disciplina no concurso, com n e a marca de amostra insuficiente antes de `colunas`."""
+def _por_ordem(
+    tabela: pd.DataFrame,
+    colunas: list[str],
+    linha: list[str] = _LINHA_DA_DISCIPLINA,
+    min_n: int = N_MINIMO_TOPICO,
+) -> pd.DataFrame:
+    """Uma linha por `linha` (disciplina ou tópico no concurso), em ordem cronológica, com n e a marca de
+    amostra insuficiente antes de `colunas`."""
     tabela = tabela.rename(columns={'disciplina_canonica': 'disciplina'})
-    tabela['amostra_insuficiente'] = tabela['n'] < N_MINIMO_TOPICO
-    chaves = ['concurso', 'banca', 'ordem', 'bloco', 'disciplina']
-    return tabela.sort_values(
-        ['ordem', 'concurso', 'bloco', 'disciplina'], na_position='last', ignore_index=True
-    )[[*chaves, 'n', 'amostra_insuficiente', *colunas]]
+    tabela['amostra_insuficiente'] = tabela['n'] < min_n
+    ordenacao = ['ordem', *(chave for chave in linha if chave != 'ordem')]
+    return tabela.sort_values(ordenacao, na_position='last', ignore_index=True)[
+        [*linha, 'n', 'amostra_insuficiente', *colunas]
+    ]
