@@ -155,6 +155,46 @@ O `concurso.yaml` de cada pasta é gerado pelo `adicionar` e pode ser editado à
 
 A `taxonomia.yaml` na raiz mapeia cada nome de disciplina para uma disciplina canônica e um bloco (geral ou específico), para comparar a mesma matéria entre editais na análise evolutiva. Um concurso novo com nome de disciplina inédito precisa de uma entrada nela; veja [Taxonomia de disciplinas](docs/modelo.md#taxonomia-de-disciplinas).
 
+## Análise evolutiva
+
+Notebooks que leem as saídas de `analisar` de todos os concursos e respondem se o desempenho melhora com o tempo. A métrica padrão é o percentual ajustado ao acaso (um chute vale 0 em certo/errado e em múltipla escolha), e a evolução se lê pelo z-score de cada disciplina dentro do concurso. Todo percentual vem com o n: n < 5 é amostra insuficiente, e uma tendência precisa de 3 datas de prova distintas ou mais.
+
+| Notebook | Pergunta |
+|---|---|
+| `00_carregamento` | A base consolidada está íntegra e comparável (data, regra de correção e taxonomia de cada concurso)? |
+| `01_visao_geral` | Quanto dá para concluir com o n disponível, e quanto a regra de correção muda o ranking de concursos? |
+| `02_evolucao_disciplina` | Estou melhorando em cada disciplina, com gerais e específicos separados? |
+| `03_evolucao_topico` | Quais tópicos do edital foram cobrados e quais continuam fracos? |
+| `04_insights` | Conclusões: melhoras significativas, fracos persistentes, correlação com o tempo, distância até a meta e sensibilidade ao nível médio. |
+
+Instale o grupo de dependências de análise e rode todos os notebooks do zero, em ordem (ou só os indicados):
+
+```bash
+uv sync --group analise
+./scripts/rodar_notebooks.sh
+./scripts/rodar_notebooks.sh notebooks/04_insights.py
+```
+
+Os notebooks são scripts [jupytext](https://jupytext.readthedocs.io/) em `notebooks/NN_*.py`; o script gera o `.ipynb` ao lado, fora do git. Para editar no Jupyter, abra o `.py` com `uv run --group analise jupyter lab`.
+
+Saídas, em `analises/consolidado/`:
+
+- `consolidado.parquet`: cache com uma linha por questão, reconstruído quando um `questoes.csv`, `correcao.json`, `concurso.yaml` ou a `taxonomia.yaml` muda, ou quando entra ou sai um concurso analisado;
+- `relatorio_evolucao.md`, com `evolucao_zscore.png`, `heatmap_topicos.png` e `painel_correcao.png`: as respostas do notebook 04 em markdown.
+
+A regra de correção (bruta, líquida com desconto por erro ou ponderada) e a data da prova são lidas do edital e gravadas em `analises/<concurso>/correcao.json`, com o trecho e a página de origem. Quando o edital não traz a regra ou a data, ou quando o concurso tem opções de cargo com pesos diferentes (CPNU), declare no `concurso.yaml`:
+
+```yaml
+data_prova: 2025-10-05         # prevalece sobre a data provável do edital
+escolaridade: superior         # superior | medio; o notebook 04 recalcula tudo sem o nível médio
+correcao:
+  modelo: liquida              # bruta | liquida | ponderada
+  fator_penalidade: 1          # acertos anulados por erro
+  variantes: [B3-08-A, B3-10-A] # pesos lidos do quadro do edital, um por cargo
+```
+
+Na regra de correção, o edital prevalece sobre o `concurso.yaml`, exceto nos `pesos` declarados numa variante, que prevalecem sobre o quadro do edital. A data declarada prevalece sobre a do edital. Depois de mudar o `concurso.yaml`, rode `analisar` de novo. Os campos estão em [`concurso.yaml`](docs/modelo.md#concursoyaml), e a precedência e as fórmulas, no modelo de correção em [Entidades](docs/modelo.md#entidades).
+
 ## Privacidade
 
 `provas/` e `analises/` ficam fora do git (`.gitignore`) por conterem dados pessoais (nome, CPF, notas). Modelos de OCR também são ignorados.

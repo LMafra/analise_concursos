@@ -540,6 +540,17 @@ def test_topico_sem_gabarito_fica_fora_das_metricas_mas_conta_como_cobrado():
     assert cobertura_edital(base, edital).set_index('concurso').loc['a', 'topicos_cobrados'] == 2
 
 
+def test_um_concurso_so_nas_metricas_por_disciplina_e_por_topico():
+    base = consolidado(por_topico('a', 1, {'Crase': ['erro'] * 5, 'Regência': ['acerto', 'erro']}))
+
+    assert percentual_por_disciplina_ao_longo_do_tempo(base)['n'].tolist() == [7]
+    assert zscore_por_disciplina(base)['zscore'].tolist() == [pytest.approx(0.0)]
+    assert percentual_por_topico(base).set_index('topico')['n'].to_dict() == {'Crase': 5, 'Regência': 2}
+    assert percentual_por_topico(base, min_concursos=2).empty
+    assert evolucao_por_topico(base)['situacao'].eq('amostra insuficiente').all()
+    assert topicos_fracos_persistentes(base).empty
+
+
 def test_meta_por_variante_com_os_pesos_da_variante():
     cpnu = concurso(
         'cpnu',
