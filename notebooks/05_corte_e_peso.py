@@ -90,7 +90,8 @@ resumir(comparar_percentual_e_gap(consolidado, cortes, alvo), n=12)
 # ## O ranking entre as métricas
 #
 # Bruto conta acertos; corrigido aplica peso e desconto; ponderado aplica só o peso. O deslocamento é
-# quantas posições o concurso sobe em relação ao bruto.
+# quantas posições o concurso sobe em relação ao bruto. A anulada vale acerto e ponto, como no gap; o
+# ranking do notebook 02 a exclui, então os percentuais diferem nos concursos com anulada.
 
 # %%
 ranking = ranking_concursos_por_metrica(consolidado)

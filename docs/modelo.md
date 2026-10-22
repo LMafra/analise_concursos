@@ -139,6 +139,8 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
   - `percentual_ponderado = 100 × Σ peso × acerto / Σ peso` (peso, sem desconto).
 
   Posições e deslocamentos seguem o comparativo da fase 2: a posição 1 é o maior percentual, e o deslocamento é quantas posições a linha sobe em relação ao bruto.
+
+  A fórmula do corrigido é a da fase 2, mas a anulada entra pela regra do edital, como no gap. O `comparar_bruto_vs_corrigido` (notebook 02) a exclui, então os percentuais bruto e corrigido dos dois rankings diferem quando o concurso tem anulada.
 - **Simulação** (`simular_cenario`, em `evolucao`, e o texto em `insights.descrever_simulacao`): "se eu subir X p.p. na disciplina Y". Em cada concurso com Y:
   - `k = min(round(X/100 × n), erros + brancos)`, com n os itens de Y (anuladas incluídas) e o arredondamento meio para cima;
   - `k_erros = round(k × erros / (erros + brancos))` e `k_brancos = k − k_erros`, tomados na ordem das questões;
