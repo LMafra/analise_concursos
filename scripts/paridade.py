@@ -6,7 +6,7 @@ Uso (rode a análise com --forcar antes de cada retrato):
 
 A chave é o caminho relativo à pasta de análises. Depois da migração para o layout multi-candidato, compare
 contra a pasta do candidato (analises/<slug>). O manifesto fica de fora: ele guarda os hashes de entrada e a
-versão da análise, que mudam legitimamente.
+versão da análise, que mudam legitimamente. O index.html também, porque traz a data da geração.
 """
 
 import hashlib
@@ -14,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-IGNORADOS = {'.manifesto.json'}
+IGNORADOS = {'.manifesto.json', 'index.html'}
 
 
 def retratar(raiz: Path) -> dict[str, str]:

@@ -5,6 +5,8 @@ from typing import Annotated
 
 import typer
 
+from concursos import relatorio_html
+from concursos.analytics.consolidado import concursos_analisados
 from concursos.analytics.taxonomia import carregar_taxonomia
 from concursos.assistente import InteracaoAutomatica, InteracaoConsole
 from concursos.cadastro import cadastrar
@@ -20,6 +22,8 @@ from concursos.cli.erros import ErroDoAmbiente, ErroDoUsuario, ajustar_nivel_con
 from concursos.config.contexto import Contexto, gravar_no_config_projeto, ler_toml, resolver_contexto
 from concursos.configuracao import configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
+from concursos.exportacao import FormatoExportacao, exportar_consolidado
+from concursos.manifesto import ARQUIVO_MANIFESTO
 from concursos.migracao import MigracaoError, executar_migracao, planejar_migracao
 from concursos.pipeline import ARQUIVO_RESPOSTAS, analisar_todos, planejar
 from concursos.respostas import RespostasInvalidasError
@@ -41,6 +45,7 @@ class Opcoes:
     dry_run: bool = False
     forcar: bool = False
     todos: bool = False
+    abrir: bool = True
 
 
 Forcar = Annotated[bool, typer.Option('--force', help='reprocessa mesmo sem mudanças')]
@@ -51,6 +56,7 @@ Candidato = Annotated[
 Todos = Annotated[
     bool, typer.Option('--all-candidates', help='analisa todos os candidatos e gera o comparativo entre eles')
 ]
+NaoAbrir = Annotated[bool, typer.Option('--no-open', help='não abre o relatório no navegador')]
 
 
 @app.callback(invoke_without_command=True)
@@ -63,6 +69,7 @@ def principal(
     forcar: Forcar = False,
     candidato: Candidato = None,
     todos: Todos = False,
+    nao_abrir: NaoAbrir = False,
     data_dir: Annotated[
         Path | None, typer.Option('--data-dir', help='configuração do projeto (padrão: ./.concurso)')
     ] = None,
@@ -79,7 +86,7 @@ def principal(
     contexto = resolver_contexto(
         data_dir=data_dir, provas=provas, analises=analises, candidato=candidato and slug(candidato)
     )
-    ctx.obj = Opcoes(contexto, sim=sim, dry_run=dry_run, forcar=forcar, todos=todos)
+    ctx.obj = Opcoes(contexto, sim=sim, dry_run=dry_run, forcar=forcar, todos=todos, abrir=not nao_abrir)
     if ctx.invoked_subcommand is None:
         return _analisar(ctx.obj)
     return None
@@ -93,6 +100,7 @@ def analyze(
     dry_run: DryRun = False,
     candidato: Candidato = None,
     todos: Todos = False,
+    nao_abrir: NaoAbrir = False,
     reaproveitar: Annotated[
         bool,
         typer.Option(
@@ -106,10 +114,46 @@ def analyze(
         forcar=ctx.obj.forcar or forcar,
         dry_run=ctx.obj.dry_run or dry_run,
         todos=ctx.obj.todos or todos,
+        abrir=ctx.obj.abrir and not nao_abrir,
     )
     if candidato:
         opcoes = replace(opcoes, contexto=replace(opcoes.contexto, candidato=slug(candidato)))
     return _analisar(opcoes, concurso, reaproveitar)
+
+
+@app.command('report', help='reabre o último relatório HTML')
+def report(ctx: typer.Context, candidato: Candidato = None) -> int:
+    contexto = _com_candidato(ctx.obj.contexto, candidato)
+    indice = _pasta_do_candidato(contexto) / relatorio_html.ARQUIVO_INDICE
+    if not indice.exists():
+        raise ErroDoUsuario(
+            f'{indice}: relatório ainda não gerado',
+            'rode `concurso-analise` para analisar e gerar o relatório',
+        )
+    if ctx.obj.abrir:
+        relatorio_html.abrir_no_navegador(indice)
+    typer.echo(f'relatório: {indice}')
+    return 0
+
+
+@app.command('export', help='grava o consolidado do candidato, uma linha por questão')
+def export(
+    ctx: typer.Context,
+    formato: Annotated[
+        FormatoExportacao, typer.Option('--format', help='formato do arquivo')
+    ] = FormatoExportacao.CSV,
+    candidato: Candidato = None,
+) -> int:
+    contexto = _com_candidato(ctx.obj.contexto, candidato)
+    _exigir_provas(contexto.provas)
+    pasta = _pasta_do_candidato(contexto)
+    if not concursos_analisados(contexto.provas, pasta):
+        raise ErroDoUsuario(
+            f'{pasta}: nenhum concurso analisado para exportar', 'rode `concurso-analise` antes do export'
+        )
+    destino = exportar_consolidado(contexto.provas, pasta, contexto.taxonomia, formato)
+    typer.echo(f'consolidado exportado para {destino}')
+    return 0
 
 
 @app.command('add', help='cadastra a pasta de um concurso ou acrescenta as respostas de um candidato')
@@ -192,7 +236,22 @@ def _analisar_candidato(opcoes: Opcoes, candidato: str | None, concurso: str | N
             _lembrar_candidato(contexto, candidato)
     configuracao = configuracao_do_projeto(contexto)
     taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else None
-    return analisar_todos(provas, destino, opcoes.forcar, concurso, configuracao, taxonomia, candidato)
+    antes = _manifestos(destino)
+    sucesso = analisar_todos(provas, destino, opcoes.forcar, concurso, configuracao, taxonomia, candidato)
+    indice = destino / relatorio_html.ARQUIVO_INDICE
+    if _manifestos(destino) != antes or not indice.exists():
+        relatorio_html.gerar_relatorio_html(
+            provas, destino, contexto.taxonomia, configuracao.limiar_topico_baixo
+        )
+        if opcoes.abrir:
+            relatorio_html.abrir_no_navegador(contexto.raiz / indice)
+    typer.echo(f'relatório: {contexto.raiz / indice}')
+    return sucesso
+
+
+def _manifestos(destino: Path) -> dict[str, int]:
+    """Quando cada concurso foi analisado pela última vez; o manifesto só é regravado numa análise."""
+    return {p.parent.name: p.stat().st_mtime_ns for p in destino.glob(f'*/{ARQUIVO_MANIFESTO}')}
 
 
 def _reaproveitar_csv(opcoes: Opcoes, concurso: str | None) -> None:
@@ -247,6 +306,15 @@ def _migrar(opcoes: Opcoes) -> Opcoes:
             str(erro), 'resolva o problema e rode de novo; a migração recomeça do zero'
         ) from erro
     return replace(opcoes, contexto=replace(contexto, candidato=migracao.candidato))
+
+
+def _com_candidato(contexto: Contexto, candidato: str | None) -> Contexto:
+    return replace(contexto, candidato=slug(candidato)) if candidato else contexto
+
+
+def _pasta_do_candidato(contexto: Contexto) -> Path:
+    candidato = _escolher_candidato(contexto)
+    return contexto.analises / candidato if candidato else contexto.analises
 
 
 def _escolher_candidato(contexto: Contexto) -> str | None:

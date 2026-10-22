@@ -316,6 +316,12 @@ def exportar_heatmap_topicos(
     percentuais: pd.DataFrame, caminho: Path, min_n: int = N_MINIMO_TOPICO
 ) -> Figure:
     """PNG do heatmap de `heatmap_topicos`, com as mesmas regras de anotação."""
+    if percentuais.empty:
+        figura = Figure(figsize=(6, 2))
+        eixo = figura.subplots()
+        eixo.set_axis_off()
+        eixo.text(0.5, 0.5, 'nenhum tópico em concursos suficientes', transform=eixo.transAxes, ha='center')
+        return _salvar(figura, caminho)
     grade = _GradeDeTopicos.de(percentuais, min_n)
     figura = Figure(figsize=(2 + 0.9 * len(grade.concursos), 1.5 + 0.35 * len(grade.rotulos)))
     eixo = figura.subplots()

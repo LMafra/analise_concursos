@@ -198,6 +198,15 @@ def test_exporta_o_heatmap_anotado_so_com_n_minimo(tmp_path):
     assert sorted(texto.get_text() for texto in figura.axes[0].texts) == ['40%', '70%', '83%', 'n<5', 'n<5']
 
 
+def test_exporta_o_heatmap_vazio_com_aviso(tmp_path):
+    caminho = tmp_path / 'heatmap.png'
+
+    figura = exportar_heatmap_topicos(PERCENTUAIS.iloc[0:0], caminho)
+
+    assert caminho.read_bytes().startswith(PNG)
+    assert [texto.get_text() for texto in figura.axes[0].texts] == ['nenhum tópico em concursos suficientes']
+
+
 def test_exporta_o_painel_com_as_tres_versoes(tmp_path):
     caminho = tmp_path / 'painel.png'
 

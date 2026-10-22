@@ -14,10 +14,10 @@ O relatório abre no navegador, e no WSL no navegador do Windows, só na primeir
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] O `index.html` contém, por concurso, o link para o relatório do concurso e os números do desempenho geral.
-- [ ] Sem mudanças, a execução não abre o navegador e só imprime o caminho. `--no-open` impede a abertura.
-- [ ] `report` reabre o último relatório.
-- [ ] `export --format csv|parquet|md` grava o consolidado do candidato no formato pedido.
-- [ ] O HTML funciona sem rede: CSS embutido e imagens por caminho relativo.
+- [x] O `index.html` contém, por concurso, o link para o relatório do concurso e os números do desempenho geral.
+- [x] Sem mudanças, a execução não abre o navegador e só imprime o caminho. `--no-open` impede a abertura.
+- [x] `report` reabre o último relatório.
+- [x] `export --format csv|parquet|md` grava o consolidado do candidato no formato pedido.
+- [x] O HTML funciona sem rede: CSS embutido e imagens por caminho relativo.

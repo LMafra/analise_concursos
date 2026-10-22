@@ -14,6 +14,14 @@ def home_isolada(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return home
 
 
+@pytest.fixture(autouse=True)
+def navegador(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
+    """Os relatórios que a CLI abriria no navegador; nenhum teste abre um de verdade."""
+    abertos: list[Path] = []
+    monkeypatch.setattr('concursos.relatorio_html.abrir_no_navegador', abertos.append)
+    return abertos
+
+
 @pytest.fixture
 def raizes(tmp_path: Path) -> tuple[Path, Path]:
     provas = tmp_path / 'provas'

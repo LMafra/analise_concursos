@@ -363,6 +363,8 @@ provas/<concurso>/candidatos/<slug>/respostas_revisadas.csv   # com --reuse-csv;
 provas/<concurso>/candidatos/<slug>/respostas_revisadas.json  # hash da folha lida na revisão
 analises/<slug>/<concurso>/                         # saída do candidato
 analises/comparativo_candidatos.md                  # com --all-candidates
+analises/<slug>/index.html                          # relatório HTML do candidato
+analises/<slug>/export/consolidado.<csv|parquet|md> # com `export`
 ~/.concurso/candidatos/<slug>.toml                  # perfil global: nome e slug
 ```
 
@@ -618,3 +620,17 @@ No consolidado, em `analises/consolidado/`:
   - `n_topico`: quantidade de questões do tópico naquela prova (o `total` de `desempenho_por_topico.csv`).
 
   `validar_schema` confere colunas, tipos, domínios, nomes de disciplina sem mapeamento na taxonomia, a existência de ao menos uma coluna `peso__` e o número de linhas igual à soma das linhas de todos os `questoes.csv` (um concurso analisado que ficou fora reprova a contagem).
+- **`relatorio_evolucao.md` e as figuras (`evolucao_zscore.png`, `heatmap_topicos.png`, `painel_correcao.png`):** gravados pelo notebook 04 e pelo relatório HTML, quando o consolidado tem `MINIMO_CONCURSOS` (2) concursos ou mais. Sem tópico em concursos suficientes, o heatmap sai vazio, com o aviso na figura.
+
+No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_html`):
+
+- **`<concurso>/relatorio.html`:** o `relatorio.md` em HTML, com as imagens relativas de `graficos/` e um link de volta ao índice.
+- **`index.html`:**
+  - tabela de concursos: link para o `relatorio.html`, data da prova, acertos de total, percentual de mérito (como no `desempenho_por_disciplina.csv`) e o selo da regra de correção (`regra do edital`, `do concurso.yaml`, `do perfil da banca` ou `padrão`, com a confiança);
+  - o que o app decidiu sozinho: regra de correção do perfil ou padrão, campos do bloco `prova` do edital vindos do perfil ou do padrão, e as questões com tópico sugerido por similaridade sem revisão;
+  - avisos: os do `edital_estruturado.json`, concurso sem data, as linhas `error` e `warn` do `discrepancias_edital.csv` e as leituras da folha com `revisar`;
+  - evolução: o `relatorio_evolucao.md` e as figuras, mais a tabela de gap para o corte (`comparar_percentual_e_gap`, uma linha por concurso e variante com corte), ou o aviso de que a evolução precisa de 2 concursos;
+  - rodapé com a versão, a data da geração e a pasta de provas.
+- **Sem rede:** CSS embutido, imagens por caminho relativo e nenhum HTML bruto do markdown (o texto vem de PDFs).
+- **Quando é gerado e aberto:** depois de cada análise em que algum manifesto foi regravado (algo reprocessado) ou sem `index.html`; nesse caso abre no navegador padrão (no WSL, com `wslview` ou `explorer.exe`), salvo com `--no-open` ou `CI` definido. Sem mudanças, nada é regravado, e a CLI só imprime o caminho. `report` reabre o índice do candidato escolhido; sem índice, para com uma `dica:`.
+- **`export --format csv|parquet|md`:** grava o consolidado do candidato (as colunas do `consolidado.parquet`, uma linha por questão) em `export/consolidado.<formato>`; o `md` é uma tabela markdown.
