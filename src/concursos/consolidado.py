@@ -71,7 +71,7 @@ def comparar_candidatos(raiz_analises: Path, candidatos: list[str]) -> Path:
             '',
         ]
     destino = raiz_analises / 'comparativo_candidatos.md'
-    destino.write_text('\n'.join(linhas), encoding='utf-8')
+    gravar_se_mudou(destino, '\n'.join(linhas))
     logger.info('Comparativo de %d candidatos gravado em %s', len(gerais), destino)
     return destino
 

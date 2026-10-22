@@ -122,6 +122,21 @@ def test_trecho_literal_preenche_com_fonte_llm_e_so_o_edital_e_enviado(projeto, 
     assert prova['penalidade']['fonte'] == 'default'
 
 
+def test_campo_do_llm_aparece_no_indice_e_no_log(projeto, servidor, caplog):
+    servidor.resposta = {
+        'alternativas': {'valor': 4, 'trecho_origem': 'cada uma com quatro respostas possiveis'},
+        'data_prova': {'valor': '2025-01-02', 'trecho_origem': 'DE 2 DE JANEIRO DE 2025'},
+    }
+
+    with caplog.at_level(logging.WARNING):
+        assert main(['analyze', '--no-open']) == 0
+
+    indice = (projeto / 'analises' / 'ana' / 'index.html').read_text(encoding='utf-8')
+    assert 'alternativas da prova: 4 (LLM' in indice
+    assert 'data da prova: 2025-01-02 (LLM' in indice
+    assert 'alternativas' in caplog.text and 'LLM' in caplog.text
+
+
 @pytest.mark.parametrize('flag', ['--offline', '--no-llm'])
 def test_offline_ou_no_llm_nao_fazem_requisicao(projeto, servidor, flag):
     assert main([flag, 'analyze', '--no-open']) == 0

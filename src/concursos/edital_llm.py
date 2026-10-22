@@ -63,6 +63,16 @@ def completar_com_llm(
             preenchidos[campo] = achado
     if not preenchidos:
         return regras
+    for campo, achado in preenchidos.items():
+        logger.warning(
+            '%s veio do LLM %s: %s (trecho "%s", %s, página %s); confira no PDF',
+            campo,
+            cliente.provedor,
+            achado.valor,
+            achado.trecho_origem,
+            achado.documento_origem,
+            achado.pagina_origem,
+        )
     prova = regras.prova
     if 'alternativas' in preenchidos:
         prova = replace(prova, alternativas=preenchidos['alternativas'])

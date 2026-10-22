@@ -9,6 +9,7 @@ from concursos.calibracao import QUESTOES_CALIBRACAO, Calibracao, CalibracaoErro
 from concursos.candidatos import PASTA_PERFIS_GLOBAIS, candidatos_existentes, gravar_perfil_global, slug
 from concursos.config.contexto import Contexto, gravar_secao, ler_toml
 from concursos.llm import (
+    ARQUIVO_ENV,
     NENHUM,
     PROVEDORES,
     gravar_configuracao,
@@ -42,6 +43,10 @@ e `concurso-analise` para analisar.
 
 
 class OnboardingCanceladoError(Exception):
+    pass
+
+
+class ProvedorInvalidoError(ValueError):
     pass
 
 
@@ -82,6 +87,8 @@ def perguntar(
     if provedor := ambiente.get(VARIAVEL_LLM):
         padrao = replace(padrao, llm=_provedor_valido(provedor))
         fornecidos = {*fornecidos, 'llm'}
+        if padrao.llm != NENHUM:
+            logger.warning('%s: %s', VARIAVEL_LLM, _o_que_vai_para(padrao.llm))
     if interacao is None:
         logger.info(
             'onboarding sem terminal: usando os padrões (nome %s, provas %s, análises %s, doctor %s)',
@@ -205,10 +212,7 @@ def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
     if escolha == NENHUM:
         return NENHUM
     if not (atual and atual.provedor == escolha and atual.consentimento):
-        interacao.mostrar(
-            f'Só o texto do edital e dos anexos vai para {escolha}; respostas, folhas, notas e inscrição não '
-            'saem do computador. Sem LLM, a leitura do edital continua só local.'
-        )
+        interacao.mostrar(_o_que_vai_para(escolha))
         if not interacao.confirmar('Concorda?'):
             return NENHUM
     provedor = PROVEDORES[escolha]
@@ -227,16 +231,24 @@ def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
             f'Defina a variável {variavel} antes de analisar (export {variavel}=...); sem ela, o LLM fica desligado.'
         )
     elif encontrada[1] == f'variável {variavel}' and interacao.confirmar(
-        f'Guardar a chave de {variavel} no keyring, para não depender da variável?'
+        f'Guardar a chave de {variavel} no keyring, para não depender da variável? Sem keyring, ela fica '
+        f'em texto plano em {contexto.home / ARQUIVO_ENV} (permissão 600)'
     ):
         interacao.mostrar(f'Chave guardada em {guardar_chave(variavel, encontrada[0], contexto.home)}.')
     return escolha
 
 
+def _o_que_vai_para(provedor: str) -> str:
+    return (
+        f'Só o texto do edital e dos anexos vai para {provedor}; respostas, folhas, notas e inscrição não '
+        'saem do computador. Sem LLM, a leitura do edital continua só local.'
+    )
+
+
 def _provedor_valido(provedor: str) -> str:
     provedor = provedor.strip().lower()
     if provedor != NENHUM and provedor not in PROVEDORES:
-        raise ValueError(
+        raise ProvedorInvalidoError(
             f'{VARIAVEL_LLM}: provedor {provedor!r} inválido (use {", ".join([NENHUM, *PROVEDORES])})'
         )
     return provedor

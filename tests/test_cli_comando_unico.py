@@ -84,6 +84,32 @@ def test_dry_run_lista_os_concursos_e_nao_grava_nada(projeto, home_isolada, caps
     assert not (projeto / '.concurso').exists()
 
 
+def _pasta_sem_cadastro(projeto: Path) -> Path:
+    pasta = projeto / 'provas' / 'novo'
+    pasta.mkdir(parents=True)
+    (pasta / 'gab.txt').write_text('# FGV - Gabarito definitivo\n1 A\n2 B\n', encoding='utf-8')
+    (pasta / 'respostas.txt').write_text('1 A\n2 C\n', encoding='utf-8')
+    return pasta
+
+
+def test_add_de_pasta_com_dry_run_nao_grava(projeto, capsys):
+    pasta = _pasta_sem_cadastro(projeto)
+
+    assert main(['--dry-run', 'add', str(pasta)]) == 0
+
+    assert not (pasta / 'concurso.yaml').exists()
+    assert 'cadastraria' in capsys.readouterr().out
+
+
+def test_add_de_pasta_sem_tty_nao_pergunta(projeto, monkeypatch):
+    pasta = _pasta_sem_cadastro(projeto)
+    monkeypatch.setattr('builtins.input', lambda *_: pytest.fail('perguntou sem TTY'))
+
+    assert main(['add', str(pasta)]) == 0
+
+    assert (pasta / 'concurso.yaml').exists()
+
+
 def test_subcomando_analyze_aceita_o_concurso_e_force(projeto, caplog):
     criar_concurso(projeto / 'provas', 'alfa', config('alfa'), ARQUIVOS)
     criar_concurso(projeto / 'provas', 'beta', config('beta'), ARQUIVOS)

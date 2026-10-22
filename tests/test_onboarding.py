@@ -79,6 +79,30 @@ def test_sem_tty_nada_e_perguntado_e_os_padroes_vao_para_o_log(projeto, monkeypa
     assert (projeto / '.concurso' / 'config.toml').exists()
 
 
+def test_llm_pela_variavel_sem_tty_mostra_o_que_vai_para_o_provedor(
+    projeto, home_isolada, monkeypatch, caplog
+):
+    criar_concurso(projeto / 'provas', 'alfa', CONFIG, ARQUIVOS)
+    monkeypatch.setenv('CONCURSO_LLM', 'openai')
+
+    with caplog.at_level(logging.WARNING):
+        assert main(['--yes', '--no-open']) == 0
+
+    assert 'Só o texto do edital' in caplog.text and 'openai' in caplog.text
+    assert ler(home_isolada / 'config.toml')['llm']['consentimento'] is True
+
+
+def test_provedor_invalido_na_variavel_e_erro_com_dica(projeto, monkeypatch, capsys):
+    criar_concurso(projeto / 'provas', 'alfa', CONFIG, ARQUIVOS)
+    monkeypatch.setenv('CONCURSO_LLM', 'chatbot')
+
+    assert main(['--yes', '--no-open']) == 1
+
+    erro = capsys.readouterr().err
+    assert 'chatbot' in erro and 'dica:' in erro
+    assert not (projeto / '.concurso' / 'config.toml').exists()
+
+
 def test_com_yes_usa_os_padroes_mesmo_com_tty(projeto, monkeypatch):
     criar_concurso(projeto / 'provas', 'alfa', CONFIG, ARQUIVOS)
     roteirizar(monkeypatch, '')

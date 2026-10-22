@@ -62,6 +62,16 @@ def ler_json(caminho: Path):
     return json.loads(caminho.read_text(encoding='utf-8'))
 
 
+def test_dica_do_tesseract_traz_o_comando_do_sistema(projeto, caplog, monkeypatch):
+    monkeypatch.setattr('concursos.doctor.platform.system', lambda: 'Darwin')
+
+    with caplog.at_level(logging.WARNING):
+        assert main(['--all-candidates']) == 0
+
+    assert 'brew install tesseract' in caplog.text
+    assert 'apt' not in caplog.text
+
+
 def test_edital_em_imagem_sem_tesseract_cai_no_modo_minimo_e_pede_confirmacao(projeto, caplog):
     with caplog.at_level(logging.WARNING):
         assert main(['--all-candidates']) == 0

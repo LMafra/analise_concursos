@@ -47,6 +47,19 @@ def test_dry_run_duas_vezes_nao_altera_nenhum_mtime(projeto):
     assert mtimes(projeto / 'analises') == antes
 
 
+def test_all_candidates_duas_vezes_nao_altera_nenhum_mtime(projeto):
+    for nome in ('alfa', 'beta'):
+        bia = projeto / 'provas' / nome / 'candidatos' / 'bia'
+        bia.mkdir()
+        (bia / 'respostas.txt').write_text('1 A\n2 C\n3 C\n4 D\n', encoding='utf-8')
+    assert main(['--yes', '--no-open', '--all-candidates']) == 0
+    antes = mtimes(projeto / 'analises')
+
+    assert main(['--yes', '--no-open', '--all-candidates']) == 0
+
+    assert mtimes(projeto / 'analises') == antes
+
+
 def test_dry_run_num_projeto_novo_nao_cria_nada(projeto):
     assert main(['--dry-run', '--yes']) == 0
 

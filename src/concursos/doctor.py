@@ -59,6 +59,11 @@ _CORRECOES = {
 }
 
 
+def comando_de_correcao(item: str) -> str:
+    """O comando que instala `item` (`uv`, `python`, `tesseract`, `por`) no sistema atual."""
+    return _CORRECOES[item][sistema_atual()]
+
+
 def sistema_atual() -> Sistema:
     nome = platform.system()
     if nome == 'Darwin':

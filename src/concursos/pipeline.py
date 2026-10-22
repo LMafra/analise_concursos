@@ -23,6 +23,7 @@ from concursos.config.contexto import resolver_contexto
 from concursos.configuracao import ConfiguracaoGlobal
 from concursos.consolidado import consolidar
 from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO, corrigir
+from concursos.doctor import comando_de_correcao
 from concursos.edital import (
     ARQUIVO_EDITAL_ESTRUTURADO,
     Edital,
@@ -292,10 +293,11 @@ def _ler_edital(config: ConcursoConfig, documentos: dict[str, list[str]]) -> Edi
     if sem_ocr:
         logger.warning(
             '%s: %s sem texto e o Tesseract não está instalado; seguindo em modo mínimo, sem o conteúdo '
-            'programático. dica: instale o Tesseract com o idioma português (sudo apt install tesseract-ocr '
-            'tesseract-ocr-por) ou rode `concurso-analise doctor`',
+            'programático. dica: instale o Tesseract com o idioma português (%s) ou rode '
+            '`concurso-analise doctor`',
             config.nome,
             ', '.join(sem_ocr),
+            comando_de_correcao('tesseract'),
         )
     else:
         logger.warning(

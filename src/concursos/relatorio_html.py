@@ -43,7 +43,7 @@ _NIVEIS_DO_EDITAL = {
     'baixa': ('edital: baixa', 'atencao'),
     'minima': ('edital: mínima', 'alerta'),
 }
-_ORIGEM_DO_CAMPO = {'perfil': 'perfil da banca', 'default': 'padrão'}
+_ORIGEM_DO_CAMPO = {'perfil': 'perfil da banca', 'default': 'padrão', 'llm': 'LLM, com trecho do edital'}
 _SEVERIDADES_NO_RELATORIO = ('error', 'warn')
 _CSS = """
 body { font-family: system-ui, sans-serif; margin: 0; color: #1f2933; background: #f7f8fa; }
@@ -184,10 +184,13 @@ def _decisoes(pasta: Path) -> list[str]:
         )
     elif correcao.get('fonte') == 'default':
         decisoes.append(f'regra de correção padrão ({regra}): nenhuma fonte a traz')
-    prova = _json(pasta / ARQUIVO_EDITAL_ESTRUTURADO).get('prova') or {}
-    for campo, valor in prova.items():
+    estruturado = _json(pasta / ARQUIVO_EDITAL_ESTRUTURADO)
+    for campo, valor in (estruturado.get('prova') or {}).items():
         if valor.get('fonte') in _ORIGEM_DO_CAMPO and valor.get('valor') is not None:
             decisoes.append(f'{campo} da prova: {valor["valor"]} ({_ORIGEM_DO_CAMPO[valor["fonte"]]})')
+    objetiva = (estruturado.get('cronograma') or {}).get('objetiva') or {}
+    if objetiva.get('fonte') == 'llm' and objetiva.get('valor') is not None:
+        decisoes.append(f'data da prova: {objetiva["valor"]} ({_ORIGEM_DO_CAMPO["llm"]})')
     questoes = pasta / ARQUIVO_QUESTOES
     if questoes.exists():
         tabela = pd.read_csv(questoes, keep_default_na=False)

@@ -232,7 +232,10 @@ def add(
     opcoes: Opcoes = ctx.obj
     contexto = opcoes.contexto
     if caminho.is_dir():
-        interacao = InteracaoAutomatica() if opcoes.sim else InteracaoConsole()
+        if opcoes.dry_run:
+            typer.echo(f'cadastraria {caminho} (concurso.yaml)')
+            return 0
+        interacao = InteracaoConsole() if onboarding.interativo(opcoes.sim) else InteracaoAutomatica()
         return 0 if cadastrar(caminho, interacao) else 1
     if not caminho.is_file():
         raise ErroDoUsuario(f'arquivo não encontrado: {caminho}', 'confira o caminho do arquivo de respostas')
@@ -312,6 +315,10 @@ def _onboarding(opcoes: Opcoes, doctor: bool | None = None, extras: dict[str, st
         ) from None
     except CalibracaoError as erro:
         raise ErroDoUsuario(f'calibração reprovada, nada foi gravado: {erro.causa}', erro.dica) from erro
+    except onboarding.ProvedorInvalidoError as erro:
+        raise ErroDoUsuario(
+            f'{erro}; nada foi gravado', f'corrija {onboarding.VARIAVEL_LLM} ou apague a variável'
+        ) from erro
     if respostas.calibracao is not None:
         opcoes = replace(opcoes, forcar=True)
     opcoes = replace(opcoes, contexto=onboarding.aplicar(contexto, respostas))

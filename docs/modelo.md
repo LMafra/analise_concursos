@@ -676,7 +676,7 @@ No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_htm
 - **`<concurso>/relatorio.html`:** o `relatorio.md` em HTML, com as imagens relativas de `graficos/` e um link de volta ao índice.
 - **`index.html`:**
   - tabela de concursos: link para o `relatorio.html`, data da prova, acertos de total, percentual de mérito (como no `desempenho_por_disciplina.csv`), o selo da confiança do edital (`edital: alta`, `média`, `baixa` ou `mínima`; `sem edital` sem o JSON) e o selo da regra de correção (`regra do edital`, `do concurso.yaml`, `do perfil da banca` ou `padrão`, com a confiança);
-  - o que o app decidiu sozinho: regra de correção do perfil ou padrão, campos do bloco `prova` do edital vindos do perfil ou do padrão, e as questões com tópico sugerido por similaridade sem revisão;
+  - o que o app decidiu sozinho: regra de correção do perfil ou padrão, campos do bloco `prova` do edital vindos do perfil, do padrão ou do LLM, a data da prova vinda do LLM, e as questões com tópico sugerido por similaridade sem revisão;
   - avisos: os do `edital_estruturado.json`, concurso sem data, as linhas `error` e `warn` do `discrepancias_edital.csv` e as leituras da folha com `revisar`;
   - evolução: o `relatorio_evolucao.md` e as figuras, mais a tabela de gap para o corte (`comparar_percentual_e_gap`, uma linha por concurso e variante com corte), ou o aviso de que a evolução precisa de 2 concursos;
   - rodapé com a versão, a data da geração e a pasta de provas.
