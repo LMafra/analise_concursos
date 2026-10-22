@@ -407,10 +407,14 @@ dependencies = [
     { name = "pandas" },
     { name = "pdfplumber" },
     { name = "pillow" },
+    { name = "plotly" },
+    { name = "pyarrow" },
     { name = "pypdfium2" },
     { name = "pytesseract" },
     { name = "pyyaml" },
     { name = "scikit-learn" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "tomli-w" },
     { name = "typer" },
 ]
@@ -427,19 +431,12 @@ analise = [
     { name = "jupytext" },
     { name = "nbconvert" },
     { name = "papermill" },
-    { name = "plotly" },
-    { name = "pyarrow" },
-    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 dev = [
-    { name = "plotly" },
+    { name = "ipython" },
     { name = "pre-commit" },
-    { name = "pyarrow" },
     { name = "pytest" },
     { name = "ruff" },
-    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 
 [package.metadata]
@@ -452,10 +449,13 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2" },
     { name = "pdfplumber", specifier = ">=0.11.10" },
     { name = "pillow", specifier = ">=13.0.0" },
+    { name = "plotly", specifier = ">=7.1.0" },
+    { name = "pyarrow", specifier = ">=18" },
     { name = "pypdfium2", specifier = ">=5.14.0" },
     { name = "pytesseract", specifier = ">=0.3.13" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "scikit-learn", specifier = ">=1.6" },
+    { name = "scipy", specifier = ">=1.14" },
     { name = "tomli-w", specifier = ">=1.0" },
     { name = "typer", specifier = ">=0.20" },
 ]
@@ -468,17 +468,12 @@ analise = [
     { name = "jupytext", specifier = ">=1.19.6" },
     { name = "nbconvert", specifier = ">=7.17.2" },
     { name = "papermill", specifier = ">=2.7.0" },
-    { name = "plotly", specifier = ">=7.1.0" },
-    { name = "pyarrow", specifier = ">=18" },
-    { name = "scipy", specifier = ">=1.14" },
 ]
 dev = [
-    { name = "plotly", specifier = ">=7.1.0" },
+    { name = "ipython", specifier = ">=8" },
     { name = "pre-commit", specifier = ">=4.7.0" },
-    { name = "pyarrow", specifier = ">=18" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.17.1" },
-    { name = "scipy", specifier = ">=1.14" },
 ]
 
 [[package]]

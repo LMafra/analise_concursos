@@ -1,5 +1,7 @@
 import logging
 import os
+import shutil
+import subprocess
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Annotated
@@ -273,6 +275,23 @@ def doctor(ctx: typer.Context) -> int:
     )
     typer.echo(diagnostico.formatar(itens))
     return CODIGO_AMBIENTE if diagnostico.tem_erro(itens) else 0
+
+
+@app.command('upgrade', help='mostra (ou, com --run, executa) o comando que atualiza a ferramenta')
+def upgrade(
+    ctx: typer.Context,
+    executar: Annotated[bool, typer.Option('--run', help='executa a atualização agora')] = False,
+) -> int:
+    comando = ['tool', 'upgrade', 'concurso-analise']
+    if not executar or ctx.obj.dry_run:
+        typer.echo(f'para atualizar: uv {" ".join(comando)}')
+        return 0
+    uv = shutil.which('uv')
+    if uv is None:
+        raise ErroDoAmbiente(
+            'uv não encontrado no PATH', 'instale o uv (https://docs.astral.sh/uv/) e rode de novo'
+        )
+    return subprocess.run([uv, *comando], check=False).returncode
 
 
 def _onboarding(opcoes: Opcoes, doctor: bool | None = None, extras: dict[str, str] | None = None) -> int:

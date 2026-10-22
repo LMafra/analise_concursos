@@ -1,0 +1,13 @@
+# Dados pessoais nunca entram na imagem: provas e análises chegam só por volume.
+provas/
+analises/
+.concurso/
+.paridade/
+.scratch/
+notebooks/
+.git/
+.venv/
+.cursor/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/

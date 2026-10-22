@@ -6,6 +6,7 @@ import pandas as pd
 
 from concursos.agregacao import COLUNAS_DESEMPENHO
 from concursos.analytics.correcao import notas_finais_gravadas
+from concursos.arquivos import gravar_se_mudou
 from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.manifesto import ARQUIVO_MANIFESTO
 from concursos.relatorio import tabela_markdown
@@ -34,9 +35,9 @@ def consolidar(
     geral = _desempenho_geral(raiz_analises, list(analisados))
     destino = raiz_analises / PASTA_CONSOLIDADO
     destino.mkdir(parents=True, exist_ok=True)
-    geral.to_csv(destino / 'desempenho_geral.csv', index=False)
+    gravar_se_mudou(destino / 'desempenho_geral.csv', geral.to_csv(index=False, lineterminator='\n'))
     comparativo = _comparativo(geral, situacoes, analisados, raiz_analises, limiar_topico_baixo)
-    (destino / 'comparativo_concursos.md').write_text(comparativo, encoding='utf-8')
+    gravar_se_mudou(destino / 'comparativo_concursos.md', comparativo)
     logger.info('Consolidado de %d concursos gravado em %s', len(analisados), destino)
 
 

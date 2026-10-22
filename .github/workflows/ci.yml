@@ -1,0 +1,54 @@
+# Escrito na fase 4, ainda sem remoto. Verificados à mão: Linux/WSL (3.11 e 3.12) e o container.
+# Não verificados: macOS e Windows nativo (sem uv no Windows da máquina de desenvolvimento).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ['3.11', '3.12']
+    runs-on: ${{ matrix.os }}
+    env:
+      CI: 'true'
+      NO_COLOR: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.13.0'
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+
+      - name: Dependências
+        run: uv sync --locked
+
+      - name: Lint
+        run: |
+          uv run ruff check
+          uv run ruff format --check
+
+      - name: Testes
+        run: uv run pytest
+
+      - name: Smoke de ponta a ponta (uvx num projeto temporário)
+        run: uv run --no-project python scripts/smoke.py uvx --python ${{ matrix.python }} --from "${{ github.workspace }}" concurso-analise
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Imagem
+        run: docker build -t concurso-analise .
+      - name: Doctor e smoke no container
+        run: |
+          docker run --rm -v /tmp:/dados concurso-analise doctor
+          docker run --rm -v "$PWD/scripts:/s:ro" --entrypoint python concurso-analise /s/smoke.py
