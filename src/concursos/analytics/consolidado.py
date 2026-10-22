@@ -9,6 +9,7 @@ import pandas as pd
 from pandas.api import types
 
 from concursos.analytics.correcao import ARQUIVO_CORRECAO, FonteCorrecao, aplicar_correcao, ler_correcao
+from concursos.analytics.regras_edital import ler_regras
 from concursos.analytics.taxonomia import ARQUIVO_TAXONOMIA, carregar_taxonomia, classificar
 from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso
 from concursos.consolidado import PASTA_CONSOLIDADO
@@ -333,6 +334,18 @@ def _entradas(raiz_provas: Path, raiz_analises: Path, nomes: list[str]) -> list[
 def _alguma_mais_nova(cache: Path, entradas: list[Path]) -> bool:
     limite = cache.stat().st_mtime
     return any(entrada.stat().st_mtime > limite for entrada in entradas)
+
+
+def cortes_por_concurso(raiz_analises: Path | None = None) -> dict[str, list[dict]]:
+    """Os cortes gravados de cada concurso analisado, no formato que `evolucao.gap_para_corte` recebe."""
+    raiz = raiz_das_analises(raiz_analises)
+    if not raiz.exists():
+        return {}
+    return {
+        pasta.name: regras['cortes']
+        for pasta in sorted(raiz.iterdir())
+        if pasta.is_dir() and (regras := ler_regras(pasta)) is not None
+    }
 
 
 def raiz_das_analises(raiz_analises: Path | None = None) -> Path:

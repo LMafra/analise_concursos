@@ -6,3 +6,6 @@ limiar_confianca: 0.75
 # Tópicos com percentual de mérito abaixo deste valor (0–1) em pelo menos dois concursos
 # aparecem como consistentemente baixos no comparativo.
 limiar_topico_baixo: 0.6
+
+# Pasta do concurso que a nota ponderada e o gap para o corte analisam. Vazio: todos.
+# concurso_alvo: tcu_25

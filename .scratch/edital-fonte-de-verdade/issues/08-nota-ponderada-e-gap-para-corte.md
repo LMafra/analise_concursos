@@ -14,12 +14,12 @@ Ver `docs/spec-fase3.md`, histórias 51–53 e 59.
 
 **Blocked by:** 02 (Notas de corte com unidade e escopo)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Teste: a nota ponderada bate com o cálculo manual numa fixture com pesos 1, 2 e 0,5.
-- [ ] Teste: "atingido" falso quando o conjunto passa mas uma disciplina zera ou um bloco fica abaixo.
-- [ ] Teste: "atingido" verdadeiro só com todos os cortes satisfeitos.
-- [ ] Teste: num corte em acertos, a anulada conta.
-- [ ] Teste: sem `concurso_alvo`, saem todos os concursos.
-- [ ] `docs/modelo.md` documenta as fórmulas e o `concurso_alvo`.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Teste: a nota ponderada bate com o cálculo manual numa fixture com pesos 1, 2 e 0,5.
+- [x] Teste: "atingido" falso quando o conjunto passa mas uma disciplina zera ou um bloco fica abaixo.
+- [x] Teste: "atingido" verdadeiro só com todos os cortes satisfeitos.
+- [x] Teste: num corte em acertos, a anulada conta.
+- [x] Teste: sem `concurso_alvo`, saem todos os concursos.
+- [x] `docs/modelo.md` documenta as fórmulas e o `concurso_alvo`.
+- [x] `uv run pytest` e `ruff` verdes.

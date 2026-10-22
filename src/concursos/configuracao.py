@@ -10,6 +10,7 @@ from concursos.concurso_config import ConfiguracaoInvalidaError
 class ConfiguracaoGlobal:
     limiar_confianca: float = 0.75
     limiar_topico_baixo: float = 0.6
+    concurso_alvo: str | None = None
 
 
 def carregar_configuracao_global(caminho: Path) -> ConfiguracaoGlobal:
@@ -26,7 +27,12 @@ def carregar_configuracao_global(caminho: Path) -> ConfiguracaoGlobal:
             f'{caminho}: campos desconhecidos {", ".join(desconhecidos)} (use {", ".join(sorted(conhecidos))})'
         )
     for campo, valor in dados.items():
-        if not isinstance(valor, int | float) or not 0 <= valor <= 1:
+        if campo == 'concurso_alvo':
+            if valor is not None and (not isinstance(valor, str) or not valor.strip()):
+                raise ConfiguracaoInvalidaError(
+                    f'{caminho}: concurso_alvo deve ser o nome da pasta do concurso, recebido {valor!r}'
+                )
+        elif not isinstance(valor, int | float) or not 0 <= valor <= 1:
             raise ConfiguracaoInvalidaError(
                 f'{caminho}: {campo} deve ser um número entre 0 e 1, recebido {valor!r}'
             )

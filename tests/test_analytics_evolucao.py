@@ -11,7 +11,9 @@ from concursos.analytics.evolucao import (
     correlacao_tempo_percentual,
     correlacao_tempo_zscore,
     evolucao_por_topico,
+    gap_para_corte,
     modelos_distintos,
+    nota_ponderada_por_disciplina,
     percentual_por_disciplina_ao_longo_do_tempo,
     percentual_por_topico,
     tendencia_por_disciplina,
@@ -607,3 +609,106 @@ def test_correlacao_entre_a_ordem_e_o_percentual_de_cada_concurso():
     assert correlacao.p_valor == pytest.approx(1 / 3)
     assert correlacao.pontos == 3
     assert math.isnan(correlacao_tempo_percentual(consolidado(concurso('a', ['acerto'], ordem=1))).rho)
+
+
+def test_nota_ponderada_vale_o_peso_do_acerto_sem_desconto_e_a_anulada_conta():
+    cpnu = concurso(
+        'cpnu',
+        ['acerto', 'erro', 'acerto', 'branco', 'erro'],
+        formato='multipla_escolha',
+        anuladas=(5,),
+        pesos={'B3-08-A': [1.0, 2.0, 0.5, 2.0, 1.0]},
+        disciplinas=['Dados'] * 4 + ['Português'],
+    )
+
+    tabela = nota_ponderada_por_disciplina(consolidado(cpnu)).set_index('disciplina')
+
+    dados = tabela.loc['Dados']
+    assert (dados['variante'], dados['n'], dados['nota_ponderada'], dados['nota_maxima']) == (
+        'B3-08-A',
+        4,
+        1.5,
+        5.5,
+    )
+    assert dados['percentual_ponderado'] == pytest.approx(100 * 1.5 / 5.5)
+    assert (tabela.loc['Português', 'nota_ponderada'], tabela.loc['Português', 'nota_maxima']) == (1.0, 1.0)
+
+
+def corte(escopo: str, valor: float, unidade: str = 'pontos', bloco: str | None = None) -> dict:
+    return {'escopo': escopo, 'valor': valor, 'unidade': unidade, 'bloco': bloco}
+
+
+def cebraspe(geral: list[str], especifico: list[str]) -> pd.DataFrame:
+    return concurso(
+        'cd_25',
+        geral + especifico,
+        blocos=['geral'] * len(geral) + ['especifico'] * len(especifico),
+        disciplinas=['Português'] * len(geral) + ['Dados'] * len(especifico),
+    )
+
+
+CORTES_CEBRASPE = [corte('geral', 3), corte('especifico', 2), corte('conjunto', 4), corte('discursiva', 30)]
+
+
+def test_bloco_abaixo_do_corte_nao_atinge_mesmo_com_o_conjunto_acima():
+    prova = cebraspe(['acerto', 'acerto', 'erro', 'branco'], ['acerto'] * 4)
+
+    tabela = gap_para_corte(consolidado(prova), {'cd_25': CORTES_CEBRASPE}).set_index('escopo')
+
+    assert list(tabela.index) == ['geral', 'especifico', 'conjunto']
+    geral = tabela.loc['geral']
+    assert (geral['nota'], geral['corte'], geral['gap'], geral['nota_maxima']) == (1.0, 3.0, -2.0, 4.0)
+    assert geral['gap_percentual'] == -50.0
+    assert (geral['unidade'], geral['satisfeito']) == ('pontos', False)
+    assert (tabela.loc['conjunto', 'nota'], tabela.loc['conjunto', 'satisfeito']) == (5.0, True)
+    assert not tabela['atingido'].any()
+
+
+def test_atingido_so_com_todos_os_cortes_satisfeitos():
+    prova = cebraspe(['acerto', 'acerto', 'acerto', 'branco'], ['acerto', 'acerto', 'erro', 'acerto'])
+
+    tabela = gap_para_corte(consolidado(prova), {'cd_25': CORTES_CEBRASPE})
+
+    assert tabela['satisfeito'].all()
+    assert tabela['atingido'].all()
+
+
+def test_disciplina_zerada_nao_atinge_mesmo_com_o_conjunto_acima():
+    agsus = concurso(
+        'agsus',
+        ['acerto'] * 4 + ['erro', 'branco'],
+        formato='multipla_escolha',
+        disciplinas=['Português'] * 4 + ['Informática'] * 2,
+    )
+    cortes = [corte('conjunto', 3, 'acertos'), corte('disciplina', 1, 'acertos')]
+
+    tabela = gap_para_corte(consolidado(agsus), {'agsus': cortes})
+
+    por_disciplina = tabela[tabela['escopo'] == 'disciplina'].set_index('disciplina')
+    assert por_disciplina['satisfeito'].to_dict() == {'Informática': False, 'Português': True}
+    assert (por_disciplina.loc['Informática', 'gap'], por_disciplina.loc['Informática', 'nota_maxima']) == (
+        -1,
+        2,
+    )
+    assert tabela.loc[tabela['escopo'] == 'conjunto', 'satisfeito'].item()
+    assert not tabela['atingido'].any()
+
+
+def test_no_corte_em_acertos_a_anulada_conta_como_acerto():
+    fgv = concurso('cprm', ['acerto', 'acerto', 'erro', 'erro'], formato='multipla_escolha', anuladas=(3,))
+
+    [linha] = gap_para_corte(consolidado(fgv), {'cprm': [corte('conjunto', 3, 'acertos')]}).to_dict('records')
+
+    assert (linha['nota'], linha['gap'], linha['satisfeito'], linha['atingido']) == (3, 0, True, True)
+
+
+def test_sem_concurso_alvo_saem_todos_e_com_ele_so_o_alvo():
+    dois = consolidado(
+        cebraspe(['acerto'] * 4, ['acerto'] * 4), concurso('tcu', ['acerto', 'erro', 'acerto', 'acerto'])
+    )
+    cortes = {'cd_25': [corte('conjunto', 4)], 'tcu': [corte('conjunto', 2)]}
+
+    assert set(gap_para_corte(dois, cortes)['concurso']) == {'cd_25', 'tcu'}
+    assert set(gap_para_corte(dois, cortes, concurso_alvo='tcu')['concurso']) == {'tcu'}
+    assert set(nota_ponderada_por_disciplina(dois)['concurso']) == {'cd_25', 'tcu'}
+    assert set(nota_ponderada_por_disciplina(dois, concurso_alvo='tcu')['concurso']) == {'tcu'}

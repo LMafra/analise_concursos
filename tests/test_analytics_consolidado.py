@@ -14,6 +14,7 @@ from concursos.analytics.consolidado import (
     carregar_consolidado,
     construir_consolidado,
     contar_questoes,
+    cortes_por_concurso,
     disciplinas_por_quantidade_de_concursos,
     n_por_topico,
     perfil_de_n,
@@ -23,6 +24,7 @@ from concursos.analytics.consolidado import (
     validar_schema,
 )
 from concursos.analytics.correcao import ConfiguracaoCorrecao, FonteCorrecao, gravar_correcao
+from concursos.analytics.regras_edital import Corte, EscopoCorte, FonteRegra, RegrasEdital, UnidadeCorte
 from concursos.analytics.visualizacao import resumir
 from concursos.concurso_config import PesoItens
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, Conhecimento, Disciplina, Edital, Topico
@@ -465,3 +467,22 @@ def test_topicos_do_edital_de_cada_concurso(tmp_path):
         {'concurso': 'tcu', 'disciplina': 'Português', 'topico': 'Regência'},
     ]
     assert topicos_do_edital(tmp_path / 'vazia').columns.tolist() == ['concurso', 'disciplina', 'topico']
+
+
+def test_cortes_por_concurso_le_os_cortes_gravados_e_ignora_pasta_sem_regras(tmp_path):
+    (tmp_path / 'tcu_25').mkdir()
+    (tmp_path / 'sem_regras').mkdir()
+    corte = Corte(
+        valor=4.0, fonte=FonteRegra.EDITAL, escopo=EscopoCorte.DISCIPLINA, unidade=UnidadeCorte.ACERTOS
+    )
+    RegrasEdital(cortes=(corte,)).gravar_json(tmp_path / 'tcu_25' / 'edital_estruturado.json')
+
+    [lido] = cortes_por_concurso(tmp_path)['tcu_25']
+
+    assert set(cortes_por_concurso(tmp_path)) == {'tcu_25'}
+    assert (lido['escopo'], lido['unidade'], lido['valor'], lido['bloco']) == (
+        'disciplina',
+        'acertos',
+        4.0,
+        None,
+    )

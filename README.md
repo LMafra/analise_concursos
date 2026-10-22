@@ -147,7 +147,8 @@ O percentual é de mérito: anuladas contam como acerto, mas ficam fora do perce
 O `config.yaml` na raiz guarda os limiares globais e é opcional:
 
 - `limiar_confianca` (0,75): leituras abaixo dele ficam com `revisar = True`;
-- `limiar_topico_baixo` (0,6): define o desempenho baixo no comparativo.
+- `limiar_topico_baixo` (0,6): define o desempenho baixo no comparativo;
+- `concurso_alvo` (vazio): nome da pasta do concurso que a nota ponderada e o gap para o corte analisam. Vazio, analisam todos.
 
 Depois de mudar um limiar, rode `analisar --forcar`.
 

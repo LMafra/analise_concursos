@@ -126,6 +126,13 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
 **Insights e relatório de evolução** (`concursos.analytics.insights`).
 
 - **Meta** (`comparar_com_meta`, em `evolucao`): por concurso e variante, a nota pela regra do edital (peso da variante, anulada vale ponto), a nota de corte, a nota normalizada (0–100 da nota máxima, truncada em 0) e a distância até a meta (padrão 70%), em pontos percentuais.
+- **Nota ponderada** (`nota_ponderada_por_disciplina`, em `evolucao`): por concurso, variante, bloco e disciplina canônica, `nota_ponderada = Σ peso × acerto`, sem desconto do erro e com a anulada contando como acerto; `nota_maxima = Σ peso` e `percentual_ponderado = 100 × nota_ponderada / nota_maxima`.
+- **Gap para o corte** (`gap_para_corte`, em `evolucao`): recebe os cortes do edital estruturado (`cortes_por_concurso`, em `consolidado`) e devolve uma linha por corte aplicável de cada concurso e variante; no escopo `disciplina`, uma por disciplina (do `bloco` do corte, ou de todos). O corte da discursiva fica de fora.
+  - Nota no escopo, na unidade do corte: em `pontos`, `Σ peso × pontos corrigidos`, com a anulada valendo 1; em `acertos`, a contagem de acertos mais as anuladas.
+  - Nota máxima do escopo: `Σ peso` em pontos e o número de itens em acertos.
+  - `gap = nota − corte` (positivo acima do corte), `gap_percentual = 100 × gap / nota máxima do escopo` (pontos percentuais) e `satisfeito = gap ≥ 0`.
+  - `atingido` só é verdadeiro quando todos os cortes da variante são satisfeitos: passar no conjunto não basta se um bloco ou uma disciplina fica abaixo.
+- **Concurso-alvo:** `concurso_alvo` no `config.yaml` (nome da pasta do concurso, opcional) restringe as duas funções acima a esse concurso. Sem ele, saem todos.
 - **Correlação geral** (`correlacao_tempo_percentual`, em `evolucao`): Spearman entre a ordem e o percentual ajustado de cada concurso. É a medida única de tendência geral; a média dos z-scores de um concurso não serve, porque fica perto de 0 por construção.
 - **Achados:** melhoras e pioras são as tendências por disciplina com p < 0,05; os fracos usam o limiar do `config.yaml`; o ranking muda quando alguma linha tem deslocamento no corrigido ou no ajustado.
 - **Sensibilidade:** os achados são recalculados sem os concursos de nível médio (`escolaridade: medio`), e as diferenças são declaradas.

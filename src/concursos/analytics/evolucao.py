@@ -1,6 +1,6 @@
 """Métricas da análise evolutiva: funções puras sobre o consolidado (uma linha por questão)."""
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import permutations
 
@@ -10,6 +10,7 @@ from scipy import stats
 
 from concursos.analytics.consolidado import N_MINIMO_TOPICO, PREFIXO_PESO, VARIANTE_PADRAO, colunas_de_peso
 from concursos.analytics.correcao import nota_normalizada
+from concursos.analytics.regras_edital import EscopoCorte, UnidadeCorte
 from concursos.configuracao import ConfiguracaoGlobal
 from concursos.consolidado import MINIMO_CONCURSOS
 from concursos.correcao import TOPICO_NAO_MAPEADO
@@ -117,6 +118,106 @@ def comparar_com_meta(consolidado: pd.DataFrame, meta: float = META_PADRAO) -> p
             )
     return pd.DataFrame(linhas).sort_values(
         ['ordem', 'concurso', 'variante'], na_position='last', ignore_index=True
+    )
+
+
+def nota_ponderada_por_disciplina(
+    consolidado: pd.DataFrame, concurso_alvo: str | None = None
+) -> pd.DataFrame:
+    """Por concurso, variante, bloco e disciplina canônica: o acerto vale o peso do item, sem desconto do
+    erro, e a anulada conta como acerto."""
+    linhas = []
+    for (nome, concurso), variante, peso in _por_variante(consolidado, concurso_alvo):
+        ganho = peso * _acertos_pelo_edital(concurso)
+        for (bloco, disciplina), itens in concurso.groupby(
+            ['bloco', 'disciplina_canonica'], sort=True
+        ).groups.items():
+            nota, nota_maxima = float(ganho[itens].sum()), float(peso[itens].sum())
+            linhas.append(
+                {
+                    'concurso': nome,
+                    'variante': variante,
+                    'ordem': concurso['ordem'].iloc[0],
+                    'bloco': bloco,
+                    'disciplina': disciplina,
+                    'n': len(itens),
+                    'nota_ponderada': nota,
+                    'nota_maxima': nota_maxima,
+                    'percentual_ponderado': 100 * nota / nota_maxima if nota_maxima else float('nan'),
+                }
+            )
+    return _em_ordem(linhas)
+
+
+def gap_para_corte(
+    consolidado: pd.DataFrame, cortes: Mapping[str, Sequence[Mapping]], concurso_alvo: str | None = None
+) -> pd.DataFrame:
+    """Uma linha por corte aplicável de cada concurso e variante (no escopo `disciplina`, uma por disciplina):
+    a nota no escopo, na unidade do corte, o gap absoluto (positivo acima do corte) e em pontos percentuais
+    da nota máxima do escopo. `atingido` só é verdadeiro quando todos os cortes da variante são satisfeitos.
+    `cortes` vem do edital estruturado (`cortes_por_concurso`); o corte da discursiva fica de fora."""
+    linhas = []
+    for (nome, concurso), variante, peso in _por_variante(consolidado, concurso_alvo):
+        pontos, acertos = peso * _pontos_pelo_edital(concurso), _acertos_pelo_edital(concurso)
+        do_concurso = []
+        for corte in cortes.get(nome, ()):
+            em_acertos = corte['unidade'] == UnidadeCorte.ACERTOS
+            ganho, maximo = (acertos, pd.Series(1.0, index=concurso.index)) if em_acertos else (pontos, peso)
+            for disciplina, itens in _escopos_do_corte(concurso, corte):
+                nota, nota_maxima = float(ganho[itens].sum()), float(maximo[itens].sum())
+                gap = nota - float(corte['valor'])
+                do_concurso.append(
+                    {
+                        'concurso': nome,
+                        'variante': variante,
+                        'ordem': concurso['ordem'].iloc[0],
+                        'escopo': corte['escopo'],
+                        'bloco': corte.get('bloco'),
+                        'disciplina': disciplina,
+                        'unidade': corte['unidade'],
+                        'nota': nota,
+                        'corte': float(corte['valor']),
+                        'gap': gap,
+                        'nota_maxima': nota_maxima,
+                        'gap_percentual': 100 * gap / nota_maxima if nota_maxima else float('nan'),
+                        'satisfeito': gap >= 0,
+                    }
+                )
+        atingido = all(linha['satisfeito'] for linha in do_concurso)
+        linhas.extend({**linha, 'atingido': atingido} for linha in do_concurso)
+    return _em_ordem(linhas)
+
+
+def _por_variante(
+    consolidado: pd.DataFrame, concurso_alvo: str | None
+) -> Iterator[tuple[tuple[str, pd.DataFrame], str | None, pd.Series]]:
+    if concurso_alvo is not None:
+        consolidado = consolidado[consolidado['concurso'] == concurso_alvo]
+    for nome_e_concurso in consolidado.groupby('concurso', sort=False):
+        for variante, peso in _variantes(nome_e_concurso[1]):
+            yield nome_e_concurso, variante, peso
+
+
+def _acertos_pelo_edital(tabela: pd.DataFrame) -> pd.Series:
+    return ((tabela['resultado'] == Resultado.ACERTO) | tabela['anulada']).astype(float)
+
+
+def _escopos_do_corte(concurso: pd.DataFrame, corte: Mapping) -> Iterator[tuple[str | None, pd.Index]]:
+    escopo = corte['escopo']
+    if escopo == EscopoCorte.CONJUNTO:
+        yield None, concurso.index
+    elif escopo in (EscopoCorte.GERAL, EscopoCorte.ESPECIFICO):
+        yield None, concurso.index[concurso['bloco'] == escopo]
+    elif escopo == EscopoCorte.DISCIPLINA:
+        do_bloco = concurso if corte.get('bloco') is None else concurso[concurso['bloco'] == corte['bloco']]
+        yield from do_bloco.groupby('disciplina_canonica', sort=True).groups.items()
+
+
+def _em_ordem(linhas: list[dict]) -> pd.DataFrame:
+    if not linhas:
+        return pd.DataFrame()
+    return pd.DataFrame(linhas).sort_values(
+        ['ordem', 'concurso', 'variante'], na_position='last', kind='stable', ignore_index=True
     )
 
 
