@@ -1,0 +1,9 @@
+id: vunesp
+nome: Fundação Vunesp
+ordem: 60
+marcas: [VUNESP]
+formato: multipla_escolha
+alternativas: 5
+penalidade: 0.0
+# Cortes típicos (TJSP 2023): percentual mínimo de acertos por bloco e nota no conjunto; a nota de corte de
+# cada lista não é calculável localmente.

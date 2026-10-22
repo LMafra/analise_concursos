@@ -147,7 +147,7 @@ def concurso(pontuacao: str = 'cebraspe', correcao: dict | None = None, **extra)
     dados = {
         **extra,
         'nome': 'sintetico',
-        'banca': 'cebraspe',
+        'banca': extra.get('banca', 'cebraspe'),
         'formato': 'certo_errado',
         'pontuacao': pontuacao,
         'provas': {
@@ -177,7 +177,9 @@ def test_resolver_usa_o_edital_com_documento_de_origem_e_nota_maxima_pelo_numero
 
 def test_resolver_sem_edital_nem_configuracao_cai_no_default_com_aviso(caplog):
     with caplog.at_level(logging.WARNING):
-        [cfg] = resolver_correcao(concurso('simples'), {'edital.pdf': ['EDITAL Nº 1', 'Das inscrições.']})
+        [cfg] = resolver_correcao(
+            concurso('simples', banca='generic'), {'edital.pdf': ['EDITAL Nº 1', 'Das inscrições.']}
+        )
 
     assert (cfg.modelo, cfg.fator_penalidade, cfg.fonte) == (ModeloCorrecao.BRUTA, 0.0, FonteCorrecao.DEFAULT)
     assert cfg.trecho_origem is None
@@ -190,7 +192,7 @@ def test_default_com_edital_mencionando_penalidade_avisa_a_mencao(caplog):
     paginas = ['Cada questão errada implicará desconto de 0,5 ponto na nota final.']
 
     with caplog.at_level(logging.WARNING):
-        [cfg] = resolver_correcao(concurso('simples'), {'edital.pdf': paginas})
+        [cfg] = resolver_correcao(concurso('simples', banca='generic'), {'edital.pdf': paginas})
 
     assert cfg.fonte is FonteCorrecao.DEFAULT
     assert 'menciona penalidade' in caplog.text
@@ -328,7 +330,7 @@ def test_nota_negativa_e_truncada_em_zero_so_na_nota_normalizada():
 
 def test_default_nao_acusa_contradicao_com_a_pontuacao_alem_do_aviso_de_default(caplog):
     with caplog.at_level(logging.WARNING):
-        resolver_correcao(concurso('cebraspe'), {'edital.pdf': ['Das inscrições.']})
+        resolver_correcao(concurso('cebraspe', banca='generic'), {'edital.pdf': ['Das inscrições.']})
 
     assert 'usando o default' in caplog.text
     assert 'contradiz' not in caplog.text

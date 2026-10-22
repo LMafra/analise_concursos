@@ -182,6 +182,15 @@ def avisos_do_consolidado(consolidado: pd.DataFrame) -> pd.DataFrame:
             avisos.append((nome, 'data', 'sem data da prova; fora das análises de tendência'))
         if concurso['fonte_correcao'] == FonteCorrecao.DEFAULT:
             avisos.append((nome, 'correcao', 'regra de correção no default (bruta, fator 0)'))
+        elif concurso['fonte_correcao'] == FonteCorrecao.PERFIL:
+            avisos.append(
+                (
+                    nome,
+                    'correcao',
+                    f'regra de correção do perfil da banca (fator {concurso["fator_penalidade"]:g}); '
+                    'confira o edital',
+                )
+            )
         elif concurso['confianca_correcao'] < CONFIANCA_MINIMA_SEM_AVISO:
             avisos.append(
                 (

@@ -48,9 +48,12 @@ def de_dict(dados: dict, origem: str = 'perfil') -> PerfilBanca:
     conhecidos = {campo.name for campo in fields(PerfilBanca)}
     if desconhecidos := sorted(set(dados) - conhecidos):
         raise PerfilInvalidoError(f'{origem}: campos desconhecidos: {", ".join(desconhecidos)}')
-    for obrigatorio in ('id', 'marcas'):
-        if not dados.get(obrigatorio):
-            raise PerfilInvalidoError(f'{origem}: campo obrigatório {obrigatorio!r} ausente')
+    if not dados.get('id'):
+        raise PerfilInvalidoError(f"{origem}: campo obrigatório 'id' ausente")
+    if dados.get('marcas') is None:
+        raise PerfilInvalidoError(
+            f"{origem}: campo obrigatório 'marcas' ausente (lista vazia: nunca detectado)"
+        )
     _opcao(dados, 'formato', FORMATOS, origem)
     _opcao(dados, 'segmentacao', SEGMENTACOES, origem)
     try:

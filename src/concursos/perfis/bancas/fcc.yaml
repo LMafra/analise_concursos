@@ -1,0 +1,9 @@
+id: fcc
+nome: Fundação Carlos Chagas
+ordem: 50
+marcas: [FUNDACAO CARLOS CHAGAS, FCC]
+formato: multipla_escolha
+alternativas: 5
+penalidade: 0.0
+# Cortes típicos (TRT-6 2024, MP-PI 2025): nota de 0 a 10 por prova com peso por prova, ou escore
+# padronizado (média 50, desvio 10), que não é calculável localmente.

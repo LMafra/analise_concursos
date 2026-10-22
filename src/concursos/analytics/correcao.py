@@ -21,6 +21,7 @@ from concursos.concurso_config import (
 )
 from concursos.correcao import ARQUIVO_QUESTOES
 from concursos.modelo import Formato, ModeloCorrecao, Resultado
+from concursos.perfis import PERFIL_GENERICO, perfil_da_banca
 from concursos.resultado_oficial import formatar
 
 logger = logging.getLogger(__name__)
@@ -33,11 +34,13 @@ CONFIANCA_PONTOS_POR_PARTE = 0.85
 CONFIANCA_QUADRO_DE_PESOS = 0.9
 CONFIANCA_BRUTA = 0.9
 CONFIANCA_CONFIG = 1.0
+CONFIANCA_PERFIL = 0.5
 
 
 class FonteCorrecao(StrEnum):
     EDITAL = 'edital'
     CONFIG = 'config'
+    PERFIL = 'perfil'
     DEFAULT = 'default'
 
 
@@ -170,6 +173,9 @@ _BRUTA = re.compile(
     r'|cada\s+acerto\s+valerá\s+1\s*(?:\(um\)\s*)?ponto',
     re.IGNORECASE,
 )
+_ERRO_VALE_ZERO = re.compile(
+    r';\s*0,00\s*ponto,?\s+caso\s+a\s+resposta[^;]{0,120}?discordância', re.IGNORECASE
+)
 _MENCAO_PENALIDADE = re.compile(
     r'pontos?\s+negativos?|desconto\s+de|descontad[oa]\b'
     r'|anula(?:rá|m|-se)?\s+(?:um|uma|1)\s+(?:\(uma?\)\s+)?(?:acerto|certa|questão\s+certa|resposta\s+certa)',
@@ -282,7 +288,11 @@ def extrair_fator_correcao(paginas: list[str], total_itens: int | None = None) -
         pesos := _pesos_por_parte(match, total_itens, nota_maxima)
     ):
         fator, confianca = 0.0, CONFIANCA_PONTOS_POR_PARTE
-    elif (match := _BRUTA.search(texto.texto)) and not _MENCAO_PENALIDADE.search(texto.texto):
+    elif (
+        (match := _BRUTA.search(texto.texto))
+        and not _MENCAO_PENALIDADE.search(texto.texto)
+        or (match := _ERRO_VALE_ZERO.search(texto.texto))
+    ):
         fator, confianca = 0.0, CONFIANCA_BRUTA
     else:
         return None
@@ -397,12 +407,35 @@ def _resolver_regra(
             fonte=FonteCorrecao.CONFIG,
             confianca=CONFIANCA_CONFIG,
         )
+    elif (fator := penalidade_do_perfil(config)) is not None:
+        cfg = ConfiguracaoCorrecao(
+            fator_penalidade=fator,
+            pesos=declarada.pesos,
+            fonte=FonteCorrecao.PERFIL,
+            confianca=CONFIANCA_PERFIL,
+        )
+        logger.warning(
+            '%s: regra de correção não encontrada no edital nem no concurso.yaml; '
+            'usando a do perfil da banca %s (fator %g)',
+            config.nome,
+            config.banca,
+            fator,
+        )
     else:
         cfg = ConfiguracaoCorrecao()
         _avisar_default(config.nome, documentos)
     if cfg.fonte is not FonteCorrecao.DEFAULT:
         _avisar_contradicao_com_pontuacao(config, cfg)
     return cfg
+
+
+def penalidade_do_perfil(config: ConcursoConfig) -> float | None:
+    """O fator do perfil da banca, só quando o formato do concurso é o padrão do perfil; o `generic` é o
+    default do projeto, não um perfil que preencha valor."""
+    perfil = perfil_da_banca(config.banca)
+    if perfil.id == PERFIL_GENERICO or perfil.formato != config.formato:
+        return None
+    return perfil.penalidade
 
 
 @dataclass(frozen=True)

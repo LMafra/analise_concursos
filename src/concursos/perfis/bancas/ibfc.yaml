@@ -1,0 +1,8 @@
+id: ibfc
+nome: IBFC
+ordem: 70
+marcas: [IBFC, INSTITUTO BRASILEIRO DE FORMACAO E CAPACITACAO]
+formato: multipla_escolha
+# 4 alternativas no TRF-5 2024 e 5 na EBSERH 2022: sem padrão, vale o edital ou o concurso.yaml.
+penalidade: 0.0
+# Cortes típicos: pontos mínimos por prova, com pontos diferentes por questão em cada prova.

@@ -1,0 +1,9 @@
+# Ponto de partida de uma banca nova: copie este arquivo, troque o id e as marcas e preencha o que o edital
+# da banca costuma trazer. Sem marcas, o perfil nunca é detectado; os valores são o default do projeto.
+id: generic
+nome: Genérico
+ordem: 1000
+marcas: []
+formato: multipla_escolha
+alternativas: 5
+penalidade: 0.0

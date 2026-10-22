@@ -30,6 +30,7 @@ META_PADRAO = 0.7
 _CASAS_NO_EMPATE = 9
 METRICAS_DO_RANKING = ('bruto', 'corrigido', 'ponderado')
 ESTIMATIVA = 'estimativa'
+_ESCALA = {UnidadeCorte.PERCENTUAL: 100.0, UnidadeCorte.NOTA_0_10: 10.0}
 _CORTE_NA_SIMULACAO = ['concurso', 'variante', 'ordem', 'escopo', 'bloco', 'disciplina', 'unidade', 'corte']
 _DISCIPLINA_NO_CONCURSO = ['concurso', 'banca', 'ordem', 'bloco', 'disciplina_canonica']
 _TOPICO_NO_CONCURSO = ['concurso', 'banca', 'ordem', 'disciplina_canonica', 'chave_topico']
@@ -166,7 +167,9 @@ def gap_para_corte(
         for corte in cortes.get(nome, ()):
             ganho, maximo = _ganho_e_maximo(concurso, peso, corte)
             for disciplina, itens in _escopos_do_corte(concurso, corte):
-                nota, nota_maxima = float(ganho[itens].sum()), float(maximo[itens].sum())
+                nota, nota_maxima = _na_escala(
+                    float(ganho[itens].sum()), float(maximo[itens].sum()), corte['unidade']
+                )
                 gap = nota - float(corte['valor'])
                 do_concurso.append(
                     {
@@ -208,7 +211,7 @@ def gap_por_disciplina(
                 maximo_do_escopo = float(maximo[itens].sum())
                 if not maximo_do_escopo:
                     continue
-                exigido = 100 * float(corte['valor']) / maximo_do_escopo
+                exigido = 100 * float(corte['valor']) / _ESCALA.get(corte['unidade'], maximo_do_escopo)
                 grupos = concurso.loc[itens].groupby(['bloco', 'disciplina_canonica'], sort=True).groups
                 for (bloco, disciplina), da_disciplina in grupos.items():
                     maximo_da_disciplina = float(maximo[da_disciplina].sum())
@@ -385,8 +388,17 @@ def _ganho_e_maximo(concurso: pd.DataFrame, peso: pd.Series, corte: Mapping) -> 
     return peso * _pontos_pelo_edital(concurso), peso
 
 
+def _na_escala(nota: float, nota_maxima: float, unidade: str) -> tuple[float, float]:
+    """Percentual e nota de 0 a 10 são a nota do escopo sobre a máxima, na escala do corte."""
+    if (escala := _ESCALA.get(unidade)) is None:
+        return nota, nota_maxima
+    return (escala * nota / nota_maxima if nota_maxima else float('nan')), escala
+
+
 def _escopos_do_corte(concurso: pd.DataFrame, corte: Mapping) -> Iterator[tuple[str | None, pd.Index]]:
     escopo = corte['escopo']
+    if not UnidadeCorte(corte['unidade']).calculavel:
+        return
     if escopo == EscopoCorte.CONJUNTO:
         yield None, concurso.index
     elif escopo in (EscopoCorte.GERAL, EscopoCorte.ESPECIFICO):

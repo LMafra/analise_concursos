@@ -26,7 +26,7 @@ from concursos.analytics.evolucao import (
     zscore_por_disciplina,
 )
 from concursos.analytics.pistas_edital import CANDIDATOS, Impacto
-from concursos.analytics.regras_edital import EscopoCorte, StatusExtracao, UnidadeCorte
+from concursos.analytics.regras_edital import NAO_CALCULAVEIS, EscopoCorte, StatusExtracao, UnidadeCorte
 from concursos.analytics.visualizacao import (
     exportar_heatmap_topicos,
     exportar_linha_evolucao,
@@ -304,6 +304,12 @@ def peculiaridades_do_edital(regras: Mapping[str, dict], concurso_alvo: str | No
             if corte['escopo'] == EscopoCorte.DISCURSIVA:
                 peculiaridade, valor = 'Corte da discursiva', f'{corte["valor"]:g} {corte["unidade"]}'
                 uso = 'Registrado e exibido, fora do "atingido"'
+            elif not UnidadeCorte(corte['unidade']).calculavel:
+                peculiaridade = 'Corte não calculável'
+                valor = NAO_CALCULAVEIS[corte['unidade']]
+                if corte['valor'] is not None:
+                    valor += f' (mínimo {corte["valor"]:g})'
+                uso = 'Depende das notas dos outros candidatos: registrado com aviso, fora do "atingido"'
             elif corte['unidade'] == UnidadeCorte.ACERTOS:
                 peculiaridade = 'Corte em acertos'
                 acertos = 'acerto' if corte['valor'] == 1 else 'acertos'

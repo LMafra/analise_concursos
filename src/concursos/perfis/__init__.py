@@ -15,6 +15,7 @@ from concursos.perfis.ocr import PerfilOcr, de_dict_ocr
 
 __all__ = [
     'FORMATOS',
+    'PERFIL_GENERICO',
     'SEGMENTACOES',
     'PerfilBanca',
     'PerfilInvalidoError',
@@ -32,6 +33,7 @@ __all__ = [
 
 GRUPO_BANCA = 'concurso.banca'
 GRUPO_OCR = 'concurso.ocr'
+PERFIL_GENERICO = 'generic'
 
 
 @cache

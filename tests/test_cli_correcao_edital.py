@@ -133,7 +133,7 @@ def test_nota_final_por_variante_no_relatorio_e_no_comparativo(raizes):
 
 def test_sem_edital_nem_configuracao_grava_default_e_avisa(raizes, caplog):
     provas, analises = raizes
-    criar(provas, MULTIPLA_ESCOLHA)
+    criar(provas, MULTIPLA_ESCOLHA, banca='generic')
 
     with caplog.at_level(logging.WARNING):
         assert analisar(provas, analises) == 0

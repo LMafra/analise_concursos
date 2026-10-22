@@ -62,17 +62,17 @@ Uma leitura abaixo de `limiar_confianca` fica com `revisar = True`.
 - fator de penalidade (1,0 na Cebraspe; 0 nas FGV analisadas; 0,25 em "a cada 4 erradas, anula-se uma certa");
 - pesos por faixa de itens (itens fora das faixas valem 1);
 - nota máxima e nota de corte do conjunto das provas objetivas;
-- fonte: `edital`, `config` ou `default`;
+- fonte: `edital`, `config`, `perfil` ou `default`;
 - confiança da extração (0–1) e o trecho, o documento e a página de onde a regra foi lida;
 - variante: o código do cargo, quando o concurso tem várias opções com pesos diferentes (CPNU).
 
 A regra é extraída por regex do texto dos documentos do edital (anexos primeiro, sem OCR). Os padrões reconhecidos são:
-- penalidade explícita ("1,00 ponto negativo … discordância") e fracionária ("a cada N erradas, anula-se uma certa", fator 1/N);
+- penalidade explícita ("1,00 ponto negativo … discordância"), erro que vale zero ("0,00 ponto, caso a resposta … em discordância", fator 0) e fracionária ("a cada N erradas, anula-se uma certa", fator 1/N);
 - pontos diferentes por prova ou módulo (creci: "1,00 ponto … conhecimentos básicos; 2,00 pontos … específicos"; dataprev: "valerá 1 ponto no Módulo de Conhecimentos Gerais, e 2,5 pontos no Módulo de Conhecimentos Específicos"). Os gerais vêm antes dos específicos, e quantos itens tem cada parte sai do número de itens do concurso e da nota máxima do edital; sem solução inteira, o padrão é ignorado;
 - nota igual ao total de acertos, "valendo 1 ponto cada questão" ou "cada acerto valerá 1 ponto", sem menção a desconto (`bruta`);
 - o quadro de pesos por eixo temático e cargo (CPNU), descrito abaixo em variantes.
 
-A precedência é edital, depois `concurso.yaml`, depois default (`bruta`, fator 0). Pesos, nota máxima e nota de corte seguem a mesma ordem, campo a campo. Sem nota máxima em nenhuma fonte, ela é a soma dos pesos dos itens (o número de itens quando não há pesos).
+A precedência é edital, depois `concurso.yaml`, depois o [perfil da banca](#perfis-de-banca-fase-4), depois default (`bruta`, fator 0). O perfil só entra quando é de outra banca que não a `generic` e tem o mesmo `formato` do concurso; a regra sai com fonte `perfil`, confiança 0,5 e um aviso no log e no consolidado ("regra de correção do perfil da banca"). Pesos, nota máxima e nota de corte seguem a mesma ordem, campo a campo. Sem nota máxima em nenhuma fonte, ela é a soma dos pesos dos itens (o número de itens quando não há pesos).
 
 **Variantes.** O bloco `correcao.variantes` do `concurso.yaml` lista as opções de cargo (no CPNU, os códigos dos cargos em que houve inscrição), e o `correcao.json` ganha uma configuração por variante. O fator e a nota de corte são os do concurso. A nota máxima é a soma dos pesos da variante, salvo se declarada no `concurso.yaml`. Os pesos de cada variante vêm:
 1. dos `pesos` declarados na variante, que aqui prevalecem sobre o edital (fonte `config`);
@@ -182,11 +182,11 @@ Nível e escolaridade são opcionais e ficam `nao_informado` quando ausentes.
 O módulo `concursos.analytics.regras_edital` lê do texto do edital e dos anexos (sem OCR e sem LLM) o que vai além do conteúdo programático e da regra de correção. O resultado é gravado no `edital_estruturado.json`. Cada valor é um **campo** com:
 
 - `valor`;
-- `fonte`: `retificacao`, `edital`, `config`, `default` ou `descoberta`;
+- `fonte`: `retificacao`, `edital`, `config`, `perfil`, `default` ou `descoberta`;
 - `trecho_origem`, `documento_origem` e `pagina_origem`, sempre preenchidos quando a fonte é `retificacao`, `edital` ou `descoberta`;
 - `confianca_extracao`, de 0 a 1.
 
-A precedência é retificação, depois edital, depois configuração, depois default. Um campo que cai no default fica com `valor` nulo, e o motivo vai para `avisos` (lista de textos) e para o log. O `correcao.json` continua sendo a fonte da regra de correção aplicada; as regras do edital são a expectativa.
+A precedência é retificação, depois edital, depois configuração, depois perfil da banca (só nos campos que o perfil traz), depois default. Um campo que cai no default fica com `valor` nulo, e o motivo vai para `avisos` (lista de textos) e para o log. O `correcao.json` continua sendo a fonte da regra de correção aplicada; as regras do edital são a expectativa.
 
 **Retificações.** Há duas formas de um valor sair com fonte `retificacao`:
 
@@ -214,7 +214,7 @@ As vagas, o cadastro de reserva e o teto de classificados são só contexto e n�
 **Cortes** (`cortes`). É uma lista com todos os mínimos eliminatórios do cargo, na ordem do edital; nenhum é colapsado num número único. Cada corte é um campo com mais três chaves:
 
 - `escopo`: `conjunto` (todas as objetivas), `geral`, `especifico`, `disciplina` (mínimo em cada disciplina) ou `discursiva`;
-- `unidade`: `pontos` (nota líquida, Cebraspe) ou `acertos` (FGV e CPNU);
+- `unidade`: `pontos` (nota líquida, Cebraspe), `acertos` (FGV e CPNU), `percentual` (0 a 100 do máximo do escopo), `nota_0_10` (escala de 0 a 10), `escore_padronizado` ou `classificados`. As duas últimas dependem das notas dos outros candidatos: não são calculáveis localmente, ficam fora do gap e do "atingido", geram aviso e aparecem nas peculiaridades como "Corte não calculável". O `valor` do corte por classificados fica vazio;
 - `bloco`: no escopo `disciplina`, o bloco das disciplinas. Fica vazio quando vale para todas.
 
 | Padrão no edital | Corte |
@@ -228,8 +228,15 @@ As vagas, o cadastro de reserva e o teto de classificados são só contexto e n�
 | "ao menos 1 (uma) questão em cada disciplina que compõe o Módulo I" | `disciplina`, 1 acerto, `geral` |
 | "inferior a 36 (trinta e seis) acertos nas provas objetivas … para os cargos de Nível Superior" | `conjunto`, 36 acertos |
 | "aprovado na prova discursiva … NFPD ≥ 30,00 pontos", "reprovado … NPD < 15,00 pontos" | `discursiva` |
+| "ter acertado, no mínimo, 30 pontos na prova de Conhecimentos Específicos" (IBFC) | `especifico`, 30 pontos |
+| "obtiver NP < 15,00 pontos", "NFPO < 40,00 pontos" (fórmula do TSE) | `geral` e `conjunto` |
+| "não tenha obtido nota igual a 0,00 em qualquer uma das disciplinas" | `disciplina`, 1 acerto, todas |
+| "nota mínima … igual ou superior a 5,00", com a "escala de 0 a 10" no edital (sem ela, `pontos`) | `conjunto`, `nota_0_10` |
+| "no mínimo, 50% … em cada bloco", "mínimo, 60% … da prova objetiva" (FCC, Vunesp) | `percentual`, por bloco ou `conjunto` |
+| "somatório das notas padronizadas … igual ou superior a N" (Vunesp) | `conjunto`, `escore_padronizado` |
+| "considerados aprovados nas provas objetivas os candidatos … mais bem classificados" (Cebraspe) | `conjunto`, `classificados` |
 
-Cortes "no bloco I" (escrivão da PF) não são lidos. Para cada escopo e bloco, vale o primeiro na ordem de busca, então a retificação vence o edital. O corte da discursiva é só informativo: o projeto não tem a nota discursiva, e ele fica fora do "atingido".
+Cortes "no bloco I" (escrivão da PF) não são lidos. Percentual e `nota_0_10` viram nota na escala do corte: escala × pontos ÷ máximo do escopo. Para cada escopo e bloco (e, nos não calculáveis, unidade), vale o primeiro na ordem de busca, então a retificação vence o edital. O corte da discursiva é só informativo: o projeto não tem a nota discursiva, e ele fica fora do "atingido".
 
 A precedência é edital, depois `correcao.nota_corte` do `concurso.yaml` (corte do conjunto em pontos, fonte `config`), depois default (lista vazia). Há aviso quando:
 
@@ -250,7 +257,7 @@ O `correcao.json` mantém o seu `nota_corte`, que continua alimentando a nota fi
 - `faixas`: variante (vazia quando vale para o concurso todo) → campo com as faixas `{inicio, fim, peso}`, no formato do `correcao.json`. Itens fora das faixas valem 1;
 - `soma_dos_eixos`: o total que o edital promete aos pesos dos eixos ("totalizando, em conjunto, o valor de 10", CPNU 8.9.2).
 
-O quadro de eixos do CPNU dá `por_faixa_de_itens`, uma entrada por variante do `correcao.variantes`, com a faixa dos conhecimentos gerais primeiro. Sem quadro, vale a regra de pontuação que a correção também lê: pontos iguais em todos os itens são `uniforme` (Cebraspe, AgSUS, CPRM), e pontos diferentes por parte são `por_bloco`. Sem nenhum dos dois, há aviso. O CSV de discrepâncias ganha duas regras:
+O quadro de eixos do CPNU dá `por_faixa_de_itens`, uma entrada por variante do `correcao.variantes`, com a faixa dos conhecimentos gerais primeiro. Sem quadro, vale a regra de pontuação que a correção também lê: pontos diferentes por parte são `por_bloco`. Depois vêm os pesos por prova, `por_bloco` com confiança 0,8: pontos por item de cada prova (TSE), "questão de conhecimento comum … específico" (Fortaleza), "peso N à nota da prova de conhecimentos gerais; peso M …" (TRT-6), "questões, com pesos A e B" (EMPARN), "N questões de conhecimentos gerais, que valerão P pontos" (STN) e o quadro de pontos por prova do IBFC (TRF-5). As faixas saem quando as quantidades dos dois blocos somam o total de itens; pesos iguais nos dois não dão `por_bloco`. Por fim, pontos iguais em todos os itens são `uniforme` (Cebraspe, AgSUS, CPRM). Sem nada disso, há aviso. O CSV de discrepâncias ganha duas regras:
 
 | Item | Comparação | Severidade |
 |---|---|---|
@@ -270,6 +277,12 @@ O CSV de discrepâncias compara a distribuição com as questões corrigidas (`q
 | `total de itens` | número de questões do concurso | `error` |
 | `itens de conhecimentos gerais` / `… específicos` | questões por bloco: pela prova (P1/P2) ou, na prova única, pelo bloco da disciplina na taxonomia. Fica de fora se alguma questão não tem bloco conhecido | `error` |
 | `disciplina: <nome>` | questões da disciplina, casada pela disciplina canônica da taxonomia (ou pelo nome, se a taxonomia não a conhece) | `warn` |
+
+**Prova** (`prova`). Três campos sobre o formato da prova objetiva, com a mesma precedência dos outros (edital, configuração, perfil da banca, default):
+
+- `formato`: `certo_errado` ou `multipla_escolha`, lido do edital ("julgamento de itens … CERTO ou ERRADO", "múltipla escolha"; com só o número de alternativas, múltipla escolha com confiança 0,7). Sem menção, o `formato` do `concurso.yaml` (fonte `config`);
+- `alternativas`: "cinco alternativas", "5 (cinco) opções"; vazio em certo/errado. Sem edital, `alternativas` do `concurso.yaml`, depois o perfil e, por fim, 5 (fonte `default`);
+- `penalidade`: o fator que a correção leria do edital; sem ele, o do `concurso.yaml`, depois o do perfil (mesmo formato), depois 0.
 
 **Metadados e descoberta dirigida** (`metadados`, `versao_candidatos`). O registro versionado de pistas do edital (`concursos.analytics.pistas_edital`, `VERSAO_CANDIDATOS`) declara, para cada pista, a informação, os padrões de busca, o uso no projeto, o impacto (`alto`, `medio`, `baixo`), o status (`aplicado`, `proposto` ou `descartado`) e a severidade quando ausente. Mudar uma pista sobe a versão. O campo serializado `versao_candidatos` no JSON não muda de nome. Cada concurso tem um metadado por pista, na ordem do registro, e nenhum some da saída. O metadado é um campo com mais duas chaves:
 
@@ -393,7 +406,10 @@ templates_folha:             # template da folha pelo total de itens; '*' vale p
 ```
 
 - **Leitores:** um nome embutido (`cebraspe`, `fgv`, `lista`) ou `modulo:funcao` de outro pacote, com a assinatura do embutido.
-- **Validação:** campo desconhecido, `formato` ou `segmentacao` fora das opções, ou `id` e `marcas` ausentes geram erro citando o campo.
+- **Validação:** campo desconhecido, `formato` ou `segmentacao` fora das opções, ou `id` e `marcas` ausentes geram erro citando o campo. `marcas: []` é válido: o perfil nunca é detectado.
+- **Embutidos:** `cebraspe` (certo/errado, fator 1), `fgv`, `fcc`, `vunesp` (múltipla escolha, 5 alternativas, fator 0), `ibfc` e `idecan` (múltipla escolha, fator 0, alternativas variam por edital) e `generic`. Os cortes típicos de cada banca ficam nos comentários do YAML, como referência: quem decide o corte é o edital.
+- **`generic`:** sem marcas, nunca detectado; é o template de banca nova e vale quando o concurso não declara banca. Ele não preenche regra (não há fonte `perfil` vinda dele): sem edital nem configuração, cai no default.
+- **Regra que o perfil preenche:** penalidade (na correção e no bloco `prova`) e alternativas, quando nem o edital nem o `concurso.yaml` as trazem e o perfil é do mesmo formato do concurso.
 - **Penalidade na agregação:** a nota líquida usa o fator da `pontuacao` do concurso (`cebraspe` = 1, `simples` = 0), nunca o nome da banca.
 
 ## Perfis de OCR da folha (fase 4)
@@ -571,7 +587,7 @@ Por concurso, em `analises/<concurso>/`:
 - **`correcao.json`:** lista de configurações de correção (uma por variante; uma só quando o concurso não tem variantes). Campos:
   - `modelo`, `fator_penalidade`, `nota_maxima`, `nota_corte`;
   - `pesos`: lista de `{inicio, fim, peso}` (vazia quando todos os itens valem 1);
-  - `fonte` (`edital | config | default`), `confianca`;
+  - `fonte` (`edital | config | perfil | default`), `confianca`;
   - `trecho_origem`, `documento_origem`, `pagina_origem` (preenchidos quando a fonte é o edital);
   - `variante` (`null` quando o concurso não tem variantes);
   - `data_prova` (ISO 8601 ou `null`) e `fonte_data` (`edital | config`, `null` sem data), iguais em todas as variantes.
@@ -591,7 +607,7 @@ No consolidado, em `analises/consolidado/`:
   - de `questoes.csv`: `concurso` (nome da pasta), `prova`, `questao`, `disciplina` (nome bruto), `topico`, `gabarito`, `anulada`, `resposta`, `resultado` (`acerto | erro | branco`);
   - da [taxonomia](#taxonomia-de-disciplinas): `disciplina_canonica`, `bloco` (`geral | especifico | nao_informado`) e `chave_topico`;
   - do `concurso.yaml`: `formato`, `banca`, `cargo`, `nivel` (`federal | estadual | municipal | nao_informado`), `escolaridade` (`superior | medio | nao_informado`);
-  - do `correcao.json` (a primeira configuração, quando há variantes): `data_prova` (data, vazia sem data), `modelo_correcao` (`bruta | liquida | ponderada`), `fator_penalidade`, `nota_maxima`, `nota_corte` (vazia sem corte), `fonte_correcao` (`edital | config | default`), `confianca_correcao`;
+  - do `correcao.json` (a primeira configuração, quando há variantes): `data_prova` (data, vazia sem data), `modelo_correcao` (`bruta | liquida | ponderada`), `fator_penalidade`, `nota_maxima`, `nota_corte` (vazia sem corte), `fonte_correcao` (`edital | config | perfil | default`), `confianca_correcao`;
   - `pontos_bruta`, `pontos_corrigida` e `pontos_ajustada`: a pontuação por item da tabela acima, sem peso, vazia nas anuladas;
   - `peso__<variante>`: o peso do item em cada variante (`peso__padrao` quando o concurso não tem variantes), vazio nos concursos sem aquela variante;
   - `ordem`: posição cronológica do concurso pela data da prova, a partir de 1 (datas iguais empatam), vazia sem data;
