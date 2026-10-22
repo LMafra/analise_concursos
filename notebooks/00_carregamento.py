@@ -19,7 +19,7 @@
 # Íntegra: uma linha por questão de cada concurso analisado, com colunas, tipos e domínios esperados.
 # Comparável: cada concurso tem data da prova (para entrar na ordem cronológica) e regra de correção
 # vinda do edital ou declarada no `concurso.yaml`, não do default; e cada disciplina tem uma disciplina
-# canônica na `taxonomia.yaml`, para que a mesma matéria seja comparada entre editais.
+# canônica na `.concurso/taxonomia.yaml`, para que a mesma matéria seja comparada entre editais.
 
 # %%
 from concursos.analytics.consolidado import (
@@ -41,7 +41,7 @@ consolidado = carregar_consolidado()
 #
 # Colunas, tipos e domínios, e o número de linhas igual à soma das tabelas de questões. Um concurso
 # analisado sem `correcao.json` ou `concurso.yaml` fica fora do consolidado e reprova a contagem, e um nome
-# de disciplina ausente da `taxonomia.yaml` reprova a validação com a lista de nomes.
+# de disciplina ausente da `.concurso/taxonomia.yaml` reprova a validação com a lista de nomes.
 # Se algo estiver errado, a célula abaixo falha listando todos os problemas.
 
 # %%
@@ -85,4 +85,4 @@ avisos if len(avisos) else 'Nenhum aviso: todos os concursos têm data e regra d
 # por concurso sem conferir a base de novo.
 # Avisos de data tiram o concurso das tendências; avisos de correção tornam a nota daquele concurso
 # provisória até a regra ser confirmada. Disciplinas presentes em um concurso só não têm tendência: se uma
-# delas for a mesma matéria de outra com nome diferente, junte as duas na `taxonomia.yaml`.
+# delas for a mesma matéria de outra com nome diferente, junte as duas na `.concurso/taxonomia.yaml`.

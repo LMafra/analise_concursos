@@ -53,14 +53,6 @@ def test_config_toml_invalido_aponta_o_campo(tmp_path, conteudo, mensagem):
         configuracao_do_projeto(contexto_de(raiz))
 
 
-def test_config_yaml_legado_na_raiz_ainda_vale_ate_a_migracao(tmp_path):
-    raiz = tmp_path / 'legado'
-    raiz.mkdir()
-    (raiz / 'config.yaml').write_text('limiar_topico_baixo: 0.4\n', encoding='utf-8')
-
-    assert configuracao_do_projeto(contexto_de(raiz)).limiar_topico_baixo == 0.4
-
-
 def test_contexto_sobe_ate_a_pasta_do_projeto(tmp_path):
     raiz = projeto_com(tmp_path)
     (raiz / 'notebooks').mkdir()
@@ -96,14 +88,10 @@ def test_pastas_do_config_toml_com_flag_e_variavel_por_cima(tmp_path):
     assert por_flag.provas == raiz / 'da_flag'
 
 
-def test_taxonomia_do_projeto_e_a_legada_da_raiz(tmp_path):
+def test_taxonomia_fica_na_pasta_do_projeto(tmp_path):
     raiz = projeto_com(tmp_path)
-    assert contexto_de(raiz).taxonomia == raiz / '.concurso' / 'taxonomia.yaml'
-
     (raiz / 'taxonomia.yaml').write_text('{}', encoding='utf-8')
-    assert contexto_de(raiz).taxonomia == raiz / 'taxonomia.yaml'
 
-    (raiz / '.concurso' / 'taxonomia.yaml').write_text('{}', encoding='utf-8')
     assert contexto_de(raiz).taxonomia == raiz / '.concurso' / 'taxonomia.yaml'
 
 

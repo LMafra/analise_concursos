@@ -64,7 +64,7 @@ resumir(evolucao_por_topico(consolidado), n=5, contar='situacao')
 # %% [markdown]
 # ## Tópicos fracos persistentes
 #
-# Abaixo do `limiar_topico_baixo` do `config.yaml` (60%, no ajustado) em pelo menos 2 concursos, com n
+# Abaixo do `limiar_topico_baixo` do `.concurso/config.toml` (60%, no ajustado) em pelo menos 2 concursos, com n
 # somado de pelo menos 5, do mais fraco para o mais forte.
 
 # %%

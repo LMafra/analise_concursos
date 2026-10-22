@@ -6,6 +6,7 @@ from conftest import criar_concurso
 
 from concursos.cli import executar_legado, main
 from concursos.config.contexto import resolver_contexto
+from concursos.migracao import candidato_padrao
 
 
 def config(nome: str) -> dict:
@@ -34,7 +35,7 @@ def test_sem_subcomando_analisa_as_provas_da_pasta_atual(projeto, caplog):
     criar_concurso(projeto / 'provas', 'alfa', config('alfa'), ARQUIVOS)
 
     assert main([]) == 0
-    assert (projeto / 'analises' / 'alfa' / 'relatorio.md').exists()
+    assert (projeto / 'analises' / candidato_padrao() / 'alfa' / 'relatorio.md').exists()
 
     with caplog.at_level(logging.INFO):
         assert main([]) == 0
@@ -101,7 +102,7 @@ def test_provas_e_analises_por_flag(tmp_path, projeto):
     criar_concurso(provas, 'alfa', config('alfa'), ARQUIVOS)
 
     assert main(['--provas', str(provas), '--analises', str(analises)]) == 0
-    assert (analises / 'alfa' / 'relatorio.md').exists()
+    assert (analises / candidato_padrao() / 'alfa' / 'relatorio.md').exists()
 
 
 def test_status_novo_lista_os_concursos(projeto, capsys):

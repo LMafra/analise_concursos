@@ -15,10 +15,11 @@ from concursos.candidatos import (
     gravar_perfil_global,
     slug,
 )
-from concursos.cli.erros import ErroDoUsuario, ajustar_nivel_console
+from concursos.cli.erros import ErroDoAmbiente, ErroDoUsuario, ajustar_nivel_console
 from concursos.config.contexto import Contexto, gravar_no_config_projeto, ler_toml, resolver_contexto
 from concursos.configuracao import configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
+from concursos.migracao import MigracaoError, executar_migracao, planejar_migracao
 from concursos.pipeline import analisar_todos, planejar
 from concursos.status import avaliar, formatar_tabela, listar_concursos
 
@@ -148,8 +149,9 @@ def status(
 
 
 def _analisar(opcoes: Opcoes, concurso: str | None = None) -> int:
+    _exigir_provas(opcoes.contexto.provas)
+    opcoes = _migrar(opcoes)
     contexto = opcoes.contexto
-    _exigir_provas(contexto.provas)
     if not opcoes.todos:
         return 0 if _analisar_candidato(opcoes, _escolher_candidato(contexto), concurso) else 1
     candidatos = candidatos_existentes(contexto.provas)
@@ -180,6 +182,25 @@ def _analisar_candidato(opcoes: Opcoes, candidato: str | None, concurso: str | N
     configuracao = configuracao_do_projeto(contexto)
     taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else None
     return analisar_todos(provas, destino, opcoes.forcar, concurso, configuracao, taxonomia, candidato)
+
+
+def _migrar(opcoes: Opcoes) -> Opcoes:
+    """Passa para o layout multi-candidato o que estiver no formato das fases 1 a 3."""
+    contexto = opcoes.contexto
+    try:
+        migracao = planejar_migracao(contexto)
+        if migracao.vazia:
+            return opcoes
+        if opcoes.dry_run:
+            for operacao in migracao.operacoes(contexto):
+                typer.echo(operacao)
+            return opcoes
+        executar_migracao(migracao, contexto)
+    except MigracaoError as erro:
+        raise ErroDoAmbiente(
+            str(erro), 'resolva o problema e rode de novo; a migração recomeça do zero'
+        ) from erro
+    return replace(opcoes, contexto=replace(contexto, candidato=migracao.candidato))
 
 
 def _escolher_candidato(contexto: Contexto) -> str | None:

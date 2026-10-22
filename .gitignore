@@ -28,3 +28,6 @@ notebooks/*.ipynb
 
 # Retratos de paridade (nomes dos concursos)
 .paridade/
+
+# Configuração local do projeto (último candidato, caminho do backup)
+.concurso/

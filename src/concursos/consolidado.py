@@ -25,7 +25,7 @@ def consolidar(
     raiz_provas: Path, raiz_analises: Path, limiar_topico_baixo: float, candidato: str | None = None
 ) -> None:
     """Junta os desempenhos por tópico de todos os concursos analisados e gera o comparativo."""
-    situacoes = {pasta.name: avaliar(pasta, candidato) for pasta in listar_concursos(raiz_provas, candidato)}
+    situacoes = {pasta.name: avaliar(pasta, candidato) for pasta in listar_concursos(raiz_provas)}
     analisados = {
         nome: s
         for nome, s in situacoes.items()

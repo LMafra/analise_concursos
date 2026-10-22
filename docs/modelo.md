@@ -121,7 +121,7 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
 
 - **Cobertura do edital:** por concurso, conta os tópicos distintos do `edital_estruturado.json`, quantos foram cobrados na prova (questão anulada também cobra) e quantos tópicos da prova não casam com o edital. O casamento é só pelas palavras-chave do nome do tópico, dentro do concurso, porque a disciplina da prova nem sempre repete a do edital; pelo mesmo motivo, um tópico repetido em duas disciplinas do edital conta uma vez.
 - **Tendência por tópico:** slope do percentual (padrão: ajustado) pela ordem, com as mesmas regras da tendência por disciplina. O n mínimo por ponto é configurável (padrão 5). Tópico nunca cobrado não tem linha.
-- **Fracos persistentes:** tópicos abaixo do limiar (padrão 60%; o notebook passa o `limiar_topico_baixo` do `config.yaml`, o mesmo do comparativo da fase 1) em pelo menos 2 concursos, com acertos, erros e brancos somados entre concursos e n agregado ≥ 5. O n de cada concurso não importa, porque só a soma dá amostra. O percentual agregado é a média dos itens de todos os concursos.
+- **Fracos persistentes:** tópicos abaixo do limiar (padrão 60%; o notebook passa o `limiar_topico_baixo` do `config.toml`, o mesmo do comparativo da fase 1) em pelo menos 2 concursos, com acertos, erros e brancos somados entre concursos e n agregado ≥ 5. O n de cada concurso não importa, porque só a soma dá amostra. O percentual agregado é a média dos itens de todos os concursos.
 
 **Insights e relatório de evolução** (`concursos.analytics.insights`).
 
@@ -132,7 +132,7 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
   - Nota máxima do escopo: `Σ peso` em pontos e o número de itens em acertos.
   - `gap = nota − corte` (positivo acima do corte), `gap_percentual = 100 × gap / nota máxima do escopo` (pontos percentuais) e `satisfeito = gap ≥ 0`.
   - `atingido` só é verdadeiro quando todos os cortes da variante são satisfeitos: passar no conjunto não basta se um bloco ou uma disciplina fica abaixo.
-- **Concurso-alvo:** `concurso_alvo` no `config.yaml` (nome da pasta do concurso, opcional) restringe as duas funções acima, a simulação e o desempate a esse concurso. Sem ele, saem todos.
+- **Concurso-alvo:** `concurso_alvo` no `config.toml` (nome da pasta do concurso, opcional) restringe as duas funções acima, a simulação e o desempate a esse concurso. Sem ele, saem todos.
 - **Ranking entre métricas** (`ranking_concursos_por_metrica`, em `evolucao`): por concurso e variante, com a anulada valendo acerto e ponto:
   - `percentual_bruto = 100 × acertos / n` (sem peso, sem desconto);
   - `percentual_corrigido = 100 × Σ peso × pontos corrigidos / Σ peso` (peso e desconto);
@@ -158,7 +158,7 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
 - **Peculiaridades** (`insights.peculiaridades_do_edital`): os metadados de impacto alto encontrados, menos `aprovacao` (a régua já são os cortes), mais os cortes em acertos e da discursiva, com o trecho.
 - **Carregamento:** `regras_por_concurso` (em `consolidado`) lê o edital estruturado de cada concurso analisado que já tem as regras, e `cortes_por_concurso` tira delas os cortes.
 - **Correlação geral** (`correlacao_tempo_percentual`, em `evolucao`): Spearman entre a ordem e o percentual ajustado de cada concurso. É a medida única de tendência geral; a média dos z-scores de um concurso não serve, porque fica perto de 0 por construção.
-- **Achados:** melhoras e pioras são as tendências por disciplina com p < 0,05; os fracos usam o limiar do `config.yaml`; o ranking muda quando alguma linha tem deslocamento no corrigido ou no ajustado.
+- **Achados:** melhoras e pioras são as tendências por disciplina com p < 0,05; os fracos usam o limiar do `config.toml`; o ranking muda quando alguma linha tem deslocamento no corrigido ou no ajustado.
 - **Sensibilidade:** os achados são recalculados sem os concursos de nível médio (`escolaridade: medio`), e as diferenças são declaradas.
 - **Relatório:** `relatorio_evolucao.md`, na pasta do consolidado, traz as quatro respostas, a sensibilidade, a nota final dos concursos com desconto por erro ou pesos e três PNGs gravados com matplotlib: `evolucao_zscore.png` (só disciplinas com 3 concursos ou mais de n ≥ 5), `heatmap_topicos.png` (tópicos em 2 concursos ou mais) e `painel_correcao.png`.
 
@@ -321,7 +321,7 @@ Pastas de provas e análises também podem vir da seção `[pastas]` do `config.
 
 ## `config.toml` do projeto
 
-Fica em `./.concurso/config.toml` (ou em `--data-dir`). Enquanto a migração da fase 4 não rodou, os limiares e o concurso-alvo continuam no `config.yaml` legado da raiz do projeto.
+Fica em `./.concurso/config.toml` (ou em `--data-dir`). A taxonomia fica ao lado, em `./.concurso/taxonomia.yaml`.
 
 ```toml
 [pastas]
@@ -335,7 +335,9 @@ concurso_alvo = "tcu_25"   # opcional; nome da pasta do concurso
 ```
 
 - **Validação:** os campos de `[analise]` são os mesmos do `config.yaml` antigo. Campo desconhecido ou valor fora de 0 a 1 (nos limiares) gera erro citando o campo e as opções.
-- **Precedência:** flag, variável de ambiente, `config.toml`, `config.yaml` legado, padrão.
+- **Precedência:** flag, variável de ambiente, `config.toml`, padrão.
+- **`[candidato] ultimo`:** o último candidato analisado; vale quando não há `--candidate` nem `CONCURSO_CANDIDATO`.
+- **`[migracao]`:** o registro da migração das fases 1 a 3 (`versao = 4`, `candidato`, `backup`, `data`).
 
 ## Candidatos (fase 4)
 
@@ -362,7 +364,23 @@ resultado_oficial:           # opcional; nunca herdado do concurso.yaml
 - **Perfil ausente:** uma subpasta sem `candidato.yaml` tem o perfil inferido (`respostas.txt`, o único `.txt` ou a única folha), gravado com aviso.
 - **Escolha:** `--candidate`, `CONCURSO_CANDIDATO` ou `[candidato] ultimo` do `config.toml`, gravado a cada análise que não seja `--dry-run` nem `--all-candidates`. Com vários candidatos e nenhum escolhido, a CLI pede `--candidate` ou `--all-candidates`.
 - **Manifesto por par:** o hash de entrada de um par (candidato, concurso) cobre os arquivos comuns e só a subpasta do candidato. Mudar as respostas de um reprocessa só ele; mudar o gabarito reprocessa todos.
-- **Layout legado:** sem nenhuma subpasta de candidato, as respostas vêm do `concurso.yaml` e a saída fica em `analises/<concurso>/`, até a migração.
+- **Layout legado:** só o comando obsoleto `concursos analisar` ainda lê as respostas do `concurso.yaml` e grava em `analises/<concurso>/`; o `concurso-analise` migra antes de analisar.
+
+## Migração das fases 1 a 3
+
+Toda análise do `concurso-analise` (menos o `--dry-run`, que só lista as operações) começa migrando o que estiver no formato antigo. O candidato é o escolhido (`--candidate`, `CONCURSO_CANDIDATO`, `[candidato] ultimo`), o da migração anterior ou o login do sistema.
+
+| Formato antigo | Vira |
+|---|---|
+| `analises/<x>/` com saídas (`correcao.json`, `.manifesto.json`, `relatorio.md`, `comparativo_concursos.md` ou `desempenho_geral.csv`) | `analises/<candidato>/<x>/`, movida sem reprocessar |
+| `respostas` e `resultado_oficial.identificador` num `concurso.yaml` sem `candidatos/` | `candidatos/<candidato>/candidato.yaml`, com a folha ou o texto no lugar (`../../<arquivo>`) |
+| `config.yaml` da raiz | seção `[analise]` do `config.toml` (o que já estava no `config.toml` vence) |
+| `taxonomia.yaml` da raiz | `.concurso/taxonomia.yaml`; se as duas existem, a migração para e pede para juntá-las |
+
+- **Backup:** antes de qualquer mudança, tudo o que será alterado ou movido é copiado para `<global>/backup-<AAAAMMDD-HHMMSS>/` (`raiz/`, `projeto/`, `provas/`, `analises/`), com `hashes.json`. Uma cópia que não confere com o original aborta a migração sem alterar nada.
+- **Destino ocupado:** se `analises/<candidato>/<x>/` já existe, a migração para antes de mexer em qualquer arquivo.
+- **Manifestos:** o de cada saída que estava em dia é regravado para o par (candidato, concurso), para a próxima análise não reprocessar.
+- **Uma vez só:** sem nada no formato antigo, nada acontece. Uma pasta antiga que apareça depois do registro é migrada na hora, com aviso.
 
 ## `concurso.yaml`
 
@@ -433,7 +451,7 @@ Todo arquivo da pasta precisa aparecer no `concurso.yaml` (num campo ou em `igno
 
 ## Taxonomia de disciplinas
 
-A taxonomia fica em `./.concurso/taxonomia.yaml` (até a migração, vale o `taxonomia.yaml` legado na raiz do projeto). É escrita e revisada à mão. Ela mapeia cada nome de disciplina, como aparece nos `questoes.csv`, para uma **disciplina canônica**. Assim, a mesma matéria é comparada entre editais que usam nomes diferentes:
+A taxonomia fica em `./.concurso/taxonomia.yaml`. É escrita e revisada à mão. Ela mapeia cada nome de disciplina, como aparece nos `questoes.csv`, para uma **disciplina canônica**. Assim, a mesma matéria é comparada entre editais que usam nomes diferentes:
 
 ```yaml
 Raciocínio Lógico:

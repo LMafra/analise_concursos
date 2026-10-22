@@ -13,11 +13,11 @@ Uma pasta legada copiada depois é migrada na hora.
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Uma árvore legada sintética migra, e cada saída anterior existe no caminho novo com o mesmo hash.
-- [ ] O backup contém tudo o que foi alterado e é verificado por hash antes de qualquer mudança.
-- [ ] Uma segunda execução não migra de novo.
-- [ ] `--dry-run` lista as operações e não grava nada.
-- [ ] Uma pasta legada copiada depois da migração é migrada sozinha, com aviso.
-- [ ] A paridade com os dados reais, comparada contra `analises/<slug>`, não mostra diferença.
+- [x] Uma árvore legada sintética migra, e cada saída anterior existe no caminho novo com o mesmo hash.
+- [x] O backup contém tudo o que foi alterado e é verificado por hash antes de qualquer mudança.
+- [x] Uma segunda execução não migra de novo.
+- [x] `--dry-run` lista as operações e não grava nada.
+- [x] Uma pasta legada copiada depois da migração é migrada sozinha, com aviso.
+- [x] A paridade com os dados reais, comparada contra `analises/<slug>`, não mostra diferença.

@@ -1,6 +1,7 @@
 """Candidatos de um concurso: a subpasta `candidatos/<slug>/` com as respostas e o `candidato.yaml`."""
 
 import logging
+import posixpath
 import re
 import shutil
 import unicodedata
@@ -55,6 +56,10 @@ def aplicar_candidato(config: ConcursoConfig, candidato: str) -> ConcursoConfig:
     respostas = perfil.get('respostas') or {}
     if respostas.get('arquivo') and respostas.get('folha'):
         raise ConfiguracaoInvalidaError(f"{prefixo}{ARQUIVO_CANDIDATO}: respostas: use 'arquivo' ou 'folha'")
+
+    def da_pasta_do_concurso(caminho: str) -> str:
+        return posixpath.normpath(prefixo + caminho)
+
     folha = None
     if respostas.get('folha'):
         herdada = config.folha
@@ -64,7 +69,7 @@ def aplicar_candidato(config: ConcursoConfig, candidato: str) -> ConcursoConfig:
                 f"{prefixo}{ARQUIVO_CANDIDATO}: campo obrigatório 'respostas.template' ausente"
             )
         folha = FolhaConfig(
-            prefixo + respostas['folha'],
+            da_pasta_do_concurso(respostas['folha']),
             template,
             respostas.get('total_itens') or (herdada and herdada.total_itens),
             respostas.get('itens_por_coluna') or (herdada and herdada.itens_por_coluna),
@@ -75,7 +80,7 @@ def aplicar_candidato(config: ConcursoConfig, candidato: str) -> ConcursoConfig:
         resultado = replace(resultado, identificador=None if identificador is None else str(identificador))
     return replace(
         config,
-        respostas_arquivo=prefixo + respostas['arquivo'] if respostas.get('arquivo') else None,
+        respostas_arquivo=da_pasta_do_concurso(respostas['arquivo']) if respostas.get('arquivo') else None,
         folha=folha,
         resultado_oficial=resultado,
     )

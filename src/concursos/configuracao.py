@@ -15,12 +15,9 @@ class ConfiguracaoGlobal:
 
 
 def configuracao_do_projeto(contexto: Contexto | None = None) -> ConfiguracaoGlobal:
-    """A seção `[analise]` do `config.toml` do projeto; sem ele, o `config.yaml` legado da raiz."""
+    """A seção `[analise]` do `config.toml` do projeto."""
     contexto = contexto or resolver_contexto()
-    if contexto.config_projeto.exists():
-        dados = ler_toml(contexto.config_projeto).get('analise', {})
-        return _validar(dados, contexto.config_projeto)
-    return carregar_configuracao_global(contexto.config_legado)
+    return _validar(ler_toml(contexto.config_projeto).get('analise', {}), contexto.config_projeto)
 
 
 def carregar_configuracao_global(caminho: Path) -> ConfiguracaoGlobal:

@@ -16,7 +16,7 @@ Pipeline local de correção e análise de provas de concurso. Fase 1: a CLI `co
 |---|---|
 | Regra de correção: extração do edital, precedência, pontuação por item, nota | `analytics/correcao.py` |
 | Parquet por questão, cache, `validar_schema`, ordem cronológica, regras gravadas por concurso | `analytics/consolidado.py` |
-| Disciplina canônica e bloco | `analytics/taxonomia.py` e `taxonomia.yaml` |
+| Disciplina canônica e bloco | `analytics/taxonomia.py` e `.concurso/taxonomia.yaml` |
 | Regras do edital: identificação, cargo, pesos, distribuição, cortes, cronograma, desempate, metadados | `analytics/regras_edital.py` |
 | Registro versionado de pistas do edital (`VERSAO_CANDIDATOS`) | `analytics/pistas_edital.py` |
 | Discrepâncias edital × prova × gabarito (`discrepancias_edital.csv`) | `analytics/validacao_edital.py` |
@@ -36,7 +36,7 @@ Pipeline local de correção e análise de provas de concurso. Fase 1: a CLI `co
 - Métrica padrão: `ajustada` (ao acaso; erro vale −1/(k−1)). A evolução se lê pelo z-score por disciplina, porque a média dos z de um concurso fica perto de 0 por construção.
 - Todo percentual vem com o n. n < `N_MINIMO_TOPICO` (5) é amostra insuficiente, e uma tendência exige `MINIMO_PONTOS_TENDENCIA` (3) ordens distintas. Use as constantes nos limiares e nos textos.
 - Gerais e específicos ficam separados (`bloco`) nas séries por disciplina.
-- O limiar de tópico fraco vem do `config.yaml` (`limiar_topico_baixo`).
+- O limiar de tópico fraco vem do `.concurso/config.toml` (`[analise] limiar_topico_baixo`).
 
 ## Edital como fonte de verdade
 

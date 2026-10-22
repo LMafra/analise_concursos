@@ -18,7 +18,6 @@ PASTA_PROVAS = 'provas'
 PASTA_ANALISES = 'analises'
 ARQUIVO_CONFIG_PROJETO = 'config.toml'
 ARQUIVO_TAXONOMIA = 'taxonomia.yaml'
-ARQUIVO_CONFIG_LEGADO = 'config.yaml'
 
 
 @dataclass(frozen=True)
@@ -46,15 +45,8 @@ class Contexto:
         return self.projeto / ARQUIVO_CONFIG_PROJETO
 
     @property
-    def config_legado(self) -> Path:
-        """O `config.yaml` da raiz, das fases 1 a 3; a migração o converte para o `config.toml`."""
-        return self.raiz / ARQUIVO_CONFIG_LEGADO
-
-    @property
     def taxonomia(self) -> Path:
-        do_projeto = self.projeto / ARQUIVO_TAXONOMIA
-        legada = self.raiz / ARQUIVO_TAXONOMIA
-        return legada if not do_projeto.exists() and legada.exists() else do_projeto
+        return self.projeto / ARQUIVO_TAXONOMIA
 
 
 def resolver_home(ambiente: Mapping[str, str] | None = None) -> Path:

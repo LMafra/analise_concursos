@@ -91,7 +91,7 @@ def analisar_todos(
     """
     configuracao = configuracao or ConfiguracaoGlobal()
     sucesso = True
-    for pasta in _selecionar(raiz_provas, apenas, candidato):
+    for pasta in _selecionar(raiz_provas, apenas):
         destino = raiz_analises / pasta.name
         sucesso &= _analisar_se_necessario(pasta, destino, forcar, configuracao, taxonomia, candidato)
     consolidar(raiz_provas, raiz_analises, configuracao.limiar_topico_baixo, candidato)
@@ -107,7 +107,7 @@ def planejar(
 ) -> list[tuple[str, str]]:
     """O que `analisar_todos` faria com cada concurso, sem gravar nada."""
     plano = []
-    for pasta in _selecionar(raiz_provas, apenas, candidato):
+    for pasta in _selecionar(raiz_provas, apenas):
         situacao = avaliar(pasta, candidato)
         if situacao.situacao is not Situacao.COMPLETO:
             plano.append((pasta.name, f'pularia ({situacao.situacao}: {"; ".join(situacao.motivos)})'))
@@ -120,8 +120,8 @@ def planejar(
     return plano
 
 
-def _selecionar(raiz_provas: Path, apenas: str | None, candidato: str | None = None) -> list[Path]:
-    pastas = listar_concursos(raiz_provas, candidato)
+def _selecionar(raiz_provas: Path, apenas: str | None) -> list[Path]:
+    pastas = listar_concursos(raiz_provas)
     if apenas is None:
         return pastas
     if selecionadas := [p for p in pastas if p.name == apenas]:

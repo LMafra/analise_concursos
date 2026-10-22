@@ -3,7 +3,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from concursos.atualizacao import Troca, verificar
-from concursos.candidatos import aplicar_candidato, pasta_do_candidato
+from concursos.candidatos import aplicar_candidato
 from concursos.concurso_config import (
     ARQUIVO_CONFIG,
     ConcursoConfig,
@@ -29,13 +29,9 @@ class StatusConcurso:
     trocas: tuple[Troca, ...] = ()
 
 
-def listar_concursos(raiz_provas: Path, candidato: str | None = None) -> list[Path]:
-    """Subpastas de provas/, cadastradas ou não (as não cadastradas aparecem como incompletas); com
-    candidato, só as que têm a subpasta dele."""
-    pastas = sorted(p for p in raiz_provas.iterdir() if p.is_dir() and not p.name.startswith('.'))
-    if candidato is None:
-        return pastas
-    return [p for p in pastas if pasta_do_candidato(p, candidato).is_dir()]
+def listar_concursos(raiz_provas: Path) -> list[Path]:
+    """Subpastas de provas/, cadastradas ou não (as não cadastradas aparecem como incompletas)."""
+    return sorted(p for p in raiz_provas.iterdir() if p.is_dir() and not p.name.startswith('.'))
 
 
 def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:

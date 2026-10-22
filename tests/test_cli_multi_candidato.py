@@ -146,6 +146,22 @@ def test_subpasta_sem_perfil_cria_o_candidato_com_aviso(projeto, caplog):
     assert acertos(projeto, 'dave') == 3
 
 
+def test_concurso_sem_respostas_do_candidato_aparece_como_pendente(projeto):
+    beta = projeto / 'provas' / 'beta'
+    beta.mkdir()
+    (beta / 'concurso.yaml').write_text(yaml.safe_dump({**CONCURSO, 'nome': 'beta'}), encoding='utf-8')
+    (beta / 'gabarito.txt').write_text(GABARITO, encoding='utf-8')
+    (projeto / 'provas' / 'gama').mkdir()
+
+    assert main(['--candidate', 'alice']) == 0
+
+    comparativo = (projeto / 'analises' / 'alice' / 'consolidado' / 'comparativo_concursos.md').read_text(
+        encoding='utf-8'
+    )
+    assert '| beta | incompleto | respostas não configuradas' in comparativo
+    assert '| gama | incompleto |' in comparativo
+
+
 def test_identificador_do_resultado_oficial_nao_e_herdado(projeto):
     from concursos.status import avaliar
 

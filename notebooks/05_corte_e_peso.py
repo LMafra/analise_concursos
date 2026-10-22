@@ -19,7 +19,7 @@
 #
 # Os cortes, o desempate e as peculiaridades vêm do edital estruturado de cada concurso (fase 3). A
 # anulada vale ponto e acerto, como dizem os editais; o corte da discursiva fica fora do "atingido". Com
-# `concurso_alvo` no `config.yaml`, as tabelas mostram só esse concurso; sem ele, todos.
+# `concurso_alvo` no `.concurso/config.toml`, as tabelas mostram só esse concurso; sem ele, todos.
 
 # %%
 from IPython.display import Markdown
