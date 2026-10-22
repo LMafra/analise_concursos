@@ -196,7 +196,7 @@ def gap_por_disciplina(
     """Quanto cada disciplina precisa melhorar para acompanhar o corte que mais a aperta. Um corte de escopo
     exige `100 × corte / nota máxima do escopo` por cento; a disciplina é comparada com essa exigência na
     unidade do corte (no mínimo por disciplina, com o próprio corte). `falta` é o que falta na unidade do
-    corte para a disciplina chegar à exigência, e `atingido` diz se ela já chegou. Com n abaixo de
+    corte para a disciplina chegar à exigência, e `no_ritmo` diz se ela já chegou. Com n abaixo de
     `N_MINIMO_TOPICO`, a disciplina sai com `amostra_suficiente` falso. Em cada concurso, a que está mais
     longe vem primeiro."""
     linhas = []
@@ -230,7 +230,7 @@ def gap_por_disciplina(
                         'exigido': exigido,
                         'gap_percentual': gap,
                         'falta': max(0.0, -gap / 100 * maximo_da_disciplina),
-                        'atingido': gap >= 0,
+                        'no_ritmo': gap >= 0,
                         'amostra_suficiente': len(da_disciplina) >= N_MINIMO_TOPICO,
                     }
         linhas.extend(sorted(por_disciplina.values(), key=lambda linha: linha['gap_percentual']))

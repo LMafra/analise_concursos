@@ -801,3 +801,12 @@ def test_desempate_e_o_da_lista_do_cargo_da_configuracao():
         'obtiver a maior nota na prova objetiva (P1)',
         'tiver maior idade',
     ]
+
+
+def test_linha_da_capa_com_espacos_duplos_ainda_acha_a_origem():
+    capa = CAPA_TCU.replace('EDITAL Nº 1 – TCU/AUFC', 'EDITAL  Nº 1  –  TCU/AUFC')
+
+    regras = extrair_regras(config(), {'edital.pdf': [capa]})
+
+    edital = regras.identificacao.edital
+    assert (edital.documento_origem, edital.pagina_origem) == ('edital.pdf', 1)

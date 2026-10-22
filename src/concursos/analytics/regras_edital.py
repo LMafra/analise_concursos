@@ -411,7 +411,7 @@ def _cargos_do_edital(docs: _Documentos) -> list[_Cargo]:
     for doc in docs.lista:
         for linha in _linhas(docs.paginas[doc.nome]):
             if (m := _BLOCO_TEMATICO.match(linha)) and (nome := titulo_legivel(m['nome'])) not in blocos:
-                achado = _Achado(re.search(re.escape(linha[:25]), doc.texto.texto), doc)
+                achado = _Achado(re.search(_sem_espacos(linha[:25]), doc.texto.texto), doc)
                 blocos[nome] = _Cargo(nome, achado)
     if blocos:
         return list(blocos.values())
@@ -425,8 +425,8 @@ def _cargo_numerado(numero: str, nome: str, doc: _Documento) -> _Cargo:
     partes = _ESPECIALIDADE.split(nome, maxsplit=1)
     if len(partes) == 1:
         partes = re.split(r'\s+–\s+', nome, maxsplit=1)
-    padrao = re.compile(rf'(?:CARGO|EMPREGO)\s+{numero}\s*:\s*{re.escape(partes[0][:30])}')
-    match = padrao.search(doc.texto.texto) or re.search(re.escape(partes[0][:20]), doc.texto.texto)
+    padrao = re.compile(rf'(?:CARGO|EMPREGO)\s+{numero}\s*:\s*{_sem_espacos(partes[0][:30])}')
+    match = padrao.search(doc.texto.texto) or re.search(_sem_espacos(partes[0][:20]), doc.texto.texto)
     achado = _Achado(match, doc)
     especialidade = titulo_legivel(partes[1]) if len(partes) > 1 else None
     return _Cargo(titulo_legivel(partes[0]), achado, numero, especialidade)
@@ -500,7 +500,7 @@ def _orgao(docs: _Documentos) -> Campo:
             if _maiusculo(linha) and not _NAO_E_ORGAO.match(linha) and len(linha.split()) >= 2:
                 if indice + 1 < len(linhas) and re.fullmatch(r'\([^)]+\)', linhas[indice + 1]):
                     linha = f'{linha} {linhas[indice + 1]}'
-                match = re.search(re.escape(linha.split()[0]), doc.texto.texto)
+                match = re.search(_sem_espacos(linha.split()[0]), doc.texto.texto)
                 return _Achado(match, doc).campo(_titulo_com_siglas(linha), CONFIANCA_CAPA, linha)
     if achado := docs.primeiro(_ORGAO_NO_TEXTO):
         return achado.campo(achado.match['orgao'].strip(), CONFIANCA_NOME_DO_CARGO)
@@ -511,7 +511,7 @@ def _linha_do_edital(docs: _Documentos) -> Campo:
     for doc in reversed(docs.lista):
         if match := _LINHA_DE_EDITAL.search('\n'.join(_linhas(docs.paginas[doc.nome][:1]))):
             linha = match[0].strip()
-            achado = _Achado(re.search(re.escape(linha[:20]), doc.texto.texto), doc)
+            achado = _Achado(re.search(_sem_espacos(linha[:20]), doc.texto.texto), doc)
             return achado.campo(linha, CONFIANCA_CAPA, linha)
     return Campo()
 
@@ -528,6 +528,11 @@ def _titulo_com_siglas(linha: str) -> str:
         else legivel
         for original, legivel in zip(originais, titulo_legivel(linha).split(), strict=True)
     )
+
+
+def _sem_espacos(trecho: str) -> str:
+    """Padrão de um trecho de linha crua no `TextoCorrido`, que junta os espaços repetidos."""
+    return r'\s+'.join(map(re.escape, trecho.split()))
 
 
 def _linhas(paginas: list[str]) -> list[str]:
@@ -757,8 +762,8 @@ def _ler_quadro(doc: _Documento, linhas: list[str], cabecalho: int) -> _QuadroDe
     if not gerais:
         return None
     texto = doc.texto.texto
-    match = re.search(re.escape(' '.join([*titulo, linhas[cabecalho]])), texto) or re.search(
-        re.escape(linhas[cabecalho]), texto
+    match = re.search(_sem_espacos(' '.join([*titulo, linhas[cabecalho]])), texto) or re.search(
+        _sem_espacos(linhas[cabecalho]), texto
     )
     trecho = ' '.join([*titulo, linhas[cabecalho], *corpo])
     return _QuadroDeDisciplinas(' '.join(titulo), gerais, especifico, _Achado(match, doc), trecho)

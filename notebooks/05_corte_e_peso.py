@@ -75,7 +75,7 @@ resumir(gaps, n=40, contar='atingido')
 
 # %%
 por_disciplina = gap_por_disciplina(consolidado, cortes, alvo)
-resumir(por_disciplina, n=20, contar='atingido')
+resumir(por_disciplina, n=20, contar='no_ritmo')
 
 # %%
 barras_gap_por_disciplina(por_disciplina)
@@ -102,7 +102,7 @@ resumir(ranking, n=12)
 # %% [markdown]
 # ## Nota ponderada por disciplina
 #
-# O acerto vale o peso do item, sem desconto. Só o CPNU tem pesos diferentes de 1.
+# O acerto vale o peso do item, sem desconto.
 
 # %%
 resumir(nota_ponderada_por_disciplina(consolidado, alvo), n=12)
@@ -110,8 +110,8 @@ resumir(nota_ponderada_por_disciplina(consolidado, alvo), n=12)
 # %% [markdown]
 # ## Simulação: +20 p.p. em Língua Portuguesa
 #
-# Língua Portuguesa está em 8 dos 9 concursos. A simulação converte erros e brancos em acertos na
-# proporção atual e recalcula nota e gap; é uma estimativa de cenário, não uma previsão.
+# A simulação converte erros e brancos em acertos na proporção atual e recalcula nota e gap; é uma
+# estimativa de cenário, não uma previsão.
 
 # %%
 simulacao = simular_cenario(consolidado, cortes, 'Língua Portuguesa', 20, alvo)
@@ -146,8 +146,8 @@ resumir(peculiaridades_do_edital(regras, alvo), n=45, contar='peculiaridade')
 #
 #    No `cprm`, os gerais ficam exatamente no corte (15 de 15), e Língua Portuguesa, com 1 acerto, fica no
 #    mínimo da disciplina.
-# 2. **44 das 115 disciplinas estão abaixo da exigência do corte que as aperta**, 27 delas com n < 5.
-#    Com n ≥ 5, as mais longe são:
+# 2. **44 das 115 disciplinas estão abaixo da exigência do corte que as aperta**; as de n < 5 aparecem
+#    transparentes no gráfico. Com n ≥ 5, as mais longe são:
 #    - Banco de Dados no `telebras`: −45,5% contra 30% exigidos, faltam 8,3 pontos;
 #    - Legislação no `infrasa`: −63,3 p.p.;
 #    - Previdência Complementar no `funpresp_jud`: −55,0 p.p.;

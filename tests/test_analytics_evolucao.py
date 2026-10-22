@@ -787,9 +787,9 @@ def test_gap_por_disciplina_usa_o_corte_que_mais_aperta_cada_disciplina():
         50.0,
         25.0,
     )
-    assert (portugues['gap_percentual'], portugues['falta'], portugues['atingido']) == (25.0, 0.0, True)
+    assert (portugues['gap_percentual'], portugues['falta'], portugues['no_ritmo']) == (25.0, 0.0, True)
     assert (dados['corte_escopo'], dados['percentual'], dados['exigido']) == ('especifico', 25.0, 50.0)
-    assert (dados['gap_percentual'], dados['falta'], dados['atingido']) == (-25.0, 1.0, False)
+    assert (dados['gap_percentual'], dados['falta'], dados['no_ritmo']) == (-25.0, 1.0, False)
     assert not tabela['amostra_suficiente'].any()
     assert list(tabela.index) == ['Dados', 'Português']
 

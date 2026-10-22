@@ -208,7 +208,7 @@ def test_exporta_o_painel_com_as_tres_versoes(tmp_path):
     assert len(figura.axes[0].containers[0]) == len(COMPARACAO)
 
 
-def test_barras_de_gap_por_disciplina_sao_horizontais_e_coloridas_por_atingido():
+def test_barras_de_gap_por_disciplina_sao_horizontais_e_coloridas_por_ritmo():
     gaps = pd.DataFrame(
         {
             'concurso': ['cd_25', 'cd_25', 'cpnu'],
@@ -219,7 +219,7 @@ def test_barras_de_gap_por_disciplina_sao_horizontais_e_coloridas_por_atingido()
             'gap_percentual': [25.0, -25.0, 30.0],
             'falta': [0.0, 1.0, 0.0],
             'unidade': ['pontos', 'pontos', 'acertos'],
-            'atingido': [True, False, True],
+            'no_ritmo': [True, False, True],
             'n': [12, 3, 20],
             'amostra_suficiente': [True, False, True],
         }

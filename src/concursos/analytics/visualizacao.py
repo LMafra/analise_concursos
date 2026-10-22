@@ -231,12 +231,12 @@ def barras_fracos(fracos: pd.DataFrame) -> go.Figure:
 
 def barras_gap_por_disciplina(gaps: pd.DataFrame) -> go.Figure:
     """Barras horizontais do gap percentual de cada disciplina, a partir de `gap_por_disciplina`, coloridas
-    por atingido e transparentes com amostra insuficiente, com o percentual, a exigência, o que falta e o n
+    por `no_ritmo` e transparentes com amostra insuficiente, com o percentual, a exigência, o que falta e o n
     no hover."""
     tabela = gaps.assign(rotulo=_rotulo_do_gap)
     figura = go.Figure()
-    for atingido, nome, cor in _CORES_DO_GAP:
-        parte = tabela[tabela['atingido'] == atingido]
+    for no_ritmo, nome, cor in _CORES_DO_GAP:
+        parte = tabela[tabela['no_ritmo'] == no_ritmo]
         if parte.empty:
             continue
         figura.add_bar(

@@ -149,7 +149,7 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
 - **Gap por disciplina** (`gap_por_disciplina`, em `evolucao`): cada disciplina comparada com o corte que mais a aperta.
   - Um corte de escopo exige `exigido = 100 × corte / nota máxima do escopo`; no mínimo por disciplina, o escopo é a própria disciplina.
   - `percentual` é o da disciplina na unidade do corte, `gap_percentual = percentual − exigido`, e fica o corte de menor gap.
-  - `falta = max(0, −gap_percentual / 100 × nota máxima da disciplina)`, na unidade do corte; `atingido = gap_percentual ≥ 0`; `amostra_suficiente = n ≥ N_MINIMO_TOPICO`.
+  - `falta = max(0, −gap_percentual / 100 × nota máxima da disciplina)`, na unidade do corte; `no_ritmo = gap_percentual ≥ 0` (a disciplina acompanha o corte, o que não é o "atingido" do gap); `amostra_suficiente = n ≥ N_MINIMO_TOPICO`.
   - Em cada concurso, a disciplina mais longe vem primeiro.
 - **Lado a lado** (`comparar_percentual_e_gap`, em `evolucao`): percentual bruto e ponderado do ranking e, de `gap_para_corte`, o menor gap percentual, o corte mais distante e o "atingido".
 - **Destaque do ranking** (`insights.destaque_do_ranking`): em markdown, quem sobe e quem cai no corrigido e no ponderado, ou a frase de que o ranking é o mesmo.
