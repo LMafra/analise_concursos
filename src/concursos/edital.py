@@ -43,7 +43,10 @@ class Edital:
     conhecimentos: tuple[Conhecimento, ...] = field(default_factory=tuple)
 
     def gravar_json(self, caminho: Path) -> None:
-        caminho.write_text(json.dumps(asdict(self), ensure_ascii=False, indent=2), encoding='utf-8')
+        """Grava o conteúdo programático preservando as demais chaves do arquivo (as regras do edital)."""
+        dados = json.loads(caminho.read_text(encoding='utf-8')) if caminho.exists() else {}
+        dados.update(asdict(self))
+        caminho.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
 _MINUSCULAS = {

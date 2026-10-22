@@ -6,6 +6,8 @@ import pandas as pd
 from concursos import manifesto
 from concursos.agregacao import agregar
 from concursos.analytics.correcao import gravar_correcao, notas_finais, resolver_correcao
+from concursos.analytics.regras_edital import RegrasEdital, extrair_regras
+from concursos.analytics.validacao_edital import gravar_discrepancias, validar_edital
 from concursos.atualizacao import ARQUIVO_DIFF, diff_gabarito, questoes_preliminares, trocar_gabaritos
 from concursos.caderno import faixas_do_caderno
 from concursos.concurso_config import ConcursoConfig, ProvaConfig
@@ -135,6 +137,7 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
     correcoes = resolver_correcao(config, documentos)
     gravar_correcao(correcoes, destino)
+    regras = _regras_do_edital(config, documentos, destino)
     diff = _diff_da_troca(destino, resultados)
     gravar_validacao(validacao, destino)
     conteudo = ConteudoRelatorio(
@@ -147,9 +150,22 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
         validacao=validacao,
         diff=diff,
         notas_finais=notas_finais(resultados, correcoes, config.formato),
+        identificacao=regras.identificacao if regras else None,
     )
     (destino / 'relatorio.md').write_text(gerar_relatorio(config, conteudo), encoding='utf-8')
     logger.info('Saídas de %s gravadas em %s', config.nome, destino)
+
+
+def _regras_do_edital(
+    config: ConcursoConfig, documentos: dict[str, list[str]], destino: Path
+) -> RegrasEdital | None:
+    """Regras do edital no edital estruturado e as discrepâncias com a prova; só quando há PDF do edital."""
+    if not documentos:
+        return None
+    regras = extrair_regras(config, documentos)
+    regras.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
+    gravar_discrepancias(validar_edital(config, regras), destino)
+    return regras
 
 
 def _diff_da_troca(destino: Path, resultados: pd.DataFrame) -> pd.DataFrame | None:

@@ -26,15 +26,15 @@ Ver `docs/spec-fase3.md`, histórias 1–9, 65 e 67–69.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Teste de CLI: o edital estruturado tem a identificação com trecho, documento e página.
-- [ ] Teste de CLI: o conteúdo programático continua no edital estruturado depois de regravado.
-- [ ] Teste puro: num edital de um só cargo, o cargo vem do edital.
-- [ ] Teste puro: num edital de dois cargos, o escopo é o trecho do cargo da configuração.
-- [ ] Teste de CLI: um cargo sem casamento gera `warn` no CSV de discrepâncias.
-- [ ] Os CSVs existentes mantêm exatamente as mesmas colunas.
-- [ ] A mudança de versão no manifesto regenera as saídas.
-- [ ] O cabeçalho do relatório mostra o nome oficial e o cargo.
-- [ ] `docs/modelo.md` documenta o bloco de identificação e o contrato do CSV de discrepâncias.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Teste de CLI: o edital estruturado tem a identificação com trecho, documento e página.
+- [x] Teste de CLI: o conteúdo programático continua no edital estruturado depois de regravado.
+- [x] Teste puro: num edital de um só cargo, o cargo vem do edital.
+- [x] Teste puro: num edital de dois cargos, o escopo é o trecho do cargo da configuração.
+- [x] Teste de CLI: um cargo sem casamento gera `warn` no CSV de discrepâncias.
+- [x] Os CSVs existentes mantêm exatamente as mesmas colunas.
+- [x] A mudança de versão no manifesto regenera as saídas.
+- [x] O cabeçalho do relatório mostra o nome oficial e o cargo.
+- [x] `docs/modelo.md` documenta o bloco de identificação e o contrato do CSV de discrepâncias.
+- [x] `uv run pytest` e `ruff` verdes.

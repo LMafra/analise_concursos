@@ -146,6 +146,30 @@ Nível e escolaridade são opcionais e ficam `nao_informado` quando ausentes.
 
 **Validação oficial.** Compara o desempenho calculado com o resultado oficial da banca. A medida é acertos ou pontos, com pesos opcionais por faixa de itens. Uma divergência vira alerta. Se o resultado inclui outras fases, a comparação é só informativa.
 
+## Regras do edital (fase 3)
+
+O módulo `concursos.analytics.regras_edital` lê do texto do edital e dos anexos (sem OCR e sem LLM) o que vai além do conteúdo programático e da regra de correção. O resultado é gravado no `edital_estruturado.json`. Cada valor é um **campo** com:
+
+- `valor`;
+- `fonte`: `retificacao`, `edital`, `config`, `default` ou `descoberta`;
+- `trecho_origem`, `documento_origem` e `pagina_origem`, sempre preenchidos quando a fonte é `retificacao`, `edital` ou `descoberta`;
+- `confianca_extracao`, de 0 a 1.
+
+A precedência é retificação, depois edital, depois configuração, depois default. Um campo que cai no default fica com `valor` nulo, e o motivo vai para `avisos` (lista de textos) e para o log. O `correcao.json` continua sendo a fonte da regra de correção aplicada; as regras do edital são a expectativa.
+
+**Identificação** (`identificacao`). Tem os campos `nome_oficial` (o órgão na capa), `edital` (a linha "EDITAL Nº …" da capa), `cargo`, `especialidade`, `vagas`, `cadastro_reserva` e `teto_classificados`, mais `cargo_casado` (lógico) e `cargos_do_edital` (lista). O cargo vem do edital:
+
+- **Lista de cargos:** as linhas "CARGO N: …" ou "EMPREGO N: …" (Cebraspe), os blocos temáticos (CPNU), o cargo da capa ("PARA O CARGO DE …", edital de um cargo só) ou os cargos citados no preâmbulo ("vagas para o cargo de Analista de Gestão", FGV).
+- **Casamento:**
+  - Num edital de um só cargo, o cargo é o do edital, mesmo sem cargo no `concurso.yaml`.
+  - Num edital de vários cargos, o `cargo` do `concurso.yaml` casa pelo número ("CARGO 4: …") ou, sem número, pelo nome: todas as palavras do cargo do edital (sem acento, caixa e palavras vazias) têm de estar no cargo declarado. No empate, vence o nome mais longo.
+  - Sem casamento, `cargo_casado` é falso, o CSV de discrepâncias recebe um `warn`, e as extrações usam o concurso inteiro.
+- **Especialidade:** é o que vem depois de "– ESPECIALIDADE:", "– ÁREA N:" ou "– ATRIBUIÇÃO:" na linha do cargo, ou depois do primeiro travessão. Na FGV, vem da linha "… – Área: …" do edital ou, sem ela, do resto do cargo declarado (fonte `config`).
+
+As vagas, o cadastro de reserva e o teto de classificados são só contexto e não entram em cálculo. A coluna `concurso` dos CSVs e do parquet continua sendo o nome da pasta.
+
+**Escopo por cargo.** Num edital de vários cargos, um trecho vale para o cargo quando a última menção a cargos antes dele (ou dentro dele), até 600 caracteres atrás, cita o cargo. Exemplo: "o candidato ao cargo de Perito Criminal Federal que…". Uma menção cita o cargo quando todas as palavras de um dos nomes citados estão no cargo. Menções genéricas ("todos os cargos", "demais cargos") valem para todos, e "cargos de Nível Superior" casa com a `escolaridade`.
+
 ## `concurso.yaml`
 
 O arquivo é gerado por `concursos adicionar` e pode ser editado à mão. Os caminhos são relativos à pasta do concurso.
@@ -280,7 +304,8 @@ Por concurso, em `analises/<concurso>/`:
   - `gabarito_preliminar`, `gabarito_definitivo`;
   - `mudanca` (`alterada | anulada`);
   - `resposta`, `acerto_antes`, `acerto_depois`.
-- **`edital_estruturado.json`:** `fonte`, `cargo` e `conhecimentos[].disciplinas[].topicos[]`. Cada tópico tem `numero`, `nome`, `descricao` e `peso`.
+- **`edital_estruturado.json`:** `fonte`, `cargo` e `conhecimentos[].disciplinas[].topicos[]`. Cada tópico tem `numero`, `nome`, `descricao` e `peso`. Quando há PDF do edital, o arquivo ganha as [regras do edital](#regras-do-edital-fase-3) (`identificacao`, `avisos` e os blocos descritos lá). Cada parte grava só as próprias chaves e preserva as outras.
+- **`discrepancias_edital.csv`:** uma linha por divergência entre o edital e a prova, com as colunas `item, esperado_edital, observado_prova, diferenca, severidade, acao_sugerida`. A `severidade` é `info`, `warn` ou `error`; a `diferenca` fica vazia quando não é numérica. Só existe quando há PDF do edital, e fica só com o cabeçalho quando tudo confere.
 - **`correcao.json`:** lista de configurações de correção (uma por variante; uma só quando o concurso não tem variantes). Campos:
   - `modelo`, `fator_penalidade`, `nota_maxima`, `nota_corte`;
   - `pesos`: lista de `{inicio, fim, peso}` (vazia quando todos os itens valem 1);

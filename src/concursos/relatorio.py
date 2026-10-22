@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from concursos.analytics.correcao import NotaFinal
+from concursos.analytics.regras_edital import Identificacao
 from concursos.atualizacao import COLUNAS_DIFF, impacto
 from concursos.concurso_config import ConcursoConfig
 from concursos.correcao import TOPICO_NAO_MAPEADO
@@ -23,12 +24,14 @@ class ConteudoRelatorio:
     validacao: Validacao | None = None
     diff: pd.DataFrame | None = None
     notas_finais: list[NotaFinal] = field(default_factory=list)
+    identificacao: Identificacao | None = None
 
 
 def gerar_relatorio(config: ConcursoConfig, conteudo: ConteudoRelatorio) -> str:
     linhas = [
         f'# Relatório de desempenho: {config.nome}',
         '',
+        *_identificacao(conteudo.identificacao),
         f'- Banca: {config.banca}',
         f'- Formato: {config.formato}',
         f'- Pontuação: {config.pontuacao}',
@@ -59,6 +62,19 @@ def gerar_relatorio(config: ConcursoConfig, conteudo: ConteudoRelatorio) -> str:
         *_secao_troca(config, conteudo.geral, conteudo.diff),
     ]
     return '\n'.join(linhas)
+
+
+def _identificacao(identificacao: Identificacao | None) -> list[str]:
+    if identificacao is None:
+        return []
+    linhas = []
+    if nome := identificacao.nome_oficial.valor:
+        edital = identificacao.edital.valor
+        linhas.append(f'- Concurso: {nome} ({edital})' if edital else f'- Concurso: {nome}')
+    if cargo := identificacao.cargo.valor:
+        especialidade = identificacao.especialidade.valor
+        linhas.append(f'- Cargo: {cargo} – {especialidade}' if especialidade else f'- Cargo: {cargo}')
+    return linhas
 
 
 def _selo_preliminar(config: ConcursoConfig) -> list[str]:

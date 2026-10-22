@@ -229,14 +229,14 @@ _RECUO_MAXIMO_TRECHO = 300
 
 
 @dataclass(frozen=True)
-class _TextoCorrido:
+class TextoCorrido:
     """Páginas com espaços normalizados e unidas, para casar regras que atravessam quebras de linha e de página."""
 
     texto: str
     inicios: tuple[int, ...]
 
     @classmethod
-    def de(cls, paginas: list[str]) -> '_TextoCorrido':
+    def de(cls, paginas: list[str]) -> 'TextoCorrido':
         normalizadas = [' '.join(pagina.split()) for pagina in paginas]
         inicios, posicao = [], 0
         for pagina in normalizadas:
@@ -267,7 +267,7 @@ def extrair_fator_correcao(paginas: list[str], total_itens: int | None = None) -
     Pontos diferentes por prova ou módulo só viram pesos quando `total_itens` e a nota máxima permitem
     deduzir quantos itens tem cada parte.
     """
-    texto = _TextoCorrido.de(paginas)
+    texto = TextoCorrido.de(paginas)
     nota_maxima = _valor_do_primeiro_padrao(texto, _NOTA_MAXIMA)
     pesos: tuple[PesoItens, ...] = ()
     if match := _PENALIDADE.search(texto.texto):
@@ -300,7 +300,7 @@ def extrair_fator_correcao(paginas: list[str], total_itens: int | None = None) -
 def extrair_data_prova(paginas: list[str]) -> date | None:
     """Data (provável) de aplicação da prova objetiva: no cronograma ("Aplicação das provas objetivas 22/2/2026")
     ou no texto corrido ("a Prova Objetiva será realizada … no dia 12 de outubro de 2025")."""
-    texto = _TextoCorrido.de(paginas).texto
+    texto = TextoCorrido.de(paginas).texto
     if match := _DATA_NO_CRONOGRAMA.search(texto):
         mes = int(match['mes'])
     elif match := _DATA_POR_EXTENSO.search(texto):
@@ -315,7 +315,7 @@ def extrair_data_prova(paginas: list[str]) -> date | None:
 
 def mencao_penalidade(paginas: list[str]) -> bool:
     """O texto fala em descontar pontos por erro? "Anulação" e "descontos" soltos não contam."""
-    return _MENCAO_PENALIDADE.search(_TextoCorrido.de(paginas).texto) is not None
+    return _MENCAO_PENALIDADE.search(TextoCorrido.de(paginas).texto) is not None
 
 
 def resolver_correcao(config: ConcursoConfig, documentos: dict[str, list[str]]) -> list[ConfiguracaoCorrecao]:
@@ -329,7 +329,7 @@ def resolver_correcao(config: ConcursoConfig, documentos: dict[str, list[str]]) 
     declarada = config.correcao or CorrecaoConfig()
     base = _resolver_regra(config, documentos, declarada)
     if declarada.variantes:
-        quadro = _extrair_quadro_de_pesos(config, documentos)
+        quadro = extrair_quadro_de_pesos(config, documentos)
         configuracoes = [_resolver_variante(config.nome, v, base, quadro) for v in declarada.variantes]
     else:
         configuracoes = [base]
@@ -468,7 +468,7 @@ def _extrair_dos_documentos(
     return None
 
 
-def _extrair_quadro_de_pesos(
+def extrair_quadro_de_pesos(
     config: ConcursoConfig, documentos: dict[str, list[str]]
 ) -> dict[str, _LinhaDoQuadro]:
     """Pesos por eixo temático de cada variante, lidos do quadro de pesos (CPNU).
@@ -477,7 +477,7 @@ def _extrair_quadro_de_pesos(
     bloco de itens consecutivos por eixo. A linha do quadro é o código do cargo seguido de um peso de 1 a 5
     por eixo; a tabela de vagas repete o código com quantidades e não pode casar.
     """
-    textos = {documento: _TextoCorrido.de(paginas) for documento, paginas in documentos.items()}
+    textos = {documento: TextoCorrido.de(paginas) for documento, paginas in documentos.items()}
     gerais, eixos = _primeiro_em(textos, _QUESTOES_GERAIS), _primeiro_em(textos, _EIXOS_TEMATICOS)
     if gerais is None or eixos is None:
         return {}
@@ -517,7 +517,7 @@ def _faixas_dos_eixos(n_gerais: int, por_eixo: int, pesos_eixos: list[float]) ->
     return (PesoItens(1, n_gerais, 1.0), *eixos)
 
 
-def _primeiro_em(textos: dict[str, _TextoCorrido], padrao: re.Pattern) -> re.Match | None:
+def _primeiro_em(textos: dict[str, TextoCorrido], padrao: re.Pattern) -> re.Match | None:
     return next((match for texto in textos.values() if (match := padrao.search(texto.texto))), None)
 
 
@@ -581,11 +581,11 @@ def _primeiro_definido(*valores: float | None) -> float | None:
     return next((v for v in valores if v is not None), None)
 
 
-def _primeiro_match(texto: _TextoCorrido, padroes: tuple[re.Pattern, ...]) -> re.Match | None:
+def _primeiro_match(texto: TextoCorrido, padroes: tuple[re.Pattern, ...]) -> re.Match | None:
     return next((match for padrao in padroes if (match := padrao.search(texto.texto))), None)
 
 
-def _valor_do_primeiro_padrao(texto: _TextoCorrido, padroes: tuple[re.Pattern, ...]) -> float | None:
+def _valor_do_primeiro_padrao(texto: TextoCorrido, padroes: tuple[re.Pattern, ...]) -> float | None:
     match = _primeiro_match(texto, padroes)
     return None if match is None else _numero(match['valor'])
 

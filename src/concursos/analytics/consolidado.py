@@ -145,7 +145,7 @@ def topicos_do_edital(raiz_analises: Path | None = None) -> pd.DataFrame:
     linhas = [
         {'concurso': arquivo.parent.name, 'disciplina': disciplina['nome'], 'topico': topico['nome']}
         for arquivo in sorted(raiz_analises.glob(f'*/{ARQUIVO_EDITAL_ESTRUTURADO}'))
-        for conhecimento in json.loads(arquivo.read_text(encoding='utf-8'))['conhecimentos']
+        for conhecimento in json.loads(arquivo.read_text(encoding='utf-8')).get('conhecimentos', [])
         for disciplina in conhecimento['disciplinas']
         for topico in disciplina['topicos']
     ]
