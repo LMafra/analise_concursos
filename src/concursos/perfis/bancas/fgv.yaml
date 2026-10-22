@@ -1,0 +1,13 @@
+id: fgv
+nome: FGV
+ordem: 20
+marcas: [FGV, FUNDACAO GETULIO VARGAS]
+formato: multipla_escolha
+penalidade: 0.0
+# Um gabarito PDF com uma seção por cargo e tipo de caderno.
+leitor_secoes: fgv
+# Os títulos em negrito do caderno dão as faixas de questões por disciplina.
+disciplinas_pelo_caderno: true
+templates_folha:
+  '70': fgv_mod70ae
+  '90': fgv_cpnu_90

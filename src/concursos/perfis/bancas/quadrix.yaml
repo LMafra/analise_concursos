@@ -1,0 +1,7 @@
+id: quadrix
+nome: Instituto Quadrix
+ordem: 40
+marcas: [QUADRIX]
+formato: multipla_escolha
+penalidade: 0.0
+leitor_secoes: lista

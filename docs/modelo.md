@@ -366,6 +366,36 @@ resultado_oficial:           # opcional; nunca herdado do concurso.yaml
 - **Manifesto por par:** o hash de entrada de um par (candidato, concurso) cobre os arquivos comuns e só a subpasta do candidato. Mudar as respostas de um reprocessa só ele; mudar o gabarito reprocessa todos.
 - **Layout legado:** só o comando obsoleto `concursos analisar` ainda lê as respostas do `concurso.yaml` e grava em `analises/<concurso>/`; o `concurso-analise` migra antes de analisar.
 
+## Perfis de banca (fase 4)
+
+O que muda de uma banca para outra fica num perfil, não em ramos do código. Os embutidos são YAML em `src/concursos/perfis/bancas/`; outro pacote acrescenta (ou substitui, pelo mesmo `id`) um perfil no entry point `concurso.banca`, que devolve um `PerfilBanca`, um dict ou o caminho de um YAML.
+
+```yaml
+id: cebraspe                 # valor de `banca` no concurso.yaml
+nome: Cebraspe
+ordem: 10                    # ordem de detecção; o primeiro com marca no texto vence (padrão 100)
+marcas: [CEBRASPE]           # procuradas como palavra inteira no texto normalizado (sem acento, maiúsculo)
+formato: certo_errado        # ou multipla_escolha (padrão)
+alternativas: null           # opcional
+penalidade: 1.0              # fator de penalidade por erro no formato padrão
+leitor_gabarito: cebraspe    # gabarito PDF que já traz os itens
+leitor_secoes: null          # gabarito PDF com uma seção por cargo e tipo (fgv, lista)
+leitor_cargo: cebraspe       # cargo no cabeçalho do gabarito
+leitor_resultado: padrao
+segmentacao: itens           # questoes (padrão) ou itens (comando do bloco antes do item)
+disciplinas_pelo_caderno: false  # faixas de disciplina pelos títulos do caderno
+chaves_prova:                # chave da prova pela marca no cabeçalho do gabarito
+  - [CONHECIMENTOS BASICOS, cb]
+chave_padrao: ce             # sem marca (padrão: unica)
+marca_caderno_padrao: CONHECIMENTOS ESPECIFICOS  # separa o caderno da prova padrão
+templates_folha:             # template da folha pelo total de itens; '*' vale para qualquer total
+  '*': cebraspe_ce
+```
+
+- **Leitores:** um nome embutido (`cebraspe`, `fgv`, `lista`) ou `modulo:funcao` de outro pacote, com a assinatura do embutido.
+- **Validação:** campo desconhecido, `formato` ou `segmentacao` fora das opções, ou `id` e `marcas` ausentes geram erro citando o campo.
+- **Penalidade na agregação:** a nota líquida usa o fator da `pontuacao` do concurso (`cebraspe` = 1, `simples` = 0), nunca o nome da banca.
+
 ## Migração das fases 1 a 3
 
 Toda análise do `concurso-analise` (menos o `--dry-run`, que só lista as operações) começa migrando o que estiver no formato antigo. O candidato é o escolhido (`--candidate`, `CONCURSO_CANDIDATO`, `[candidato] ultimo`), o da migração anterior ou o login do sistema.

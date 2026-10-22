@@ -47,7 +47,7 @@ def agregar(resultados: pd.DataFrame, por: list[str], pontuacao: Pontuacao) -> p
     acertos_merito = agregado['acertos'] - agregado['anuladas']
     agregado['percentual'] = (acertos_merito / validas.where(validas > 0) * 100).fillna(0).round(2)
     agregado['nota_liquida'] = (
-        agregado['acertos'] - agregado['erros'] if pontuacao is Pontuacao.CEBRASPE else agregado['acertos']
+        agregado['acertos'] - agregado['erros'] if pontuacao.fator_penalidade else agregado['acertos']
     )
     for coluna in ('concurso', 'prova', 'disciplina', 'topico'):
         if coluna not in agregado:

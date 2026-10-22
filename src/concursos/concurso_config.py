@@ -6,9 +6,9 @@ from pathlib import Path
 import yaml
 
 from concursos.modelo import Escolaridade, Formato, ModeloCorrecao, Nivel, Pontuacao
+from concursos.perfis import ids_de_banca
 
 ARQUIVO_CONFIG = 'concurso.yaml'
-BANCAS = ('cebraspe', 'fgv', 'selecon', 'quadrix')
 STATUS_GABARITO = ('preliminar', 'definitivo')
 
 
@@ -203,7 +203,7 @@ def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
     return ConcursoConfig(
         nome=dados.get('nome', pasta.name),
         pasta=pasta,
-        banca=_opcao(_obrigatorio(dados, 'banca'), BANCAS, 'banca'),
+        banca=_opcao(_obrigatorio(dados, 'banca'), ids_de_banca(), 'banca'),
         formato=_enum(Formato, _obrigatorio(dados, 'formato'), 'formato'),
         pontuacao=_enum(Pontuacao, dados.get('pontuacao', 'simples'), 'pontuacao'),
         provas=provas,

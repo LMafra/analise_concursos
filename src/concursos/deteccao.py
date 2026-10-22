@@ -8,6 +8,7 @@ import pdfplumber
 
 from concursos.gabarito import detectar_status
 from concursos.linhas import LinhaInvalidaError, ler_linhas
+from concursos.perfis import perfis_de_banca
 
 EXTENSOES_IMAGEM = frozenset({'.png', '.jpg', '.jpeg'})
 EXTENSOES_TEXTO = frozenset({'.txt', '.csv'})
@@ -26,12 +27,6 @@ _MARCAS_PROVA = (
     'CONFIRA INICIALMENTE',
 )
 _MARCAS_EDITAL = ('TORNA PUBLIC', 'NO USO DE SUAS ATRIBUICOES', 'CONTEUDO PROGRAMATICO', 'DAS DISPOSICOES')
-_BANCAS = (
-    ('cebraspe', ('CEBRASPE',)),
-    ('fgv', ('FGV', 'FUNDACAO GETULIO VARGAS')),
-    ('selecon', ('SELECON',)),
-    ('quadrix', ('QUADRIX',)),
-)
 
 
 class Papel(StrEnum):
@@ -90,9 +85,9 @@ def eh_anexo(texto: str) -> bool:
 
 def detectar_banca(texto: str) -> str | None:
     corpo = normalizar(texto)
-    for banca, marcas in _BANCAS:
-        if any(re.search(rf'\b{marca}\b', corpo) for marca in marcas):
-            return banca
+    for perfil in perfis_de_banca():
+        if any(re.search(rf'\b{re.escape(marca)}\b', corpo) for marca in perfil.marcas):
+            return perfil.id
     return None
 
 

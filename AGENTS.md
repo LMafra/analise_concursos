@@ -16,6 +16,7 @@ Pipeline local de correção e análise de provas de concurso. Fase 1: a CLI `co
 |---|---|
 | Regra de correção: extração do edital, precedência, pontuação por item, nota | `analytics/correcao.py` |
 | Parquet por questão, cache, `validar_schema`, ordem cronológica, regras gravadas por concurso | `analytics/consolidado.py` |
+| Perfis de banca: detecção, leitores de gabarito, segmentação, chaves de prova, templates da folha | `perfis/` e `perfis/bancas/*.yaml` |
 | Disciplina canônica e bloco | `analytics/taxonomia.py` e `.concurso/taxonomia.yaml` |
 | Regras do edital: identificação, cargo, pesos, distribuição, cortes, cronograma, desempate, metadados | `analytics/regras_edital.py` |
 | Registro versionado de pistas do edital (`VERSAO_CANDIDATOS`) | `analytics/pistas_edital.py` |

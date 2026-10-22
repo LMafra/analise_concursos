@@ -16,10 +16,10 @@ Os ramos `banca == 'cebraspe'` deixam de existir.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Um perfil de banca declara: marcas, formato padrão, alternativas, fator de penalidade, leitor de gabarito, segmentação, blocos por prova, leitor de resultado e templates de folha por total de itens.
-- [ ] Uma banca instalada por entry point num teste é detectada e usada sem mudar o núcleo.
-- [ ] Nenhum módulo das fases 1 a 3 compara o nome da banca com uma constante.
-- [ ] A suíte atual continua verde sem mudar as asserções.
-- [ ] A paridade com os dados reais não mostra diferença.
+- [x] Um perfil de banca declara: marcas, formato padrão, alternativas, fator de penalidade, leitor de gabarito, segmentação, blocos por prova, leitor de resultado e templates de folha por total de itens.
+- [x] Uma banca instalada por entry point num teste é detectada e usada sem mudar o núcleo.
+- [x] Nenhum módulo das fases 1 a 3 compara o nome da banca com uma constante.
+- [x] A suíte atual continua verde sem mudar as asserções.
+- [x] A paridade com os dados reais não mostra diferença.

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from concursos.linhas import LinhaInvalidaError, ler_linhas
 from concursos.modelo import Formato, ItemGabarito
+from concursos.perfis import perfil_da_banca, resolver_funcao
 from concursos.texto import extrair_texto
 
 MARCAS_ANULADA = frozenset({'X', '*'})
@@ -180,12 +181,28 @@ def carregar_gabarito(
             ler_gabarito_texto(caminho.read_text(encoding='utf-8'), formato, caminho.name), None
         )
     texto = extrair_texto(caminho)
-    if banca == 'cebraspe':
-        itens = ler_gabarito_cebraspe(texto, caminho.name)
+    perfil = perfil_da_banca(banca)
+    if perfil.leitor_gabarito:
+        itens = resolver_funcao(perfil.leitor_gabarito, LEITORES_GABARITO)(texto, caminho.name)
     else:
         itens = selecionar_secao(_ler_secoes(texto, banca, caminho.name), cargo, tipo, caminho.name).itens
     _validar_alternativas(itens, formato, caminho.name)
     return GabaritoCarregado(itens, detectar_status(texto))
+
+
+def cargo_do_gabarito(texto: str, banca: str) -> str:
+    """O cargo no cabeçalho do gabarito, nas bancas que o trazem; vazio nas demais."""
+    nome = perfil_da_banca(banca).leitor_cargo
+    return resolver_funcao(nome, LEITORES_CARGO)(texto) if nome else ''
+
+
+def secoes_do_pdf(caminho: Path, banca: str, cargo: str) -> list[Secao]:
+    """As seções de um gabarito PDF; o que já traz os itens vira uma seção só, do cargo dado."""
+    perfil = perfil_da_banca(banca)
+    if perfil.leitor_gabarito:
+        leitor = resolver_funcao(perfil.leitor_gabarito, LEITORES_GABARITO)
+        return [Secao(cargo, None, leitor(extrair_texto(caminho), caminho.name))]
+    return listar_secoes(caminho, banca)
 
 
 def listar_secoes(caminho: Path, banca: str) -> list[Secao]:
@@ -194,10 +211,10 @@ def listar_secoes(caminho: Path, banca: str) -> list[Secao]:
 
 
 def _ler_secoes(texto: str, banca: str, arquivo: str) -> list[Secao]:
-    leitor = LEITORES_SECOES.get(banca)
-    if leitor is None:
+    nome = perfil_da_banca(banca).leitor_secoes
+    if nome is None:
         raise GabaritoInvalidoError(f'{arquivo}: leitura de gabarito em PDF da banca {banca!r} não suportada')
-    return leitor(texto, arquivo)
+    return resolver_funcao(nome, LEITORES_SECOES)(texto, arquivo)
 
 
 def _validar_alternativas(itens: list[ItemGabarito], formato: Formato, arquivo: str) -> None:
@@ -248,4 +265,6 @@ def ler_gabarito_texto(texto: str, formato: Formato, arquivo: str) -> list[ItemG
     return itens
 
 
-LEITORES_SECOES = {'fgv': ler_secoes_fgv, 'selecon': ler_secoes_lista, 'quadrix': ler_secoes_lista}
+LEITORES_GABARITO = {'cebraspe': ler_gabarito_cebraspe}
+LEITORES_SECOES = {'fgv': ler_secoes_fgv, 'lista': ler_secoes_lista}
+LEITORES_CARGO = {'cebraspe': cargo_cebraspe}

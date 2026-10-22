@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 from concursos.assistente import Interacao
-from concursos.concurso_config import ARQUIVO_CONFIG, BANCAS, validar_dados
+from concursos.concurso_config import ARQUIVO_CONFIG, validar_dados
 from concursos.deteccao import (
     ArquivoDetectado,
     Papel,
@@ -17,13 +17,11 @@ from concursos.deteccao import (
     eh_anexo,
     normalizar,
 )
-from concursos.gabarito import Secao, cargo_cebraspe, ler_gabarito_cebraspe, ler_gabarito_texto, listar_secoes
+from concursos.gabarito import Secao, cargo_do_gabarito, ler_gabarito_texto, secoes_do_pdf
 from concursos.modelo import Formato, Pontuacao
-from concursos.texto import extrair_texto
+from concursos.perfis import ids_de_banca, perfil_da_banca
 
 TEMPLATES_FOLHA = ('cebraspe_ce', 'fgv_mod70ae', 'fgv_cpnu_90')
-_TEMPLATE_FGV_POR_TOTAL = {70: 'fgv_mod70ae', 90: 'fgv_cpnu_90'}
-_CHAVES_CEBRASPE = (('CONHECIMENTOS GERAIS', 'cg'), ('CONHECIMENTOS BASICOS', 'cb'))
 _IGNORAR = 'ignorar'
 _NENHUM = '(nenhum)'
 _CAMPOS_MANUAIS = ('data_prova', 'nivel', 'escolaridade', 'correcao')
@@ -128,7 +126,7 @@ class _Cadastro:
         pergunta = 'Qual é a banca? (banca não detectada nos arquivos)'
         if contagem:
             pergunta = f'Qual é a banca? (arquivos citam {", ".join(b for b, _ in contagem)})'
-        return self.interacao.escolher(pergunta, list(BANCAS))
+        return self.interacao.escolher(pergunta, list(ids_de_banca()))
 
     def _montar(self, banca: str, por_papel: dict[Papel, list[ArquivoDetectado]]) -> dict:
         if not por_papel[Papel.GABARITO]:
@@ -151,7 +149,9 @@ class _Cadastro:
         if 'cargo' not in dados and self.anterior.get('cargo'):
             dados['cargo'] = self.anterior['cargo']
         valores = {i.resposta for g in gabaritos.values() for s in g.secoes for i in s.itens if not i.anulada}
-        certo_errado = banca == 'cebraspe' or valores <= set(Formato.CERTO_ERRADO.alternativas)
+        certo_errado = perfil_da_banca(banca).formato == Formato.CERTO_ERRADO.value or valores <= set(
+            Formato.CERTO_ERRADO.alternativas
+        )
         dados['formato'] = (Formato.CERTO_ERRADO if certo_errado else Formato.MULTIPLA_ESCOLHA).value
         dados['pontuacao'] = (Pontuacao.CEBRASPE if certo_errado else Pontuacao.SIMPLES).value
         if edital := self._edital(por_papel[Papel.EDITAL]):
@@ -175,13 +175,11 @@ class _Cadastro:
 
     def _ler_gabarito(self, detectado: ArquivoDetectado, banca: str) -> _Gabarito:
         nome = self._nome(detectado)
-        cargo = cargo_cebraspe(detectado.texto) if banca == 'cebraspe' else ''
+        cargo = cargo_do_gabarito(detectado.texto, banca)
         if detectado.caminho.suffix.lower() != '.pdf':
             secoes = [Secao(cargo, None, ler_gabarito_texto(detectado.texto, Formato.MULTIPLA_ESCOLHA, nome))]
-        elif banca == 'cebraspe':
-            secoes = [Secao(cargo, None, ler_gabarito_cebraspe(extrair_texto(detectado.caminho), nome))]
         else:
-            secoes = listar_secoes(detectado.caminho, banca)
+            secoes = secoes_do_pdf(detectado.caminho, banca, cargo)
         return _Gabarito(nome, detectado.status_gabarito, _chave_prova(detectado.texto, banca), secoes)
 
     def _escolher_gabaritos(self, gabaritos: list[_Gabarito]) -> dict[str, _Gabarito]:
@@ -239,8 +237,13 @@ class _Cadastro:
     ) -> str | None:
         if not cadernos:
             return None
-        if banca == 'cebraspe':
-            candidatos = [c for c in cadernos if _caderno_cebraspe(c, chave)]
+        perfil = perfil_da_banca(banca)
+        if perfil.marca_caderno_padrao:
+            candidatos = [
+                c
+                for c in cadernos
+                if (perfil.marca_caderno_padrao in normalizar(c.texto)) == (chave == perfil.chave_padrao)
+            ]
         else:
             candidatos = [c for c in cadernos if _mesmo_tipo(c, secao)]
             if len(candidatos) > 1 and secao.cargo:
@@ -295,8 +298,8 @@ class _Cadastro:
             escolhida = next(f for f in fontes if self._nome(f) == nome)
         if escolhida.papel is Papel.RESPOSTAS:
             return {'arquivo': self._nome(escolhida)}
-        template = 'cebraspe_ce' if banca == 'cebraspe' else _TEMPLATE_FGV_POR_TOTAL.get(total_itens)
-        if banca not in {'cebraspe', 'fgv'} or template is None:
+        template = perfil_da_banca(banca).template_folha(total_itens)
+        if template is None:
             template = self.interacao.escolher(
                 f'{self._nome(escolhida)}: qual é o modelo da folha de resposta?', list(TEMPLATES_FOLHA)
             )
@@ -375,11 +378,7 @@ class _Cadastro:
 
 
 def _chave_prova(texto: str, banca: str) -> str:
-    """Chave da prova Cebraspe pelo cabeçalho do gabarito (um gabarito por prova); demais bancas têm prova única."""
-    if banca != 'cebraspe':
-        return 'unica'
-    cabecalho = normalizar(texto[:1500])
-    return next((chave for marca, chave in _CHAVES_CEBRASPE if marca in cabecalho), 'ce')
+    return perfil_da_banca(banca).chave_da_prova(normalizar(texto[:1500]))
 
 
 def _itens(secao: Secao) -> list[int]:
@@ -388,10 +387,6 @@ def _itens(secao: Secao) -> list[int]:
 
 def _rotulo(secao: Secao) -> str:
     return f'{secao.cargo} (tipo {secao.tipo})' if secao.tipo else secao.cargo
-
-
-def _caderno_cebraspe(caderno: ArquivoDetectado, chave: str) -> bool:
-    return ('CONHECIMENTOS ESPECIFICOS' in normalizar(caderno.texto)) == (chave == 'ce')
 
 
 def _mesmo_tipo(caderno: ArquivoDetectado, secao: Secao) -> bool:

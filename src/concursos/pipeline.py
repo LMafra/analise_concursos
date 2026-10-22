@@ -33,6 +33,7 @@ from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.graficos import gerar_graficos
 from concursos.modelo import ItemGabarito, RespostaMarcada
+from concursos.perfis import perfil_da_banca
 from concursos.prova import segmentar, texto_em_colunas
 from concursos.relatorio import ConteudoRelatorio, gerar_relatorio
 from concursos.respostas import ler_respostas_txt
@@ -43,7 +44,6 @@ from concursos.topicos import ARQUIVO_REVISAO, gravar_revisao, ler_revisao, suge
 
 logger = logging.getLogger(__name__)
 
-BANCAS_COM_CABECALHO = {'fgv', 'selecon'}
 COLUNAS_QUESTOES = [
     'questao',
     'prova',
@@ -293,11 +293,11 @@ def _estruturar_documento(caminho: Path, paginas: list[str], cargo: str | None) 
 
 
 def _disciplinas_por_questao(config: ConcursoConfig) -> dict[int, str]:
-    """Faixas manuais do concurso.yaml; sem elas, cabeçalhos do caderno (FGV e SELECON)."""
+    """Faixas manuais do concurso.yaml; sem elas, cabeçalhos do caderno, nas bancas que os têm."""
     disciplinas = {}
     for prova in config.provas:
         faixas = prova.disciplinas
-        if not faixas and _caderno_pdf(prova) and config.banca in BANCAS_COM_CABECALHO:
+        if not faixas and _caderno_pdf(prova) and perfil_da_banca(config.banca).disciplinas_pelo_caderno:
             faixas = tuple(faixas_do_caderno(config.caminho(prova.caderno), prova.inicio))
             cobertas = sum(f.fim - f.inicio + 1 for f in faixas)
             logger.info(
@@ -369,7 +369,9 @@ def _textos_das_questoes(config: ConcursoConfig) -> dict[int, str]:
         if not prova.caderno:
             continue
         texto = texto_em_colunas(config.caminho(prova.caderno))
-        da_prova = segmentar(texto, prova.questoes, cebraspe=config.banca == 'cebraspe')
+        da_prova = segmentar(
+            texto, prova.questoes, cebraspe=perfil_da_banca(config.banca).segmentacao == 'itens'
+        )
         logger.info('%s: texto de %d de %d questões', prova.caderno, len(da_prova), len(prova.questoes))
         textos.update(da_prova)
     return textos

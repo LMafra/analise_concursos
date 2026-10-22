@@ -1,0 +1,8 @@
+id: selecon
+nome: Instituto Selecon
+ordem: 30
+marcas: [SELECON]
+formato: multipla_escolha
+penalidade: 0.0
+leitor_secoes: lista
+disciplinas_pelo_caderno: true

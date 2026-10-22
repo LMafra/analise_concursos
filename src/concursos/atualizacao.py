@@ -9,7 +9,7 @@ import yaml
 
 from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig
 from concursos.deteccao import ArquivoDetectado, Papel, arquivo_do_sistema, classificar_arquivo, normalizar
-from concursos.gabarito import GabaritoInvalidoError, cargo_cebraspe, carregar_gabarito
+from concursos.gabarito import GabaritoInvalidoError, cargo_do_gabarito, carregar_gabarito
 from concursos.modelo import Pontuacao, Resultado
 
 logger = logging.getLogger(__name__)
@@ -147,7 +147,7 @@ def impacto(diff: pd.DataFrame, pontuacao: Pontuacao) -> tuple[int, int]:
     """Variação de (acertos, nota líquida) causada pelas questões do diff."""
     respondida = diff['resposta'].astype(str) != ''
     acertos = int(diff['acerto_depois'].sum() - diff['acerto_antes'].sum())
-    if pontuacao is not Pontuacao.CEBRASPE:
+    if not pontuacao.fator_penalidade:
         return acertos, acertos
     erros = int((respondida & ~diff['acerto_depois']).sum() - (respondida & ~diff['acerto_antes']).sum())
     return acertos, acertos - erros
@@ -177,12 +177,11 @@ def _nao_cadastrados(config: ConcursoConfig) -> list[Path]:
 
 
 def _corresponde_a_prova(config: ConcursoConfig, prova: ProvaConfig, detectado: ArquivoDetectado) -> bool:
-    if detectado.banca not in (None, config.banca):
+    if detectado.banca is not None and detectado.banca != config.banca:
         return False
-    if config.banca == 'cebraspe':
-        cargo = cargo_cebraspe(detectado.texto)
-        if cargo and config.cargo and normalizar(cargo) != normalizar(config.cargo):
-            return False
+    cargo = cargo_do_gabarito(detectado.texto, config.banca)
+    if cargo and config.cargo and normalizar(cargo) != normalizar(config.cargo):
+        return False
     try:
         itens = carregar_gabarito(
             detectado.caminho, config.formato, config.banca, config.cargo, config.tipo

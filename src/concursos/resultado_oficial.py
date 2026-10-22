@@ -107,7 +107,7 @@ def _calcular(
         peso = 1.0 if medida == 'acertos' else configuracao.peso_de(questao)
         if resultado == Resultado.ACERTO:
             total += peso
-        elif resultado == Resultado.ERRO and medida == 'pontos' and pontuacao is Pontuacao.CEBRASPE:
+        elif resultado == Resultado.ERRO and medida == 'pontos' and pontuacao.fator_penalidade:
             total -= peso
     return total
 

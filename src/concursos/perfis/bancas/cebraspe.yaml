@@ -1,0 +1,18 @@
+id: cebraspe
+nome: Cebraspe
+ordem: 10
+marcas: [CEBRASPE]
+formato: certo_errado
+penalidade: 1.0
+# Um gabarito PDF por prova, com a grade "Item / Gabarito"; o cargo vem do cabeçalho.
+leitor_gabarito: cebraspe
+leitor_cargo: cebraspe
+# O comando do bloco ("Julgue os itens...") vem antes do item.
+segmentacao: itens
+chaves_prova:
+  - [CONHECIMENTOS GERAIS, cg]
+  - [CONHECIMENTOS BASICOS, cb]
+chave_padrao: ce
+marca_caderno_padrao: CONHECIMENTOS ESPECIFICOS
+templates_folha:
+  '*': cebraspe_ce
