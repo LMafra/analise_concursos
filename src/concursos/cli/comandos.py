@@ -1,4 +1,5 @@
 import logging
+import os
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Annotated
@@ -6,7 +7,7 @@ from typing import Annotated
 import typer
 
 from concursos import doctor as diagnostico
-from concursos import relatorio_html
+from concursos import onboarding, relatorio_html
 from concursos.analytics.consolidado import concursos_analisados
 from concursos.analytics.taxonomia import carregar_taxonomia
 from concursos.assistente import InteracaoAutomatica, InteracaoConsole
@@ -20,7 +21,15 @@ from concursos.candidatos import (
     slug,
 )
 from concursos.cli.erros import CODIGO_AMBIENTE, ErroDoAmbiente, ErroDoUsuario, ajustar_nivel_console
-from concursos.config.contexto import Contexto, gravar_no_config_projeto, ler_toml, resolver_contexto
+from concursos.config.contexto import (
+    VARIAVEL_ANALISES,
+    VARIAVEL_CANDIDATO,
+    VARIAVEL_PROVAS,
+    Contexto,
+    gravar_no_config_projeto,
+    ler_toml,
+    resolver_contexto,
+)
 from concursos.configuracao import configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
 from concursos.exportacao import FormatoExportacao, exportar_consolidado
@@ -47,6 +56,7 @@ class Opcoes:
     forcar: bool = False
     todos: bool = False
     abrir: bool = True
+    fornecidos: frozenset[str] = frozenset()
 
 
 Forcar = Annotated[bool, typer.Option('--force', help='reprocessa mesmo sem mudanças')]
@@ -87,10 +97,43 @@ def principal(
     contexto = resolver_contexto(
         data_dir=data_dir, provas=provas, analises=analises, candidato=candidato and slug(candidato)
     )
-    ctx.obj = Opcoes(contexto, sim=sim, dry_run=dry_run, forcar=forcar, todos=todos, abrir=not nao_abrir)
+    fornecidos = frozenset(
+        nome
+        for nome, flag, variavel in (
+            ('nome', candidato, VARIAVEL_CANDIDATO),
+            ('provas', provas, VARIAVEL_PROVAS),
+            ('analises', analises, VARIAVEL_ANALISES),
+        )
+        if flag or os.environ.get(variavel)
+    )
+    ctx.obj = Opcoes(
+        contexto,
+        sim=sim,
+        dry_run=dry_run,
+        forcar=forcar,
+        todos=todos,
+        abrir=not nao_abrir,
+        fornecidos=fornecidos,
+    )
     if ctx.invoked_subcommand is None:
+        if onboarding.precisa_de_onboarding(contexto) and not dry_run:
+            return _onboarding(ctx.obj)
         return _analisar(ctx.obj)
     return None
+
+
+@app.command('init', help='refaz as perguntas do onboarding, com as respostas atuais como padrão')
+def init(
+    ctx: typer.Context,
+    doctor: Annotated[
+        bool | None, typer.Option('--doctor/--no-doctor', help='confere o ambiente no fim')
+    ] = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    if opcoes.dry_run:
+        typer.echo('o init não grava nada com --dry-run')
+        return 0
+    return _onboarding(opcoes, doctor)
 
 
 @app.command('analyze', help='analisa os concursos que mudaram (ou só o indicado)')
@@ -208,6 +251,41 @@ def doctor(ctx: typer.Context) -> int:
     itens = diagnostico.diagnosticar([contexto.provas, contexto.analises, contexto.projeto, contexto.home])
     typer.echo(diagnostico.formatar(itens))
     return CODIGO_AMBIENTE if diagnostico.tem_erro(itens) else 0
+
+
+def _onboarding(opcoes: Opcoes, doctor: bool | None = None) -> int:
+    contexto = opcoes.contexto
+    com_terminal = onboarding.interativo(opcoes.sim)
+    if not com_terminal:
+        _exigir_provas(contexto.provas)
+    ambiente = dict(os.environ)
+    if doctor is not None:
+        ambiente[onboarding.VARIAVEL_DOCTOR] = 's' if doctor else 'n'
+    try:
+        respostas = onboarding.perguntar(
+            contexto, set(opcoes.fornecidos), InteracaoConsole() if com_terminal else None, ambiente
+        )
+    except onboarding.OnboardingCanceladoError:
+        raise ErroDoUsuario(
+            'onboarding cancelado; nada foi gravado', 'rode `concurso-analise init` quando quiser'
+        ) from None
+    opcoes = replace(opcoes, contexto=onboarding.aplicar(contexto, respostas))
+    if opcoes.contexto.provas.is_dir():
+        opcoes = _migrar(opcoes)
+    onboarding.gravar(contexto, respostas)
+    contexto = opcoes.contexto
+    if respostas.doctor:
+        itens = diagnostico.diagnosticar(
+            [contexto.provas, contexto.analises, contexto.projeto, contexto.home]
+        )
+        typer.echo(diagnostico.formatar(itens))
+    if contexto.provas.is_dir() and not listar_concursos(contexto.provas):
+        typer.echo(
+            f'nenhum concurso em {contexto.provas} ainda; siga o {onboarding.ARQUIVO_LEIA_ME} '
+            'e rode `concurso-analise` de novo'
+        )
+        return 0
+    return _analisar(opcoes)
 
 
 def _analisar(opcoes: Opcoes, concurso: str | None = None, reaproveitar: bool = False) -> int:

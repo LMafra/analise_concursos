@@ -364,6 +364,24 @@ concurso_alvo = "tcu_25"   # opcional; nome da pasta do concurso
 - **`[candidato] ultimo`:** o último candidato analisado; vale quando não há `--candidate` nem `CONCURSO_CANDIDATO`.
 - **`[migracao]`:** o registro da migração das fases 1 a 3 (`versao = 4`, `candidato`, `backup`, `data`).
 
+## Onboarding (fase 4)
+
+Roda no comando sem subcomando quando o projeto não tem `config.toml`, e sempre com `init`. As perguntas saem com `[n/total]` e o padrão entre colchetes; Enter aceita o padrão.
+
+| Pergunta | Padrão | Flag | Variável |
+|---|---|---|---|
+| nome | o do candidato atual; sem ele, o único candidato das provas ou o login | `--candidate` | `CONCURSO_CANDIDATO` |
+| pasta de provas | a resolvida pelo contexto | `--provas` | `CONCURSO_PROVAS` |
+| pasta de análises | a resolvida pelo contexto | `--analises` | `CONCURSO_ANALISES` |
+| rodar o `doctor` no fim | sim | `init --doctor/--no-doctor` | `CONCURSO_DOCTOR` |
+
+- **Só o que falta:** o que veio por flag ou variável não é perguntado.
+- **Sem perguntas:** sem TTY, com `CI` ou com `--yes`, ficam os padrões, listados no log. Sem a pasta de provas, para com a `dica:` de sempre.
+- **Pasta de provas ausente:** o wizard oferece criá-la com um `LEIA-ME.txt` que explica o que pôr nela; criada vazia, a análise fica para a próxima execução.
+- **Resumo:** antes de gravar, lista o que será gravado e pede confirmação; recusar sai com 1 sem gravar nada.
+- **Ordem:** migração das fases 1 a 3 (com o candidato respondido), depois a gravação, o `doctor` e a análise.
+- **O que grava:** no projeto, `[pastas]` (relativas à raiz quando dentro dela) e `[candidato] ultimo`; o perfil global `~/.concurso/candidatos/<slug>.toml` com o nome digitado; e, na configuração global `~/.concurso/config.toml`, `[candidatos] conhecidos` (lista de slugs). Nenhuma chave de API é gravada.
+
 ## Candidatos (fase 4)
 
 Um concurso pode ter vários candidatos. Cada um tem uma subpasta com as respostas e o perfil:

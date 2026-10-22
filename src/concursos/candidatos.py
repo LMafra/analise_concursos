@@ -206,10 +206,11 @@ def adicionar_arquivo(pasta_concurso: Path, arquivo: Path, nome: str) -> Path:
     return destino
 
 
-def gravar_perfil_global(home: Path, nome: str) -> Path:
+def gravar_perfil_global(home: Path, nome: str, atualizar: bool = False) -> Path:
+    """Sem `atualizar`, um perfil existente fica como está."""
     candidato = slug(nome)
     caminho = home / PASTA_PERFIS_GLOBAIS / f'{candidato}.toml'
-    if not caminho.exists():
+    if atualizar or not caminho.exists():
         caminho.parent.mkdir(parents=True, exist_ok=True)
         caminho.write_text(tomli_w.dumps({'nome': nome, 'slug': candidato}), encoding='utf-8')
     return caminho

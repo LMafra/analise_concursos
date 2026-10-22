@@ -12,7 +12,7 @@ class Interacao(Protocol):
 
     def perguntar(self, pergunta: str, sugestao: str | None = None) -> str | None: ...
 
-    def confirmar(self, pergunta: str) -> bool: ...
+    def confirmar(self, pergunta: str, padrao: bool = False) -> bool: ...
 
     def mostrar(self, texto: str) -> None: ...
 
@@ -40,8 +40,9 @@ class InteracaoConsole:
         padrao = f' [{sugestao}]' if sugestao else ''
         return self._entrada(f'{pergunta}{padrao}: ').strip() or sugestao
 
-    def confirmar(self, pergunta: str) -> bool:
-        return self._entrada(f'{pergunta} [s/N] ').strip().lower() in {'s', 'sim'}
+    def confirmar(self, pergunta: str, padrao: bool = False) -> bool:
+        resposta = self._entrada(f'{pergunta} {"[S/n]" if padrao else "[s/N]"} ').strip().lower()
+        return padrao if not resposta else resposta in {'s', 'sim'}
 
     def mostrar(self, texto: str) -> None:
         self._saida.write(texto + '\n')
@@ -63,7 +64,7 @@ class InteracaoAutomatica:
     def perguntar(self, pergunta: str, sugestao: str | None = None) -> str | None:
         return sugestao
 
-    def confirmar(self, pergunta: str) -> bool:
+    def confirmar(self, pergunta: str, padrao: bool = False) -> bool:
         return True
 
     def mostrar(self, texto: str) -> None:

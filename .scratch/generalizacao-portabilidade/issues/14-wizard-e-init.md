@@ -15,10 +15,10 @@ Cada pergunta também tem flag e variável de ambiente. Sem TTY, com `CI=true` o
 
 **Blocked by:** 04, 10, 13
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Com stdin roteirizado aceitando todos os padrões, o comando grava as três configurações e gera o `index.html`.
-- [ ] Sem TTY, nada é perguntado e os padrões são listados no log.
-- [ ] Na segunda execução, o wizard não reaparece. `init` refaz as perguntas e oferece as respostas atuais como padrão.
-- [ ] Se a pasta de provas não existir, o wizard oferece criá-la com um `LEIA-ME.txt` que explica o que colocar.
-- [ ] O onboarding cronometrado no concurso sintético termina em até 90 segundos.
+- [x] Com stdin roteirizado aceitando todos os padrões, o comando grava as três configurações e gera o `index.html`.
+- [x] Sem TTY, nada é perguntado e os padrões são listados no log.
+- [x] Na segunda execução, o wizard não reaparece. `init` refaz as perguntas e oferece as respostas atuais como padrão.
+- [x] Se a pasta de provas não existir, o wizard oferece criá-la com um `LEIA-ME.txt` que explica o que colocar.
+- [x] O onboarding cronometrado no concurso sintético termina em até 90 segundos.

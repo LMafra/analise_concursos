@@ -17,6 +17,7 @@ PASTA_PROJETO = '.concurso'
 PASTA_PROVAS = 'provas'
 PASTA_ANALISES = 'analises'
 ARQUIVO_CONFIG_PROJETO = 'config.toml'
+ARQUIVO_CONFIG_GLOBAL = 'config.toml'
 ARQUIVO_TAXONOMIA = 'taxonomia.yaml'
 
 
@@ -39,6 +40,10 @@ class Contexto:
     @property
     def logs(self) -> Path:
         return self.home / 'logs'
+
+    @property
+    def config_global(self) -> Path:
+        return self.home / ARQUIVO_CONFIG_GLOBAL
 
     @property
     def config_projeto(self) -> Path:
@@ -98,10 +103,14 @@ def ler_toml(caminho: Path) -> dict:
 
 def gravar_no_config_projeto(contexto: Contexto, secao: str, valores: dict) -> None:
     """Atualiza uma seção do `config.toml` do projeto, preservando as demais."""
-    dados = ler_toml(contexto.config_projeto)
+    gravar_secao(contexto.config_projeto, secao, valores)
+
+
+def gravar_secao(caminho: Path, secao: str, valores: dict) -> None:
+    dados = ler_toml(caminho)
     dados[secao] = {**dados.get(secao, {}), **valores}
-    contexto.config_projeto.parent.mkdir(parents=True, exist_ok=True)
-    contexto.config_projeto.write_text(tomli_w.dumps(dados), encoding='utf-8')
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    caminho.write_text(tomli_w.dumps(dados), encoding='utf-8')
 
 
 def _raiz_do_projeto(atual: Path, home: Path) -> Path:
