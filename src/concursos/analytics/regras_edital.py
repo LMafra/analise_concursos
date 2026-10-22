@@ -5,6 +5,7 @@ import json
 import logging
 import re
 from dataclasses import asdict, dataclass, field, replace
+from datetime import date
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,7 @@ from concursos.modelo import Escolaridade
 
 logger = logging.getLogger(__name__)
 
-CHAVES_DAS_REGRAS = ('identificacao', 'pesos', 'distribuicao', 'cortes', 'avisos')
+CHAVES_DAS_REGRAS = ('identificacao', 'pesos', 'distribuicao', 'cortes', 'cronograma', 'avisos')
 CONFIANCA_LISTA_DE_CARGOS = 0.9
 CONFIANCA_CARGO_UNICO = 0.85
 CONFIANCA_NOME_DO_CARGO = 0.75
@@ -128,11 +129,25 @@ class Pesos:
 
 
 @dataclass(frozen=True)
+class Cronograma:
+    """Datas que o edital traz; `recurso` é o prazo contra o gabarito (`inicio`, `fim`).
+    `discursiva_no_mesmo_dia` fica vazio sem data da discursiva."""
+
+    objetiva: Campo = field(default_factory=Campo)
+    discursiva: Campo = field(default_factory=Campo)
+    resultado_preliminar: Campo = field(default_factory=Campo)
+    resultado_final: Campo = field(default_factory=Campo)
+    recurso: Campo = field(default_factory=Campo)
+    discursiva_no_mesmo_dia: bool | None = None
+
+
+@dataclass(frozen=True)
 class RegrasEdital:
     identificacao: Identificacao = field(default_factory=Identificacao)
     pesos: Pesos = field(default_factory=Pesos)
     distribuicao: Distribuicao = field(default_factory=Distribuicao)
     cortes: tuple[Corte, ...] = ()
+    cronograma: Cronograma = field(default_factory=Cronograma)
     avisos: tuple[str, ...] = ()
 
     def gravar_json(self, caminho: Path) -> None:
@@ -869,6 +884,113 @@ def _extrair_cortes(
     return tuple(cortes.values()), avisos
 
 
+# --- Cronograma --------------------------------------------------------------------------------------
+
+_MESES = (
+    'janeiro',
+    'fevereiro',
+    'março',
+    'abril',
+    'maio',
+    'junho',
+    'julho',
+    'agosto',
+    'setembro',
+    'outubro',
+    'novembro',
+    'dezembro',
+)
+_DATA = r'(?P<dia>\d{1,2})/(?P<mes>\d{1,2})/(?P<ano>\d{4})'
+_DATA_POR_EXTENSO = rf'(?P<dia>\d{{1,2}})\s+de\s+(?P<mes>{"|".join(_MESES)})\s+de\s+(?P<ano>\d{{4}})'
+_COM_A_DISCURSIVA = r'(?P<discursiva>\s+e\s+(?:a\s+|da\s+)?(?:prova\s+)?discursivas?)?'
+_APLICACAO_DA_OBJETIVA = (
+    re.compile(rf'Aplicação\s+d[ao]s?\s+provas?\s+objetivas?{_COM_A_DISCURSIVA}\.?\s+{_DATA}', re.I),
+    re.compile(
+        rf'Prova\s+Objetiva{_COM_A_DISCURSIVA}[^.]{{0,160}}?ser(?:á|ão)\s+realizad[ao]s?[^.]{{0,80}}?'
+        rf'\bno\s+dia\s+{_DATA_POR_EXTENSO}',
+        re.I,
+    ),
+)
+_APLICACAO_DA_DISCURSIVA = re.compile(rf'Aplicação\s+da\s+prova\s+discursiva\.?\s+{_DATA}', re.I)
+
+
+def _resultado_da_objetiva(nome: str) -> tuple[re.Pattern, ...]:
+    """A data depois da atividade ou no meio dela, quando a célula do anexo quebra entre "provas" e
+    "objetivas"."""
+    return (
+        re.compile(rf'{nome}\s+(?:nas?|das?)\s+provas?\s+objetivas?\D{{0,120}}?{_DATA}', re.I),
+        re.compile(rf'{nome}\s+(?:nas?|das?)\s+provas?\s+{_DATA}\s+objetivas?', re.I),
+    )
+
+
+_RESULTADO_PRELIMINAR = _resultado_da_objetiva(
+    r'(?:resultado\s+(?:preliminar|provisório)|notas\s+preliminares)'
+)
+_RESULTADO_FINAL = _resultado_da_objetiva(r'(?:resultado\s+final|notas\s+finais)')
+_RECURSO_CONTRA_O_GABARITO = re.compile(
+    r'recursos\s+quanto\s+às\s+(?:questões\s+formuladas\s+)?'
+    r'(?P<dia1>\d{1,2})(?:/(?P<mes1>\d{1,2}))?\s+[ae]\s+(?P<dia>\d{1,2})/(?P<mes>\d{1,2})/(?P<ano>\d{4})',
+    re.I,
+)
+
+
+def _extrair_cronograma(config: ConcursoConfig, docs: _Documentos) -> tuple[Cronograma, list[str]]:
+    """Datas do cronograma (anexo do Cebraspe e do CPNU) ou do texto ("será realizada … no dia 12 de outubro
+    de 2025", FGV); nenhuma é imputada."""
+    objetiva = discursiva = Campo()
+    no_mesmo_dia = None
+    if (achado := _primeira_data(docs, *_APLICACAO_DA_OBJETIVA)) is not None:
+        objetiva = achado.campo(_data(achado.match), CONFIANCA_DISTRIBUICAO)
+        if achado.match['discursiva']:
+            discursiva, no_mesmo_dia = objetiva, True
+    if no_mesmo_dia is None and (achado := _primeira_data(docs, _APLICACAO_DA_DISCURSIVA)) is not None:
+        discursiva = achado.campo(_data(achado.match), CONFIANCA_DISTRIBUICAO)
+        no_mesmo_dia = discursiva.valor == objetiva.valor
+    preliminar, final = (
+        achado.campo(_data(achado.match), CONFIANCA_DISTRIBUICAO) if achado else Campo()
+        for achado in (_primeira_data(docs, *_RESULTADO_PRELIMINAR), _primeira_data(docs, *_RESULTADO_FINAL))
+    )
+    recurso = Campo()
+    if (achado := _primeira_data(docs, _RECURSO_CONTRA_O_GABARITO)) is not None:
+        m, fim = achado.match, _data(achado.match)
+        inicio = _data_valida(int(m['dia1']), int(m['mes1'] or m['mes']), int(m['ano']))
+        if inicio is not None:
+            recurso = achado.campo({'inicio': inicio, 'fim': fim}, CONFIANCA_DISTRIBUICAO)
+    cronograma = Cronograma(objetiva, discursiva, preliminar, final, recurso, no_mesmo_dia)
+    nomes = {
+        'objetiva': objetiva,
+        'discursiva': discursiva,
+        'resultado preliminar': preliminar,
+        'resultado final': final,
+        'recurso': recurso,
+    }
+    ausentes = [nome for nome, campo in nomes.items() if campo.valor is None]
+    if not ausentes:
+        return cronograma, []
+    return cronograma, [
+        f'{config.nome}: cronograma do edital sem data de {", ".join(ausentes)}; ficam vazias'
+    ]
+
+
+def _primeira_data(docs: _Documentos, *padroes: re.Pattern) -> _Achado | None:
+    """O primeiro padrão com uma data válida vence."""
+    achados = (a for padrao in padroes for a in docs.todos(padrao))
+    return next((a for a in achados if _data(a.match) is not None), None)
+
+
+def _data(match: re.Match) -> date | None:
+    mes = match['mes']
+    numero = int(mes) if mes.isdigit() else _MESES.index(mes.lower()) + 1
+    return _data_valida(int(match['dia']), numero, int(match['ano']))
+
+
+def _data_valida(dia: int, mes: int, ano: int) -> date | None:
+    try:
+        return date(ano, mes, dia)
+    except ValueError:
+        return None
+
+
 def _aviso_de_default(config: ConcursoConfig, docs: _Documentos, motivo: str) -> str:
     texto = ' '.join(normalizar(doc.texto.texto) for doc in docs.lista)
     gatilhos = [nome for nome, padrao in _GATILHOS_DE_DEFAULT.items() if re.search(padrao, texto)]
@@ -892,10 +1014,11 @@ def extrair_regras(
     pesos, avisos_dos_pesos = _extrair_pesos(config, docs)
     distribuicao, avisos_da_distribuicao = _extrair_distribuicao(config, docs, escopo)
     cortes, avisos_dos_cortes = _extrair_cortes(config, docs, escopo)
-    avisos += avisos_dos_pesos + avisos_da_distribuicao + avisos_dos_cortes
+    cronograma, avisos_do_cronograma = _extrair_cronograma(config, docs)
+    avisos += avisos_dos_pesos + avisos_da_distribuicao + avisos_dos_cortes + avisos_do_cronograma
     for aviso in avisos:
         logger.warning('%s', aviso)
-    return RegrasEdital(identificacao, pesos, distribuicao, cortes, tuple(avisos))
+    return RegrasEdital(identificacao, pesos, distribuicao, cortes, cronograma, tuple(avisos))
 
 
 def ler_regras(pasta: Path) -> dict | None:

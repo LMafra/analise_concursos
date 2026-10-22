@@ -11,12 +11,12 @@ Ver `docs/spec-fase3.md`, histórias 24–27 e 48.
 
 **Blocked by:** 01 (Identificação do concurso e escopo por cargo)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Teste puro: o Anexo I do Cebraspe dá a objetiva e a discursiva no mesmo dia.
-- [ ] Teste puro: a discursiva em outro dia sai com a própria data.
-- [ ] Teste puro: data ausente fica vazia com aviso.
-- [ ] Teste de validação: uma data divergente gera `info`.
-- [ ] A data da prova no consolidado não muda.
-- [ ] `docs/modelo.md` documenta o bloco de cronograma.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Teste puro: o Anexo I do Cebraspe dá a objetiva e a discursiva no mesmo dia.
+- [x] Teste puro: a discursiva em outro dia sai com a própria data.
+- [x] Teste puro: data ausente fica vazia com aviso.
+- [x] Teste de validação: uma data divergente gera `info`.
+- [x] A data da prova no consolidado não muda.
+- [x] `docs/modelo.md` documenta o bloco de cronograma.
+- [x] `uv run pytest` e `ruff` verdes.

@@ -207,6 +207,12 @@ A precedência é edital, depois `correcao.nota_corte` do `concurso.yaml` (corte
 
 O `correcao.json` mantém o seu `nota_corte`, que continua alimentando a nota final dos relatórios.
 
+**Cronograma** (`cronograma`). Datas da prova objetiva e do que vem em torno dela, cada uma num campo (`AAAA-MM-DD`): `objetiva`, `discursiva`, `resultado_preliminar` e `resultado_final` (da objetiva), e `recurso` (prazo contra o gabarito, `{inicio, fim}`). O lógico `discursiva_no_mesmo_dia` distingue a discursiva no mesmo dia, em outro turno (Cebraspe, CPRM), da discursiva em outro dia (CPNU, 07/12/2025); fica vazio sem data da discursiva.
+
+- **Onde as datas são lidas:** no cronograma anexo ("Aplicação das provas objetivas e discursiva 8/3/2026", Anexo I do Cebraspe e Anexo X do CPNU) ou no texto ("serão realizadas no dia 30 de novembro de 2025", FGV). Numa célula quebrada do anexo, a data pode vir no meio da atividade ("resultado final nas provas 5/8/2026 objetivas").
+- **Data ausente:** fica vazia, nunca é imputada, e um aviso lista as que faltam.
+- **Data da prova do consolidado:** continua sendo a do `correcao.json`, resolvida como na fase 2. Quando o `concurso.yaml` declara `data_prova` diferente da objetiva do edital, o CSV de discrepâncias ganha um `info` (`data da prova objetiva`, com a diferença em dias).
+
 **Pesos** (`pesos`). São a expectativa do edital; o peso realizado, que entra na nota, continua sendo o do `correcao.json`. Têm três chaves:
 
 - `tipo`: `uniforme`, `por_disciplina`, `por_tipo_de_questao`, `por_bloco`, `por_faixa_de_itens` ou `formula`;

@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -553,3 +554,131 @@ def test_pontos_diferentes_por_modulo_sao_peso_por_bloco():
 
     assert regras.pesos.tipo.valor is TipoPeso.POR_BLOCO
     assert regras.pesos.faixas[''].valor == (PesoItens(1, 40, 1.0), PesoItens(41, 70, 2.5))
+
+
+CRONOGRAMA_CD = """ANEXO I
+CRONOGRAMA PREVISTO
+Atividade Datas previstas
+Divulgação do edital que informará a
+23/2/2026
+disponibilização da consulta aos locais de provas
+Aplicação das provas objetivas e discursiva 8/3/2026
+10 a 12/3/2026
+Consulta individual aos gabaritos oficiais
+Das 19 horas do primeiro dia às 18 horas do último
+preliminares das provas objetivas
+dia (horário oficial de Brasília/DF)
+Prazo para a interposição de recursos quanto às
+11 e 12/3/2026
+questões formuladas, aos gabaritos oficiais
+Das 10 horas do primeiro dia às 18 horas do último
+preliminares divulgados e(ou) ao padrão de
+dia (horário oficial de Brasília/DF)
+respostas da prova discursiva
+Divulgação dos gabaritos oficiais preliminares das
+13/3/2026
+provas objetivasDivulgação do edital de resultado final nas provas
+objetivas e de resultado provisório no procedimento 8/4/2026
+de caracterização da deficiência (etapa documental)
+"""
+
+CRONOGRAMA_CPNU = """ANEXO X
+CRONOGRAMA
+EVENTOS BÁSICOS - CONCURSO PÚBLICO NACIONAL UNIFICADO 2 DATAS
+Aplicação das provas objetivas. 05/10/2025
+Divulgação preliminar dos gabaritos das provas objetivas. 06/10/2025
+Prazo para interposição de eventuais recursos quanto às questões formuladas
+07/10 e 08/10/2025
+e/ou aos gabaritos divulgados.
+Divulgação das notas finais das Provas Objetivas.
+12/11/2025
+Aplicação da Prova Discursiva. 07/12/2025
+"""
+
+PROVAS_CPRM = """11.1 Para todas as áreas de conhecimento dos cargos de Pesquisador, Analista e Técnico em
+Geociências, a Prova Objetiva e a Prova Discursiva, ambas de caráter eliminatório e classificatório, serão
+realizadas no dia 30 de novembro de 2025, no turno da manhã, das 8h às 13h.
+"""
+
+PROVA_AGSUS = """9.1 A Prova Objetiva de múltipla escolha, de caráter eliminatório e classificatório, para todos os
+cargos, será realizada na cidade de Brasília-DF, no dia 12 de outubro de 2025, das 13h30 às 17h30.
+"""
+
+
+def datas(regras) -> tuple:
+    c = regras.cronograma
+    return (
+        c.objetiva.valor,
+        c.discursiva.valor,
+        c.discursiva_no_mesmo_dia,
+        c.resultado_final.valor,
+        c.recurso.valor,
+    )
+
+
+def test_anexo_i_do_cebraspe_tem_objetiva_e_discursiva_no_mesmo_dia():
+    regras = extrair_regras(config(), {'edital.pdf': [CAPA_TCU, CRONOGRAMA_CD]})
+
+    assert datas(regras) == (
+        date(2026, 3, 8),
+        date(2026, 3, 8),
+        True,
+        date(2026, 4, 8),
+        {'inicio': date(2026, 3, 11), 'fim': date(2026, 3, 12)},
+    )
+    objetiva = regras.cronograma.objetiva
+    assert (objetiva.fonte, objetiva.documento_origem, objetiva.pagina_origem) == (
+        FonteRegra.EDITAL,
+        'edital.pdf',
+        2,
+    )
+    assert 'Aplicação das provas objetivas e discursiva 8/3/2026' in objetiva.trecho_origem
+
+
+def test_discursiva_em_outro_dia_sai_com_a_propria_data():
+    regras = extrair_regras(config(), {'edital.pdf': [CRONOGRAMA_CPNU]})
+
+    assert datas(regras) == (
+        date(2025, 10, 5),
+        date(2025, 12, 7),
+        False,
+        date(2025, 11, 12),
+        {'inicio': date(2025, 10, 7), 'fim': date(2025, 10, 8)},
+    )
+
+
+def test_fgv_tem_a_data_por_extenso_e_a_discursiva_no_mesmo_dia():
+    regras = extrair_regras(config(), {'edital.pdf': [PROVAS_CPRM]})
+
+    c = regras.cronograma
+    assert (c.objetiva.valor, c.discursiva.valor, c.discursiva_no_mesmo_dia) == (
+        date(2025, 11, 30),
+        date(2025, 11, 30),
+        True,
+    )
+
+
+def test_data_ausente_no_cronograma_fica_vazia_com_aviso():
+    regras = extrair_regras(config(), {'edital.pdf': [PROVA_AGSUS]})
+
+    c = regras.cronograma
+    assert c.objetiva.valor == date(2025, 10, 12)
+    assert (c.discursiva.valor, c.discursiva.fonte, c.discursiva_no_mesmo_dia) == (
+        None,
+        FonteRegra.DEFAULT,
+        None,
+    )
+    assert c.resultado_preliminar.valor is None
+    aviso = next(a for a in regras.avisos if 'cronograma' in a)
+    assert all(nome in aviso for nome in ('discursiva', 'resultado preliminar', 'resultado final', 'recurso'))
+    assert 'objetiva' not in aviso
+
+
+def test_data_do_resultado_no_meio_da_celula_quebrada():
+    linhas = """Divulgação do edital de resultado final nas provas
+5/8/2026
+objetivas e de resultado provisório no procedimentode análise documental para a caracterização da
+"""
+    regras = extrair_regras(config(), {'edital.pdf': [linhas]})
+
+    assert regras.cronograma.resultado_final.valor == date(2026, 8, 5)

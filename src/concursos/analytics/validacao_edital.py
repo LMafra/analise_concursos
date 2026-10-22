@@ -50,7 +50,7 @@ def validar_edital(
     uma linha por questão do concurso, com `prova` e `disciplina`; a `taxonomia` casa as disciplinas do
     edital com as das questões pela disciplina canônica e dá o bloco na prova única. As `correcoes` (uma por
     variante) têm os pesos realizados."""
-    discrepancias = [*_cargo(config, regras), *_soma_dos_eixos(regras.pesos)]
+    discrepancias = [*_cargo(config, regras), *_soma_dos_eixos(regras.pesos), *_data_da_prova(config, regras)]
     if correcoes is not None:
         discrepancias += _pesos_realizados(config, regras.pesos, correcoes)
     if questoes is not None:
@@ -75,6 +75,22 @@ def _cargo(config: ConcursoConfig, regras: RegrasEdital) -> list[Discrepancia]:
             Severidade.WARN,
             'Corrija o cargo no concurso.yaml com o nome (ou número) do cargo no edital; '
             'sem casamento, cortes e distribuição são lidos do concurso inteiro',
+        )
+    ]
+
+
+def _data_da_prova(config: ConcursoConfig, regras: RegrasEdital) -> list[Discrepancia]:
+    edital = regras.cronograma.objetiva.valor
+    if config.data_prova is None or edital is None or config.data_prova == edital:
+        return []
+    return [
+        Discrepancia(
+            'data da prova objetiva',
+            edital.isoformat(),
+            config.data_prova.isoformat(),
+            (config.data_prova - edital).days,
+            Severidade.INFO,
+            'Vale a data do concurso.yaml; confira se uma retificação mudou a data do edital',
         )
     ]
 

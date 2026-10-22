@@ -1,10 +1,19 @@
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
 from test_analytics_correcao import pesos_cpnu
 
 from concursos.analytics.correcao import ConfiguracaoCorrecao
-from concursos.analytics.regras_edital import Campo, Distribuicao, FonteRegra, Pesos, RegrasEdital, TipoPeso
+from concursos.analytics.regras_edital import (
+    Campo,
+    Cronograma,
+    Distribuicao,
+    FonteRegra,
+    Pesos,
+    RegrasEdital,
+    TipoPeso,
+)
 from concursos.analytics.taxonomia import DisciplinaCanonica
 from concursos.analytics.validacao_edital import validar_edital
 from concursos.concurso_config import PesoItens, validar_dados
@@ -139,3 +148,27 @@ def test_peso_uniforme_confere_com_a_correcao_sem_faixas():
     assert validar_edital(cfg, regras, correcoes=uniforme).empty
     por_bloco = [ConfiguracaoCorrecao(pesos=(PesoItens(1, 5, 1.0), PesoItens(6, 10, 2.0)))]
     assert linhas(validar_edital(cfg, regras, correcoes=por_bloco))['pesos dos itens']['severidade'] == 'warn'
+
+
+def test_data_da_configuracao_diferente_da_do_edital_e_info():
+    dados = {
+        'banca': 'fgv',
+        'formato': 'multipla_escolha',
+        'provas': {'unica': {'gabarito': 'g', 'itens': [1, 4]}},
+    }
+    regras = RegrasEdital(cronograma=Cronograma(objetiva=Campo(date(2026, 3, 8), FonteRegra.EDITAL)))
+
+    tabela = linhas(
+        validar_edital(validar_dados(Path('sintetico'), {**dados, 'data_prova': '2026-03-15'}), regras)
+    )
+    mesma = validar_dados(Path('sintetico'), {**dados, 'data_prova': '2026-03-08'})
+
+    data = tabela['data da prova objetiva']
+    assert (data['esperado_edital'], data['observado_prova'], data['diferenca']) == (
+        '2026-03-08',
+        '2026-03-15',
+        7,
+    )
+    assert data['severidade'] == 'info'
+    assert validar_edital(mesma, regras).empty
+    assert validar_edital(validar_dados(Path('sintetico'), dados), regras).empty
