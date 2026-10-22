@@ -240,6 +240,39 @@ O CSV de discrepâncias compara a distribuição com as questões corrigidas (`q
 | `itens de conhecimentos gerais` / `… específicos` | questões por bloco: pela prova (P1/P2) ou, na prova única, pelo bloco da disciplina na taxonomia. Fica de fora se alguma questão não tem bloco conhecido | `error` |
 | `disciplina: <nome>` | questões da disciplina, casada pela disciplina canônica da taxonomia (ou pelo nome, se a taxonomia não a conhece) | `warn` |
 
+**Metadados e descoberta dirigida** (`metadados`, `versao_candidatos`). O registro versionado de candidatos (`concursos.analytics.candidatos_edital`, `VERSAO_CANDIDATOS`) declara, para cada candidato, a informação, os padrões de busca, o uso no projeto, o impacto (`alto`, `medio`, `baixo`), o status (`aplicado`, `proposto` ou `descartado`) e a severidade quando ausente. Mudar um candidato sobe a versão. Cada concurso tem um metadado por candidato, na ordem do registro, e nenhum some da saída. O metadado é um campo com mais duas chaves:
+
+- `chave`: a do candidato (`alternativas`, `desempate`, `validade`…);
+- `status`: `encontrado`, `nao_encontrado` ou `ambiguo`. Ambíguo é o candidato de valor único (alternativas, tipo de questão, validade) com valores diferentes no edital; o `valor` vira a lista deles.
+
+Encontrado, o metadado tem fonte `descoberta` (ou `retificacao`), trecho, documento e página; a busca respeita o escopo do cargo, e uma retificação que o traz vence o edital. Os candidatos sem padrão são derivados das regras já extraídas: corte em acertos ao lado de nota ponderada (CPNU 8.15), teto de classificados (TCU 8.11.5) e soma dos pesos dos eixos (CPNU 8.9.2). Quando o edital traz o número de alternativas e o gabarito usa outra última letra (por exemplo, 5 alternativas e gabarito só até D), o CSV de discrepâncias ganha um `error` (`alternativas`, `A a E` contra `A a D`).
+
+**Catálogo de descobertas** (`catalogo_edital.md`). Gerado do registro e dos metadados, um por concurso, com este template:
+
+```markdown
+# Catálogo do edital: <nome oficial>, <cargo> – <especialidade>
+
+Concurso `<slug>`; registro de candidatos na versão <n>. "(descoberta)" marca o que veio além da lista inicial de candidatos.
+
+## Descobertas
+
+| Informação | Valor | Trecho de origem | Uso no projeto | Impacto | Status | No edital |
+|---|---|---|---|---|---|---|
+| Número de alternativas | 5 | «… contendo 5 (cinco) alternativas cada …» (p. 29, edital.pdf) | Confere o gabarito … | alto | aplicado | encontrado |
+| Bibliografia | – | – | Fontes de estudo indicadas | baixo | proposto | não encontrado (info) |
+
+## Propostas de evolução
+
+- **<informação>** (<status>): <proposta, com o diff estimado>
+
+## Descartados
+
+- **<informação>**: <motivo>
+```
+
+- **Propostas de evolução:** os candidatos de impacto alto com proposta. A que muda código de uma fase anterior (o número de alternativas no OCR da folha) fica só como proposta, com o diff estimado, e só é aplicada com confirmação.
+- **Descartados:** os candidatos descartados e as informações que nem viraram candidato (taxa, remuneração, jornada, lotação, cotas, isenção, atendimento especial, nome social, amamentação, heteroidentificação, perícia médica), cada um com o motivo.
+
 ## `concurso.yaml`
 
 O arquivo é gerado por `concursos adicionar` e pode ser editado à mão. Os caminhos são relativos à pasta do concurso.
@@ -377,6 +410,7 @@ Por concurso, em `analises/<concurso>/`:
   - `resposta`, `acerto_antes`, `acerto_depois`.
 - **`edital_estruturado.json`:** `fonte`, `cargo` e `conhecimentos[].disciplinas[].topicos[]`. Cada tópico tem `numero`, `nome`, `descricao` e `peso`. Quando há PDF do edital, o arquivo ganha as [regras do edital](#regras-do-edital-fase-3) (`identificacao`, `avisos` e os blocos descritos lá). Cada parte grava só as próprias chaves e preserva as outras.
 - **`discrepancias_edital.csv`:** uma linha por divergência entre o edital e a prova, com as colunas `item, esperado_edital, observado_prova, diferenca, severidade, acao_sugerida`. A `severidade` é `info`, `warn` ou `error`; a `diferenca` fica vazia quando não é numérica. Só existe quando há PDF do edital, e fica só com o cabeçalho quando tudo confere.
+- **`catalogo_edital.md`:** o catálogo de descobertas do edital (template em "Regras do edital"). Só existe quando há PDF do edital.
 - **`correcao.json`:** lista de configurações de correção (uma por variante; uma só quando o concurso não tem variantes). Campos:
   - `modelo`, `fator_penalidade`, `nota_maxima`, `nota_corte`;
   - `pesos`: lista de `{inicio, fim, peso}` (vazia quando todos os itens valem 1);

@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from concursos.analytics.correcao import ConfiguracaoCorrecao
-from concursos.analytics.regras_edital import Distribuicao, Pesos, RegrasEdital, TipoPeso
+from concursos.analytics.regras_edital import Distribuicao, Pesos, RegrasEdital, StatusExtracao, TipoPeso
 from concursos.analytics.taxonomia import BLOCO_DA_PROVA, DisciplinaCanonica
 from concursos.concurso_config import ConcursoConfig, PesoItens, peso_da_questao
 from concursos.modelo import Bloco
@@ -55,6 +55,7 @@ def validar_edital(
         discrepancias += _pesos_realizados(config, regras.pesos, correcoes)
     if questoes is not None:
         discrepancias += _contagens(regras.distribuicao, questoes, taxonomia or {})
+        discrepancias += _alternativas(regras, questoes)
     return pd.DataFrame([asdict(d) for d in discrepancias], columns=COLUNAS_DISCREPANCIAS)
 
 
@@ -200,6 +201,33 @@ def _contagens(
                     )
                 )
     return divergencias
+
+
+def _alternativas(regras: RegrasEdital, questoes: pd.DataFrame) -> list[Discrepancia]:
+    """A última letra do gabarito contra a última alternativa do edital; anuladas e certo/errado não
+    contam."""
+    alternativas = next((m for m in regras.metadados if m.chave == 'alternativas'), None)
+    if (
+        alternativas is None
+        or alternativas.status is not StatusExtracao.ENCONTRADO
+        or 'gabarito' not in questoes
+    ):
+        return []
+    letras = questoes['gabarito'].dropna().astype(str).str.strip()
+    letras = letras[letras.str.fullmatch('[A-Z]')]
+    esperada = chr(ord('A') + alternativas.valor - 1)
+    if letras.empty or (observada := letras.max()) == esperada:
+        return []
+    return [
+        Discrepancia(
+            'alternativas',
+            f'A a {esperada}',
+            f'A a {observada}',
+            ord(observada) - ord(esperada),
+            Severidade.ERROR,
+            'Confira o gabarito e o template da folha de respostas contra o número de alternativas do edital',
+        )
+    ]
 
 
 def _blocos_observados(questoes: pd.DataFrame, taxonomia: dict[str, DisciplinaCanonica]) -> dict | None:

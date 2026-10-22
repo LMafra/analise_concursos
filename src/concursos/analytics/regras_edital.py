@@ -4,12 +4,13 @@ metadados, cada valor com fonte, trecho, documento e página. Extração por reg
 import json
 import logging
 import re
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field, fields, replace
 from datetime import date
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from concursos.analytics.candidatos_edital import CANDIDATOS, VERSAO_CANDIDATOS, Candidato
 from concursos.analytics.correcao import (
     CONFIANCA_QUADRO_DE_PESOS,
     TextoCorrido,
@@ -23,7 +24,17 @@ from concursos.modelo import Escolaridade
 
 logger = logging.getLogger(__name__)
 
-CHAVES_DAS_REGRAS = ('identificacao', 'pesos', 'distribuicao', 'cortes', 'cronograma', 'avisos')
+CHAVES_DAS_REGRAS = (
+    'identificacao',
+    'pesos',
+    'distribuicao',
+    'cortes',
+    'cronograma',
+    'metadados',
+    'versao_candidatos',
+    'avisos',
+)
+CONFIANCA_DESCOBERTA = 0.6
 CONFIANCA_LISTA_DE_CARGOS = 0.9
 CONFIANCA_CARGO_UNICO = 0.85
 CONFIANCA_NOME_DO_CARGO = 0.75
@@ -141,6 +152,20 @@ class Cronograma:
     discursiva_no_mesmo_dia: bool | None = None
 
 
+class StatusExtracao(StrEnum):
+    ENCONTRADO = 'encontrado'
+    NAO_ENCONTRADO = 'nao_encontrado'
+    AMBIGUO = 'ambiguo'
+
+
+@dataclass(frozen=True, kw_only=True)
+class Metadado(Campo):
+    """Um candidato do registro num concurso; ambíguo, o valor é a lista dos valores encontrados."""
+
+    chave: str
+    status: StatusExtracao
+
+
 @dataclass(frozen=True)
 class RegrasEdital:
     identificacao: Identificacao = field(default_factory=Identificacao)
@@ -148,7 +173,12 @@ class RegrasEdital:
     distribuicao: Distribuicao = field(default_factory=Distribuicao)
     cortes: tuple[Corte, ...] = ()
     cronograma: Cronograma = field(default_factory=Cronograma)
+    metadados: tuple[Metadado, ...] = ()
+    versao_candidatos: int = VERSAO_CANDIDATOS
     avisos: tuple[str, ...] = ()
+
+    def metadado(self, chave: str) -> Metadado:
+        return next(m for m in self.metadados if m.chave == chave)
 
     def gravar_json(self, caminho: Path) -> None:
         """Grava as regras no edital estruturado, preservando o conteúdo programático já gravado."""
@@ -991,6 +1021,66 @@ def _data_valida(dia: int, mes: int, ano: int) -> date | None:
         return None
 
 
+# --- Descoberta dirigida -----------------------------------------------------------------------------
+
+
+def _extrair_metadados(
+    docs: _Documentos, escopo: _Escopo, derivados: dict[str, Campo]
+) -> tuple[Metadado, ...]:
+    """Um metadado por candidato do registro, na ordem dele; os sem padrão vêm de `derivados`."""
+    return tuple(
+        _derivado(candidato, derivados.get(candidato.chave, Campo()))
+        if not candidato.padroes
+        else _descobrir(candidato, docs, escopo)
+        for candidato in CANDIDATOS
+    )
+
+
+def _descobrir(candidato: Candidato, docs: _Documentos, escopo: _Escopo) -> Metadado:
+    padroes = [re.compile(p, re.IGNORECASE) for p in candidato.padroes]
+    achados = [a for padrao in padroes for a in docs.todos(padrao) if escopo.aplica(a)]
+    achados = [a for a in achados if a.documento.retificacao] or achados
+    if not achados:
+        return Metadado(chave=candidato.chave, status=StatusExtracao.NAO_ENCONTRADO)
+    valores = list(dict.fromkeys(_valor_descoberto(a.match) for a in achados))
+    ambiguo = candidato.unico and len(valores) > 1
+    campo = achados[0].campo(valores if ambiguo else valores[0], CONFIANCA_DESCOBERTA)
+    status = StatusExtracao.AMBIGUO if ambiguo else StatusExtracao.ENCONTRADO
+    return _metadado(candidato, campo, status)
+
+
+def _derivado(candidato: Candidato, campo: Campo) -> Metadado:
+    if campo.valor is None:
+        return Metadado(chave=candidato.chave, status=StatusExtracao.NAO_ENCONTRADO)
+    return _metadado(candidato, campo, StatusExtracao.ENCONTRADO)
+
+
+def _metadado(candidato: Candidato, campo: Campo, status: StatusExtracao) -> Metadado:
+    fonte = FonteRegra.RETIFICACAO if campo.fonte is FonteRegra.RETIFICACAO else FonteRegra.DESCOBERTA
+    origem = {f.name: getattr(campo, f.name) for f in fields(Campo)}
+    return Metadado(**{**origem, 'fonte': fonte}, chave=candidato.chave, status=status)
+
+
+def _valor_descoberto(match: re.Match) -> Any:
+    """Sem zeros à esquerda, para que "02 (dois) anos" e "2 (dois) anos" sejam o mesmo valor."""
+    valor = ' '.join(match['valor' if 'valor' in match.re.groupindex else 0].split())
+    valor = re.sub(r'\b0+(?=\d)', '', valor)
+    return int(valor) if valor.isdigit() else valor
+
+
+def _derivados(identificacao: Identificacao, pesos: Pesos, cortes: tuple[Corte, ...]) -> dict[str, Campo]:
+    """Descobertas que saem das regras já extraídas."""
+    ponderada = pesos.tipo.valor in {TipoPeso.POR_FAIXA_DE_ITENS, TipoPeso.POR_BLOCO}
+    em_acertos = next((c for c in cortes if c.unidade is UnidadeCorte.ACERTOS), None)
+    derivados = {
+        'teto_de_classificados': identificacao.teto_classificados,
+        'soma_dos_pesos_dos_eixos': pesos.soma_dos_eixos,
+    }
+    if ponderada and em_acertos is not None:
+        derivados['corte_em_acertos_com_nota_ponderada'] = em_acertos
+    return derivados
+
+
 def _aviso_de_default(config: ConcursoConfig, docs: _Documentos, motivo: str) -> str:
     texto = ' '.join(normalizar(doc.texto.texto) for doc in docs.lista)
     gatilhos = [nome for nome, padrao in _GATILHOS_DE_DEFAULT.items() if re.search(padrao, texto)]
@@ -1015,10 +1105,13 @@ def extrair_regras(
     distribuicao, avisos_da_distribuicao = _extrair_distribuicao(config, docs, escopo)
     cortes, avisos_dos_cortes = _extrair_cortes(config, docs, escopo)
     cronograma, avisos_do_cronograma = _extrair_cronograma(config, docs)
+    metadados = _extrair_metadados(docs, escopo, _derivados(identificacao, pesos, cortes))
     avisos += avisos_dos_pesos + avisos_da_distribuicao + avisos_dos_cortes + avisos_do_cronograma
     for aviso in avisos:
         logger.warning('%s', aviso)
-    return RegrasEdital(identificacao, pesos, distribuicao, cortes, cronograma, tuple(avisos))
+    return RegrasEdital(
+        identificacao, pesos, distribuicao, cortes, cronograma, metadados, avisos=tuple(avisos)
+    )
 
 
 def ler_regras(pasta: Path) -> dict | None:

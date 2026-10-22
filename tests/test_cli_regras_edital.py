@@ -200,3 +200,44 @@ def test_cabecalho_do_relatorio_mostra_o_nome_oficial_e_o_cargo(raizes):
         in relatorio
     )
     assert '- Cargo: Analista de TI – Ciência de Dados' in relatorio
+
+
+def catalogo(analises) -> str:
+    return (analises / 'sintetico' / 'catalogo_edital.md').read_text(encoding='utf-8')
+
+
+def test_catalogo_tem_a_tabela_as_propostas_e_os_descartados(raizes):
+    provas, analises = raizes
+    criar(provas, CERTO_ERRADO, 'edital.txt', edital(CORTES))
+
+    assert analisar(provas, analises) == 0
+
+    texto = catalogo(analises)
+    assert texto.startswith('# Catálogo do edital: Conselho Federal de Exemplo (CFE), Analista de TI')
+    tabela, propostas, descartados = (
+        texto.index(secao) for secao in ('## Descobertas', '## Propostas', '## Descartados')
+    )
+    assert tabela < propostas < descartados
+    assert (
+        '| Informação | Valor | Trecho de origem | Uso no projeto | Impacto | Status | No edital |' in texto
+    )
+    assert '| Critérios de aprovação |' in texto
+    assert 'não encontrado' in texto[tabela:propostas]
+    assert 'Número de alternativas' in texto[propostas:descartados]
+    assert 'sem sinal na folha digitalizada' in texto[descartados:]
+    assert 'Taxa de inscrição' in texto[descartados:]
+
+
+def test_cinco_alternativas_no_edital_e_gabarito_ate_d_e_error(raizes):
+    provas, analises = raizes
+    alternativas = 'As questões da prova objetiva terão 5 (cinco) alternativas, com uma só correta.'
+    criar(provas, MULTIPLA_ESCOLHA, 'edital.txt', edital(alternativas))
+
+    assert analisar(provas, analises) == 0
+
+    [linha] = discrepancias(analises).query("item == 'alternativas'").to_dict('records')
+    assert (linha['severidade'], linha['esperado_edital'], linha['observado_prova']) == (
+        'error',
+        'A a E',
+        'A a D',
+    )

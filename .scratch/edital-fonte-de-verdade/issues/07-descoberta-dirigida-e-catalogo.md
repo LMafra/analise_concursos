@@ -19,11 +19,11 @@ Ver `docs/spec-fase3.md`, histórias 35–43 e 47.
 
 **Blocked by:** 01 (Identificação do concurso e escopo por cargo)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Teste puro: um candidato não encontrado sai com status explícito.
-- [ ] Teste puro: um candidato encontrado traz trecho, documento e página.
-- [ ] Teste de CLI: o catálogo tem a tabela, as propostas e os descartados.
-- [ ] Teste de CLI: 5 alternativas no edital e gabarito até D geram `error`.
-- [ ] O template do catálogo está em `docs/modelo.md`.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Teste puro: um candidato não encontrado sai com status explícito.
+- [x] Teste puro: um candidato encontrado traz trecho, documento e página.
+- [x] Teste de CLI: o catálogo tem a tabela, as propostas e os descartados.
+- [x] Teste de CLI: 5 alternativas no edital e gabarito até D geram `error`.
+- [x] O template do catálogo está em `docs/modelo.md`.
+- [x] `uv run pytest` e `ruff` verdes.

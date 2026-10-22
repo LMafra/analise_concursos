@@ -5,6 +5,7 @@ import pandas as pd
 
 from concursos import manifesto
 from concursos.agregacao import agregar
+from concursos.analytics.catalogo_edital import gravar_catalogo
 from concursos.analytics.consolidado import raiz_do_projeto
 from concursos.analytics.correcao import (
     ConfiguracaoCorrecao,
@@ -184,6 +185,7 @@ def _regras_do_edital(
     regras = extrair_regras(config, documentos, retificacoes)
     regras.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
     gravar_discrepancias(validar_edital(config, regras, resultados, _taxonomia(), correcoes), destino)
+    gravar_catalogo(config, regras, destino)
     return regras
 
 

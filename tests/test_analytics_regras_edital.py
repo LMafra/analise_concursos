@@ -2,11 +2,13 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from test_analytics_correcao import CEBRASPE, DATAPREV, DOCUMENTOS_CPNU, cpnu, pesos_cpnu
+from test_analytics_correcao import AGSUS, CEBRASPE, DATAPREV, DOCUMENTOS_CPNU, cpnu, pesos_cpnu
 
+from concursos.analytics.candidatos_edital import CANDIDATOS
 from concursos.analytics.regras_edital import (
     EscopoCorte,
     FonteRegra,
+    StatusExtracao,
     TipoPeso,
     UnidadeCorte,
     extrair_regras,
@@ -682,3 +684,59 @@ objetivas e de resultado provisório no procedimentode análise documental para 
     regras = extrair_regras(config(), {'edital.pdf': [linhas]})
 
     assert regras.cronograma.resultado_final.valor == date(2026, 8, 5)
+
+
+def test_candidato_nao_encontrado_sai_com_status_explicito_e_nenhum_some():
+    regras = extrair_regras(config(), {'edital.pdf': [CAPA_TCU]})
+
+    assert [m.chave for m in regras.metadados] == [c.chave for c in CANDIDATOS]
+    bibliografia = regras.metadado('bibliografia')
+    assert (bibliografia.status, bibliografia.valor, bibliografia.fonte) == (
+        StatusExtracao.NAO_ENCONTRADO,
+        None,
+        FonteRegra.DEFAULT,
+    )
+
+
+def test_candidato_encontrado_traz_valor_trecho_documento_e_pagina():
+    regras = extrair_regras(config(), {'edital.pdf': [CAPA_TCU, AGSUS]})
+
+    alternativas = regras.metadado('alternativas')
+    assert (alternativas.status, alternativas.valor, alternativas.fonte) == (
+        StatusExtracao.ENCONTRADO,
+        5,
+        FonteRegra.DESCOBERTA,
+    )
+    assert (alternativas.documento_origem, alternativas.pagina_origem) == ('edital.pdf', 2)
+    assert '5 (cinco) alternativas' in alternativas.trecho_origem
+
+
+def test_valores_diferentes_de_um_candidato_unico_sao_ambiguos():
+    texto = (
+        'A prova terá questões com 4 (quatro) alternativas. Na outra parte, haverá 5 (cinco) alternativas.'
+    )
+    regras = extrair_regras(config(), {'edital.pdf': [texto]})
+
+    alternativas = regras.metadado('alternativas')
+    assert (alternativas.status, alternativas.valor) == (StatusExtracao.AMBIGUO, [4, 5])
+
+
+def test_o_mesmo_valor_escrito_com_zero_a_esquerda_nao_e_ambiguo():
+    texto = (
+        'O prazo de validade do Concurso é de 2 (dois) anos. 1.3 A validade do certame é de 02 (dois) anos.'
+    )
+    regras = extrair_regras(config(), {'edital.pdf': [texto]})
+
+    validade = regras.metadado('validade')
+    assert (validade.status, validade.valor) == (StatusExtracao.ENCONTRADO, '2 (dois) anos')
+
+
+def test_cpnu_descobre_corte_em_acertos_com_nota_ponderada_e_a_soma_dos_eixos():
+    documentos = {**DOCUMENTOS_CPNU, 'edital.pdf': [*DOCUMENTOS_CPNU['edital.pdf'], CORTES_CPNU]}
+    regras = extrair_regras(cpnu(), documentos)
+
+    corte = regras.metadado('corte_em_acertos_com_nota_ponderada')
+    assert (corte.status, corte.valor, corte.fonte) == (StatusExtracao.ENCONTRADO, 36, FonteRegra.DESCOBERTA)
+    assert '36 (trinta e seis) acertos' in corte.trecho_origem
+    soma = regras.metadado('soma_dos_pesos_dos_eixos')
+    assert (soma.status, soma.valor) == (StatusExtracao.ENCONTRADO, 10)
