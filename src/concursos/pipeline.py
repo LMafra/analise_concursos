@@ -35,7 +35,7 @@ from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.graficos import gerar_graficos
 from concursos.modelo import ItemGabarito, RespostaMarcada
-from concursos.perfis import perfil_da_banca
+from concursos.perfis import PerfilOcr, perfil_da_banca
 from concursos.prova import segmentar, texto_em_colunas
 from concursos.relatorio import ConteudoRelatorio, gerar_relatorio
 from concursos.respostas import ler_respostas_txt
@@ -176,7 +176,7 @@ def analisar_concurso(
     documentos = _paginas_dos_documentos(config)
     edital = _ler_edital(config, documentos)
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
-    respostas = _ler_respostas(config, destino, configuracao.limiar_confianca)
+    respostas = _ler_respostas(config, destino, configuracao.limiar_confianca, configuracao.perfil_calibrado)
     resultados = corrigir(config, gabaritos, respostas, _disciplinas_por_questao(config))
     resultados = _classificar_topicos(config, edital, resultados)
     validacao = validar_resultado(config, resultados)
@@ -416,7 +416,9 @@ def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabari
     return gabarito.itens
 
 
-def _ler_respostas(config: ConcursoConfig, destino: Path, limiar: float) -> list[RespostaMarcada]:
+def _ler_respostas(
+    config: ConcursoConfig, destino: Path, limiar: float, calibrado: PerfilOcr | None = None
+) -> list[RespostaMarcada]:
     questoes = [q for prova in config.provas for q in prova.questoes]
     if config.respostas_arquivo is not None:
         caminho = config.caminho(config.respostas_arquivo)
@@ -435,6 +437,7 @@ def _ler_respostas(config: ConcursoConfig, destino: Path, limiar: float) -> list
         destino / 'depuracao',
         limiar,
         ''.join(sorted(config.formato.letras(config.n_alternativas))),
+        calibrado,
     )
     por_questao = {r.questao: r for r in lidas}
     if faltando := [q for q in questoes if q not in por_questao]:

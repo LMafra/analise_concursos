@@ -10,8 +10,8 @@ Com isso, o app:
 
 **Blocked by:** 12, 14
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Numa folha sintética com preenchimento fraco, a calibração ajusta o limiar, e as 5 questões passam a ser lidas certo.
-- [ ] Respostas digitadas que contradizem a grade detectada reprovam a calibração com mensagem e `dica:`, e nada é gravado.
-- [ ] O perfil calibrado é usado nas leituras seguintes do projeto.
+- [x] Numa folha sintética com preenchimento fraco, a calibração ajusta o limiar, e as 5 questões passam a ser lidas certo.
+- [x] Respostas digitadas que contradizem a grade detectada reprovam a calibração com mensagem e `dica:`, e nada é gravado.
+- [x] O perfil calibrado é usado nas leituras seguintes do projeto.

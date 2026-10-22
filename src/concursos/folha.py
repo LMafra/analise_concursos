@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import cv2
@@ -37,6 +37,16 @@ class Marcacao:
     raio: int
 
 
+@dataclass(frozen=True)
+class Amostra:
+    """As primeiras questões da primeira coluna de itens, medidas sem perfil."""
+
+    n_alternativas: int
+    preenchimentos: tuple[tuple[float, ...], ...]
+    centros: tuple[tuple[tuple[int, int], ...], ...]
+    raio: int
+
+
 def ler_folha(
     caminho: Path,
     template: str | None,
@@ -45,11 +55,13 @@ def ler_folha(
     pasta_depuracao: Path,
     limiar: float,
     alternativas: str | None = None,
+    calibrado: PerfilOcr | None = None,
 ) -> list[RespostaMarcada]:
     """Lê a primeira página do arquivo que contenha a grade e grava a imagem de depuração.
 
     Tenta o perfil de OCR do `template` e, sem ele ou quando ele não lê a folha, a detecção automática da
-    grade com as `alternativas` do concurso, sem número de linhas imposto."""
+    grade com as `alternativas` do concurso, sem número de linhas imposto, e os limiares do perfil
+    `calibrado` do projeto, quando houver."""
     tentativas = []
     if template is not None:
         try:
@@ -60,7 +72,12 @@ def ler_folha(
             ) from None
         tentativas.append((perfil, itens_por_coluna or perfil.itens_por_coluna, ''))
         alternativas = alternativas or perfil.alternativas
-    automatico = PerfilOcr(PERFIL_AUTOMATICO, alternativas or PADRAO.alternativas)
+    letras = alternativas or PADRAO.alternativas
+    automatico = (
+        replace(calibrado, alternativas=letras, itens_por_coluna=None)
+        if calibrado
+        else PerfilOcr(PERFIL_AUTOMATICO, letras)
+    )
     tentativas.append((automatico, None, ', detecção automática' if tentativas else ''))
     erros: list[str] = []
     for perfil, por_coluna, rotulo in tentativas:
@@ -145,17 +162,7 @@ def ler_marcacoes(
     perfil: PerfilOcr = PADRAO,
 ) -> list[Marcacao]:
     """Localiza a grade de bolhas (itens numerados por coluna) e mede a tinta dentro de cada bolha."""
-    suave = cv2.GaussianBlur(imagem, (5, 5), 0)
-    escuras = cv2.adaptiveThreshold(suave, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 51, 4)
-    claras = cv2.adaptiveThreshold(suave, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 51, -4)
-    candidatos = _candidatos([*_circulos(escuras), *_circulos(claras)])
-    tinta = ((imagem < np.median(imagem) * _FRACAO_TINTA) * 255).astype(np.uint8)
-    if len(candidatos) < len(alternativas):
-        raise FolhaIlegivelError('nenhuma grade de bolhas encontrada')
-    diametro = float(np.median(candidatos[:, 2]))
-    centro = (imagem.shape[1] / 2, imagem.shape[0] / 2)
-    rotacao = cv2.getRotationMatrix2D(centro, _angulo(candidatos[:, :2], centro, diametro), 1.0)
-    alinhados = _transformar(rotacao, candidatos[:, :2])
+    tinta, rotacao, alinhados, diametro = _grade(imagem, len(alternativas))
     linhas = _linhas(alinhados[:, 1], diametro)
     if itens_por_coluna is not None and len(linhas) != itens_por_coluna:
         raise FolhaIlegivelError(
@@ -181,6 +188,60 @@ def ler_marcacoes(
             _classificar(questao, alternativas, preenchimentos, centros, round(diametro / 2), perfil)
         )
     return marcacoes
+
+
+def medir_amostra(imagem: np.ndarray, questoes: int) -> Amostra:
+    """A tinta das bolhas das primeiras `questoes` da primeira coluna de itens; o número de alternativas sai
+    do espaçamento entre as colunas de bolhas, maior entre itens do que dentro de um item."""
+    tinta, rotacao, alinhados, diametro = _grade(imagem, 2)
+    linhas = _linhas(alinhados[:, 1], diametro)
+    if len(linhas) < questoes:
+        raise FolhaIlegivelError(f'grade com {len(linhas)} linhas; são precisas pelo menos {questoes}')
+    colunas = np.array(_colunas(alinhados, linhas, diametro, len(alinhados)))
+    if len(colunas) < 2:
+        raise FolhaIlegivelError('nenhuma grade de bolhas encontrada')
+    distancias = np.diff(colunas)
+    itens = np.split(colunas, np.where(distancias > distancias.min() * 1.5)[0] + 1)
+    if len({len(item) for item in itens}) != 1:
+        raise FolhaIlegivelError(
+            f'colunas de bolhas irregulares ({", ".join(str(len(item)) for item in itens)} por item)'
+        )
+    inversa = cv2.invertAffineTransform(rotacao)
+    raio = max(2, round(diametro * _RAIO_AMOSTRA))
+    centros = []
+    for linha in linhas[:questoes]:
+        pontos = _transformar(inversa, np.array([(x, linha) for x in itens[0]]))
+        centros.append(tuple((round(x), round(y)) for x, y in pontos))
+    return Amostra(
+        len(itens[0]),
+        tuple(tuple(_preenchimento(tinta, c, raio) for c in linha) for linha in centros),
+        tuple(centros),
+        round(diametro / 2),
+    )
+
+
+def marcacoes_da_amostra(amostra: Amostra, perfil: PerfilOcr) -> list[Marcacao]:
+    return [
+        _classificar(questao, perfil.alternativas, preenchimentos, centros, amostra.raio, perfil)
+        for questao, (preenchimentos, centros) in enumerate(
+            zip(amostra.preenchimentos, amostra.centros, strict=True), start=1
+        )
+    ]
+
+
+def _grade(imagem: np.ndarray, minimo: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    """A máscara de tinta, a rotação que alinha a grade e os centros das bolhas já alinhados."""
+    suave = cv2.GaussianBlur(imagem, (5, 5), 0)
+    escuras = cv2.adaptiveThreshold(suave, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 51, 4)
+    claras = cv2.adaptiveThreshold(suave, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 51, -4)
+    candidatos = _candidatos([*_circulos(escuras), *_circulos(claras)])
+    tinta = ((imagem < np.median(imagem) * _FRACAO_TINTA) * 255).astype(np.uint8)
+    if len(candidatos) < minimo:
+        raise FolhaIlegivelError('nenhuma grade de bolhas encontrada')
+    diametro = float(np.median(candidatos[:, 2]))
+    centro = (imagem.shape[1] / 2, imagem.shape[0] / 2)
+    rotacao = cv2.getRotationMatrix2D(centro, _angulo(candidatos[:, :2], centro, diametro), 1.0)
+    return tinta, rotacao, _transformar(rotacao, candidatos[:, :2]), diametro
 
 
 def _circulos(binaria: np.ndarray) -> list[tuple[float, float, float]]:

@@ -12,6 +12,7 @@ from concursos.analytics.consolidado import concursos_analisados
 from concursos.analytics.taxonomia import carregar_taxonomia
 from concursos.assistente import InteracaoAutomatica, InteracaoConsole
 from concursos.cadastro import cadastrar
+from concursos.calibracao import CalibracaoError
 from concursos.candidatos import (
     adicionar_arquivo,
     candidatos_existentes,
@@ -128,12 +129,24 @@ def init(
     doctor: Annotated[
         bool | None, typer.Option('--doctor/--no-doctor', help='confere o ambiente no fim')
     ] = None,
+    folha: Annotated[
+        Path | None, typer.Option('--calibrate-sheet', help='folha preenchida para calibrar a leitura')
+    ] = None,
+    digitadas: Annotated[
+        str | None,
+        typer.Option('--calibrate-answers', help='respostas das 5 primeiras questões da folha (ex.: ABCD-)'),
+    ] = None,
 ) -> int:
     opcoes: Opcoes = ctx.obj
     if opcoes.dry_run:
         typer.echo('o init não grava nada com --dry-run')
         return 0
-    return _onboarding(opcoes, doctor)
+    ambiente = {}
+    if folha is not None:
+        ambiente[onboarding.VARIAVEL_CALIBRAR_FOLHA] = str(folha)
+    if digitadas is not None:
+        ambiente[onboarding.VARIAVEL_CALIBRAR_RESPOSTAS] = digitadas
+    return _onboarding(opcoes, doctor, ambiente)
 
 
 @app.command('analyze', help='analisa os concursos que mudaram (ou só o indicado)')
@@ -253,12 +266,12 @@ def doctor(ctx: typer.Context) -> int:
     return CODIGO_AMBIENTE if diagnostico.tem_erro(itens) else 0
 
 
-def _onboarding(opcoes: Opcoes, doctor: bool | None = None) -> int:
+def _onboarding(opcoes: Opcoes, doctor: bool | None = None, extras: dict[str, str] | None = None) -> int:
     contexto = opcoes.contexto
     com_terminal = onboarding.interativo(opcoes.sim)
     if not com_terminal:
         _exigir_provas(contexto.provas)
-    ambiente = dict(os.environ)
+    ambiente = {**os.environ, **(extras or {})}
     if doctor is not None:
         ambiente[onboarding.VARIAVEL_DOCTOR] = 's' if doctor else 'n'
     try:
@@ -269,6 +282,10 @@ def _onboarding(opcoes: Opcoes, doctor: bool | None = None) -> int:
         raise ErroDoUsuario(
             'onboarding cancelado; nada foi gravado', 'rode `concurso-analise init` quando quiser'
         ) from None
+    except CalibracaoError as erro:
+        raise ErroDoUsuario(f'calibração reprovada, nada foi gravado: {erro.causa}', erro.dica) from erro
+    if respostas.calibracao is not None:
+        opcoes = replace(opcoes, forcar=True)
     opcoes = replace(opcoes, contexto=onboarding.aplicar(contexto, respostas))
     if opcoes.contexto.provas.is_dir():
         opcoes = _migrar(opcoes)

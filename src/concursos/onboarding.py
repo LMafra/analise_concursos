@@ -5,6 +5,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from concursos.assistente import InteracaoConsole
+from concursos.calibracao import QUESTOES_CALIBRACAO, Calibracao, CalibracaoError, calibrar, gravar_calibracao
 from concursos.candidatos import PASTA_PERFIS_GLOBAIS, candidatos_existentes, gravar_perfil_global, slug
 from concursos.config.contexto import Contexto, gravar_secao, ler_toml
 from concursos.migracao import candidato_padrao
@@ -12,8 +13,10 @@ from concursos.migracao import candidato_padrao
 logger = logging.getLogger(__name__)
 
 VARIAVEL_DOCTOR = 'CONCURSO_DOCTOR'
+VARIAVEL_CALIBRAR_FOLHA = 'CONCURSO_CALIBRAR_FOLHA'
+VARIAVEL_CALIBRAR_RESPOSTAS = 'CONCURSO_CALIBRAR_RESPOSTAS'
 ARQUIVO_LEIA_ME = 'LEIA-ME.txt'
-TOTAL_PERGUNTAS = 4
+TOTAL_PERGUNTAS = 5
 _SIM = {'s', 'sim', 'y', 'yes', '1', 'true'}
 _LEIA_ME = """\
 Coloque aqui uma pasta por concurso, por exemplo provas/meu_concurso/, com:
@@ -39,6 +42,7 @@ class Respostas:
     provas: Path
     analises: Path
     doctor: bool
+    calibracao: Calibracao | None = None
 
 
 def precisa_de_onboarding(contexto: Contexto) -> bool:
@@ -61,6 +65,10 @@ def perguntar(
     )
     if 'doctor' not in fornecidos and VARIAVEL_DOCTOR in ambiente:
         fornecidos = {*fornecidos, 'doctor'}
+    folha, digitadas = ambiente.get(VARIAVEL_CALIBRAR_FOLHA), ambiente.get(VARIAVEL_CALIBRAR_RESPOSTAS)
+    if folha and digitadas:
+        padrao = replace(padrao, calibracao=calibrar(_absoluto(folha, contexto.raiz), digitadas))
+        fornecidos = {*fornecidos, 'calibracao'}
     if interacao is None:
         logger.info(
             'onboarding sem terminal: usando os padrões (nome %s, provas %s, análises %s, doctor %s)',
@@ -85,8 +93,10 @@ def perguntar(
     if 'analises' not in fornecidos:
         analises = _texto(interacao, 3, 'Pasta de análises', _relativo(padrao.analises, contexto.raiz))
         respostas = replace(respostas, analises=_absoluto(analises, contexto.raiz))
+    if 'calibracao' not in fornecidos:
+        respostas = replace(respostas, calibracao=_perguntar_calibracao(interacao, contexto.raiz))
     if 'doctor' not in fornecidos:
-        resposta = _texto(interacao, 4, 'Conferir o ambiente com o doctor no fim? (s/n)', 's')
+        resposta = _texto(interacao, 5, 'Conferir o ambiente com o doctor no fim? (s/n)', 's')
         respostas = replace(respostas, doctor=resposta.lower() in _SIM)
     interacao.mostrar(_resumo(contexto, respostas))
     if not interacao.confirmar('Gravar?', padrao=True):
@@ -110,6 +120,8 @@ def gravar(contexto: Contexto, respostas: Respostas) -> None:
         'analises': _relativo(respostas.analises, contexto.raiz),
     }
     gravar_secao(contexto.config_projeto, 'pastas', pastas)
+    if respostas.calibracao is not None:
+        gravar_calibracao(contexto.projeto, respostas.calibracao)
     if respostas.nome:
         candidato = slug(respostas.nome)
         gravar_perfil_global(contexto.home, respostas.nome, atualizar=True)
@@ -135,6 +147,32 @@ def _nome_atual(contexto: Contexto) -> str | None:
     return perfil.get('nome') or candidato
 
 
+def _perguntar_calibracao(interacao: InteracaoConsole, raiz: Path) -> Calibracao | None:
+    while True:
+        folha = interacao.perguntar(
+            f'[4/{TOTAL_PERGUNTAS}] Folha preenchida para calibrar a leitura (Enter para pular)'
+        )
+        if not folha:
+            return None
+        caminho = _absoluto(folha, raiz)
+        if not caminho.is_file():
+            interacao.mostrar(f'erro: {caminho} não encontrado')
+            continue
+        digitadas = interacao.perguntar(
+            f'      Respostas das {QUESTOES_CALIBRACAO} primeiras questões (ex.: ABCD-, com - para branco)'
+        )
+        try:
+            calibracao = calibrar(caminho, digitadas or '')
+        except CalibracaoError as erro:
+            interacao.mostrar(f'erro: {erro.causa}\ndica: {erro.dica}')
+            continue
+        interacao.mostrar(
+            f'Calibração aprovada: alternativas {calibracao.perfil.alternativas}, '
+            f'limiar de marcação {calibracao.perfil.limiar_marcada}'
+        )
+        return calibracao
+
+
 def _texto(interacao: InteracaoConsole, numero: int, pergunta: str, padrao: str | None) -> str:
     while not (resposta := interacao.perguntar(f'[{numero}/{TOTAL_PERGUNTAS}] {pergunta}', padrao)):
         interacao.mostrar('Resposta obrigatória.')
@@ -148,6 +186,7 @@ def _resumo(contexto: Contexto, respostas: Respostas) -> str:
             f'  candidato: {respostas.nome or "(escolhido a cada análise)"}',
             f'  pasta de provas: {respostas.provas}',
             f'  pasta de análises: {respostas.analises}',
+            f'  leitura da folha: {"calibrada" if respostas.calibracao else "detecção automática ou perfil da banca"}',
             f'  em {contexto.config_projeto} e {contexto.config_global}',
         ]
     )

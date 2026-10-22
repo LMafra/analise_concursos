@@ -1,10 +1,12 @@
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 
 import yaml
 
+from concursos.calibracao import carregar_calibrado
 from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.config.contexto import Contexto, ler_toml, resolver_contexto
+from concursos.perfis import PerfilOcr
 
 
 @dataclass(frozen=True)
@@ -12,12 +14,17 @@ class ConfiguracaoGlobal:
     limiar_confianca: float = 0.75
     limiar_topico_baixo: float = 0.6
     concurso_alvo: str | None = None
+    perfil_calibrado: PerfilOcr | None = None
+
+
+_FORA_DO_ARQUIVO = {'perfil_calibrado'}
 
 
 def configuracao_do_projeto(contexto: Contexto | None = None) -> ConfiguracaoGlobal:
-    """A seção `[analise]` do `config.toml` do projeto."""
+    """A seção `[analise]` do `config.toml` do projeto e o perfil de OCR calibrado, se houver."""
     contexto = contexto or resolver_contexto()
-    return _validar(ler_toml(contexto.config_projeto).get('analise', {}), contexto.config_projeto)
+    configuracao = _validar(ler_toml(contexto.config_projeto).get('analise', {}), contexto.config_projeto)
+    return replace(configuracao, perfil_calibrado=carregar_calibrado(contexto.projeto))
 
 
 def carregar_configuracao_global(caminho: Path) -> ConfiguracaoGlobal:
@@ -32,7 +39,7 @@ def carregar_configuracao_global(caminho: Path) -> ConfiguracaoGlobal:
 
 
 def _validar(dados: dict, caminho: Path) -> ConfiguracaoGlobal:
-    conhecidos = {campo.name for campo in fields(ConfiguracaoGlobal)}
+    conhecidos = {campo.name for campo in fields(ConfiguracaoGlobal)} - _FORA_DO_ARQUIVO
     if desconhecidos := sorted(set(dados) - conhecidos):
         raise ConfiguracaoInvalidaError(
             f'{caminho}: campos desconhecidos {", ".join(desconhecidos)} (use {", ".join(sorted(conhecidos))})'

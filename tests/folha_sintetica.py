@@ -9,6 +9,7 @@ PASSO_BOLHA = 28
 LARGURA_GRUPO = 120
 CINZA_FAIXA = 225
 CINZA_ANEL = 150
+RAIO_FRACO = 5
 
 
 def folha_cebraspe(
@@ -35,14 +36,26 @@ def folha_generica(
     itens_por_coluna: int,
     parciais: dict[int, str] | None = None,
     angulo: float = 0.0,
+    fracas: dict[int, str] | None = None,
 ) -> np.ndarray:
-    """Grade com bolhas de anel preto e qualquer número de alternativas."""
+    """Grade com bolhas de anel preto e qualquer número de alternativas; `fracas` são marcas de miolo pequeno."""
     return _folha(
-        alternativas, marcas, total_itens, itens_por_coluna, (80, 700), parciais or {}, angulo, fgv=False
+        alternativas,
+        marcas,
+        total_itens,
+        itens_por_coluna,
+        (80, 700),
+        parciais or {},
+        angulo,
+        fgv=False,
+        fracas=fracas or {},
     )
 
 
-def _folha(alternativas, marcas, total_itens, itens_por_coluna, origem, parciais, angulo, fgv) -> np.ndarray:
+def _folha(
+    alternativas, marcas, total_itens, itens_por_coluna, origem, parciais, angulo, fgv, fracas=None
+) -> np.ndarray:
+    fracas = fracas or {}
     imagem = np.full((1754, 1240), 255, np.uint8)
     cv2.putText(imagem, 'FOLHA DE RESPOSTAS', (80, 90), cv2.FONT_HERSHEY_SIMPLEX, 1.4, 0, 3)
     cv2.circle(imagem, (300, 300), DIAMETRO // 2, 0, 2)
@@ -62,6 +75,9 @@ def _folha(alternativas, marcas, total_itens, itens_por_coluna, origem, parciais
             centro = (x0 + 48 + indice * PASSO_BOLHA, y)
             if letra in marcas.get(questao, ''):
                 cv2.circle(imagem, centro, DIAMETRO // 2, 0, -1)
+            elif letra in fracas.get(questao, ''):
+                cv2.circle(imagem, centro, DIAMETRO // 2, 0, 2)
+                cv2.circle(imagem, centro, RAIO_FRACO, 0, -1)
             elif letra in parciais.get(questao, ''):
                 cv2.circle(imagem, centro, DIAMETRO // 2, 0, 2)
                 cv2.ellipse(imagem, centro, (DIAMETRO // 2, DIAMETRO // 2), 0, 0, 180, 0, -1)

@@ -373,13 +373,16 @@ Roda no comando sem subcomando quando o projeto não tem `config.toml`, e sempre
 | nome | o do candidato atual; sem ele, o único candidato das provas ou o login | `--candidate` | `CONCURSO_CANDIDATO` |
 | pasta de provas | a resolvida pelo contexto | `--provas` | `CONCURSO_PROVAS` |
 | pasta de análises | a resolvida pelo contexto | `--analises` | `CONCURSO_ANALISES` |
+| folha para calibrar e as respostas das 5 primeiras questões | pular | `init --calibrate-sheet` e `--calibrate-answers` | `CONCURSO_CALIBRAR_FOLHA` e `CONCURSO_CALIBRAR_RESPOSTAS` |
 | rodar o `doctor` no fim | sim | `init --doctor/--no-doctor` | `CONCURSO_DOCTOR` |
 
 - **Só o que falta:** o que veio por flag ou variável não é perguntado.
 - **Sem perguntas:** sem TTY, com `CI` ou com `--yes`, ficam os padrões, listados no log. Sem a pasta de provas, para com a `dica:` de sempre.
 - **Pasta de provas ausente:** o wizard oferece criá-la com um `LEIA-ME.txt` que explica o que pôr nela; criada vazia, a análise fica para a próxima execução.
 - **Resumo:** antes de gravar, lista o que será gravado e pede confirmação; recusar sai com 1 sem gravar nada.
-- **Ordem:** migração das fases 1 a 3 (com o candidato respondido), depois a gravação, o `doctor` e a análise.
+- **Ordem:** migração das fases 1 a 3 (com o candidato respondido), depois a gravação, o `doctor` e a análise (forçada quando houve calibração).
+- **Calibração:** detecta a grade da folha de amostra sem perfil, deduz o número de alternativas do espaçamento entre as colunas de bolhas (maior entre itens do que dentro de um item) e mede a tinta das 5 primeiras questões da primeira coluna. As respostas digitadas (letra ou `-`, sem diferença de caixa) separam as bolhas em marcadas e vazias: `vazio` e `cheio` são as medianas de cada grupo, e `limiar_marcada` fica no meio entre a marcada mais fraca e a vazia mais forte, na escala de 0 a 1 entre `vazio` e `cheio` (limitado a 0,05 a 0,95). Reprova, sem gravar nada, quando uma letra digitada não existe na grade, quando uma bolha digitada tem menos tinta que uma não digitada, ou quando todas estão em branco; no wizard interativo, mostra o erro com a `dica:` e pergunta de novo; por flag ou variável, para com código 1.
+- **Perfil calibrado:** `./.concurso/folha_calibrada.yaml` (`id: calibrado`, `alternativas`, `vazio`, `cheio`, `limiar_marcada`) e a imagem `./.concurso/calibracao.png`. Na leitura, os limiares dele substituem os padrão da detecção automática (sem `template` ou quando o perfil da folha falha); o perfil de OCR do `template` continua vindo antes.
 - **O que grava:** no projeto, `[pastas]` (relativas à raiz quando dentro dela) e `[candidato] ultimo`; o perfil global `~/.concurso/candidatos/<slug>.toml` com o nome digitado; e, na configuração global `~/.concurso/config.toml`, `[candidatos] conhecidos` (lista de slugs). Nenhuma chave de API é gravada.
 
 ## Candidatos (fase 4)

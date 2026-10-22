@@ -56,7 +56,7 @@ def test_aceitando_os_padroes_grava_as_tres_configuracoes_e_gera_o_indice(
 
     assert time.monotonic() - inicio < 90
     saida = capsys.readouterr().out
-    assert '[1/4]' in saida and '[4/4]' in saida
+    assert '[1/5]' in saida and '[5/5]' in saida
     assert '[provas]' in saida
     assert 'Tesseract' in saida
     candidato = candidato_padrao()
@@ -100,7 +100,7 @@ def test_segunda_execucao_nao_pergunta_e_init_oferece_as_respostas_atuais(projet
     roteirizar(monkeypatch, '\n' * 10)
     assert main(['init']) == 0
     saida = capsys.readouterr().out
-    assert '[1/4] Seu nome [Ana Souza]' in saida
+    assert '[1/5] Seu nome [Ana Souza]' in saida
     assert ler(projeto / '.concurso' / 'config.toml')['candidato']['ultimo'] == 'ana_souza'
 
 
@@ -117,7 +117,7 @@ def test_pasta_de_provas_inexistente_e_criada_com_leia_me(projeto, monkeypatch, 
 
 def test_recusar_o_resumo_nao_grava_nada(projeto, monkeypatch):
     criar_concurso(projeto / 'provas', 'alfa', CONFIG, ARQUIVOS)
-    roteirizar(monkeypatch, '\n\n\nn\n')
+    roteirizar(monkeypatch, '\n\n\n\nn\n')
 
     assert main([]) == 1
     assert not (projeto / '.concurso').exists()
