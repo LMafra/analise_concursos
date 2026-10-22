@@ -131,7 +131,8 @@ Por concurso, em `analises/<concurso>/`:
 | `desempenho_por_disciplina.csv`, `desempenho_por_topico.csv` | `concurso, prova, disciplina, topico, total, acertos, erros, percentual, em_branco, anuladas, nota_liquida` |
 | `questoes.csv` | Por questão: disciplina, tópico sugerido e final, score, gabarito, resposta, resultado |
 | `relatorio.md` e `graficos/*.png` | Resumo, nota final pela regra do edital (com desconto por erro ou pesos), gráficos, tópicos mais fracos, questões para revisar, validação oficial |
-| `edital_estruturado.json` | Conhecimento → disciplina → tópicos do cargo |
+| `edital_estruturado.json` | Conhecimento → disciplina → tópicos do cargo e, ao lado, as regras do edital (fase 3) |
+| `discrepancias_edital.csv`, `catalogo_edital.md` | Validação edital × prova × gabarito e catálogo de descobertas (fase 3) |
 | `diff_gabarito.csv`, `historico/` | Só após a troca de gabarito |
 | `depuracao/*.png` | Bolhas detectadas na folha de resposta |
 
@@ -167,6 +168,7 @@ Notebooks que leem as saídas de `analisar` de todos os concursos e respondem se
 | `02_evolucao_disciplina` | Estou melhorando em cada disciplina, com gerais e específicos separados? |
 | `03_evolucao_topico` | Quais tópicos do edital foram cobrados e quais continuam fracos? |
 | `04_insights` | Conclusões: melhoras significativas, fracos persistentes, correlação com o tempo, distância até a meta e sensibilidade ao nível médio. |
+| `05_corte_e_peso` | Pela regra de cada edital, quanto falta para os cortes e em que disciplina, e quanto peso e desconto mexem no ranking (fase 3). |
 
 Instale o grupo de dependências de análise e rode todos os notebooks do zero, em ordem (ou só os indicados):
 
@@ -195,6 +197,42 @@ correcao:
 ```
 
 Na regra de correção, o edital prevalece sobre o `concurso.yaml`, exceto nos `pesos` declarados numa variante, que prevalecem sobre o quadro do edital. A data declarada prevalece sobre a do edital. Depois de mudar o `concurso.yaml`, rode `analisar` de novo. Os campos estão em [`concurso.yaml`](docs/modelo.md#concursoyaml), e a precedência e as fórmulas, no modelo de correção em [Entidades](docs/modelo.md#entidades).
+
+## Fase 3 — Edital como fonte de verdade e descoberta
+
+O `analisar` lê do edital do cargo, além do conteúdo programático, as regras que mudam a nota e a leitura dela: identificação (nome oficial, cargo, especialidade, vagas), pesos, distribuição de questões, cortes (em pontos ou acertos, por bloco, no conjunto e por disciplina), cronograma, desempate e outras descobertas. Cada valor vem com a fonte e com trecho, documento e página, para conferir no PDF. As regras não mudam a correção: a nota continua saindo do `correcao.json`, e o edital vira a expectativa contra a qual a prova é conferida.
+
+Saídas novas, em `analises/<concurso>/`:
+
+- `edital_estruturado.json`: ganha os blocos `identificacao`, `pesos`, `distribuicao`, `cortes`, `cronograma`, `metadados`, `versao_candidatos` e `avisos`, ao lado do conteúdo programático;
+- `discrepancias_edital.csv`: uma linha por divergência entre edital, prova e gabarito;
+- `catalogo_edital.md`: o que o edital declara e como o projeto usa cada informação.
+
+Campos novos de configuração:
+
+```yaml
+# concurso.yaml
+edital:
+  arquivo: edital.pdf
+  retificacoes: [ret_2.pdf, ret_3.pdf]  # na ordem de publicação; a mais recente vence campo a campo
+```
+
+```yaml
+# config.yaml
+concurso_alvo: tcu_25  # opcional; vazio, o notebook 05 mostra todos os concursos
+```
+
+**Como ler as discrepâncias.** As colunas são `item, esperado_edital, observado_prova, diferenca, severidade, acao_sugerida`. A severidade diz o que fazer:
+
+- `error`: algo está errado na leitura ou na configuração. Exemplos: total ou bloco de questões divergente, gabarito com letras além das alternativas do edital, pesos dos eixos do CPNU que não somam 10. Confira o PDF e o `concurso.yaml`.
+- `warn`: confira à mão. Exemplos: contagem por disciplina divergente, peso realizado diferente do edital (vale o realizado), cargo sem casamento no edital.
+- `info`: só registro, como a data do `concurso.yaml` diferente da do edital.
+
+Arquivo vazio, só com o cabeçalho, quer dizer que edital, prova e gabarito concordam.
+
+**Como ler o catálogo.** A tabela tem uma linha por candidato do registro (`analytics/candidatos_edital.py`): valor, trecho de origem, uso no projeto, impacto, status e se o edital traz a informação. "(descoberta)" marca o que veio além da lista inicial de candidatos. "Não encontrado" quer dizer que o edital não declara a informação, e o nível entre parênteses diz quanto isso importa. As propostas de evolução são descobertas de impacto alto que mexeriam em código já validado, como o OCR da folha, e só entram com confirmação. Os descartados não mudam nota, gap nem ranking. O template está em [docs/modelo.md](docs/modelo.md).
+
+O notebook `05_corte_e_peso` aplica as regras: gap para cada corte, quanto melhorar em cada disciplina, ranking entre bruto, corrigido e ponderado, simulação de cenário (sempre rotulada como estimativa), desempate na ordem do edital e um painel de peculiaridades do edital.
 
 ## Privacidade
 

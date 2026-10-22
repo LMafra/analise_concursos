@@ -13,12 +13,12 @@ Ver `docs/spec-fase3.md`, história 70 e a seção "Testing Decisions".
 
 **Blocked by:** 03, 04, 05, 06, 10
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Os nove concursos têm as três saídas novas.
-- [ ] Os cortes batem com a tabela das Further Notes.
-- [ ] Pelo menos três descobertas além da lista conhecida aparecem com trecho e uso.
-- [ ] O arquivo de correção de cada concurso não muda.
-- [ ] Todos os notebooks executam do zero.
-- [ ] README e AGENTS.md atualizados.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Os nove concursos têm as três saídas novas.
+- [x] Os cortes batem com a tabela das Further Notes.
+- [x] Pelo menos três descobertas além da lista conhecida aparecem com trecho e uso.
+- [x] O arquivo de correção de cada concurso não muda.
+- [x] Todos os notebooks executam do zero.
+- [x] README e AGENTS.md atualizados.
+- [x] `uv run pytest` e `ruff` verdes.

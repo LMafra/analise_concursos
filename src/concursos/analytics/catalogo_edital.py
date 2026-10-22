@@ -75,8 +75,12 @@ def _valor(metadado: Metadado | None) -> str:
     if metadado is None or metadado.valor is None:
         return '–'
     valor = metadado.valor
-    texto = '; '.join(map(str, valor)) if isinstance(valor, list) else str(valor)
+    texto = '; '.join(map(_texto, valor)) if isinstance(valor, list) else _texto(valor)
     return _encurtar(texto, _TAMANHO_DO_VALOR)
+
+
+def _texto(valor: object) -> str:
+    return f'{valor:g}' if isinstance(valor, float) else str(valor)
 
 
 def _trecho(metadado: Metadado | None) -> str:
