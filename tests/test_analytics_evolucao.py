@@ -16,6 +16,8 @@ from concursos.analytics.evolucao import (
     nota_ponderada_por_disciplina,
     percentual_por_disciplina_ao_longo_do_tempo,
     percentual_por_topico,
+    ranking_concursos_por_metrica,
+    simular_cenario,
     tendencia_por_disciplina,
     topicos_fracos_persistentes,
     zscore_por_disciplina,
@@ -712,3 +714,55 @@ def test_sem_concurso_alvo_saem_todos_e_com_ele_so_o_alvo():
     assert set(gap_para_corte(dois, cortes, concurso_alvo='tcu')['concurso']) == {'tcu'}
     assert set(nota_ponderada_por_disciplina(dois)['concurso']) == {'cd_25', 'tcu'}
     assert set(nota_ponderada_por_disciplina(dois, concurso_alvo='tcu')['concurso']) == {'tcu'}
+
+
+def test_ranking_entre_bruto_corrigido_e_ponderado_confere_com_o_calculo_a_mao():
+    liquida = concurso('a', ['acerto'] * 7 + ['erro'] * 3)
+    bruta = concurso('b', ['acerto'] * 6 + ['erro'] * 4, formato='multipla_escolha')
+    ponderada = concurso(
+        'c',
+        ['acerto', 'acerto', 'erro', 'erro'],
+        formato='multipla_escolha',
+        pesos={'padrao': [2.0, 2.0, 1.0, 1.0]},
+    )
+
+    tabela = ranking_concursos_por_metrica(consolidado(liquida, bruta, ponderada)).set_index('concurso')
+
+    assert tabela.loc['a', ['percentual_bruto', 'percentual_corrigido', 'percentual_ponderado']].tolist() == [
+        70.0,
+        40.0,
+        70.0,
+    ]
+    assert tabela.loc['c', 'percentual_ponderado'] == pytest.approx(100 * 4 / 6)
+    assert tabela['posicao_bruto'].to_dict() == {'a': 1, 'b': 2, 'c': 3}
+    assert tabela['posicao_corrigido'].to_dict() == {'a': 3, 'b': 2, 'c': 1}
+    assert tabela['posicao_ponderado'].to_dict() == {'a': 1, 'b': 3, 'c': 2}
+    assert tabela['deslocamento_corrigido'].to_dict() == {'a': -2, 'b': 0, 'c': 2}
+    assert tabela['deslocamento_ponderado'].to_dict() == {'a': 0, 'b': -1, 'c': 1}
+
+
+def test_simulacao_converte_erros_e_brancos_na_proporcao_e_muda_nota_e_gap():
+    prova = concurso(
+        'cd_25',
+        ['acerto'] * 5 + ['erro'] * 3 + ['branco'] * 2 + ['acerto'] * 2,
+        disciplinas=['Dados'] * 10 + ['Português'] * 2,
+    )
+    cortes = {'cd_25': [corte('conjunto', 8)]}
+
+    [linha] = simular_cenario(consolidado(prova), cortes, 'Dados', 20).to_dict('records')
+
+    assert (linha['itens_convertidos'], linha['erros_convertidos'], linha['brancos_convertidos']) == (2, 1, 1)
+    assert (linha['nota_atual'], linha['nota_estimada']) == (4.0, 7.0)
+    assert (linha['gap_atual'], linha['gap_estimado']) == (-4.0, -1.0)
+    assert (linha['atingido_atual'], linha['atingido_estimado']) == (False, False)
+    assert linha['natureza'] == 'estimativa'
+
+
+def test_simulacao_nao_converte_mais_itens_do_que_os_que_nao_sao_acerto():
+    prova = concurso('cd_25', ['acerto'] * 9 + ['erro'], disciplinas=['Dados'] * 10)
+
+    [linha] = simular_cenario(consolidado(prova), {'cd_25': [corte('conjunto', 9)]}, 'Dados', 50).to_dict(
+        'records'
+    )
+
+    assert (linha['itens_convertidos'], linha['nota_estimada'], linha['atingido_estimado']) == (1, 10.0, True)

@@ -1068,13 +1068,53 @@ def _valor_descoberto(match: re.Match) -> Any:
     return int(valor) if valor.isdigit() else valor
 
 
-def _derivados(identificacao: Identificacao, pesos: Pesos, cortes: tuple[Corte, ...]) -> dict[str, Campo]:
+_DESEMPATE = re.compile(
+    r'empate[^.]{0,200}?ter[áa]\s+prefer[êe]ncia\s+[oa]\s+(?:pessoa\s+)?candidat[oa]\s+que,?\s+'
+    r'na\s+seguinte\s+ordem:\s*(?P<lista>.{1,2000}?)'
+    r'(?=(?-i:\s\d{1,2}(?:\.\d{1,2})+\.?\s+[A-ZÀ-Ý]|\s\d{1,2}\s+D[AEO]S?\s+[A-ZÀ-Ý])|$)',
+    re.IGNORECASE,
+)
+_ALINEA = re.compile(r'(?<!\w)(?P<letra>[a-z])\)\s+')
+_PROVA_SUBSCRITA = re.compile(r'\(?\bP\s*\)?\s*[;.]?\s*(?P<numero>\d)$')
+"""O "(P₂)" do Cebraspe vira "(P ); 2" na extração do PDF: o subscrito cai depois da pontuação."""
+_FIM_DA_ALINEA = re.compile(r'(?:[;,]\s*e)?[\s;.,]*$')
+
+
+def _extrair_desempate(docs: _Documentos, escopo: _Escopo) -> Campo:
+    """Os critérios na ordem das alíneas, sem cálculo."""
+    achado = docs.primeiro(_DESEMPATE, escopo)
+    if achado is None:
+        return Campo()
+    criterios = _alineas(achado.match['lista'])
+    return achado.campo(criterios, CONFIANCA_DESCOBERTA) if criterios else Campo()
+
+
+def _alineas(lista: str) -> list[str]:
+    """Só as alíneas em sequência (a, b, c…): uma letra fora da sequência é texto da alínea anterior."""
+    marcas, esperada = [], 'a'
+    for marca in _ALINEA.finditer(lista):
+        if marca['letra'] == esperada:
+            marcas.append(marca)
+            esperada = chr(ord(esperada) + 1)
+    fins = [m.start() for m in marcas[1:]] + [len(lista)]
+    criterios = []
+    for marca, fim in zip(marcas, fins, strict=True):
+        criterio = _FIM_DA_ALINEA.sub('', lista[marca.end() : fim].strip())
+        criterio = _PROVA_SUBSCRITA.sub(r'(P\g<numero>)', criterio)
+        criterios.append(_FIM_DA_ALINEA.sub('', criterio))
+    return criterios
+
+
+def _derivados(
+    identificacao: Identificacao, pesos: Pesos, cortes: tuple[Corte, ...], desempate: Campo
+) -> dict[str, Campo]:
     """Descobertas que saem das regras já extraídas."""
     ponderada = pesos.tipo.valor in {TipoPeso.POR_FAIXA_DE_ITENS, TipoPeso.POR_BLOCO}
     em_acertos = next((c for c in cortes if c.unidade is UnidadeCorte.ACERTOS), None)
     derivados = {
         'teto_de_classificados': identificacao.teto_classificados,
         'soma_dos_pesos_dos_eixos': pesos.soma_dos_eixos,
+        'desempate': desempate,
     }
     if ponderada and em_acertos is not None:
         derivados['corte_em_acertos_com_nota_ponderada'] = em_acertos
@@ -1105,7 +1145,8 @@ def extrair_regras(
     distribuicao, avisos_da_distribuicao = _extrair_distribuicao(config, docs, escopo)
     cortes, avisos_dos_cortes = _extrair_cortes(config, docs, escopo)
     cronograma, avisos_do_cronograma = _extrair_cronograma(config, docs)
-    metadados = _extrair_metadados(docs, escopo, _derivados(identificacao, pesos, cortes))
+    derivados = _derivados(identificacao, pesos, cortes, _extrair_desempate(docs, escopo))
+    metadados = _extrair_metadados(docs, escopo, derivados)
     avisos += avisos_dos_pesos + avisos_da_distribuicao + avisos_dos_cortes + avisos_do_cronograma
     for aviso in avisos:
         logger.warning('%s', aviso)

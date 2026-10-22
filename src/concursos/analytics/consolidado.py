@@ -336,16 +336,21 @@ def _alguma_mais_nova(cache: Path, entradas: list[Path]) -> bool:
     return any(entrada.stat().st_mtime > limite for entrada in entradas)
 
 
-def cortes_por_concurso(raiz_analises: Path | None = None) -> dict[str, list[dict]]:
-    """Os cortes gravados de cada concurso analisado, no formato que `evolucao.gap_para_corte` recebe."""
+def regras_por_concurso(raiz_analises: Path | None = None) -> dict[str, dict]:
+    """As regras do edital estruturado de cada concurso analisado que já as tem."""
     raiz = raiz_das_analises(raiz_analises)
     if not raiz.exists():
         return {}
     return {
-        pasta.name: regras['cortes']
+        pasta.name: regras
         for pasta in sorted(raiz.iterdir())
         if pasta.is_dir() and (regras := ler_regras(pasta)) is not None
     }
+
+
+def cortes_por_concurso(raiz_analises: Path | None = None) -> dict[str, list[dict]]:
+    """Os cortes gravados de cada concurso analisado, no formato que `evolucao.gap_para_corte` recebe."""
+    return {nome: regras['cortes'] for nome, regras in regras_por_concurso(raiz_analises).items()}
 
 
 def raiz_das_analises(raiz_analises: Path | None = None) -> Path:

@@ -132,7 +132,20 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
   - Nota máxima do escopo: `Σ peso` em pontos e o número de itens em acertos.
   - `gap = nota − corte` (positivo acima do corte), `gap_percentual = 100 × gap / nota máxima do escopo` (pontos percentuais) e `satisfeito = gap ≥ 0`.
   - `atingido` só é verdadeiro quando todos os cortes da variante são satisfeitos: passar no conjunto não basta se um bloco ou uma disciplina fica abaixo.
-- **Concurso-alvo:** `concurso_alvo` no `config.yaml` (nome da pasta do concurso, opcional) restringe as duas funções acima a esse concurso. Sem ele, saem todos.
+- **Concurso-alvo:** `concurso_alvo` no `config.yaml` (nome da pasta do concurso, opcional) restringe as duas funções acima, a simulação e o desempate a esse concurso. Sem ele, saem todos.
+- **Ranking entre métricas** (`ranking_concursos_por_metrica`, em `evolucao`): por concurso e variante, com a anulada valendo acerto e ponto:
+  - `percentual_bruto = 100 × acertos / n` (sem peso, sem desconto);
+  - `percentual_corrigido = 100 × Σ peso × pontos corrigidos / Σ peso` (peso e desconto);
+  - `percentual_ponderado = 100 × Σ peso × acerto / Σ peso` (peso, sem desconto).
+
+  Posições e deslocamentos seguem o comparativo da fase 2: a posição 1 é o maior percentual, e o deslocamento é quantas posições a linha sobe em relação ao bruto.
+- **Simulação** (`simular_cenario`, em `evolucao`, e o texto em `insights.descrever_simulacao`): "se eu subir X p.p. na disciplina Y". Em cada concurso com Y:
+  - `k = min(round(X/100 × n), erros + brancos)`, com n os itens de Y (anuladas incluídas) e o arredondamento meio para cima;
+  - `k_erros = round(k × erros / (erros + brancos))` e `k_brancos = k − k_erros`, tomados na ordem das questões;
+  - os itens convertidos viram acerto (1 ponto em todas as versões) e o gap de cada corte é recalculado com `gap_para_corte`.
+
+  A saída tem `natureza = estimativa`, e o texto se apresenta como estimativa de cenário, sem linguagem de previsão e sem estimar colocação.
+- **Desempate** (`insights.desempate_por_concurso`): os critérios do metadado `desempate`, na ordem das alíneas do edital, sem cálculo.
 - **Correlação geral** (`correlacao_tempo_percentual`, em `evolucao`): Spearman entre a ordem e o percentual ajustado de cada concurso. É a medida única de tendência geral; a média dos z-scores de um concurso não serve, porque fica perto de 0 por construção.
 - **Achados:** melhoras e pioras são as tendências por disciplina com p < 0,05; os fracos usam o limiar do `config.yaml`; o ranking muda quando alguma linha tem deslocamento no corrigido ou no ajustado.
 - **Sensibilidade:** os achados são recalculados sem os concursos de nível médio (`escolaridade: medio`), e as diferenças são declaradas.
@@ -252,7 +265,7 @@ O CSV de discrepâncias compara a distribuição com as questões corrigidas (`q
 - `chave`: a do candidato (`alternativas`, `desempate`, `validade`…);
 - `status`: `encontrado`, `nao_encontrado` ou `ambiguo`. Ambíguo é o candidato de valor único (alternativas, tipo de questão, validade) com valores diferentes no edital; o `valor` vira a lista deles.
 
-Encontrado, o metadado tem fonte `descoberta` (ou `retificacao`), trecho, documento e página; a busca respeita o escopo do cargo, e uma retificação que o traz vence o edital. Os candidatos sem padrão são derivados das regras já extraídas: corte em acertos ao lado de nota ponderada (CPNU 8.15), teto de classificados (TCU 8.11.5) e soma dos pesos dos eixos (CPNU 8.9.2). Quando o edital traz o número de alternativas e o gabarito usa outra última letra (por exemplo, 5 alternativas e gabarito só até D), o CSV de discrepâncias ganha um `error` (`alternativas`, `A a E` contra `A a D`).
+Encontrado, o metadado tem fonte `descoberta` (ou `retificacao`), trecho, documento e página; a busca respeita o escopo do cargo, e uma retificação que o traz vence o edital. Os candidatos sem padrão são derivados das regras já extraídas: corte em acertos ao lado de nota ponderada (CPNU 8.15), teto de classificados (TCU 8.11.5) e soma dos pesos dos eixos (CPNU 8.9.2). O `desempate` tem extração própria: o `valor` é a lista de critérios na ordem das alíneas ("terá preferência o candidato que, na seguinte ordem: a) …"), da lista do cargo, com o "(P ); 2" do PDF lido como "(P2)". Quando o edital traz o número de alternativas e o gabarito usa outra última letra (por exemplo, 5 alternativas e gabarito só até D), o CSV de discrepâncias ganha um `error` (`alternativas`, `A a E` contra `A a D`).
 
 **Catálogo de descobertas** (`catalogo_edital.md`). Gerado do registro e dos metadados, um por concurso, com este template:
 

@@ -12,11 +12,11 @@ Ver `docs/spec-fase3.md`, histórias 54–58.
 
 **Blocked by:** 08 (Nota ponderada e gap para o corte)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Teste: o deslocamento do ranking entre as três métricas confere com um exemplo calculado à mão.
-- [ ] Teste: a simulação muda a nota e o gap.
-- [ ] Teste: a simulação é rotulada como estimativa e não contém "vou passar" nem "serei aprovado".
-- [ ] Teste: o desempate sai na ordem do edital.
-- [ ] `docs/modelo.md` documenta a fórmula da simulação.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Teste: o deslocamento do ranking entre as três métricas confere com um exemplo calculado à mão.
+- [x] Teste: a simulação muda a nota e o gap.
+- [x] Teste: a simulação é rotulada como estimativa e não contém "vou passar" nem "serei aprovado".
+- [x] Teste: o desempate sai na ordem do edital.
+- [x] `docs/modelo.md` documenta a fórmula da simulação.
+- [x] `uv run pytest` e `ruff` verdes.

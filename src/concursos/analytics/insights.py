@@ -1,7 +1,7 @@
 """Achados da análise evolutiva: as quatro respostas do notebook de insights, a sensibilidade sem os
 concursos de nível médio e o relatório de evolução em markdown."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -198,6 +198,49 @@ def notas_finais_em_markdown(consolidado: pd.DataFrame) -> str:
         f'{NotaFinal(linha.nota, linha.nota_maxima, _ou_none(linha.nota_corte)).texto}.'
         for linha in com_regra.itertuples()
     )
+
+
+def descrever_simulacao(simulacao: pd.DataFrame, disciplina: str, pontos_percentuais: float) -> str:
+    """O texto de `simular_cenario`: sempre estimativa de cenário, sem colocação e sem linguagem de
+    previsão."""
+    cabecalho = (
+        f'**Estimativa de cenário** (+{pontos_percentuais:g} p.p. em {disciplina}): não é previsão de '
+        'resultado nem estima colocação, porque o projeto não tem as notas dos outros candidatos.'
+    )
+    if simulacao.empty:
+        return f'{cabecalho}\n\nNenhum concurso com {disciplina} e cortes do edital.'
+    partes = [cabecalho]
+    for (concurso, variante), linhas in simulacao.groupby(['concurso', 'variante'], dropna=False, sort=False):
+        primeira = linhas.iloc[0]
+        cortes = '; '.join(
+            f'{_escopo_do_corte(linha)}: nota {linha.nota_atual:g} → {linha.nota_estimada:g}, '
+            f'gap {linha.gap_atual:+g} → {linha.gap_estimado:+g} {linha.unidade}'
+            for linha in linhas.itertuples()
+        )
+        partes.append(
+            f'- {concurso}{f" ({variante})" if pd.notna(variante) else ""}: '
+            f'{primeira.itens_convertidos} itens viram acerto ({primeira.erros_convertidos} erros e '
+            f'{primeira.brancos_convertidos} brancos). {cortes}. Todos os cortes satisfeitos no cenário: '
+            f'{"sim" if primeira.atingido_estimado else "não"}.'
+        )
+    return '\n\n'.join(partes)
+
+
+def _escopo_do_corte(linha) -> str:
+    return linha.escopo if pd.isna(linha.disciplina) else f'{linha.escopo} {linha.disciplina}'
+
+
+def desempate_por_concurso(regras: Mapping[str, dict], concurso_alvo: str | None = None) -> pd.DataFrame:
+    """Os critérios de desempate de cada concurso na ordem do edital, sem cálculo."""
+    linhas = [
+        {'concurso': concurso, 'prioridade': prioridade, 'criterio': criterio}
+        for concurso, dados in regras.items()
+        if concurso_alvo is None or concurso == concurso_alvo
+        for metadado in dados.get('metadados', [])
+        if metadado['chave'] == 'desempate' and isinstance(metadado['valor'], list)
+        for prioridade, criterio in enumerate(metadado['valor'], 1)
+    ]
+    return pd.DataFrame(linhas, columns=['concurso', 'prioridade', 'criterio'])
 
 
 def _ou_none(valor: float) -> float | None:

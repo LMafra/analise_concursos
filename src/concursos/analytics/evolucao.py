@@ -1,5 +1,6 @@
 """Métricas da análise evolutiva: funções puras sobre o consolidado (uma linha por questão)."""
 
+import math
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import permutations
@@ -27,6 +28,9 @@ MAXIMO_PONTOS_P_EXATO = 9
 LIMIAR_TOPICO_FRACO = ConfiguracaoGlobal.limiar_topico_baixo
 META_PADRAO = 0.7
 _CASAS_NO_EMPATE = 9
+METRICAS_DO_RANKING = ('bruto', 'corrigido', 'ponderado')
+ESTIMATIVA = 'estimativa'
+_CORTE_NA_SIMULACAO = ['concurso', 'variante', 'ordem', 'escopo', 'bloco', 'disciplina', 'unidade', 'corte']
 _DISCIPLINA_NO_CONCURSO = ['concurso', 'banca', 'ordem', 'bloco', 'disciplina_canonica']
 _TOPICO_NO_CONCURSO = ['concurso', 'banca', 'ordem', 'disciplina_canonica', 'chave_topico']
 _LINHA_DA_DISCIPLINA = ['concurso', 'banca', 'ordem', 'bloco', 'disciplina']
@@ -188,12 +192,103 @@ def gap_para_corte(
     return _em_ordem(linhas)
 
 
+def ranking_concursos_por_metrica(consolidado: pd.DataFrame) -> pd.DataFrame:
+    """Ranking dos concursos pelo percentual bruto (acertos sobre itens), corrigido (peso e desconto) e
+    ponderado (peso, sem desconto), com a anulada valendo acerto e ponto. Posições e deslocamentos seguem
+    `comparar_bruto_vs_corrigido`: o deslocamento é quantas posições a linha sobe em relação ao bruto."""
+    linhas = []
+    for (nome, concurso), variante, peso in _por_variante(consolidado, None):
+        acertos = _acertos_pelo_edital(concurso)
+        linhas.append(
+            {
+                'concurso': nome,
+                'variante': variante,
+                'ordem': concurso['ordem'].iloc[0],
+                'percentual_bruto': 100 * acertos.mean(),
+                'percentual_corrigido': 100 * (peso * _pontos_pelo_edital(concurso)).sum() / peso.sum(),
+                'percentual_ponderado': 100 * (peso * acertos).sum() / peso.sum(),
+            }
+        )
+    tabela = pd.DataFrame(linhas)
+    for metrica in METRICAS_DO_RANKING:
+        tabela[f'posicao_{metrica}'] = _posicoes(tabela, f'percentual_{metrica}')
+    for metrica in METRICAS_DO_RANKING[1:]:
+        tabela[f'deslocamento_{metrica}'] = tabela['posicao_bruto'] - tabela[f'posicao_{metrica}']
+    return tabela.sort_values(
+        ['posicao_bruto', 'concurso', 'variante'], na_position='last', ignore_index=True
+    )
+
+
+def simular_cenario(
+    consolidado: pd.DataFrame,
+    cortes: Mapping[str, Sequence[Mapping]],
+    disciplina: str,
+    pontos_percentuais: float,
+    concurso_alvo: str | None = None,
+) -> pd.DataFrame:
+    """Estimativa de cenário, não previsão: em cada concurso com a `disciplina`, round(X% × n) itens dela que
+    não são acerto (n = itens da disciplina, anuladas incluídas) viram acerto, divididos entre erros e
+    brancos na proporção atual e tomados na ordem das questões; a nota e o gap de cada corte são
+    recalculados. Não estima colocação, porque o projeto não tem as notas dos outros candidatos."""
+    linhas = []
+    for _, concurso in _concursos(consolidado, concurso_alvo):
+        da_disciplina = concurso[concurso['disciplina_canonica'] == disciplina].sort_values(
+            ['prova', 'questao']
+        )
+        if da_disciplina.empty:
+            continue
+        erros = da_disciplina.index[
+            (da_disciplina['resultado'] == Resultado.ERRO) & ~da_disciplina['anulada']
+        ]
+        brancos = da_disciplina.index[
+            (da_disciplina['resultado'] == Resultado.BRANCO) & ~da_disciplina['anulada']
+        ]
+        convertidos = min(
+            _meio_para_cima(pontos_percentuais / 100 * len(da_disciplina)), len(erros) + len(brancos)
+        )
+        de_erro = (
+            _meio_para_cima(convertidos * len(erros) / (len(erros) + len(brancos))) if convertidos else 0
+        )
+        itens = [*erros[:de_erro], *brancos[: convertidos - de_erro]]
+        simulado = concurso.copy()
+        simulado.loc[itens, 'resultado'] = Resultado.ACERTO.value
+        simulado.loc[itens, ['pontos_bruta', 'pontos_corrigida', 'pontos_ajustada']] = 1.0
+        atual, estimado = gap_para_corte(concurso, cortes), gap_para_corte(simulado, cortes)
+        for antes, depois in zip(atual.to_dict('records'), estimado.to_dict('records'), strict=True):
+            linhas.append(
+                {
+                    **{chave: antes[chave] for chave in _CORTE_NA_SIMULACAO},
+                    'disciplina_simulada': disciplina,
+                    'pontos_percentuais': pontos_percentuais,
+                    'itens_convertidos': convertidos,
+                    'erros_convertidos': de_erro,
+                    'brancos_convertidos': convertidos - de_erro,
+                    'nota_atual': antes['nota'],
+                    'nota_estimada': depois['nota'],
+                    'gap_atual': antes['gap'],
+                    'gap_estimado': depois['gap'],
+                    'atingido_atual': antes['atingido'],
+                    'atingido_estimado': depois['atingido'],
+                    'natureza': ESTIMATIVA,
+                }
+            )
+    return pd.DataFrame(linhas)
+
+
+def _meio_para_cima(valor: float) -> int:
+    return math.floor(valor + 0.5)
+
+
+def _concursos(consolidado: pd.DataFrame, concurso_alvo: str | None) -> Iterator[tuple[str, pd.DataFrame]]:
+    if concurso_alvo is not None:
+        consolidado = consolidado[consolidado['concurso'] == concurso_alvo]
+    yield from consolidado.groupby('concurso', sort=False)
+
+
 def _por_variante(
     consolidado: pd.DataFrame, concurso_alvo: str | None
 ) -> Iterator[tuple[tuple[str, pd.DataFrame], str | None, pd.Series]]:
-    if concurso_alvo is not None:
-        consolidado = consolidado[consolidado['concurso'] == concurso_alvo]
-    for nome_e_concurso in consolidado.groupby('concurso', sort=False):
+    for nome_e_concurso in _concursos(consolidado, concurso_alvo):
         for variante, peso in _variantes(nome_e_concurso[1]):
             yield nome_e_concurso, variante, peso
 

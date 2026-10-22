@@ -1,8 +1,11 @@
 import pandas as pd
 from consolidado_sintetico import concurso, consolidado
 
+from concursos.analytics.evolucao import simular_cenario
 from concursos.analytics.insights import (
     calcular_achados,
+    descrever_simulacao,
+    desempate_por_concurso,
     diferencas,
     gravar_relatorio_evolucao,
     respostas,
@@ -110,3 +113,34 @@ def test_relatorio_com_as_tres_imagens_e_as_quatro_respostas(tmp_path):
     for imagem in imagens:
         assert f']({imagem})' in texto
         assert (tmp_path / imagem).exists()
+
+
+def test_simulacao_e_rotulada_como_estimativa_sem_linguagem_de_previsao():
+    prova = concurso('cd_25', ['acerto'] * 5 + ['erro'] * 5, disciplinas=['Dados'] * 10)
+    cortes = {'cd_25': [{'escopo': 'conjunto', 'valor': 2, 'unidade': 'pontos', 'bloco': None}]}
+    simulacao = simular_cenario(consolidado(prova), cortes, 'Dados', 30)
+
+    texto = descrever_simulacao(simulacao, 'Dados', 30)
+
+    assert texto.startswith('**Estimativa')
+    assert '+30 p.p. em Dados' in texto
+    assert 'nota 0 → 6' in texto
+    for previsao in ('vou passar', 'serei aprovado', 'aprovad', 'colocação estimada'):
+        assert previsao not in texto.lower()
+
+
+def test_desempate_sai_na_ordem_do_edital_sem_calculo():
+    regras = {
+        'tcu_25': {
+            'metadados': [{'chave': 'desempate', 'valor': ['tiver mais de 60 anos', 'maior nota em P2']}]
+        },
+        'agsus': {'metadados': [{'chave': 'desempate', 'valor': None}]},
+    }
+
+    tabela = desempate_por_concurso(regras)
+
+    assert tabela.to_dict('records') == [
+        {'concurso': 'tcu_25', 'prioridade': 1, 'criterio': 'tiver mais de 60 anos'},
+        {'concurso': 'tcu_25', 'prioridade': 2, 'criterio': 'maior nota em P2'},
+    ]
+    assert desempate_por_concurso(regras, concurso_alvo='agsus').empty

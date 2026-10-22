@@ -740,3 +740,64 @@ def test_cpnu_descobre_corte_em_acertos_com_nota_ponderada_e_a_soma_dos_eixos():
     assert '36 (trinta e seis) acertos' in corte.trecho_origem
     soma = regras.metadado('soma_dos_pesos_dos_eixos')
     assert (soma.status, soma.valor) == (StatusExtracao.ENCONTRADO, 10)
+
+
+DESEMPATE_CD = (
+    '12.1 Em caso de empate na nota final no concurso, terá preferência o candidato que, na seguinte ordem: '
+    'a) obtiver idade igual ou superior a sessenta anos, até o último dia de inscrição neste concurso, '
+    'conforme artigo 27, parágrafo único, do Estatuto da Pessoa Idosa (lei nº 10.741/2003); b) obtiver '
+    'maior nota na prova objetiva de conhecimentos específicos (P ); 2 c) obtiver o maior número de acertos '
+    'na prova objetiva de conhecimentos específicos (P ); 2 d) obtiver a maior nota na prova discursiva '
+    '(P ); 3 e) obtiver o maior número de acertos na prova objetiva de conhecimentos gerais (P ) 1 f) tiver '
+    'maior idade; g) tiver exercido a função de jurado (conforme art. 440 do Código de Processo Penal, '
+    'conforme a Lei nº 11.689/2008). 13 DAS DISPOSIÇÕES FINAIS 13.1 A inscrição do candidato implicará a '
+    'aceitação das normas.'
+)
+DESEMPATE_PF = (
+    '18.10.1 Em caso de empate na nota final na primeira etapa do concurso para o cargo de Delegado de '
+    'Polícia Federal, terá preferência o candidato que, na seguinte ordem: a) tiver idade igual ou superior '
+    'a sessenta anos; b) obtiver a maior nota na prova discursiva (P ); 2 c) obtiver a maior nota na prova '
+    'oral (P ); 3 d) tiver maior idade. 18.10.2 Em caso de empate na nota final na primeira etapa do '
+    'concurso para os cargos de Perito Criminal Federal, terá preferência o candidato que, na seguinte '
+    'ordem: a) tiver idade igual ou superior a sessenta anos; b) obtiver a maior nota na prova discursiva '
+    '(P ); 2 c) obtiver a maior nota na prova objetiva (P ); 1 d) tiver maior idade. 18.11 Texto final.'
+)
+
+
+def test_desempate_sai_na_ordem_do_edital_com_as_provas_legiveis():
+    regras = extrair_regras(config(), {'edital.pdf': [CAPA_TCU, DESEMPATE_CD]})
+
+    desempate = regras.metadado('desempate')
+    assert (desempate.status, desempate.fonte, desempate.pagina_origem) == (
+        StatusExtracao.ENCONTRADO,
+        FonteRegra.DESCOBERTA,
+        2,
+    )
+    assert len(desempate.valor) == 7
+    assert desempate.valor[0].startswith('obtiver idade igual ou superior a sessenta anos')
+    assert desempate.valor[1:5] == [
+        'obtiver maior nota na prova objetiva de conhecimentos específicos (P2)',
+        'obtiver o maior número de acertos na prova objetiva de conhecimentos específicos (P2)',
+        'obtiver a maior nota na prova discursiva (P3)',
+        'obtiver o maior número de acertos na prova objetiva de conhecimentos gerais (P1)',
+    ]
+    assert desempate.valor[5:] == [
+        'tiver maior idade',
+        'tiver exercido a função de jurado (conforme art. 440 do Código de Processo Penal, '
+        'conforme a Lei nº 11.689/2008)',
+    ]
+    assert 'na seguinte ordem' in desempate.trecho_origem
+
+
+def test_desempate_e_o_da_lista_do_cargo_da_configuracao():
+    regras = extrair_regras(
+        config('CARGO 4: PERITO CRIMINAL FEDERAL – ÁREA 3: INFORMÁTICA FORENSE'),
+        {'edital.pdf': [CARGOS_PF, DESEMPATE_PF]},
+    )
+
+    assert regras.metadado('desempate').valor == [
+        'tiver idade igual ou superior a sessenta anos',
+        'obtiver a maior nota na prova discursiva (P2)',
+        'obtiver a maior nota na prova objetiva (P1)',
+        'tiver maior idade',
+    ]

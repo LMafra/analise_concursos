@@ -4,7 +4,7 @@ cada um. Mudar um candidato (padrão, uso, status) sobe a versão."""
 from dataclasses import dataclass
 from enum import StrEnum
 
-VERSAO_CANDIDATOS = 1
+VERSAO_CANDIDATOS = 2
 
 
 class Impacto(StrEnum):
@@ -145,7 +145,6 @@ CANDIDATOS = (
         Impacto.MEDIO,
         StatusCandidato.APLICADO,
         'info',
-        (r'(?P<valor>(?:em\s+caso\s+de\s+empate|critérios\s+de\s+desempate)[^.]{0,160})',),
     ),
     Candidato(
         'legislacao_base',
