@@ -4,6 +4,7 @@ from concursos.concurso_config import ConcursoConfig
 from concursos.modelo import ItemGabarito, RespostaMarcada, Resultado
 
 TOPICO_NAO_MAPEADO = 'nao_mapeado'
+ARQUIVO_QUESTOES = 'questoes.csv'
 
 
 def corrigir(

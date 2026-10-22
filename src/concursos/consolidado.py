@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from concursos.agregacao import COLUNAS_DESEMPENHO
+from concursos.analytics.correcao import notas_finais_gravadas
 from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.manifesto import ARQUIVO_MANIFESTO
 from concursos.relatorio import tabela_markdown
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 PASTA_CONSOLIDADO = 'consolidado'
 MINIMO_CONCURSOS = 2
+SEM_NOTA_FINAL = '-'
 _SOMAS = ['total', 'acertos', 'erros', 'em_branco', 'anuladas', 'nota_liquida']
 
 
@@ -68,7 +70,7 @@ def _comparativo(
         '',
         '## Desempenho por concurso',
         '',
-        *_por_concurso(geral, list(analisados.values())),
+        *_por_concurso(geral, analisados, raiz_analises),
         '## Tópicos consistentemente baixos',
         '',
         *_baixos(geral, ['disciplina', 'topico'], limiar, 'tópico'),
@@ -85,15 +87,25 @@ def _comparativo(
     return '\n'.join(linhas)
 
 
-def _por_concurso(geral: pd.DataFrame, analisados: list[StatusConcurso]) -> list[str]:
+def _por_concurso(
+    geral: pd.DataFrame, analisados: dict[str, StatusConcurso], raiz_analises: Path
+) -> list[str]:
     if geral.empty:
         return ['Nenhum concurso analisado.', '']
     tabela = geral.groupby('concurso', sort=True)[_SOMAS].sum().reset_index()
     tabela['percentual'] = _percentual(tabela)
-    gabaritos = {s.config.nome: s.gabarito for s in analisados}
+    gabaritos = {s.config.nome: s.gabarito for s in analisados.values()}
+    notas = {
+        s.config.nome: '; '.join(
+            n.rotulado for n in notas_finais_gravadas(raiz_analises / pasta, s.config.formato)
+        )
+        for pasta, s in analisados.items()
+    }
     tabela.insert(1, 'gabarito', tabela['concurso'].map(gabaritos))
-    linhas = [tabela_markdown(tabela, ['concurso', 'gabarito', *_SOMAS, 'percentual']), '']
-    preliminares = sorted(s.config.nome for s in analisados if s.gabarito != 'definitivo')
+    tabela['nota_final'] = tabela['concurso'].map(notas).replace('', SEM_NOTA_FINAL).fillna(SEM_NOTA_FINAL)
+    colunas = ['concurso', 'gabarito', *_SOMAS, 'nota_final', 'percentual']
+    linhas = [tabela_markdown(tabela, colunas), '']
+    preliminares = sorted(s.config.nome for s in analisados.values() if s.gabarito != 'definitivo')
     if preliminares:
         linhas += [
             f'Concursos com gabarito preliminar (resultados provisórios): {", ".join(preliminares)}.',

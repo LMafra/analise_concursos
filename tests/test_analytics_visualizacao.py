@@ -28,6 +28,13 @@ COMPARACAO = pd.DataFrame(
 )
 
 
+def test_figura_no_notebook_sai_em_html_autocontido_sem_o_mimetype_do_plotly():
+    saida = painel_correcao(COMPARACAO)._repr_mimebundle_()
+
+    assert set(saida) == {'text/html'}
+    assert 'cdn.plot.ly' in saida['text/html']
+
+
 def test_painel_tem_as_tres_versoes_por_concurso_e_variante():
     figura = painel_correcao(COMPARACAO)
 

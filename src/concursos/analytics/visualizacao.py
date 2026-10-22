@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.io as pio
 from matplotlib.colors import ListedColormap
 from matplotlib.figure import Figure
 from plotly.colors import qualitative
@@ -23,6 +24,11 @@ DPI_EXPORTACAO = 120
 _CORES_DOS_RESULTADOS = (('acertos', 'seagreen'), ('erros', 'indianred'), ('brancos', 'lightgray'))
 _METRICAS_DA_LINHA = (('percentual', 'percentual'), ('zscore', 'z-score'))
 _COLUNAS_DO_HOVER = ['concurso', 'banca', 'n']
+
+# O Cursor e o VS Code sem a extensão de renderers não exibem o mimetype do plotly; HTML com o plotly.js do CDN
+# funciona neles e no Jupyter.
+RENDERIZADOR_NOTEBOOK = 'notebook_connected'
+pio.renderers.default = RENDERIZADOR_NOTEBOOK
 
 
 @dataclass(frozen=True)

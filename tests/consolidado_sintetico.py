@@ -17,6 +17,7 @@ def concurso(
     topicos: list[str] | None = None,
     banca: str | None = None,
     escolaridade: str = 'superior',
+    nota_corte: float | None = None,
 ) -> pd.DataFrame:
     """Linhas mínimas do consolidado: Cebraspe líquida (fator 1) ou FGV bruta, com pontuação por item."""
     fator = 1.0 if formato == 'certo_errado' else 0.0
@@ -42,6 +43,7 @@ def concurso(
             'modelo_correcao': 'liquida' if fator else ('ponderada' if pesos else 'bruta'),
             'fator_penalidade': fator,
             'nota_maxima': float(len(resultados)),
+            'nota_corte': float('nan') if nota_corte is None else nota_corte,
             'ordem': pd.array([ordem] * len(resultados), dtype='Int64'),
         }
     )

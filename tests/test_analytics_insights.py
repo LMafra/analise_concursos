@@ -86,6 +86,19 @@ def test_sensibilidade_avisa_quando_nao_ha_nivel_medio():
     )
 
 
+def test_relatorio_traz_a_nota_final_so_dos_concursos_com_desconto_ou_pesos(tmp_path):
+    base = consolidado(
+        concurso('tcu', ['acerto'] * 3 + ['erro'], ordem=1, nota_corte=1.0),
+        concurso('fgv', ['acerto', 'erro'], formato='multipla_escolha', ordem=2),
+    )
+
+    texto = gravar_relatorio_evolucao(base, tmp_path).read_text(encoding='utf-8')
+
+    secao = texto.split('## Nota final pela regra do edital', 1)[1].split('\n## ', 1)[0]
+    assert '- tcu: 2 de 4 pontos, nota de corte 1 (atinge o corte).' in secao
+    assert 'fgv' not in secao
+
+
 def test_relatorio_com_as_tres_imagens_e_as_quatro_respostas(tmp_path):
     relatorio = gravar_relatorio_evolucao(BASE, tmp_path)
 

@@ -87,7 +87,7 @@ A análise emite aviso quando:
 - uma variante não tem pesos no quadro do edital nem no `concurso.yaml`;
 - a `pontuacao` declarada contradiz a regra vinda do edital ou do bloco `correcao` (`cebraspe` com fator diferente de 1, ou `simples` com fator diferente de 0). No default, vale só o aviso de default.
 
-A `pontuacao` continua alimentando a `nota_liquida` dos CSVs; o modelo de correção alimenta a análise evolutiva.
+A `pontuacao` continua alimentando a `nota_liquida` dos CSVs; o modelo de correção alimenta a análise evolutiva e a nota final dos relatórios.
 
 **Pontuação por item.** Cada questão não anulada recebe três pontuações:
 
@@ -100,6 +100,8 @@ A `pontuacao` continua alimentando a `nota_liquida` dos CSVs; o modelo de corre�
 \(f\) é o fator de penalidade, e \(k\) é o número de alternativas: 2 em `certo_errado` (erro vale −1) e 5 em `multipla_escolha` (erro vale −0,25). A versão ajustada é a métrica padrão para comparar concursos, porque um chute puro vale 0 nos dois formatos.
 
 As anuladas ficam fora das três versões (não medem conhecimento) e os percentuais podem ser negativos. O peso do item não entra nessas pontuações. A exceção é a nota do concurso, que segue o edital: soma das pontuações corrigidas multiplicadas pelo peso de cada item, com cada anulada valendo o seu peso. A nota normalizada é \(\max(0, \text{nota}/\text{nota máxima} \times 100)\), truncada em 0 só ela. Na Cebraspe, a nota corrigida é igual à soma da `nota_liquida` legada.
+
+**Nota final** (`notas_finais`). É a nota do concurso pela regra do edital, uma por variante, com a nota máxima e a nota de corte ("atinge o corte" quando nota ≥ corte). Só existe nos modelos `liquida` e `ponderada`, em que ela difere da contagem de acertos; no `bruta`, a nota final é o próprio número de acertos. Aparece no `relatorio.md`, no `comparativo_concursos.md` e no `relatorio_evolucao.md`.
 
 **Ranking entre concursos** (`comparar_bruto_vs_corrigido`). Uma linha por concurso e variante, sem as anuladas, com o percentual nas três versões:
 
@@ -123,11 +125,11 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
 
 **Insights e relatório de evolução** (`concursos.analytics.insights`).
 
-- **Meta** (`comparar_com_meta`, em `evolucao`): por concurso e variante, a nota pela regra do edital (peso da variante, anulada vale ponto), a nota normalizada (0–100 da nota máxima, truncada em 0) e a distância até a meta (padrão 70%), em pontos percentuais.
+- **Meta** (`comparar_com_meta`, em `evolucao`): por concurso e variante, a nota pela regra do edital (peso da variante, anulada vale ponto), a nota de corte, a nota normalizada (0–100 da nota máxima, truncada em 0) e a distância até a meta (padrão 70%), em pontos percentuais.
 - **Correlação geral** (`correlacao_tempo_percentual`, em `evolucao`): Spearman entre a ordem e o percentual ajustado de cada concurso. É a medida única de tendência geral; a média dos z-scores de um concurso não serve, porque fica perto de 0 por construção.
 - **Achados:** melhoras e pioras são as tendências por disciplina com p < 0,05; os fracos usam o limiar do `config.yaml`; o ranking muda quando alguma linha tem deslocamento no corrigido ou no ajustado.
 - **Sensibilidade:** os achados são recalculados sem os concursos de nível médio (`escolaridade: medio`), e as diferenças são declaradas.
-- **Relatório:** `relatorio_evolucao.md`, na pasta do consolidado, traz as quatro respostas, a sensibilidade e três PNGs gravados com matplotlib: `evolucao_zscore.png` (só disciplinas com 3 concursos ou mais de n ≥ 5), `heatmap_topicos.png` (tópicos em 2 concursos ou mais) e `painel_correcao.png`.
+- **Relatório:** `relatorio_evolucao.md`, na pasta do consolidado, traz as quatro respostas, a sensibilidade, a nota final dos concursos com desconto por erro ou pesos e três PNGs gravados com matplotlib: `evolucao_zscore.png` (só disciplinas com 3 concursos ou mais de n ≥ 5), `heatmap_topicos.png` (tópicos em 2 concursos ou mais) e `painel_correcao.png`.
 
 **Data da prova e metadados.** Cada concurso tem:
 - data da prova: a do `concurso.yaml` (`data_prova`) ou, sem ela, a extraída do edital. A configuração vem antes porque no edital a data é sempre "provável" e pode ser retificada. O edital é lido em dois formatos:
@@ -287,14 +289,14 @@ Por concurso, em `analises/<concurso>/`:
   - `variante` (`null` quando o concurso não tem variantes);
   - `data_prova` (ISO 8601 ou `null`) e `fonte_data` (`edital | config`, `null` sem data), iguais em todas as variantes.
 - **`validacao_oficial.json`:** `arquivo`, `descricao` e `alerta`. Só existe quando há resultado oficial.
-- **`relatorio.md` e `graficos/*.png`:** o relatório; os gráficos ficam na pasta indicada.
+- **`relatorio.md` e `graficos/*.png`:** o relatório, com a nota final abaixo do resumo por prova quando o modelo é `liquida` ou `ponderada`; os gráficos ficam na pasta indicada.
 - **`historico/<data>_gabarito_preliminar/`:** cópia das saídas anteriores à troca de gabarito.
 
 No consolidado, em `analises/consolidado/`:
 
 - **`desempenho_geral.csv`:** junção dos `desempenho_por_topico.csv` de todos os concursos analisados, com as mesmas colunas.
 - **`comparativo_concursos.md`:** reúne:
-  - desempenho e status do gabarito por concurso;
+  - desempenho e status do gabarito por concurso, com a coluna `nota_final` (`-` no modelo `bruta`; com variantes, uma por variante);
   - tópicos e disciplinas abaixo de `limiar_topico_baixo` em pelo menos dois concursos (nomes comparados por palavras-chave);
   - concursos incompletos ou desatualizados, com o motivo;
   - validação com o resultado oficial.

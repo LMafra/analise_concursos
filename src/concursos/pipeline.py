@@ -5,13 +5,13 @@ import pandas as pd
 
 from concursos import manifesto
 from concursos.agregacao import agregar
-from concursos.analytics.correcao import gravar_correcao, resolver_correcao
+from concursos.analytics.correcao import gravar_correcao, notas_finais, resolver_correcao
 from concursos.atualizacao import ARQUIVO_DIFF, diff_gabarito, questoes_preliminares, trocar_gabaritos
 from concursos.caderno import faixas_do_caderno
 from concursos.concurso_config import ConcursoConfig, ProvaConfig
 from concursos.configuracao import ConfiguracaoGlobal
 from concursos.consolidado import consolidar
-from concursos.correcao import TOPICO_NAO_MAPEADO, corrigir
+from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO, corrigir
 from concursos.edital import (
     ARQUIVO_EDITAL_ESTRUTURADO,
     Edital,
@@ -125,7 +125,7 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     destino.mkdir(parents=True, exist_ok=True)
     tabela = _tabela_respostas(config, respostas, configuracao.limiar_confianca)
     tabela.to_csv(destino / 'respostas_extraidas.csv', index=False)
-    resultados[COLUNAS_QUESTOES].to_csv(destino / 'questoes.csv', index=False)
+    resultados[COLUNAS_QUESTOES].to_csv(destino / ARQUIVO_QUESTOES, index=False)
     if edital is not None:
         edital.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
     por_disciplina = agregar(resultados, ['concurso', 'prova', 'disciplina'], config.pontuacao)
@@ -133,7 +133,8 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     geral = agregar(resultados, ['concurso', 'prova'], config.pontuacao)
     por_disciplina.to_csv(destino / 'desempenho_por_disciplina.csv', index=False)
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
-    gravar_correcao(resolver_correcao(config, documentos), destino)
+    correcoes = resolver_correcao(config, documentos)
+    gravar_correcao(correcoes, destino)
     diff = _diff_da_troca(destino, resultados)
     gravar_validacao(validacao, destino)
     conteudo = ConteudoRelatorio(
@@ -145,6 +146,7 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
         graficos=gerar_graficos(por_disciplina, por_topico, destino),
         validacao=validacao,
         diff=diff,
+        notas_finais=notas_finais(resultados, correcoes, config.formato),
     )
     (destino / 'relatorio.md').write_text(gerar_relatorio(config, conteudo), encoding='utf-8')
     logger.info('Saídas de %s gravadas em %s', config.nome, destino)

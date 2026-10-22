@@ -19,7 +19,9 @@ from concursos.concurso_config import (
     peso_da_questao,
     pesos_variam,
 )
+from concursos.correcao import ARQUIVO_QUESTOES
 from concursos.modelo import Formato, ModeloCorrecao, Resultado
+from concursos.resultado_oficial import formatar
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,48 @@ def aplicar_correcao(questoes: pd.DataFrame, cfg: ConfiguracaoCorrecao, formato:
 def nota_normalizada(nota: float, nota_maxima: float) -> float:
     """Nota na escala 0–100 da nota máxima, truncada em 0."""
     return max(0.0, nota / nota_maxima * 100)
+
+
+@dataclass(frozen=True)
+class NotaFinal:
+    nota: float
+    nota_maxima: float
+    nota_corte: float | None = None
+    variante: str | None = None
+
+    @property
+    def texto(self) -> str:
+        texto = f'{formatar(self.nota)} de {formatar(self.nota_maxima)} pontos'
+        if self.nota_corte is None:
+            return texto
+        situacao = 'atinge o corte' if self.nota >= self.nota_corte else 'abaixo do corte'
+        return f'{texto}, nota de corte {formatar(self.nota_corte)} ({situacao})'
+
+    @property
+    def rotulado(self) -> str:
+        return f'{self.variante}: {self.texto}' if self.variante else self.texto
+
+
+def notas_finais(
+    questoes: pd.DataFrame, configuracoes: list[ConfiguracaoCorrecao], formato: Formato
+) -> list[NotaFinal]:
+    """Uma por variante, só nas regras em que a nota difere da contagem de acertos (desconto por erro ou
+    pesos)."""
+    return [
+        NotaFinal(
+            aplicar_correcao(questoes, cfg, formato).nota, cfg.nota_maxima, cfg.nota_corte, cfg.variante
+        )
+        for cfg in configuracoes
+        if cfg.modelo is not ModeloCorrecao.BRUTA
+    ]
+
+
+def notas_finais_gravadas(pasta: Path, formato: Formato) -> list[NotaFinal]:
+    """As notas finais de um concurso já analisado, a partir do `questoes.csv` e do `correcao.json`."""
+    if not (pasta / ARQUIVO_CORRECAO).exists():
+        return []
+    questoes = pd.read_csv(pasta / ARQUIVO_QUESTOES, usecols=['questao', 'resultado', 'anulada'])
+    return notas_finais(questoes, ler_correcao(pasta), formato)
 
 
 _NUMERO = r'\d+(?:,\d+)?'

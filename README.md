@@ -130,7 +130,7 @@ Por concurso, em `analises/<concurso>/`:
 | `respostas_extraidas.csv` | Todas as questões: alternativa marcada, estado, `confianca_ocr`, `revisar`, origem, arquivo, página |
 | `desempenho_por_disciplina.csv`, `desempenho_por_topico.csv` | `concurso, prova, disciplina, topico, total, acertos, erros, percentual, em_branco, anuladas, nota_liquida` |
 | `questoes.csv` | Por questão: disciplina, tópico sugerido e final, score, gabarito, resposta, resultado |
-| `relatorio.md` e `graficos/*.png` | Resumo, gráficos, tópicos mais fracos, questões para revisar, validação oficial |
+| `relatorio.md` e `graficos/*.png` | Resumo, nota final pela regra do edital (com desconto por erro ou pesos), gráficos, tópicos mais fracos, questões para revisar, validação oficial |
 | `edital_estruturado.json` | Conhecimento → disciplina → tópicos do cargo |
 | `diff_gabarito.csv`, `historico/` | Só após a troca de gabarito |
 | `depuracao/*.png` | Bolhas detectadas na folha de resposta |
@@ -138,7 +138,7 @@ Por concurso, em `analises/<concurso>/`:
 No consolidado, em `analises/consolidado/`:
 
 - `desempenho_geral.csv`: o desempenho por tópico de todos os concursos;
-- `comparativo_concursos.md`: tópicos e disciplinas abaixo do limiar em pelo menos dois concursos, concursos incompletos, status do gabarito e validação com o resultado oficial.
+- `comparativo_concursos.md`: desempenho e nota final por concurso, tópicos e disciplinas abaixo do limiar em pelo menos dois concursos, concursos incompletos, status do gabarito e validação com o resultado oficial.
 
 O percentual é de mérito: anuladas contam como acerto, mas ficam fora do percentual.
 

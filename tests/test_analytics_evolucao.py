@@ -588,6 +588,9 @@ def test_meta_com_um_concurso_so():
     assert len(tabela) == 1
     assert pd.isna(tabela.loc[0, 'variante'])
     assert tabela.loc[0, 'nota_normalizada'] == 50.0
+    assert pd.isna(tabela.loc[0, 'nota_corte'])
+    com_corte = comparar_com_meta(consolidado(concurso('tcu', ['acerto'] * 3 + ['erro'], nota_corte=1.5)))
+    assert com_corte.loc[0, 'nota_corte'] == 1.5
 
 
 def test_correlacao_entre_a_ordem_e_o_percentual_de_cada_concurso():

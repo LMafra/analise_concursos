@@ -9,10 +9,12 @@ from concursos.analytics.correcao import (
     ConfiguracaoCorrecao,
     FonteCorrecao,
     ModeloCorrecao,
+    NotaFinal,
     aplicar_correcao,
     extrair_fator_correcao,
     mencao_penalidade,
     nota_normalizada,
+    notas_finais,
     resolver_correcao,
 )
 from concursos.concurso_config import PesoItens, validar_dados
@@ -244,6 +246,33 @@ def questoes(*resultados: str, anuladas: tuple[int, ...] = ()) -> pd.DataFrame:
 
 LIQUIDA = ConfiguracaoCorrecao(ModeloCorrecao.LIQUIDA, 1.0, nota_maxima=6.0)
 BRUTA = ConfiguracaoCorrecao(ModeloCorrecao.BRUTA, 0.0, nota_maxima=6.0)
+
+
+def test_nota_final_so_quando_a_regra_desconta_erro_ou_pesa_itens():
+    itens = questoes('acerto', 'erro', 'acerto', 'branco', anuladas=(4,))
+    com_corte = ConfiguracaoCorrecao(ModeloCorrecao.LIQUIDA, 1.0, nota_maxima=6.0, nota_corte=1.0)
+    ponderada = ConfiguracaoCorrecao(
+        ModeloCorrecao.PONDERADA, pesos=(PesoItens(3, 4, 2.0),), nota_maxima=6.0, variante='ti'
+    )
+
+    assert notas_finais(itens, [com_corte], Formato.CERTO_ERRADO) == [NotaFinal(2.0, 6.0, 1.0)]
+    assert notas_finais(itens, [BRUTA, ponderada], Formato.CERTO_ERRADO) == [
+        NotaFinal(1.0 + 2.0 + 2.0, 6.0, variante='ti')
+    ]
+    assert notas_finais(itens, [BRUTA], Formato.CERTO_ERRADO) == []
+
+
+@pytest.mark.parametrize(
+    ('nota', 'texto'),
+    [
+        (NotaFinal(90.0, 200.0, 60.0), '90 de 200 pontos, nota de corte 60 (atinge o corte)'),
+        (NotaFinal(18.0, 120.0, 36.0), '18 de 120 pontos, nota de corte 36 (abaixo do corte)'),
+        (NotaFinal(-3.5, 120.0, 0.0), '-3,5 de 120 pontos, nota de corte 0 (abaixo do corte)'),
+        (NotaFinal(95.0, 150.0, variante='B3-08-A'), '95 de 150 pontos'),
+    ],
+)
+def test_texto_da_nota_final(nota, texto):
+    assert nota.texto == texto
 
 
 @pytest.mark.parametrize(('cfg', 'difere'), [(LIQUIDA, True), (BRUTA, False)])

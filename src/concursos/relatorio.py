@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from concursos.analytics.correcao import NotaFinal
 from concursos.atualizacao import COLUNAS_DIFF, impacto
 from concursos.concurso_config import ConcursoConfig
 from concursos.correcao import TOPICO_NAO_MAPEADO
@@ -21,6 +22,7 @@ class ConteudoRelatorio:
     graficos: dict[str, str] = field(default_factory=dict)
     validacao: Validacao | None = None
     diff: pd.DataFrame | None = None
+    notas_finais: list[NotaFinal] = field(default_factory=list)
 
 
 def gerar_relatorio(config: ConcursoConfig, conteudo: ConteudoRelatorio) -> str:
@@ -43,6 +45,7 @@ def gerar_relatorio(config: ConcursoConfig, conteudo: ConteudoRelatorio) -> str:
         '',
         '_Anuladas contam como acerto e ficam fora do percentual (de mérito)._',
         '',
+        *_secao_nota_final(conteudo.notas_finais),
         '## Desempenho por disciplina',
         '',
         tabela_markdown(
@@ -65,6 +68,19 @@ def _selo_preliminar(config: ConcursoConfig) -> list[str]:
     return [
         f'> **Gabarito preliminar (provisório)** nas provas {", ".join(preliminares)}: '
         'os resultados podem mudar quando o definitivo sair.',
+        '',
+    ]
+
+
+def _secao_nota_final(notas: list[NotaFinal]) -> list[str]:
+    if not notas:
+        return []
+    if len(notas) == 1 and notas[0].variante is None:
+        return [f'**Nota final** (regra do edital): {notas[0].texto}.', '']
+    return [
+        '**Nota final** (regra do edital), por opção de cargo:',
+        '',
+        *(f'- {n.rotulado}.' for n in notas),
         '',
     ]
 

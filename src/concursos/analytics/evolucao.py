@@ -108,6 +108,7 @@ def comparar_com_meta(consolidado: pd.DataFrame, meta: float = META_PADRAO) -> p
                     'modelo_correcao': concurso['modelo_correcao'].iloc[0],
                     'nota': nota,
                     'nota_maxima': nota_maxima,
+                    'nota_corte': concurso['nota_corte'].iloc[0],
                     'nota_normalizada': normalizada,
                     'meta': 100 * meta,
                     'distancia': normalizada - 100 * meta,

@@ -8,12 +8,14 @@ from pathlib import Path
 import pandas as pd
 
 from concursos.analytics.consolidado import N_MINIMO_TOPICO, pasta_consolidado
+from concursos.analytics.correcao import NotaFinal
 from concursos.analytics.evolucao import (
     LIMIAR_TOPICO_FRACO,
     MINIMO_PONTOS_TENDENCIA,
     TENDENCIA,
     Correlacao,
     comparar_bruto_vs_corrigido,
+    comparar_com_meta,
     correlacao_tempo_percentual,
     correlacao_tempo_zscore,
     percentual_por_topico,
@@ -27,7 +29,7 @@ from concursos.analytics.visualizacao import (
     exportar_painel_correcao,
 )
 from concursos.consolidado import MINIMO_CONCURSOS
-from concursos.modelo import Escolaridade
+from concursos.modelo import Escolaridade, ModeloCorrecao
 
 P_SIGNIFICATIVO = 0.05
 TENDENCIAS_LISTADAS = 3
@@ -172,6 +174,10 @@ def gravar_relatorio_evolucao(
         '',
         sensibilidade_em_markdown(consolidado, achados),
         '',
+        '## Nota final pela regra do edital',
+        '',
+        notas_finais_em_markdown(consolidado),
+        '',
         '## Figuras',
         '',
         *(f'![{legenda}]({nome})\n' for nome, legenda in figuras),
@@ -179,6 +185,23 @@ def gravar_relatorio_evolucao(
     relatorio = pasta / ARQUIVO_RELATORIO
     relatorio.write_text('\n'.join(linhas), encoding='utf-8')
     return relatorio
+
+
+def notas_finais_em_markdown(consolidado: pd.DataFrame) -> str:
+    """Só os concursos em que a nota difere da contagem de acertos (desconto por erro ou pesos)."""
+    meta = comparar_com_meta(consolidado)
+    com_regra = meta[meta['modelo_correcao'] != ModeloCorrecao.BRUTA]
+    if com_regra.empty:
+        return 'Nenhum concurso com desconto por erro ou pesos.'
+    return '\n'.join(
+        f'- {linha.concurso}{f" ({linha.variante})" if pd.notna(linha.variante) else ""}: '
+        f'{NotaFinal(linha.nota, linha.nota_maxima, _ou_none(linha.nota_corte)).texto}.'
+        for linha in com_regra.itertuples()
+    )
+
+
+def _ou_none(valor: float) -> float | None:
+    return None if pd.isna(valor) else float(valor)
 
 
 def _resposta_melhoras(achados: Achados) -> str:

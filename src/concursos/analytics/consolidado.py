@@ -12,7 +12,7 @@ from concursos.analytics.correcao import ARQUIVO_CORRECAO, FonteCorrecao, aplica
 from concursos.analytics.taxonomia import ARQUIVO_TAXONOMIA, carregar_taxonomia, classificar
 from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso
 from concursos.consolidado import PASTA_CONSOLIDADO
-from concursos.correcao import TOPICO_NAO_MAPEADO
+from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
 from concursos.modelo import Bloco, Escolaridade, Formato, ModeloCorrecao, Nivel, Resultado
 
@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 ARQUIVO_PARQUET = 'consolidado.parquet'
 PASTA_ANALISES = 'analises'
-ARQUIVO_QUESTOES = 'questoes.csv'
 PREFIXO_PESO = 'peso__'
 VARIANTE_PADRAO = 'padrao'
 

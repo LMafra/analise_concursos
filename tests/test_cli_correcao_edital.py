@@ -84,6 +84,53 @@ def test_cebraspe_liquida_e_nota_corrigida_igual_a_nota_liquida_legada(raizes):
     assert nota == legado['nota_liquida'].sum() == 0
 
 
+def relatorio(analises) -> str:
+    return (analises / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
+
+
+def linha_do_comparativo(analises) -> dict[str, str]:
+    texto = (analises / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
+    linhas = texto.split('## Desempenho por concurso', 1)[1].strip().splitlines()
+    cabecalho, linha = (
+        ([c.strip() for c in linha.strip('|').split('|')]) for linha in (linhas[0], linhas[2])
+    )
+    return dict(zip(cabecalho, linha, strict=True))
+
+
+def test_relatorio_e_comparativo_mostram_a_nota_final_quando_ha_desconto_por_erro(raizes):
+    provas, analises = raizes
+    criar(provas, CERTO_ERRADO, 'edital.txt', edital_com(CEBRASPE))
+
+    assert analisar(provas, analises) == 0
+
+    nota = '0 de 4 pontos, nota de corte 60 (abaixo do corte)'
+    assert f'**Nota final** (regra do edital): {nota}.' in relatorio(analises)
+    assert linha_do_comparativo(analises)['nota_final'] == nota
+
+
+def test_sem_desconto_nem_pesos_a_nota_final_e_a_propria_nota(raizes):
+    provas, analises = raizes
+    criar(provas, MULTIPLA_ESCOLHA, 'edital.txt', edital_com(AGSUS))
+
+    assert analisar(provas, analises) == 0
+
+    assert 'Nota final' not in relatorio(analises)
+    assert linha_do_comparativo(analises)['nota_final'] == '-'
+
+
+def test_nota_final_por_variante_no_relatorio_e_no_comparativo(raizes):
+    provas, analises = raizes
+    variantes = ['geral', {'nome': 'ti', 'pesos': [{'itens': [3, 4], 'peso': 3}]}]
+    criar(provas, MULTIPLA_ESCOLHA, correcao={'variantes': variantes})
+
+    assert analisar(provas, analises) == 0
+
+    assert '**Nota final** (regra do edital), por opção de cargo:\n\n- ti: 4 de 8 pontos.' in relatorio(
+        analises
+    )
+    assert linha_do_comparativo(analises)['nota_final'] == 'ti: 4 de 8 pontos'
+
+
 def test_sem_edital_nem_configuracao_grava_default_e_avisa(raizes, caplog):
     provas, analises = raizes
     criar(provas, MULTIPLA_ESCOLHA)
