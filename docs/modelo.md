@@ -650,3 +650,14 @@ No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_htm
 - **Sem rede:** CSS embutido, imagens por caminho relativo e nenhum HTML bruto do markdown (o texto vem de PDFs).
 - **Quando é gerado e aberto:** depois de cada análise em que algum manifesto foi regravado (algo reprocessado) ou sem `index.html`; nesse caso abre no navegador padrão (no WSL, com `wslview` ou `explorer.exe`), salvo com `--no-open` ou `CI` definido. Sem mudanças, nada é regravado, e a CLI só imprime o caminho. `report` reabre o índice do candidato escolhido; sem índice, para com uma `dica:`.
 - **`export --format csv|parquet|md`:** grava o consolidado do candidato (as colunas do `consolidado.parquet`, uma linha por questão) em `export/consolidado.<formato>`; o `md` é uma tabela markdown.
+
+**`doctor`** (`concursos.doctor`). Só leitura e sem rede. Uma linha por item, `✓`, `!` ou `✗`, e, quando há, a linha `correção:` com o comando do sistema detectado (`apt` no Linux, `brew` no macOS, `winget` no Windows):
+
+- `uv`: ausente é `!`;
+- Python: fora de 3.11 e 3.12 é `✗`;
+- Tesseract: ausente do PATH é `✗`; sem o idioma `por` (`tesseract --list-langs`), `!` com o pacote do idioma;
+- poppler: sempre `✓`, "não necessário";
+- escrita nas pastas de provas, análises, do projeto e na home (`CONCURSO_HOME`): a pasta, ou o primeiro ancestral existente, sem permissão é `✗`;
+- espaço em disco: menos de 200 MB é `✗`, menos de 1 GB é `!`.
+
+Sai com 2 se algum item tem `✗`, senão com 0.

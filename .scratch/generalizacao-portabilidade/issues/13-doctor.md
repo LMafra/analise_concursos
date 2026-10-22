@@ -11,10 +11,10 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Com o Tesseract fora do PATH, o item sai com ✗ e o comando de instalação do sistema detectado, e o código de saída é diferente de zero.
-- [ ] Com o Tesseract presente mas sem `por`, o item sai com ! e o comando do pacote de idioma.
-- [ ] Uma pasta sem permissão de escrita sai com ✗ e a pasta citada.
-- [ ] O poppler aparece como "não necessário".
-- [ ] Com tudo certo, o código de saída é 0.
+- [x] Com o Tesseract fora do PATH, o item sai com ✗ e o comando de instalação do sistema detectado, e o código de saída é diferente de zero.
+- [x] Com o Tesseract presente mas sem `por`, o item sai com ! e o comando do pacote de idioma.
+- [x] Uma pasta sem permissão de escrita sai com ✗ e a pasta citada.
+- [x] O poppler aparece como "não necessário".
+- [x] Com tudo certo, o código de saída é 0.

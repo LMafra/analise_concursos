@@ -5,6 +5,7 @@ from typing import Annotated
 
 import typer
 
+from concursos import doctor as diagnostico
 from concursos import relatorio_html
 from concursos.analytics.consolidado import concursos_analisados
 from concursos.analytics.taxonomia import carregar_taxonomia
@@ -18,7 +19,7 @@ from concursos.candidatos import (
     gravar_revisao,
     slug,
 )
-from concursos.cli.erros import ErroDoAmbiente, ErroDoUsuario, ajustar_nivel_console
+from concursos.cli.erros import CODIGO_AMBIENTE, ErroDoAmbiente, ErroDoUsuario, ajustar_nivel_console
 from concursos.config.contexto import Contexto, gravar_no_config_projeto, ler_toml, resolver_contexto
 from concursos.configuracao import configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
@@ -199,6 +200,14 @@ def status(
     situacoes = [avaliar(pasta) for pasta in listar_concursos(raiz_provas)]
     typer.echo(formatar_tabela(situacoes))
     return 0
+
+
+@app.command('doctor', help='verifica o ambiente e diz como corrigir o que falta')
+def doctor(ctx: typer.Context) -> int:
+    contexto: Contexto = ctx.obj.contexto
+    itens = diagnostico.diagnosticar([contexto.provas, contexto.analises, contexto.projeto, contexto.home])
+    typer.echo(diagnostico.formatar(itens))
+    return CODIGO_AMBIENTE if diagnostico.tem_erro(itens) else 0
 
 
 def _analisar(opcoes: Opcoes, concurso: str | None = None, reaproveitar: bool = False) -> int:
