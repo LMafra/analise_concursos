@@ -70,7 +70,7 @@ class EditalConfig:
 @dataclass(frozen=True)
 class FolhaConfig:
     arquivo: str
-    template: str
+    template: str | None
     total_itens: int | None = None
     itens_por_coluna: int | None = None
 
@@ -293,7 +293,7 @@ def _montar_prova(chave: str, dados: dict) -> ProvaConfig:
 def _montar_folha(respostas: dict) -> FolhaConfig:
     return FolhaConfig(
         arquivo=respostas['folha'],
-        template=_obrigatorio(respostas, 'template', 'respostas.'),
+        template=respostas.get('template'),
         total_itens=respostas.get('total_itens'),
         itens_por_coluna=respostas.get('itens_por_coluna'),
     )

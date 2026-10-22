@@ -69,14 +69,9 @@ def aplicar_candidato(config: ConcursoConfig, candidato: str) -> ConcursoConfig:
     folha = None
     if respostas.get('folha'):
         herdada = config.folha
-        template = respostas.get('template') or (herdada and herdada.template)
-        if not template:
-            raise ConfiguracaoInvalidaError(
-                f"{prefixo}{ARQUIVO_CANDIDATO}: campo obrigatório 'respostas.template' ausente"
-            )
         folha = FolhaConfig(
             da_pasta_do_concurso(respostas['folha']),
-            template,
+            respostas.get('template') or (herdada and herdada.template) or None,
             respostas.get('total_itens') or (herdada and herdada.total_itens),
             respostas.get('itens_por_coluna') or (herdada and herdada.itens_por_coluna),
         )

@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 PADRAO = PerfilOcr('padrao', 'ABCDE')
+PERFIL_AUTOMATICO = 'automatico'
 _CIRCULARIDADE_MINIMA = 0.8
 _FRACAO_TINTA = 0.5
 _FRACAO_LINHA = 0.25
@@ -38,27 +39,64 @@ class Marcacao:
 
 def ler_folha(
     caminho: Path,
-    template: str,
+    template: str | None,
     total_itens: int,
     itens_por_coluna: int | None,
     pasta_depuracao: Path,
     limiar: float,
+    alternativas: str | None = None,
 ) -> list[RespostaMarcada]:
-    """Lê a primeira página do arquivo que contenha a grade e grava a imagem de depuração."""
-    try:
-        perfil = perfil_ocr(template)
-    except PerfilInvalidoError:
-        raise FolhaIlegivelError(
-            f'{caminho.name}: template {template!r} não suportado (use {", ".join(ids_de_ocr())})'
-        ) from None
-    erros = []
+    """Lê a primeira página do arquivo que contenha a grade e grava a imagem de depuração.
+
+    Tenta o perfil de OCR do `template` e, sem ele ou quando ele não lê a folha, a detecção automática da
+    grade com as `alternativas` do concurso, sem número de linhas imposto."""
+    tentativas = []
+    if template is not None:
+        try:
+            perfil = perfil_ocr(template)
+        except PerfilInvalidoError:
+            raise FolhaIlegivelError(
+                f'{caminho.name}: template {template!r} não suportado (use {", ".join(ids_de_ocr())})'
+            ) from None
+        tentativas.append((perfil, itens_por_coluna or perfil.itens_por_coluna, ''))
+        alternativas = alternativas or perfil.alternativas
+    automatico = PerfilOcr(PERFIL_AUTOMATICO, alternativas or PADRAO.alternativas)
+    tentativas.append((automatico, None, ', detecção automática' if tentativas else ''))
+    erros: list[str] = []
+    for perfil, por_coluna, rotulo in tentativas:
+        if erros:
+            logger.warning(
+                '%s: o perfil %s não leu a folha (%s); tentando a detecção automática da grade',
+                caminho.name,
+                template,
+                erros[-1],
+            )
+        lidas = _ler_com_perfil(
+            caminho, perfil, total_itens, por_coluna, pasta_depuracao, limiar, erros, rotulo
+        )
+        if lidas is not None:
+            return lidas
+    raise FolhaIlegivelError(
+        f'{caminho.name}: ' + '; '.join(erros) + '. dica: digite as respostas num respostas.csv (colunas '
+        'questao e alternativa; - para branco) na pasta do candidato e rode de novo'
+    )
+
+
+def _ler_com_perfil(
+    caminho: Path,
+    perfil: PerfilOcr,
+    total_itens: int,
+    itens_por_coluna: int | None,
+    pasta_depuracao: Path,
+    limiar: float,
+    erros: list[str],
+    rotulo: str,
+) -> list[RespostaMarcada] | None:
     for pagina, imagem in enumerate(carregar_paginas(caminho, perfil.largura), start=1):
         try:
-            marcacoes = ler_marcacoes(
-                imagem, perfil.alternativas, total_itens, itens_por_coluna or perfil.itens_por_coluna, perfil
-            )
+            marcacoes = ler_marcacoes(imagem, perfil.alternativas, total_itens, itens_por_coluna, perfil)
         except FolhaIlegivelError as erro:
-            erros.append(f'página {pagina}: {erro}')
+            erros.append(f'página {pagina}{rotulo}: {erro}')
             continue
         pasta_depuracao.mkdir(parents=True, exist_ok=True)
         depuracao = pasta_depuracao / f'{caminho.stem}_p{pagina}.png'
@@ -73,7 +111,7 @@ def ler_folha(
             )
             for m in marcacoes
         ]
-    raise FolhaIlegivelError(f'{caminho.name}: ' + '; '.join(erros))
+    return None
 
 
 def carregar_paginas(caminho: Path, largura: int = PADRAO.largura) -> list[np.ndarray]:

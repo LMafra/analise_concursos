@@ -29,10 +29,17 @@ def folha_fgv(marcas: dict[int, str], total_itens: int, itens_por_coluna: int) -
 
 
 def folha_generica(
-    alternativas: str, marcas: dict[int, str], total_itens: int, itens_por_coluna: int
+    alternativas: str,
+    marcas: dict[int, str],
+    total_itens: int,
+    itens_por_coluna: int,
+    parciais: dict[int, str] | None = None,
+    angulo: float = 0.0,
 ) -> np.ndarray:
     """Grade com bolhas de anel preto e qualquer número de alternativas."""
-    return _folha(alternativas, marcas, total_itens, itens_por_coluna, (80, 700), {}, 0.0, fgv=False)
+    return _folha(
+        alternativas, marcas, total_itens, itens_por_coluna, (80, 700), parciais or {}, angulo, fgv=False
+    )
 
 
 def _folha(alternativas, marcas, total_itens, itens_por_coluna, origem, parciais, angulo, fgv) -> np.ndarray:

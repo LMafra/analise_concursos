@@ -57,7 +57,7 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
     elif config.folha is not None:
         if not config.caminho(config.folha.arquivo).exists():
             motivos.append(f'{config.caminho(config.folha.arquivo)}: arquivo ausente (folha de resposta)')
-        elif config.folha.template not in ids_de_ocr():
+        elif config.folha.template is not None and config.folha.template not in ids_de_ocr():
             motivos.append(
                 f'{config.folha.arquivo}: leitura do template {config.folha.template!r} ainda não disponível'
             )

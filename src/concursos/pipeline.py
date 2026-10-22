@@ -434,6 +434,7 @@ def _ler_respostas(config: ConcursoConfig, destino: Path, limiar: float) -> list
         folha.itens_por_coluna,
         destino / 'depuracao',
         limiar,
+        ''.join(sorted(config.formato.letras(config.n_alternativas))),
     )
     por_questao = {r.questao: r for r in lidas}
     if faltando := [q for q in questoes if q not in por_questao]:

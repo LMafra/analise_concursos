@@ -447,6 +447,10 @@ largura: 2480                # largura, em pixels, para a qual a página é norm
 
 Um `template` sem perfil gera erro com a lista dos perfis disponíveis.
 
+**Detecção automática.** Sem `template` (no `concurso.yaml`, no perfil do candidato e na banca), ou quando o perfil não lê a folha, a leitura detecta a grade sozinha: círculos pelos contornos, ângulo de até 5° corrigido, bolhas agrupadas em linhas e colunas, com as letras do concurso (`CE` ou as `alternativas` do formato) e os limiares padrão. Quando o perfil falha, o log avisa antes de tentar. A imagem de depuração é a mesma. Se nem a detecção acha a grade, o erro lista o que cada tentativa encontrou e traz uma `dica:` para digitar as respostas num `respostas.csv`; os outros concursos seguem.
+
+**Confiança da leitura.** Numa bolha marcada, a diferença entre as notas dos dois maiores preenchimentos; em branco, 1 menos a maior nota; em múltipla, a segunda maior nota.
+
 ## Migração das fases 1 a 3
 
 Toda análise do `concurso-analise` (menos o `--dry-run`, que só lista as operações) começa migrando o que estiver no formato antigo. O candidato é o escolhido (`--candidate`, `CONCURSO_CANDIDATO`, `[candidato] ultimo`), o da migração anterior ou o login do sistema.
@@ -495,7 +499,7 @@ provas:
     itens: [101, 200]
 respostas:                     # use 'arquivo' OU 'folha'
   folha: folha_resposta.pdf
-  template: cebraspe_ce        # perfil de OCR: cebraspe_ce | fgv_mod70ae | fgv_cpnu_90 | grade_abcd
+  template: cebraspe_ce        # opcional; perfil de OCR: cebraspe_ce | fgv_mod70ae | fgv_cpnu_90 | grade_abcd (sem ele, detecção automática)
   total_itens: 200
   itens_por_coluna: 20         # opcional; detectado pela grade
 # respostas:

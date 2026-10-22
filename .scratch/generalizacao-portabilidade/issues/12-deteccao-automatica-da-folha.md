@@ -6,9 +6,9 @@ A confiança de cada questão é a diferença entre os dois maiores preenchiment
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Uma folha sintética sem perfil, com rotação leve, é lida corretamente.
-- [ ] Uma questão com duas bolhas de preenchimento parecido sai com confiança baixa e `revisar=true`.
-- [ ] Uma grade que não for detectada gera mensagem com `dica:` que aponta o CSV manual. A análise dos outros concursos não é interrompida.
-- [ ] A imagem de depuração continua sendo gravada.
+- [x] Uma folha sintética sem perfil, com rotação leve, é lida corretamente.
+- [x] Uma questão com duas bolhas de preenchimento parecido sai com confiança baixa e `revisar=true`.
+- [x] Uma grade que não for detectada gera mensagem com `dica:` que aponta o CSV manual. A análise dos outros concursos não é interrompida.
+- [x] A imagem de depuração continua sendo gravada.
