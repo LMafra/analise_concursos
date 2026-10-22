@@ -34,6 +34,7 @@ from concursos.config.contexto import (
 from concursos.configuracao import configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
 from concursos.exportacao import FormatoExportacao, exportar_consolidado
+from concursos.llm import cliente_configurado
 from concursos.manifesto import ARQUIVO_MANIFESTO
 from concursos.migracao import MigracaoError, executar_migracao, planejar_migracao
 from concursos.pipeline import ARQUIVO_RESPOSTAS, analisar_todos, planejar
@@ -57,6 +58,7 @@ class Opcoes:
     forcar: bool = False
     todos: bool = False
     abrir: bool = True
+    llm: bool = True
     fornecidos: frozenset[str] = frozenset()
 
 
@@ -69,6 +71,8 @@ Todos = Annotated[
     bool, typer.Option('--all-candidates', help='analisa todos os candidatos e gera o comparativo entre eles')
 ]
 NaoAbrir = Annotated[bool, typer.Option('--no-open', help='não abre o relatório no navegador')]
+SemLlm = Annotated[bool, typer.Option('--no-llm', help='não usa o LLM configurado nesta execução')]
+Offline = Annotated[bool, typer.Option('--offline', help='nenhuma chamada de rede (desliga o LLM)')]
 
 
 @app.callback(invoke_without_command=True)
@@ -82,6 +86,8 @@ def principal(
     candidato: Candidato = None,
     todos: Todos = False,
     nao_abrir: NaoAbrir = False,
+    sem_llm: SemLlm = False,
+    offline: Offline = False,
     data_dir: Annotated[
         Path | None, typer.Option('--data-dir', help='configuração do projeto (padrão: ./.concurso)')
     ] = None,
@@ -114,6 +120,7 @@ def principal(
         forcar=forcar,
         todos=todos,
         abrir=not nao_abrir,
+        llm=not (sem_llm or offline),
         fornecidos=fornecidos,
     )
     if ctx.invoked_subcommand is None:
@@ -261,7 +268,9 @@ def status(
 @app.command('doctor', help='verifica o ambiente e diz como corrigir o que falta')
 def doctor(ctx: typer.Context) -> int:
     contexto: Contexto = ctx.obj.contexto
-    itens = diagnostico.diagnosticar([contexto.provas, contexto.analises, contexto.projeto, contexto.home])
+    itens = diagnostico.diagnosticar(
+        [contexto.provas, contexto.analises, contexto.projeto, contexto.home], contexto.home
+    )
     typer.echo(diagnostico.formatar(itens))
     return CODIGO_AMBIENTE if diagnostico.tem_erro(itens) else 0
 
@@ -293,7 +302,7 @@ def _onboarding(opcoes: Opcoes, doctor: bool | None = None, extras: dict[str, st
     contexto = opcoes.contexto
     if respostas.doctor:
         itens = diagnostico.diagnosticar(
-            [contexto.provas, contexto.analises, contexto.projeto, contexto.home]
+            [contexto.provas, contexto.analises, contexto.projeto, contexto.home], contexto.home
         )
         typer.echo(diagnostico.formatar(itens))
     if contexto.provas.is_dir() and not listar_concursos(contexto.provas):
@@ -338,7 +347,10 @@ def _analisar_candidato(opcoes: Opcoes, candidato: str | None, concurso: str | N
         completar_perfis(contexto.provas, candidato)
         if not opcoes.todos:
             _lembrar_candidato(contexto, candidato)
-    configuracao = configuracao_do_projeto(contexto)
+    configuracao = replace(
+        configuracao_do_projeto(contexto),
+        cliente_llm=cliente_configurado(contexto.home, contexto.config_global, opcoes.llm),
+    )
     taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else None
     antes = _manifestos(destino)
     sucesso = analisar_todos(provas, destino, opcoes.forcar, concurso, configuracao, taxonomia, candidato)

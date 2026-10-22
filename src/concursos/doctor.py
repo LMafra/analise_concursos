@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from concursos.config.contexto import ARQUIVO_CONFIG_GLOBAL
+from concursos.llm import ler_configuracao, obter_chave
+
 ESPACO_MINIMO_MB = 200
 ESPACO_RECOMENDADO_MB = 1024
 PYTHON_SUPORTADO = ((3, 11), (3, 12))
@@ -65,9 +68,10 @@ def sistema_atual() -> Sistema:
     return Sistema.LINUX
 
 
-def diagnosticar(pastas: list[Path]) -> list[Item]:
-    """Os itens na ordem em que aparecem; só leitura, sem rede."""
+def diagnosticar(pastas: list[Path], home: Path | None = None) -> list[Item]:
+    """Os itens na ordem em que aparecem; só leitura, sem rede (a chave do LLM não é validada no provedor)."""
     sistema = sistema_atual()
+    llm = [_llm(home, sistema)] if home is not None else []
     return [
         _uv(sistema),
         _python(sistema),
@@ -75,6 +79,7 @@ def diagnosticar(pastas: list[Path]) -> list[Item]:
         Item('poppler', Situacao.OK, 'não necessário (os PDFs são lidos com pypdfium2)'),
         *(_escrita(pasta) for pasta in dict.fromkeys(pastas)),
         _espaco(pastas[0]),
+        *llm,
     ]
 
 
@@ -138,6 +143,29 @@ def _idiomas_do_tesseract(caminho: str) -> list[str]:
     except (OSError, subprocess.TimeoutExpired):
         return []
     return [linha.strip() for linha in saida.splitlines()[1:] if linha.strip()]
+
+
+def _llm(home: Path, sistema: Sistema) -> Item:
+    configuracao = ler_configuracao(home / ARQUIVO_CONFIG_GLOBAL)
+    if configuracao is None:
+        return Item('LLM', Situacao.OK, 'desligado (nenhuma chamada de rede)')
+    if not configuracao.consentimento:
+        return Item(
+            'LLM',
+            Situacao.AVISO,
+            f'{configuracao.provedor} configurado sem consentimento',
+            'concurso-analise init',
+        )
+    if configuracao.variavel_chave is None:
+        return Item('LLM', Situacao.OK, f'{configuracao.provedor} em {configuracao.url}, sem chave')
+    encontrada = obter_chave(configuracao, home)
+    if encontrada is None:
+        variavel = configuracao.variavel_chave
+        comando = (
+            f'setx {variavel} <sua chave>' if sistema is Sistema.WINDOWS else f'export {variavel}=<sua chave>'
+        )
+        return Item('LLM', Situacao.ERRO, f'{configuracao.provedor} sem chave ({variavel})', comando)
+    return Item('LLM', Situacao.OK, f'{configuracao.provedor}, chave em {encontrada[1]} (não validada)')
 
 
 def _escrita(pasta: Path) -> Item:

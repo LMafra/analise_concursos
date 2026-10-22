@@ -51,6 +51,7 @@ class FonteRegra(StrEnum):
     PERFIL = 'perfil'
     DEFAULT = 'default'
     DESCOBERTA = 'descoberta'
+    LLM = 'llm'
 
 
 @dataclass(frozen=True)
@@ -190,11 +191,14 @@ class NivelConfianca(StrEnum):
 
 LIMIAR_CONFIANCA_ALTA = 0.8
 LIMIAR_CONFIANCA_MEDIA = 0.5
-FONTES_DO_TEXTO = frozenset({FonteRegra.EDITAL, FonteRegra.RETIFICACAO, FonteRegra.DESCOBERTA})
+FONTES_DO_TEXTO = frozenset(
+    {FonteRegra.EDITAL, FonteRegra.RETIFICACAO, FonteRegra.DESCOBERTA, FonteRegra.LLM}
+)
 CAMADA_DA_FONTE = {
     FonteRegra.EDITAL: 'heuristica',
     FonteRegra.RETIFICACAO: 'heuristica',
     FonteRegra.DESCOBERTA: 'heuristica',
+    FonteRegra.LLM: 'llm',
     FonteRegra.PERFIL: 'perfil',
     FonteRegra.CONFIG: 'config',
     FonteRegra.DEFAULT: 'nenhuma',

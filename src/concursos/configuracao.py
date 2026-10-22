@@ -6,6 +6,7 @@ import yaml
 from concursos.calibracao import carregar_calibrado
 from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.config.contexto import Contexto, ler_toml, resolver_contexto
+from concursos.llm import ClienteLlm
 from concursos.perfis import PerfilOcr
 
 
@@ -15,9 +16,10 @@ class ConfiguracaoGlobal:
     limiar_topico_baixo: float = 0.6
     concurso_alvo: str | None = None
     perfil_calibrado: PerfilOcr | None = None
+    cliente_llm: ClienteLlm | None = None
 
 
-_FORA_DO_ARQUIVO = {'perfil_calibrado'}
+_FORA_DO_ARQUIVO = {'perfil_calibrado', 'cliente_llm'}
 
 
 def configuracao_do_projeto(contexto: Contexto | None = None) -> ConfiguracaoGlobal:

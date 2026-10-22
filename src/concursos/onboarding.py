@@ -8,15 +8,24 @@ from concursos.assistente import InteracaoConsole
 from concursos.calibracao import QUESTOES_CALIBRACAO, Calibracao, CalibracaoError, calibrar, gravar_calibracao
 from concursos.candidatos import PASTA_PERFIS_GLOBAIS, candidatos_existentes, gravar_perfil_global, slug
 from concursos.config.contexto import Contexto, gravar_secao, ler_toml
+from concursos.llm import (
+    NENHUM,
+    PROVEDORES,
+    gravar_configuracao,
+    guardar_chave,
+    ler_configuracao,
+    obter_chave,
+)
 from concursos.migracao import candidato_padrao
 
 logger = logging.getLogger(__name__)
 
 VARIAVEL_DOCTOR = 'CONCURSO_DOCTOR'
+VARIAVEL_LLM = 'CONCURSO_LLM'
 VARIAVEL_CALIBRAR_FOLHA = 'CONCURSO_CALIBRAR_FOLHA'
 VARIAVEL_CALIBRAR_RESPOSTAS = 'CONCURSO_CALIBRAR_RESPOSTAS'
 ARQUIVO_LEIA_ME = 'LEIA-ME.txt'
-TOTAL_PERGUNTAS = 5
+TOTAL_PERGUNTAS = 6
 _SIM = {'s', 'sim', 'y', 'yes', '1', 'true'}
 _LEIA_ME = """\
 Coloque aqui uma pasta por concurso, por exemplo provas/meu_concurso/, com:
@@ -43,6 +52,7 @@ class Respostas:
     analises: Path
     doctor: bool
     calibracao: Calibracao | None = None
+    llm: str | None = None
 
 
 def precisa_de_onboarding(contexto: Contexto) -> bool:
@@ -69,6 +79,9 @@ def perguntar(
     if folha and digitadas:
         padrao = replace(padrao, calibracao=calibrar(_absoluto(folha, contexto.raiz), digitadas))
         fornecidos = {*fornecidos, 'calibracao'}
+    if provedor := ambiente.get(VARIAVEL_LLM):
+        padrao = replace(padrao, llm=_provedor_valido(provedor))
+        fornecidos = {*fornecidos, 'llm'}
     if interacao is None:
         logger.info(
             'onboarding sem terminal: usando os padrões (nome %s, provas %s, análises %s, doctor %s)',
@@ -95,8 +108,10 @@ def perguntar(
         respostas = replace(respostas, analises=_absoluto(analises, contexto.raiz))
     if 'calibracao' not in fornecidos:
         respostas = replace(respostas, calibracao=_perguntar_calibracao(interacao, contexto.raiz))
+    if 'llm' not in fornecidos:
+        respostas = replace(respostas, llm=_perguntar_llm(interacao, contexto))
     if 'doctor' not in fornecidos:
-        resposta = _texto(interacao, 5, 'Conferir o ambiente com o doctor no fim? (s/n)', 's')
+        resposta = _texto(interacao, 6, 'Conferir o ambiente com o doctor no fim? (s/n)', 's')
         respostas = replace(respostas, doctor=resposta.lower() in _SIM)
     interacao.mostrar(_resumo(contexto, respostas))
     if not interacao.confirmar('Gravar?', padrao=True):
@@ -122,6 +137,8 @@ def gravar(contexto: Contexto, respostas: Respostas) -> None:
     gravar_secao(contexto.config_projeto, 'pastas', pastas)
     if respostas.calibracao is not None:
         gravar_calibracao(contexto.projeto, respostas.calibracao)
+    if respostas.llm is not None and _mudou_o_llm(contexto, respostas.llm):
+        gravar_configuracao(contexto.config_global, respostas.llm)
     if respostas.nome:
         candidato = slug(respostas.nome)
         gravar_perfil_global(contexto.home, respostas.nome, atualizar=True)
@@ -173,6 +190,65 @@ def _perguntar_calibracao(interacao: InteracaoConsole, raiz: Path) -> Calibracao
         return calibracao
 
 
+def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
+    atual = ler_configuracao(contexto.config_global)
+    opcoes = '/'.join([NENHUM, *PROVEDORES])
+    while True:
+        escolha = interacao.perguntar(
+            f'[5/{TOTAL_PERGUNTAS}] LLM para ler editais de bancas desconhecidas ({opcoes})',
+            atual.provedor if atual else NENHUM,
+        )
+        escolha = (escolha or NENHUM).strip().lower()
+        if escolha == NENHUM or escolha in PROVEDORES:
+            break
+        interacao.mostrar(f'Opção inválida: use {opcoes}.')
+    if escolha == NENHUM:
+        return NENHUM
+    if not (atual and atual.provedor == escolha and atual.consentimento):
+        interacao.mostrar(
+            f'Só o texto do edital e dos anexos vai para {escolha}; respostas, folhas, notas e inscrição não '
+            'saem do computador. Sem LLM, a leitura do edital continua só local.'
+        )
+        if not interacao.confirmar('Concorda?'):
+            return NENHUM
+    provedor = PROVEDORES[escolha]
+    if provedor.variavel_chave is None:
+        return escolha
+    configuracao = ler_configuracao(contexto.config_global)
+    variavel = provedor.variavel_chave
+    encontrada = (
+        obter_chave(configuracao, contexto.home)
+        if configuracao and configuracao.provedor == escolha
+        else None
+    )
+    encontrada = encontrada or (os.environ.get(variavel) and (os.environ[variavel], f'variável {variavel}'))
+    if not encontrada:
+        interacao.mostrar(
+            f'Defina a variável {variavel} antes de analisar (export {variavel}=...); sem ela, o LLM fica desligado.'
+        )
+    elif encontrada[1] == f'variável {variavel}' and interacao.confirmar(
+        f'Guardar a chave de {variavel} no keyring, para não depender da variável?'
+    ):
+        interacao.mostrar(f'Chave guardada em {guardar_chave(variavel, encontrada[0], contexto.home)}.')
+    return escolha
+
+
+def _provedor_valido(provedor: str) -> str:
+    provedor = provedor.strip().lower()
+    if provedor != NENHUM and provedor not in PROVEDORES:
+        raise ValueError(
+            f'{VARIAVEL_LLM}: provedor {provedor!r} inválido (use {", ".join([NENHUM, *PROVEDORES])})'
+        )
+    return provedor
+
+
+def _mudou_o_llm(contexto: Contexto, provedor: str) -> bool:
+    atual = ler_configuracao(contexto.config_global)
+    if atual is None:
+        return provedor != NENHUM
+    return not (atual.provedor == provedor and atual.consentimento)
+
+
 def _texto(interacao: InteracaoConsole, numero: int, pergunta: str, padrao: str | None) -> str:
     while not (resposta := interacao.perguntar(f'[{numero}/{TOTAL_PERGUNTAS}] {pergunta}', padrao)):
         interacao.mostrar('Resposta obrigatória.')
@@ -186,6 +262,7 @@ def _resumo(contexto: Contexto, respostas: Respostas) -> str:
             f'  candidato: {respostas.nome or "(escolhido a cada análise)"}',
             f'  pasta de provas: {respostas.provas}',
             f'  pasta de análises: {respostas.analises}',
+            f'  LLM: {respostas.llm or "como está"}',
             f'  leitura da folha: {"calibrada" if respostas.calibracao else "detecção automática ou perfil da banca"}',
             f'  em {contexto.config_projeto} e {contexto.config_global}',
         ]

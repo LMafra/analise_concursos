@@ -115,7 +115,9 @@ def test_no_wizard_a_calibracao_reprovada_explica_e_pergunta_de_novo(
 ):
     monkeypatch.delenv('CONCURSO_CALIBRAR_FOLHA')
     monkeypatch.delenv('CI', raising=False)
-    monkeypatch.setattr('sys.stdin', Terminal(f'\n\n\n{folha_fraca}\nEEEEE\n{folha_fraca}\n{PRIMEIRAS}\n\n'))
+    monkeypatch.setattr(
+        'sys.stdin', Terminal(f'\n\n\n{folha_fraca}\nEEEEE\n{folha_fraca}\n{PRIMEIRAS}\n\n\n')
+    )
 
     assert main([]) == 0
 

@@ -31,9 +31,11 @@ from concursos.edital import (
     estruturar_edital,
 )
 from concursos.edital_a_confirmar import gravar_confirmacao
+from concursos.edital_llm import completar_com_llm
 from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.graficos import gerar_graficos
+from concursos.llm import ClienteLlm
 from concursos.modelo import ItemGabarito, RespostaMarcada
 from concursos.perfis import PerfilOcr, perfil_da_banca
 from concursos.prova import segmentar, texto_em_colunas
@@ -196,7 +198,9 @@ def analisar_concurso(
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
     correcoes = resolver_correcao(config, documentos)
     gravar_correcao(correcoes, destino)
-    regras = _regras_do_edital(config, documentos, resultados, correcoes, destino, taxonomia)
+    regras = _regras_do_edital(
+        config, documentos, resultados, correcoes, destino, taxonomia, configuracao.cliente_llm
+    )
     diff = _diff_da_troca(destino, resultados)
     gravar_validacao(validacao, destino)
     conteudo = ConteudoRelatorio(
@@ -222,6 +226,7 @@ def _regras_do_edital(
     correcoes: list[ConfiguracaoCorrecao],
     destino: Path,
     taxonomia: dict[str, DisciplinaCanonica] | None,
+    cliente_llm: ClienteLlm | None = None,
 ) -> RegrasEdital | None:
     """Regras do edital no edital estruturado e as discrepâncias com a prova; só quando há PDF do edital."""
     if not documentos:
@@ -230,6 +235,8 @@ def _regras_do_edital(
         arquivo: extrair_paginas(config.caminho(arquivo), ocr=False) for arquivo in config.edital.retificacoes
     }
     regras = extrair_regras(config, documentos, retificacoes)
+    if cliente_llm is not None:
+        regras = completar_com_llm(regras, documentos, cliente_llm)
     regras.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
     gravar_confirmacao(config, regras, correcoes)
     gravar_discrepancias(validar_edital(config, regras, resultados, taxonomia, correcoes), destino)

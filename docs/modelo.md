@@ -182,14 +182,14 @@ Nível e escolaridade são opcionais e ficam `nao_informado` quando ausentes.
 O módulo `concursos.analytics.regras_edital` lê do texto do edital e dos anexos (sem OCR e sem LLM) o que vai além do conteúdo programático e da regra de correção. O resultado é gravado no `edital_estruturado.json`. Cada valor é um **campo** com:
 
 - `valor`;
-- `fonte`: `retificacao`, `edital`, `config`, `perfil`, `default` ou `descoberta`;
+- `fonte`: `retificacao`, `edital`, `config`, `perfil`, `default`, `descoberta` ou `llm`;
 - `trecho_origem`, `documento_origem` e `pagina_origem`, sempre preenchidos quando a fonte é `retificacao`, `edital` ou `descoberta`;
 - `confianca_extracao`, de 0 a 1;
-- `camada`, só no JSON: `heuristica` (fontes `retificacao`, `edital` e `descoberta`), `perfil`, `config` ou `nenhuma` (`default`).
+- `camada`, só no JSON: `heuristica` (fontes `retificacao`, `edital` e `descoberta`), `llm`, `perfil`, `config` ou `nenhuma` (`default`).
 
 A precedência é retificação, depois edital, depois configuração, depois perfil da banca (só nos campos que o perfil traz), depois default. Um campo que cai no default fica com `valor` nulo, e o motivo vai para `avisos` (lista de textos) e para o log. O `correcao.json` continua sendo a fonte da regra de correção aplicada; as regras do edital são a expectativa.
 
-**Confiança do edital** (`confianca_edital`, `{valor, nivel}`). Agrega os campos essenciais: cargo, formato, penalidade, total da distribuição, data da objetiva, tipo de pesos, o melhor corte calculável fora da discursiva e, em múltipla escolha, as alternativas. O `valor` é a soma das confianças dos essenciais que vieram do texto (edital, retificação ou descoberta) dividida pelo número de essenciais, com 2 casas. O `nivel` é `alta` a partir de 0,8, `media` a partir de 0,5, `baixa` abaixo disso e `minima` quando nenhum essencial veio do texto (`valor` 0).
+**Confiança do edital** (`confianca_edital`, `{valor, nivel}`). Agrega os campos essenciais: cargo, formato, penalidade, total da distribuição, data da objetiva, tipo de pesos, o melhor corte calculável fora da discursiva e, em múltipla escolha, as alternativas. O `valor` é a soma das confianças dos essenciais que vieram do texto (edital, retificação, descoberta ou LLM com citação) dividida pelo número de essenciais, com 2 casas. O `nivel` é `alta` a partir de 0,8, `media` a partir de 0,5, `baixa` abaixo disso e `minima` quando nenhum essencial veio do texto (`valor` 0).
 
 **Modo mínimo e `edital_a_confirmar.yaml`.** Um edital sem conteúdo programático (texto sem a seção, ou PDF imagem sem o Tesseract) não aborta a análise: o log avisa com uma `dica:` (instalar o Tesseract com o idioma português, rodar `concurso-analise doctor` ou fornecer `edital.manual`), e as questões ficam com tópico `nao_mapeado`. Depois das regras, faltando algum destes campos, a análise grava `provas/<concurso>/edital_a_confirmar.yaml` e avisa no log:
 
@@ -374,6 +374,7 @@ Roda no comando sem subcomando quando o projeto não tem `config.toml`, e sempre
 | pasta de provas | a resolvida pelo contexto | `--provas` | `CONCURSO_PROVAS` |
 | pasta de análises | a resolvida pelo contexto | `--analises` | `CONCURSO_ANALISES` |
 | folha para calibrar e as respostas das 5 primeiras questões | pular | `init --calibrate-sheet` e `--calibrate-answers` | `CONCURSO_CALIBRAR_FOLHA` e `CONCURSO_CALIBRAR_RESPOSTAS` |
+| LLM para editais (`nenhum`, `openai`, `openrouter`, `gemini`, `ollama`, `anthropic`) | o atual ou `nenhum` | — | `CONCURSO_LLM` |
 | rodar o `doctor` no fim | sim | `init --doctor/--no-doctor` | `CONCURSO_DOCTOR` |
 
 - **Só o que falta:** o que veio por flag ou variável não é perguntado.
@@ -383,7 +384,18 @@ Roda no comando sem subcomando quando o projeto não tem `config.toml`, e sempre
 - **Ordem:** migração das fases 1 a 3 (com o candidato respondido), depois a gravação, o `doctor` e a análise (forçada quando houve calibração).
 - **Calibração:** detecta a grade da folha de amostra sem perfil, deduz o número de alternativas do espaçamento entre as colunas de bolhas (maior entre itens do que dentro de um item) e mede a tinta das 5 primeiras questões da primeira coluna. As respostas digitadas (letra ou `-`, sem diferença de caixa) separam as bolhas em marcadas e vazias: `vazio` e `cheio` são as medianas de cada grupo, e `limiar_marcada` fica no meio entre a marcada mais fraca e a vazia mais forte, na escala de 0 a 1 entre `vazio` e `cheio` (limitado a 0,05 a 0,95). Reprova, sem gravar nada, quando uma letra digitada não existe na grade, quando uma bolha digitada tem menos tinta que uma não digitada, ou quando todas estão em branco; no wizard interativo, mostra o erro com a `dica:` e pergunta de novo; por flag ou variável, para com código 1.
 - **Perfil calibrado:** `./.concurso/folha_calibrada.yaml` (`id: calibrado`, `alternativas`, `vazio`, `cheio`, `limiar_marcada`) e a imagem `./.concurso/calibracao.png`. Na leitura, os limiares dele substituem os padrão da detecção automática (sem `template` ou quando o perfil da folha falha); o perfil de OCR do `template` continua vindo antes.
-- **O que grava:** no projeto, `[pastas]` (relativas à raiz quando dentro dela) e `[candidato] ultimo`; o perfil global `~/.concurso/candidatos/<slug>.toml` com o nome digitado; e, na configuração global `~/.concurso/config.toml`, `[candidatos] conhecidos` (lista de slugs). Nenhuma chave de API é gravada.
+- **LLM:** ao escolher um provedor pela primeira vez, o wizard diz o que vai para ele (só o texto do edital e dos anexos) e pede concordância; sem ela, fica `nenhum`. Sem a chave, diz qual variável definir; com a chave só na variável, oferece guardá-la no keyring.
+- **O que grava:** no projeto, `[pastas]` (relativas à raiz quando dentro dela) e `[candidato] ultimo`; o perfil global `~/.concurso/candidatos/<slug>.toml` com o nome digitado; e, na configuração global `~/.concurso/config.toml`, `[candidatos] conhecidos` (lista de slugs) e `[llm]` (`provedor`, `url`, `modelo`, `variavel_chave`, `consentimento`). A chave de API nunca vai para o TOML.
+
+## LLM opcional (fase 4)
+
+Desligado por padrão; nenhuma chamada de rede acontece sem `[llm]` com `consentimento = true` na configuração global. `--no-llm` e `--offline` (flags globais, antes do subcomando) o desligam numa execução.
+
+- **Clientes** (`concursos.llm`): um compatível com OpenAI (`POST <url>/chat/completions`), que serve OpenAI, OpenRouter, Gemini e Ollama, e um adaptador Anthropic (`POST <url>/messages`). Timeout de 60 s, sem nova tentativa; uma falha vira aviso e a análise segue sem o LLM.
+- **Chave:** a variável de `variavel_chave`, depois o keyring (serviço `concurso-analise`, extra `llm`), depois o `~/.concurso/.env` (`VARIAVEL=valor`). Guardar sem keyring grava o `.env` com permissão 600 e aviso de texto plano; ler um `.env` legível por outros também avisa. Sem chave, o aviso diz qual variável definir, e o `doctor` mostra `✗` com o `export`.
+- **Camada** (`concursos.edital_llm`): depois das regras do texto, pede só os campos que caíram no perfil da banca ou no padrão, o que poupa a rede quando o edital foi lido: `alternativas` (múltipla escolha), `penalidade` e `data_prova` (a data da objetiva no cronograma). O que vem do texto do edital ou do `concurso.yaml` nunca é trocado. Vão só páginas do edital e dos anexos que tenham palavras dessas regras, com o documento e a página, até 40 mil caracteres.
+- **Citação:** a resposta é um JSON com `{"valor", "trecho_origem"}` por campo. O trecho precisa existir numa página do texto enviado, comparando sem acento, sem caixa e com espaços normalizados; sem isso, ou com valor fora do esperado (alternativas de 2 a 10, penalidade de 0 a 1, data ISO), o valor é descartado e o campo fica como estava. Aceito, o campo sai com fonte e camada `llm`, confiança 0,6, trecho, documento e página.
+- **Só regras do edital:** o valor do LLM é expectativa, como o resto do `edital_estruturado.json`; a correção segue com o `correcao.json`.
 
 ## Candidatos (fase 4)
 
