@@ -207,6 +207,19 @@ A precedência é edital, depois `correcao.nota_corte` do `concurso.yaml` (corte
 
 O `correcao.json` mantém o seu `nota_corte`, que continua alimentando a nota final dos relatórios.
 
+**Pesos** (`pesos`). São a expectativa do edital; o peso realizado, que entra na nota, continua sendo o do `correcao.json`. Têm três chaves:
+
+- `tipo`: `uniforme`, `por_disciplina`, `por_tipo_de_questao`, `por_bloco`, `por_faixa_de_itens` ou `formula`;
+- `faixas`: variante (vazia quando vale para o concurso todo) → campo com as faixas `{inicio, fim, peso}`, no formato do `correcao.json`. Itens fora das faixas valem 1;
+- `soma_dos_eixos`: o total que o edital promete aos pesos dos eixos ("totalizando, em conjunto, o valor de 10", CPNU 8.9.2).
+
+O quadro de eixos do CPNU dá `por_faixa_de_itens`, uma entrada por variante do `correcao.variantes`, com a faixa dos conhecimentos gerais primeiro. Sem quadro, vale a regra de pontuação que a correção também lê: pontos iguais em todos os itens são `uniforme` (Cebraspe, AgSUS, CPRM), e pontos diferentes por parte são `por_bloco`. Sem nenhum dos dois, há aviso. O CSV de discrepâncias ganha duas regras:
+
+| Item | Comparação | Severidade |
+|---|---|---|
+| `soma dos pesos dos eixos: <variante>` | soma dos pesos dos eixos da variante no edital contra `soma_dos_eixos` | `error` |
+| `pesos dos itens[: <variante>]` | peso de cada item no edital contra o do `correcao.json` (um `concurso.yaml` com pesos próprios na variante, por exemplo). Variante fora do quadro de eixos não é comparada | `warn` |
+
 **Distribuição de questões** (`distribuicao`). Tem cinco campos: `total`, `geral` e `especifico` (inteiros), `por_disciplina` (nome da disciplina no edital → número de itens, só as gerais) e `por_tipo` (`certo_errado` ou `multipla_escolha` → total, e `discursiva` → número de questões).
 
 - **Por bloco:** a frase "N questões de Conhecimentos Gerais e M de Conhecimentos Específicos" (FGV, CPNU) ou "Módulo I … N questões" (CPRM). Sem ela, o quadro de provas do Cebraspe ("NÚMERO DE ITENS"): soma das linhas de cada bloco, ou as duas provas objetivas pela posição.

@@ -20,12 +20,12 @@ Ver `docs/spec-fase3.md`, histórias 10–14 e 49–50.
 
 **Blocked by:** 01 (Identificação do concurso e escopo por cargo)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Teste puro: o quadro de eixos do CPNU por variante sai com tipo por faixa de itens.
-- [ ] Teste puro: um edital Cebraspe sai com peso uniforme.
-- [ ] Teste de validação: uma soma diferente de 10 gera `error`.
-- [ ] Teste de validação: um peso realizado diferente do edital gera `warn`.
-- [ ] O arquivo de correção não muda.
-- [ ] `docs/modelo.md` documenta o bloco de pesos.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Teste puro: o quadro de eixos do CPNU por variante sai com tipo por faixa de itens.
+- [x] Teste puro: um edital Cebraspe sai com peso uniforme.
+- [x] Teste de validação: uma soma diferente de 10 gera `error`.
+- [x] Teste de validação: um peso realizado diferente do edital gera `warn`.
+- [x] O arquivo de correção não muda.
+- [x] `docs/modelo.md` documenta o bloco de pesos.
+- [x] `uv run pytest` e `ruff` verdes.

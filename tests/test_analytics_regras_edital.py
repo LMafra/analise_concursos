@@ -1,9 +1,16 @@
 from pathlib import Path
 
 import pytest
+from test_analytics_correcao import CEBRASPE, DATAPREV, DOCUMENTOS_CPNU, cpnu, pesos_cpnu
 
-from concursos.analytics.regras_edital import EscopoCorte, FonteRegra, UnidadeCorte, extrair_regras
-from concursos.concurso_config import validar_dados
+from concursos.analytics.regras_edital import (
+    EscopoCorte,
+    FonteRegra,
+    TipoPeso,
+    UnidadeCorte,
+    extrair_regras,
+)
+from concursos.concurso_config import PesoItens, validar_dados
 
 CAPA_TCU = """TRIBUNAL DE CONTAS DA UNIÃO
 CONCURSO PÚBLICO PARA O PROVIMENTO DE VAGAS E A FORMAÇÃO DE CADASTRO DE RESERVA PARA
@@ -494,3 +501,55 @@ def test_corte_no_default_com_palavra_gatilho_no_edital_gera_aviso():
 
     assert regras.cortes == ()
     assert any('nota de corte' in aviso and 'nota mínima' in aviso for aviso in regras.avisos)
+
+
+def test_cpnu_tem_pesos_por_faixa_de_itens_por_variante_e_a_soma_declarada_dos_eixos():
+    regras = extrair_regras(cpnu(), DOCUMENTOS_CPNU)
+
+    pesos = regras.pesos
+    assert pesos.tipo.valor is TipoPeso.POR_FAIXA_DE_ITENS
+    assert {variante: campo.valor for variante, campo in pesos.faixas.items()} == {
+        'B3-08-A': pesos_cpnu(1, 1, 2, 4, 2),
+        'B3-10-A': pesos_cpnu(1, 2, 3, 3, 1),
+        'B3-07-C': pesos_cpnu(1, 2, 1, 4, 2),
+    }
+    inss = pesos.faixas['B3-08-A']
+    assert (inss.fonte, inss.documento_origem, inss.pagina_origem) == (
+        FonteRegra.EDITAL,
+        'anexo_bloco3.pdf',
+        3,
+    )
+    assert inss.trecho_origem.startswith('B3-08-A')
+    assert pesos.soma_dos_eixos.valor == 10
+    assert 'totalizando, em conjunto, o valor de 10' in pesos.soma_dos_eixos.trecho_origem
+
+
+def test_cebraspe_tem_peso_uniforme():
+    regras = extrair_regras(config(), {'edital.pdf': [CAPA_TCU, CEBRASPE]})
+
+    pesos = regras.pesos
+    assert (pesos.tipo.valor, pesos.tipo.fonte, pesos.tipo.pagina_origem) == (
+        TipoPeso.UNIFORME,
+        FonteRegra.EDITAL,
+        2,
+    )
+    assert pesos.tipo.trecho_origem.startswith('8.11.2')
+    assert pesos.faixas == {}
+    assert pesos.soma_dos_eixos.valor is None
+
+
+def test_pontos_diferentes_por_modulo_sao_peso_por_bloco():
+    regras = extrair_regras(
+        validar_dados(
+            Path('sintetico'),
+            {
+                'banca': 'fgv',
+                'formato': 'multipla_escolha',
+                'provas': {'unica': {'gabarito': 'g', 'itens': [1, 70]}},
+            },
+        ),
+        {'edital.pdf': [DATAPREV]},
+    )
+
+    assert regras.pesos.tipo.valor is TipoPeso.POR_BLOCO
+    assert regras.pesos.faixas[''].valor == (PesoItens(1, 40, 1.0), PesoItens(41, 70, 2.5))

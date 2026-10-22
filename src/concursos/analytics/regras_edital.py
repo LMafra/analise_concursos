@@ -9,15 +9,20 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from concursos.analytics.correcao import TextoCorrido
-from concursos.concurso_config import ConcursoConfig
+from concursos.analytics.correcao import (
+    CONFIANCA_QUADRO_DE_PESOS,
+    TextoCorrido,
+    extrair_fator_correcao,
+    extrair_quadro_de_pesos,
+)
+from concursos.concurso_config import ConcursoConfig, pesos_variam
 from concursos.deteccao import normalizar
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, titulo_legivel
 from concursos.modelo import Escolaridade
 
 logger = logging.getLogger(__name__)
 
-CHAVES_DAS_REGRAS = ('identificacao', 'distribuicao', 'cortes', 'avisos')
+CHAVES_DAS_REGRAS = ('identificacao', 'pesos', 'distribuicao', 'cortes', 'avisos')
 CONFIANCA_LISTA_DE_CARGOS = 0.9
 CONFIANCA_CARGO_UNICO = 0.85
 CONFIANCA_NOME_DO_CARGO = 0.75
@@ -102,9 +107,30 @@ class Distribuicao:
     por_tipo: Campo = field(default_factory=Campo)
 
 
+class TipoPeso(StrEnum):
+    UNIFORME = 'uniforme'
+    POR_DISCIPLINA = 'por_disciplina'
+    POR_TIPO_DE_QUESTAO = 'por_tipo_de_questao'
+    POR_BLOCO = 'por_bloco'
+    POR_FAIXA_DE_ITENS = 'por_faixa_de_itens'
+    FORMULA = 'formula'
+
+
+@dataclass(frozen=True)
+class Pesos:
+    """Pesos declarados, a expectativa; o realizado é o do correcao.json. `faixas` mapeia a variante (vazia: o
+    concurso todo) às faixas de itens no formato do correcao.json, e itens fora delas valem 1. No quadro de
+    eixos, a primeira faixa é a dos conhecimentos gerais; `soma_dos_eixos` é o total prometido às demais."""
+
+    tipo: Campo = field(default_factory=Campo)
+    faixas: dict[str, Campo] = field(default_factory=dict)
+    soma_dos_eixos: Campo = field(default_factory=Campo)
+
+
 @dataclass(frozen=True)
 class RegrasEdital:
     identificacao: Identificacao = field(default_factory=Identificacao)
+    pesos: Pesos = field(default_factory=Pesos)
     distribuicao: Distribuicao = field(default_factory=Distribuicao)
     cortes: tuple[Corte, ...] = ()
     avisos: tuple[str, ...] = ()
@@ -468,6 +494,53 @@ def _maiusculo(texto: str) -> bool:
     return len(letras) >= 4 and sum(c.isupper() for c in letras) >= 0.9 * len(letras)
 
 
+# --- Pesos -------------------------------------------------------------------------------------------
+
+_SOMA_DOS_PESOS = re.compile(
+    r'pesos\s+atribuídos[^.]{0,150}?totalizando,?\s+(?:em\s+conjunto,?\s+)?o\s+valor\s+de\s+(?P<n>\d+)', re.I
+)
+
+
+def _extrair_pesos(config: ConcursoConfig, docs: _Documentos) -> tuple[Pesos, list[str]]:
+    """O quadro de eixos por variante (CPNU) ou, sem ele, a regra de pontuação que a correção também lê:
+    pontos iguais em todos os itens são peso uniforme, e pontos diferentes por parte, peso por bloco."""
+    soma = docs.primeiro(_SOMA_DOS_PESOS)
+    soma_dos_eixos = soma.campo(int(soma.match['n']), CONFIANCA_DISTRIBUICAO) if soma else Campo()
+    if faixas := _quadro_de_eixos(config, docs):
+        tipo = replace(next(iter(faixas.values())), valor=TipoPeso.POR_FAIXA_DE_ITENS)
+        return Pesos(tipo, faixas, soma_dos_eixos), []
+    for doc in docs.lista:
+        if (regra := extrair_fator_correcao(docs.paginas[doc.nome], config.total_itens)) is None:
+            continue
+        fonte = FonteRegra.RETIFICACAO if doc.retificacao else FonteRegra.EDITAL
+        origem = (fonte, regra.trecho_origem, doc.nome, regra.pagina_origem, regra.confianca)
+        if pesos_variam(regra.pesos):
+            return Pesos(
+                Campo(TipoPeso.POR_BLOCO, *origem), {'': Campo(regra.pesos, *origem)}, soma_dos_eixos
+            ), []
+        return Pesos(Campo(TipoPeso.UNIFORME, *origem), {}, soma_dos_eixos), []
+    aviso = _aviso_de_default(config, docs, 'pesos não encontrados no edital')
+    return Pesos(soma_dos_eixos=soma_dos_eixos), [aviso]
+
+
+def _quadro_de_eixos(config: ConcursoConfig, docs: _Documentos) -> dict[str, Campo]:
+    if config.correcao is None or not config.correcao.variantes:
+        return {}
+    retificacoes = {doc.nome for doc in docs.lista if doc.retificacao}
+    quadro = extrair_quadro_de_pesos(config, {doc.nome: docs.paginas[doc.nome] for doc in docs.lista})
+    return {
+        variante: Campo(
+            linha.pesos,
+            FonteRegra.RETIFICACAO if linha.documento in retificacoes else FonteRegra.EDITAL,
+            linha.trecho,
+            linha.documento,
+            linha.pagina,
+            CONFIANCA_QUADRO_DE_PESOS,
+        )
+        for variante, linha in quadro.items()
+    }
+
+
 # --- Distribuição ------------------------------------------------------------------------------------
 
 CONFIANCA_DISTRIBUICAO = 0.9
@@ -816,12 +889,13 @@ def extrair_regras(
     leitura; as `retificacoes`, na ordem de publicação, vencem o edital campo a campo."""
     docs = _Documentos(documentos, retificacoes)
     identificacao, escopo, avisos = _identificar(config, docs)
+    pesos, avisos_dos_pesos = _extrair_pesos(config, docs)
     distribuicao, avisos_da_distribuicao = _extrair_distribuicao(config, docs, escopo)
     cortes, avisos_dos_cortes = _extrair_cortes(config, docs, escopo)
-    avisos += avisos_da_distribuicao + avisos_dos_cortes
+    avisos += avisos_dos_pesos + avisos_da_distribuicao + avisos_dos_cortes
     for aviso in avisos:
         logger.warning('%s', aviso)
-    return RegrasEdital(identificacao, distribuicao, cortes, tuple(avisos))
+    return RegrasEdital(identificacao, pesos, distribuicao, cortes, tuple(avisos))
 
 
 def ler_regras(pasta: Path) -> dict | None:

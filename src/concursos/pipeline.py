@@ -6,7 +6,12 @@ import pandas as pd
 from concursos import manifesto
 from concursos.agregacao import agregar
 from concursos.analytics.consolidado import raiz_do_projeto
-from concursos.analytics.correcao import gravar_correcao, notas_finais, resolver_correcao
+from concursos.analytics.correcao import (
+    ConfiguracaoCorrecao,
+    gravar_correcao,
+    notas_finais,
+    resolver_correcao,
+)
 from concursos.analytics.regras_edital import RegrasEdital, extrair_regras
 from concursos.analytics.taxonomia import (
     ARQUIVO_TAXONOMIA,
@@ -144,7 +149,7 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
     correcoes = resolver_correcao(config, documentos)
     gravar_correcao(correcoes, destino)
-    regras = _regras_do_edital(config, documentos, resultados, destino)
+    regras = _regras_do_edital(config, documentos, resultados, correcoes, destino)
     diff = _diff_da_troca(destino, resultados)
     gravar_validacao(validacao, destino)
     conteudo = ConteudoRelatorio(
@@ -164,7 +169,11 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
 
 
 def _regras_do_edital(
-    config: ConcursoConfig, documentos: dict[str, list[str]], resultados: pd.DataFrame, destino: Path
+    config: ConcursoConfig,
+    documentos: dict[str, list[str]],
+    resultados: pd.DataFrame,
+    correcoes: list[ConfiguracaoCorrecao],
+    destino: Path,
 ) -> RegrasEdital | None:
     """Regras do edital no edital estruturado e as discrepâncias com a prova; só quando há PDF do edital."""
     if not documentos:
@@ -174,7 +183,7 @@ def _regras_do_edital(
     }
     regras = extrair_regras(config, documentos, retificacoes)
     regras.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
-    gravar_discrepancias(validar_edital(config, regras, resultados, _taxonomia()), destino)
+    gravar_discrepancias(validar_edital(config, regras, resultados, _taxonomia(), correcoes), destino)
     return regras
 
 

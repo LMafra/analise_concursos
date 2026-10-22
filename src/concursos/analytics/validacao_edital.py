@@ -6,9 +6,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from concursos.analytics.regras_edital import Distribuicao, RegrasEdital
+from concursos.analytics.correcao import ConfiguracaoCorrecao
+from concursos.analytics.regras_edital import Distribuicao, Pesos, RegrasEdital, TipoPeso
 from concursos.analytics.taxonomia import BLOCO_DA_PROVA, DisciplinaCanonica
-from concursos.concurso_config import ConcursoConfig
+from concursos.concurso_config import ConcursoConfig, PesoItens, peso_da_questao
 from concursos.modelo import Bloco
 
 ARQUIVO_DISCREPANCIAS = 'discrepancias_edital.csv'
@@ -43,11 +44,15 @@ def validar_edital(
     regras: RegrasEdital,
     questoes: pd.DataFrame | None = None,
     taxonomia: dict[str, DisciplinaCanonica] | None = None,
+    correcoes: list[ConfiguracaoCorrecao] | None = None,
 ) -> pd.DataFrame:
     """Uma linha por divergência, com severidade e ação sugerida; vazia quando tudo confere. `questoes` tem
     uma linha por questão do concurso, com `prova` e `disciplina`; a `taxonomia` casa as disciplinas do
-    edital com as das questões pela disciplina canônica e dá o bloco na prova única."""
-    discrepancias = [*_cargo(config, regras)]
+    edital com as das questões pela disciplina canônica e dá o bloco na prova única. As `correcoes` (uma por
+    variante) têm os pesos realizados."""
+    discrepancias = [*_cargo(config, regras), *_soma_dos_eixos(regras.pesos)]
+    if correcoes is not None:
+        discrepancias += _pesos_realizados(config, regras.pesos, correcoes)
     if questoes is not None:
         discrepancias += _contagens(regras.distribuicao, questoes, taxonomia or {})
     return pd.DataFrame([asdict(d) for d in discrepancias], columns=COLUNAS_DISCREPANCIAS)
@@ -72,6 +77,60 @@ def _cargo(config: ConcursoConfig, regras: RegrasEdital) -> list[Discrepancia]:
             'sem casamento, cortes e distribuição são lidos do concurso inteiro',
         )
     ]
+
+
+def _soma_dos_eixos(pesos: Pesos) -> list[Discrepancia]:
+    declarada = pesos.soma_dos_eixos.valor
+    if pesos.tipo.valor is not TipoPeso.POR_FAIXA_DE_ITENS or declarada is None:
+        return []
+    somas = {variante: sum(f.peso for f in campo.valor[1:]) for variante, campo in pesos.faixas.items()}
+    return [
+        _divergencia(
+            f'soma dos pesos dos eixos: {variante}',
+            declarada,
+            soma,
+            Severidade.ERROR,
+            'Confira a linha da variante no quadro de pesos dos eixos do edital',
+        )
+        for variante, soma in somas.items()
+        if soma != declarada
+    ]
+
+
+def _pesos_realizados(
+    config: ConcursoConfig, pesos: Pesos, correcoes: list[ConfiguracaoCorrecao]
+) -> list[Discrepancia]:
+    """O peso de cada item no edital contra o do correcao.json; uma variante fora do quadro de eixos não é
+    comparada."""
+    if pesos.tipo.valor is None:
+        return []
+    divergencias = []
+    for cfg in correcoes:
+        variante = cfg.variante or ''
+        if variante in pesos.faixas:
+            esperado = pesos.faixas[variante].valor
+        elif pesos.tipo.valor is TipoPeso.POR_FAIXA_DE_ITENS:
+            continue
+        else:
+            esperado = ()
+        itens = range(1, config.total_itens + 1)
+        if any(peso_da_questao(esperado, q) != peso_da_questao(cfg.pesos, q) for q in itens):
+            divergencias.append(
+                Discrepancia(
+                    f'pesos dos itens: {variante}' if variante else 'pesos dos itens',
+                    _faixas(esperado),
+                    _faixas(cfg.pesos),
+                    None,
+                    Severidade.WARN,
+                    'A nota usa o realizado (correcao.json); '
+                    'confira os pesos do concurso.yaml contra o edital',
+                )
+            )
+    return divergencias
+
+
+def _faixas(pesos: tuple[PesoItens, ...]) -> str:
+    return '; '.join(f'{f.inicio}-{f.fim}: {f.peso:g}' for f in pesos) or 'todos os itens: 1'
 
 
 def _contagens(
@@ -140,5 +199,7 @@ def _blocos_observados(questoes: pd.DataFrame, taxonomia: dict[str, DisciplinaCa
     return blocos.value_counts().to_dict()
 
 
-def _divergencia(item: str, esperado: int, observado: int, severidade: Severidade, acao: str) -> Discrepancia:
-    return Discrepancia(item, str(esperado), str(observado), observado - esperado, severidade, acao)
+def _divergencia(
+    item: str, esperado: float, observado: float, severidade: Severidade, acao: str
+) -> Discrepancia:
+    return Discrepancia(item, f'{esperado:g}', f'{observado:g}', observado - esperado, severidade, acao)
