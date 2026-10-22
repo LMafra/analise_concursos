@@ -5,8 +5,15 @@ import pandas as pd
 
 from concursos import manifesto
 from concursos.agregacao import agregar
+from concursos.analytics.consolidado import raiz_do_projeto
 from concursos.analytics.correcao import gravar_correcao, notas_finais, resolver_correcao
 from concursos.analytics.regras_edital import RegrasEdital, extrair_regras
+from concursos.analytics.taxonomia import (
+    ARQUIVO_TAXONOMIA,
+    DisciplinaCanonica,
+    TaxonomiaInvalidaError,
+    carregar_taxonomia,
+)
 from concursos.analytics.validacao_edital import gravar_discrepancias, validar_edital
 from concursos.atualizacao import ARQUIVO_DIFF, diff_gabarito, questoes_preliminares, trocar_gabaritos
 from concursos.caderno import faixas_do_caderno
@@ -137,7 +144,7 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
     correcoes = resolver_correcao(config, documentos)
     gravar_correcao(correcoes, destino)
-    regras = _regras_do_edital(config, documentos, destino)
+    regras = _regras_do_edital(config, documentos, resultados, destino)
     diff = _diff_da_troca(destino, resultados)
     gravar_validacao(validacao, destino)
     conteudo = ConteudoRelatorio(
@@ -157,7 +164,7 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
 
 
 def _regras_do_edital(
-    config: ConcursoConfig, documentos: dict[str, list[str]], destino: Path
+    config: ConcursoConfig, documentos: dict[str, list[str]], resultados: pd.DataFrame, destino: Path
 ) -> RegrasEdital | None:
     """Regras do edital no edital estruturado e as discrepâncias com a prova; só quando há PDF do edital."""
     if not documentos:
@@ -167,8 +174,20 @@ def _regras_do_edital(
     }
     regras = extrair_regras(config, documentos, retificacoes)
     regras.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
-    gravar_discrepancias(validar_edital(config, regras), destino)
+    gravar_discrepancias(validar_edital(config, regras, resultados, _taxonomia()), destino)
     return regras
+
+
+def _taxonomia() -> dict[str, DisciplinaCanonica] | None:
+    """A taxonomia da raiz do projeto, se houver; sem ela, as disciplinas casam só pelo nome."""
+    caminho = raiz_do_projeto() / ARQUIVO_TAXONOMIA
+    if not caminho.exists():
+        return None
+    try:
+        return carregar_taxonomia(caminho)
+    except TaxonomiaInvalidaError as erro:
+        logger.warning('%s; disciplinas do edital comparadas só pelo nome', erro)
+        return None
 
 
 def _diff_da_troca(destino: Path, resultados: pd.DataFrame) -> pd.DataFrame | None:

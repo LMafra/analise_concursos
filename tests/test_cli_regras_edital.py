@@ -1,7 +1,8 @@
 import json
 
+import yaml
 from conftest import analisar, ler_csv
-from test_cli_correcao_edital import CERTO_ERRADO, criar
+from test_cli_correcao_edital import CERTO_ERRADO, MULTIPLA_ESCOLHA, criar
 from test_cli_edital import MANUAL
 from test_edital import PAGINAS
 
@@ -139,6 +140,52 @@ def test_retificacoes_que_nao_sao_lista_de_arquivos_apontam_o_campo(raizes, caps
     assert main(['status', '--provas', str(provas)]) == 0
 
     assert 'edital.retificacoes: deve ser uma lista de arquivos' in capsys.readouterr().out
+
+
+QUADRO_DE_PROVAS = """7.1 Será aplicado exame de habilidades e conhecimentos, conforme o quadro a seguir:
+PROVA/TIPO ÁREA DE CONHECIMENTO NÚMERO DE ITENS CARÁTER
+Prova objetiva (P ) Conhecimentos gerais 2
+1
+Prova objetiva (P ) Conhecimentos específicos 3
+2
+7.2 As provas objetivas terão a duração de 3 horas."""
+
+QUADRO_DE_DISCIPLINAS = """9.5.1 A Prova Objetiva será composta por 3 (três) questões de Conhecimentos Gerais e 1 (uma)
+questão de Conhecimentos Específicos.
+CARGO: ANALISTA DE TI
+CONHECIMENTOS DISCIPLINAS TOTAL DE QUESTÕES PONTUAÇÃO
+Língua Portuguesa 3 3
+ESPECÍFICOS Conforme conteúdo programático 1 1
+Total: 4 4"""
+
+
+def test_total_de_itens_divergente_do_edital_e_error(raizes):
+    provas, analises = raizes
+    criar(provas, CERTO_ERRADO, 'edital.txt', edital(QUADRO_DE_PROVAS))
+
+    assert analisar(provas, analises) == 0
+
+    assert estruturado(analises)['distribuicao']['total']['valor'] == 5
+    [linha] = discrepancias(analises).query("item == 'total de itens'").to_dict('records')
+    assert (linha['severidade'], linha['esperado_edital'], linha['observado_prova']) == ('error', 5, 4)
+
+
+def test_contagem_por_disciplina_divergente_do_edital_e_warn(raizes):
+    provas, analises = raizes
+    disciplinas = [
+        {'inicio': 1, 'fim': 2, 'disciplina': 'Língua Portuguesa'},
+        {'inicio': 3, 'fim': 4, 'disciplina': 'Banco de Dados'},
+    ]
+    criar(provas, MULTIPLA_ESCOLHA, 'edital.txt', edital(QUADRO_DE_DISCIPLINAS))
+    caminho = provas / 'sintetico' / 'concurso.yaml'
+    config = yaml.safe_load(caminho.read_text(encoding='utf-8'))
+    config['provas']['unica']['disciplinas'] = disciplinas
+    caminho.write_text(yaml.safe_dump(config, allow_unicode=True), encoding='utf-8')
+
+    assert analisar(provas, analises) == 0
+
+    [linha] = discrepancias(analises).query("item == 'disciplina: Língua Portuguesa'").to_dict('records')
+    assert (linha['severidade'], linha['esperado_edital'], linha['observado_prova']) == ('warn', 3, 2)
 
 
 def test_cabecalho_do_relatorio_mostra_o_nome_oficial_e_o_cargo(raizes):

@@ -4,7 +4,7 @@ metadados, cada valor com fonte, trecho, documento e página. Extração por reg
 import json
 import logging
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -17,7 +17,7 @@ from concursos.modelo import Escolaridade
 
 logger = logging.getLogger(__name__)
 
-CHAVES_DAS_REGRAS = ('identificacao', 'cortes', 'avisos')
+CHAVES_DAS_REGRAS = ('identificacao', 'distribuicao', 'cortes', 'avisos')
 CONFIANCA_LISTA_DE_CARGOS = 0.9
 CONFIANCA_CARGO_UNICO = 0.85
 CONFIANCA_NOME_DO_CARGO = 0.75
@@ -29,6 +29,8 @@ _JANELA_DE_ITEM = 4000
 _ALCANCE_DA_NOTA_DE_RETIFICACAO = 400
 _NOTA_DE_RETIFICACAO = re.compile(r'\(Retificad[oa]\s+(?:por\s+meio\s+d[oa]|pelo)\s+Edital', re.IGNORECASE)
 _FIM_DE_FRASE = re.compile(r'\.(?=\s|$)')
+_NUMERO = r'\d+(?:,\d+)?'
+_POR_EXTENSO = r'(?:\s*\([^)]*\))?'
 
 
 class FonteRegra(StrEnum):
@@ -88,8 +90,22 @@ class Corte(Campo):
 
 
 @dataclass(frozen=True)
+class Distribuicao:
+    """Número de questões declarado. `por_disciplina` (nome da disciplina geral no edital → questões) só
+    existe onde o edital tem quadro por disciplina (FGV); `por_tipo` mapeia o formato (`certo_errado`,
+    `multipla_escolha`, `discursiva`) ao número de questões."""
+
+    total: Campo = field(default_factory=Campo)
+    geral: Campo = field(default_factory=Campo)
+    especifico: Campo = field(default_factory=Campo)
+    por_disciplina: Campo = field(default_factory=Campo)
+    por_tipo: Campo = field(default_factory=Campo)
+
+
+@dataclass(frozen=True)
 class RegrasEdital:
     identificacao: Identificacao = field(default_factory=Identificacao)
+    distribuicao: Distribuicao = field(default_factory=Distribuicao)
     cortes: tuple[Corte, ...] = ()
     avisos: tuple[str, ...] = ()
 
@@ -186,6 +202,9 @@ class _Escopo:
 
     palavras: frozenset[str]
     escolaridade: Escolaridade = Escolaridade.NAO_INFORMADO
+    nucleo: frozenset[str] = frozenset()
+    """Palavras do nome do cargo no edital: uma menção que as contém todas também cita o cargo, como o título
+    de quadro "PARA OS CARGOS DE PERITO CRIMINAL FEDERAL NÚMERO DE ITENS"."""
 
     def aplica(self, achado: _Achado) -> bool:
         texto = achado.documento.texto.texto
@@ -204,7 +223,11 @@ class _Escopo:
             return (nivel['nivel'] == 'SUPERIOR') == (self.escolaridade is Escolaridade.SUPERIOR)
         if _GENERICOS.match(nome) or not self.palavras:
             return True
-        return _cobertura(nome, set(self.palavras)) == 1.0
+        return (
+            _cobertura(nome, set(self.palavras)) == 1.0
+            or bool(self.nucleo)
+            and self.nucleo <= _palavras(nome)
+        )
 
 
 def _inicio_do_item(texto: str, posicao: int) -> int:
@@ -278,7 +301,8 @@ def _identificar(config: ConcursoConfig, docs: _Documentos) -> tuple[Identificac
                 f'{config.nome}: cargo {config.cargo!r} do concurso.yaml não casa com nenhum cargo do edital '
                 f'({"; ".join(c.nome for c in cargos)}); extração no escopo do concurso inteiro'
             )
-    escopo = _Escopo(frozenset(palavras), config.escolaridade)
+    nucleo = frozenset(_palavras(escolhido.nome)) if escolhido else frozenset()
+    escopo = _Escopo(frozenset(palavras), config.escolaridade, nucleo)
     vagas = next(
         (a.campo(int(a.match['valor']), CONFIANCA_NOME_DO_CARGO) for a in docs.todos(_VAGAS_DO_CARGO)
          if escopo.cita(a.match['nomes'])),
@@ -444,12 +468,202 @@ def _maiusculo(texto: str) -> bool:
     return len(letras) >= 4 and sum(c.isupper() for c in letras) >= 0.9 * len(letras)
 
 
+# --- Distribuição ------------------------------------------------------------------------------------
+
+CONFIANCA_DISTRIBUICAO = 0.9
+CONFIANCA_QUADRO_POR_POSICAO = 0.7
+_ALCANCE_DO_QUADRO = 800
+_POR_EXTENSO_NUMERO = {'UM': 1, 'UMA': 1, 'DOIS': 2, 'DUAS': 2, 'TRES': 3, 'QUATRO': 4, 'CINCO': 5}
+_QUADRO_DE_PROVAS = re.compile(r'NÚMERO\s+DE(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ/]+)*?\s+ITENS')
+_LINHA_DE_PROVA = re.compile(
+    r'Conhecimentos\s+(?P<bloco>b[áa]sicos|gerais|espec[íi]ficos)(?:\s+[–-]\s+Bloco\s+[IVX]+)?\s+'
+    r'(?P<n>\d{1,3})\b',
+    re.IGNORECASE,
+)
+_PROVA_OBJETIVA_NO_QUADRO = re.compile(r'\(P\s*\d?\s*\)\s*Objetiva\s+(?P<n>\d{1,3})\b')
+_QUESTOES_POR_BLOCO = re.compile(
+    rf'(?P<geral>\d+){_POR_EXTENSO}\s+quest[õo]es\s+de\s+Conhecimentos\s+Gerais\s+e\s+'
+    rf'(?P<especifico>\d+){_POR_EXTENSO}\s+quest[õo]es\s+de\s+Conhecimentos\s+Espec[íi]ficos'
+    rf'|Conhecimentos\s+Gerais\)\s+com\s+(?P<geral_modulo>\d+){_POR_EXTENSO}\s+quest[õo]es\s+e\s+'
+    rf'M[óo]dulo\s+II\s+\(Conhecimentos\s+Espec[íi]ficos\)\s+com\s+(?P<especifico_modulo>\d+)',
+    re.IGNORECASE,
+)
+_TOTAL_DE_QUESTOES = re.compile(
+    rf'composta\s+por\s+(?P<n>\d+){_POR_EXTENSO}\s+quest[õo]es(?!\s+de\s+Conhecimentos)', re.IGNORECASE
+)
+_CERTO_OU_ERRADO = re.compile(r'\bCERTO\b.{0,60}?\bERRADO\b')
+_MULTIPLA_ESCOLHA = re.compile(r'm[úu]ltipla\s+escolha', re.IGNORECASE)
+_DISCURSIVAS = re.compile(
+    r'\b(?P<n>\d+|uma?|dois|duas|tr[êe]s|quatro|cinco)\s+(?:\([^)]*\)\s+)?'
+    r'(?:quest(?:[õo]es|[ãa]o)|textos?|pe[çc]as?)(?:\s+\S+){0,3}?\s+(?:discursiv|dissertativ)',
+    re.IGNORECASE,
+)
+_CABECALHO_DE_DISCIPLINAS = re.compile(r'^(?:CONHECIMENTOS\s+)?(?:Prova\s+Objetiva\s+)?DISCIPLINAS?\b', re.I)
+_TOTAL_DO_QUADRO = re.compile(r'^Total\b', re.IGNORECASE)
+_ROTULO_DE_BLOCO = re.compile(
+    r'^(?:(?P<geral>GERAIS|M[óo]dulo\s+I\s*:\s*Conhecimentos\s+Gerais)'
+    r'|(?P<especifico>ESPEC[ÍI]FICOS|M[óo]dulo\s+II\s*:\s*Conhecimentos\s+Espec[íi]ficos))\s*',
+    re.IGNORECASE,
+)
+_LINHA_DO_QUADRO = re.compile(r'^(?P<nome>\D*?[^\d\s])\s+(?P<n>\d{1,3})(?:\s+\d{1,3})?$')
+
+
+@dataclass(frozen=True)
+class _QuadroDeDisciplinas:
+    titulo: str
+    gerais: dict[str, int]
+    especifico: int | None
+    achado: _Achado
+    trecho: str
+
+
+def _inteiro(texto: str) -> int:
+    return int(texto) if texto.isdigit() else _POR_EXTENSO_NUMERO[normalizar(texto)]
+
+
+def _extrair_distribuicao(
+    config: ConcursoConfig, docs: _Documentos, escopo: _Escopo
+) -> tuple[Distribuicao, list[str]]:
+    quadro = _quadro_do_cargo(config, docs, escopo)
+    geral, especifico = _blocos_declarados(docs, escopo)
+    if geral.valor is None and quadro is not None:
+        geral = quadro.achado.campo(sum(quadro.gerais.values()), CONFIANCA_DISTRIBUICAO, quadro.trecho)
+        if quadro.especifico is not None:
+            especifico = quadro.achado.campo(quadro.especifico, CONFIANCA_DISTRIBUICAO, quadro.trecho)
+    if total := docs.primeiro(_TOTAL_DE_QUESTOES, escopo):
+        campo_total = total.campo(int(total.match['n']), CONFIANCA_DISTRIBUICAO)
+    elif geral.valor is not None and especifico.valor is not None:
+        campo_total = replace(geral, valor=geral.valor + especifico.valor)
+    else:
+        campo_total = Campo()
+    distribuicao = Distribuicao(
+        total=campo_total,
+        geral=geral,
+        especifico=especifico,
+        por_disciplina=(
+            quadro.achado.campo(quadro.gerais, CONFIANCA_DISTRIBUICAO, quadro.trecho) if quadro else Campo()
+        ),
+        por_tipo=_por_tipo(docs, escopo, campo_total.valor),
+    )
+    avisos = []
+    if campo_total.valor is None:
+        avisos.append(_aviso_de_default(config, docs, 'número de questões não encontrado no edital'))
+    return distribuicao, avisos
+
+
+def _blocos_declarados(docs: _Documentos, escopo: _Escopo) -> tuple[Campo, Campo]:
+    if frase := docs.primeiro(_QUESTOES_POR_BLOCO, escopo):
+        m = frase.match
+        return (
+            frase.campo(int(m['geral'] or m['geral_modulo']), CONFIANCA_DISTRIBUICAO),
+            frase.campo(int(m['especifico'] or m['especifico_modulo']), CONFIANCA_DISTRIBUICAO),
+        )
+    for ancora in docs.todos(_QUADRO_DE_PROVAS):
+        if not escopo.aplica(ancora):
+            continue
+        texto = ancora.documento.texto.texto
+        fim = min(len(texto), ancora.match.end() + _ALCANCE_DO_QUADRO)
+        if proximo := _SUBITEM.search(texto, ancora.match.end(), fim):
+            fim = proximo.start()
+        linhas = [
+            _Achado(m, ancora.documento) for m in _LINHA_DE_PROVA.finditer(texto, ancora.match.end(), fim)
+        ]
+        if linhas:
+            return _soma_do_bloco(linhas, geral=True), _soma_do_bloco(linhas, geral=False)
+        objetivas = list(_PROVA_OBJETIVA_NO_QUADRO.finditer(texto, ancora.match.end(), fim))
+        if len(objetivas) == 2:
+            return tuple(  # type: ignore[return-value]
+                _Achado(m, ancora.documento).campo(int(m['n']), CONFIANCA_QUADRO_POR_POSICAO)
+                for m in objetivas
+            )
+    return Campo(), Campo()
+
+
+def _soma_do_bloco(linhas: list[_Achado], geral: bool) -> Campo:
+    do_bloco = [a for a in linhas if (normalizar(a.match['bloco']) != 'ESPECIFICOS') == geral]
+    if not do_bloco:
+        return Campo()
+    return do_bloco[0].campo(sum(int(a.match['n']) for a in do_bloco), CONFIANCA_DISTRIBUICAO)
+
+
+def _quadro_do_cargo(
+    config: ConcursoConfig, docs: _Documentos, escopo: _Escopo
+) -> _QuadroDeDisciplinas | None:
+    """O quadro de disciplinas (FGV) cujo título mais casa com o cargo; no empate, o de "demais"
+    especialidades. Sem um vencedor único, nenhum."""
+    quadros = _quadros_de_disciplinas(docs)
+    if len(quadros) <= 1:
+        return quadros[0] if quadros else None
+    palavras = _palavras(config.cargo or '') | escopo.nucleo
+
+    def nota(quadro: _QuadroDeDisciplinas) -> tuple[int, bool]:
+        do_titulo = _palavras(quadro.titulo)
+        return len(do_titulo & palavras), 'DEMAIS' in do_titulo
+
+    maior = max(map(nota, quadros))
+    melhores = [q for q in quadros if nota(q) == maior]
+    return melhores[0] if maior[0] and len(melhores) == 1 else None
+
+
+def _quadros_de_disciplinas(docs: _Documentos) -> list[_QuadroDeDisciplinas]:
+    quadros = []
+    for doc in docs.lista:
+        linhas = _linhas(docs.paginas[doc.nome])
+        for indice, linha in enumerate(linhas):
+            if _CABECALHO_DE_DISCIPLINAS.match(linha) and (quadro := _ler_quadro(doc, linhas, indice)):
+                quadros.append(quadro)
+    return quadros
+
+
+def _ler_quadro(doc: _Documento, linhas: list[str], cabecalho: int) -> _QuadroDeDisciplinas | None:
+    titulo: list[str] = []
+    for anterior in reversed(linhas[max(0, cabecalho - 4) : cabecalho]):
+        if _TOTAL_DO_QUADRO.match(anterior):
+            break
+        titulo.insert(0, anterior)
+    gerais: dict[str, int] = {}
+    especifico, no_especifico, corpo = None, False, []
+    for linha in linhas[cabecalho + 1 : cabecalho + 20]:
+        if _TOTAL_DO_QUADRO.match(linha):
+            break
+        corpo.append(linha)
+        if rotulo := _ROTULO_DE_BLOCO.match(linha):
+            no_especifico = rotulo['especifico'] is not None
+            linha = linha[rotulo.end() :]
+        if not (m := _LINHA_DO_QUADRO.match(linha)):
+            continue
+        if no_especifico:
+            especifico = (especifico or 0) + int(m['n'])
+        else:
+            gerais[m['nome'].strip()] = int(m['n'])
+    if not gerais:
+        return None
+    texto = doc.texto.texto
+    match = re.search(re.escape(' '.join([*titulo, linhas[cabecalho]])), texto) or re.search(
+        re.escape(linhas[cabecalho]), texto
+    )
+    trecho = ' '.join([*titulo, linhas[cabecalho], *corpo])
+    return _QuadroDeDisciplinas(' '.join(titulo), gerais, especifico, _Achado(match, doc), trecho)
+
+
+def _por_tipo(docs: _Documentos, escopo: _Escopo, total: int | None) -> Campo:
+    tipos: dict[str, int] = {}
+    origem = None
+    if total is not None:
+        for tipo, padrao in (('certo_errado', _CERTO_OU_ERRADO), ('multipla_escolha', _MULTIPLA_ESCOLHA)):
+            if achado := docs.primeiro(padrao):
+                tipos[tipo], origem = total, achado
+                break
+    if discursivas := docs.primeiro(_DISCURSIVAS, escopo):
+        tipos['discursiva'] = _inteiro(discursivas.match['n'])
+        origem = origem or discursivas
+    return origem.campo(tipos, CONFIANCA_QUADRO_POR_POSICAO) if origem else Campo()
+
+
 # --- Cortes ------------------------------------------------------------------------------------------
 
 CONFIANCA_CORTE = 0.9
 CONFIANCA_CORTE_DA_DISCURSIVA = 0.8
-_NUMERO = r'\d+(?:,\d+)?'
-_POR_EXTENSO = r'(?:\s*\([^)]*\))?'
 _CORTE_EM_PONTOS = re.compile(
     rf'nota\s+inferior\s+a\s+(?P<valor>{_NUMERO})\s*pontos\s+(?P<alvo>[^;.]{{0,120}})', re.IGNORECASE
 )
@@ -602,11 +816,12 @@ def extrair_regras(
     leitura; as `retificacoes`, na ordem de publicação, vencem o edital campo a campo."""
     docs = _Documentos(documentos, retificacoes)
     identificacao, escopo, avisos = _identificar(config, docs)
+    distribuicao, avisos_da_distribuicao = _extrair_distribuicao(config, docs, escopo)
     cortes, avisos_dos_cortes = _extrair_cortes(config, docs, escopo)
-    avisos += avisos_dos_cortes
+    avisos += avisos_da_distribuicao + avisos_dos_cortes
     for aviso in avisos:
         logger.warning('%s', aviso)
-    return RegrasEdital(identificacao, cortes, tuple(avisos))
+    return RegrasEdital(identificacao, distribuicao, cortes, tuple(avisos))
 
 
 def ler_regras(pasta: Path) -> dict | None:

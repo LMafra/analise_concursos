@@ -17,11 +17,11 @@ Ver `docs/spec-fase3.md`, histórias 15–18 e 44–46.
 
 **Blocked by:** 01 (Identificação do concurso e escopo por cargo)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Teste puro: distribuição FGV por disciplina com trecho real (AgSUS TI ou CPRM ADS).
-- [ ] Teste puro: no Cebraspe, a distribuição sai só por prova, e o campo por disciplina fica vazio sem aviso.
-- [ ] Teste de CLI: um total divergente gera `error`.
-- [ ] Teste de CLI: uma contagem por disciplina divergente gera `warn`.
-- [ ] `docs/modelo.md` documenta o bloco de distribuição.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Teste puro: distribuição FGV por disciplina com trecho real (AgSUS TI ou CPRM ADS).
+- [x] Teste puro: no Cebraspe, a distribuição sai só por prova, e o campo por disciplina fica vazio sem aviso.
+- [x] Teste de CLI: um total divergente gera `error`.
+- [x] Teste de CLI: uma contagem por disciplina divergente gera `warn`.
+- [x] `docs/modelo.md` documenta o bloco de distribuição.
+- [x] `uv run pytest` e `ruff` verdes.

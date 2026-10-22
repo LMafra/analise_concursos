@@ -106,6 +106,143 @@ objetivas de Conhecimentos Gerais e de Conhecimentos Específicos para os cargos
 """
 
 
+QUADRO_CD = """7.1 Será aplicado exame de habilidades e conhecimentos, mediante aplicação de provas objetivas e de
+prova discursiva, de caráter eliminatório e classificatório, conforme o quadro a seguir:
+PROVA/TIPO ÁREA DE CONHECIMENTO NÚMERO DE ITENS CARÁTER
+Prova objetiva (P ) Conhecimentos gerais 90
+1PROVA/TIPO ÁREA DE CONHECIMENTO NÚMERO DE ITENS CARÁTER
+Prova objetiva (P ) Conhecimentos específicos 90 Eliminatório e
+2
+Prova discursiva (P ) – – classificatório
+3
+7.2 As provas objetivas terão a duração de 5 horas.
+8.11.2 A nota em cada item será igual a: 1,00 ponto, caso a resposta do candidato esteja em concordância com
+o gabarito oficial definitivo; os itens serão julgados CERTO ou ERRADO.
+"""
+
+QUADRO_TCU = """7.1 As etapas do concurso estão descritas no quadro a seguir:
+ÁREA DE NÚMERO DE
+ETAPA PROVA/TIPO CARÁTER
+CONHECIMENTO ITENS
+Conhecimentos
+(P ) Objetiva 100
+1
+básicos
+Conhecimentos
+(P ) Objetiva 100
+2
+específicos Eliminatório e
+Primeira etapa
+três questões classificatório
+–
+discursivas
+(P ) Discursiva
+3
+7.2 As provas objetivas terão a duração de 4 horas.
+"""
+
+QUADRO_PF = """7.1 A primeira etapa do concurso está descrita nos quadros a seguir.
+7.1.1 PARA O CARGO DE DELEGADO DE POLÍCIA FEDERAL
+NÚMERO DE
+PROVA/TIPO ÁREA DE CONHECIMENTO CARÁTER
+ITENS
+(P ) Objetiva Conhecimentos específicos 120
+1
+7.1.2 PARA OS CARGOS DE PERITO CRIMINAL FEDERAL
+NÚMERO DE
+PROVA/TIPO ÁREA DE CONHECIMENTO CARÁTER
+ITENS
+Conhecimentos básicos 50
+(P ) Objetiva
+1
+Conhecimentos específicos 70
+7.1.3 PARA OS CARGOS DE ESCRIVÃO DE POLÍCIA FEDERAL, AGENTE DE POLÍCIA FEDERAL E DE
+PAPILOSCOPISTA POLICIAL FEDERALNÚMERO DE
+PROVA/TIPO ÁREA DE CONHECIMENTO CARÁTER
+ITENS
+Conhecimentos básicos – Bloco I 60
+(P ) Objetiva Conhecimentos básicos – Bloco II 36
+1
+Conhecimentos específicos – Bloco III 24 Eliminatório e
+7.2 A prova objetiva terá a duração de 4 horas.
+"""
+
+QUADROS_AGSUS = """9.5 A Prova Objetiva totalizará 70 (setenta) pontos e será composta por 70 (setenta) questões de
+múltipla escolha, valendo 1 (um) ponto cada questão. As questões serão numeradas sequencialmente, contendo
+5 (cinco) alternativas cada e apenas uma resposta correta.
+9.5.1 A Prova Objetiva será composta por 40 (quarenta) questões de Conhecimentos Gerais e 30 (trinta)
+questões de Conhecimentos Específicos, para todos os cargos, e será aplicada da seguinte forma:
+9.5.1.1 Para o cargo de Analista de Gestão – AgSUS / Administrativo:
+CARGO: ANALISTA DE GESTÃO – AgSUS / ADMINISTRATIVO
+CONHECIMENTOS DISCIPLINAS TOTAL DE QUESTÕES PONTUAÇÃO
+MÁXIMA
+Língua Portuguesa 15 15
+GERAIS Raciocínio Lógico e Matemático 10 10
+Legislação 05 05
+Noções de Informática 10 10
+ESPECÍFICOS Conforme conteúdo programático de cada 30 30
+cargo/especialidade, constante no Anexo I
+Total: 70 70
+9.5.1.2 Para os cargos de Analista de Gestão – AgSUS / Demais Especialidades:
+CARGO: ANALISTA DE GESTÃO – AgSUS / DEMAIS ESPECIALIDADES
+CONHECIMENTOS DISCIPLINAS TOTAL DE QUESTÕES PONTUAÇÃOMÁXIMA
+Língua Portuguesa 15 15
+GERAIS Raciocínio Lógico e Matemático 05 05
+Legislação 10 10
+Noções de Informática 10 10
+ESPECÍFICOS Conforme conteúdo programático de cada 30 30
+cargo/especialidade, constante no Anexo I
+Total: 70 70
+9.5.1.3 Para o cargo de Auxiliar de Gestão – AgSUS:
+CARGO: AUXILIAR DE GESTÃO - AgSUS
+CONHECIMENTOS DISCIPLINAS TOTAL DE QUESTÕES PONTUAÇÃO
+MÁXIMA
+Língua Portuguesa 15 15
+GERAIS Raciocínio Lógico e Matemático 10 10
+Legislação 05 05
+Noções de Informática 10 10
+ESPECÍFICOS Conforme conteúdo programático de cada 30 30
+cargo/especialidade, constante no Anexo I
+Total: 70 70
+9.6 A Prova Objetiva não admite consulta de qualquer natureza.
+"""
+
+QUADROS_CPRM = """12.1 Para todas as áreas de conhecimento dos cargos de Pesquisador, Analista e Técnico em
+Geociências, a Prova Objetiva será composta por 70 (setenta) questões de múltipla escolha,
+numeradas sequencialmente, com 5 (cinco) alternativas e apenas 1 (uma) resposta correta, com
+os Módulos I (Conhecimentos Gerais) com 30 (trinta) questões e Módulo II (Conhecimentos
+Específicos) com 40 (quarenta) questões.
+12.3 Para todas as áreas de conhecimento do Cargo de Analista em Geociências, o Módulo I
+(Conhecimentos Gerais) será comum a todas.
+12.3.1 Analista em Geociências – Área: Administração. O quadro a seguir apresenta as
+disciplinas:
+Nº
+Prova Objetiva Disciplina
+Questões
+Língua Portuguesa 10
+Módulo I: Conhecimentos Gerais Raciocínio Lógico Matemático 10
+Atualidades 10
+Módulo II: Conhecimentos Específicos Administração 40
+Total 70
+12.3.2 Analista em Geociências – Área: Análise e Desenvolvimento de Sistemas. O quadro
+a seguir apresenta as disciplinas:
+Nº
+Prova Objetiva Disciplina
+Questões
+Língua Portuguesa 12
+Módulo I: Conhecimentos Gerais Raciocínio Lógico Matemático 8
+Atualidades 10
+Módulo II: Conhecimentos Específicos Análise e Desenvolvimento de 40
+Sistemas
+Total 70
+"""
+
+
+def distribuicao(regras) -> tuple:
+    d = regras.distribuicao
+    return d.total.valor, d.geral.valor, d.especifico.valor, d.por_disciplina.valor
+
+
 def regua(regras) -> list[tuple]:
     return [(c.escopo, c.valor, c.unidade, c.bloco) for c in regras.cortes]
 
@@ -283,6 +420,72 @@ def test_nota_inline_de_retificacao_marca_a_fonte_do_subitem_retificado():
     assert fontes[EscopoCorte.DISCURSIVA] is FonteRegra.EDITAL
     conjunto = next(c for c in regras.cortes if c.escopo is EscopoCorte.CONJUNTO)
     assert conjunto.documento_origem == 'edital.pdf'
+
+
+def test_cebraspe_distribui_so_por_prova_e_deixa_a_disciplina_vazia_sem_aviso():
+    regras = extrair_regras(config(), {'edital.pdf': [CAPA_TCU, QUADRO_CD]})
+
+    assert distribuicao(regras) == (180, 90, 90, None)
+    d = regras.distribuicao
+    assert d.por_disciplina.fonte is FonteRegra.DEFAULT
+    assert (d.geral.fonte, d.geral.documento_origem, d.geral.pagina_origem) == (
+        FonteRegra.EDITAL,
+        'edital.pdf',
+        2,
+    )
+    assert 'Conhecimentos gerais 90' in d.geral.trecho_origem
+    assert d.por_tipo.valor == {'certo_errado': 180}
+    assert not any('distribui' in aviso for aviso in regras.avisos)
+
+
+def test_tcu_le_as_provas_objetivas_na_ordem_do_quadro_e_as_questoes_discursivas():
+    regras = extrair_regras(config(), {'edital.pdf': [CAPA_TCU, QUADRO_TCU]})
+
+    assert distribuicao(regras) == (200, 100, 100, None)
+    assert regras.distribuicao.por_tipo.valor == {'discursiva': 3}
+
+
+def test_quadro_de_provas_do_cargo_da_configuracao_num_edital_de_varios_cargos():
+    cargo = 'CARGO 4: PERITO CRIMINAL FEDERAL – ÁREA 3: INFORMÁTICA FORENSE'
+    regras = extrair_regras(config(cargo), {'edital.pdf': [CARGOS_PF, QUADRO_PF]})
+
+    assert distribuicao(regras) == (120, 50, 70, None)
+
+
+def test_fgv_distribui_por_disciplina_pelo_quadro_do_cargo():
+    regras = extrair_regras(
+        config('Analista de Gestão Tecnologia da Informação'), {'edital.pdf': [CAPA_AGSUS, QUADROS_AGSUS]}
+    )
+
+    assert distribuicao(regras) == (
+        70,
+        40,
+        30,
+        {
+            'Língua Portuguesa': 15,
+            'Raciocínio Lógico e Matemático': 5,
+            'Legislação': 10,
+            'Noções de Informática': 10,
+        },
+    )
+    por_disciplina = regras.distribuicao.por_disciplina
+    assert por_disciplina.fonte is FonteRegra.EDITAL
+    assert 'DEMAIS ESPECIALIDADES' in por_disciplina.trecho_origem
+    assert regras.distribuicao.por_tipo.valor == {'multipla_escolha': 70}
+
+
+def test_cprm_distribui_por_modulo_e_pelo_quadro_da_area_do_cargo():
+    regras = extrair_regras(
+        config('Analista em Geociências - Análise e Desenvolvimento de Sistemas'),
+        {'edital.pdf': [QUADROS_CPRM]},
+    )
+
+    assert distribuicao(regras) == (
+        70,
+        30,
+        40,
+        {'Língua Portuguesa': 12, 'Raciocínio Lógico Matemático': 8, 'Atualidades': 10},
+    )
 
 
 def test_corte_no_default_com_palavra_gatilho_no_edital_gera_aviso():

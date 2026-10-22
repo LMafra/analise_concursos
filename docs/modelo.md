@@ -207,6 +207,20 @@ A precedência é edital, depois `correcao.nota_corte` do `concurso.yaml` (corte
 
 O `correcao.json` mantém o seu `nota_corte`, que continua alimentando a nota final dos relatórios.
 
+**Distribuição de questões** (`distribuicao`). Tem cinco campos: `total`, `geral` e `especifico` (inteiros), `por_disciplina` (nome da disciplina no edital → número de itens, só as gerais) e `por_tipo` (`certo_errado` ou `multipla_escolha` → total, e `discursiva` → número de questões).
+
+- **Por bloco:** a frase "N questões de Conhecimentos Gerais e M de Conhecimentos Específicos" (FGV, CPNU) ou "Módulo I … N questões" (CPRM). Sem ela, o quadro de provas do Cebraspe ("NÚMERO DE ITENS"): soma das linhas de cada bloco, ou as duas provas objetivas pela posição.
+- **Por disciplina:** o quadro de disciplinas da FGV. Num edital com vários quadros, vale aquele cujo título tem mais palavras em comum com o cargo; no empate, o de "demais" especialidades; sem vencedor único, nenhum. As disciplinas específicas do quadro somam no bloco específico.
+- **Total:** "total de N questões/itens"; sem ele, a soma dos dois blocos. Sem total, há aviso.
+
+O CSV de discrepâncias compara a distribuição com as questões corrigidas (`questoes.csv`):
+
+| Item | Observado | Severidade |
+|---|---|---|
+| `total de itens` | número de questões do concurso | `error` |
+| `itens de conhecimentos gerais` / `… específicos` | questões por bloco: pela prova (P1/P2) ou, na prova única, pelo bloco da disciplina na taxonomia. Fica de fora se alguma questão não tem bloco conhecido | `error` |
+| `disciplina: <nome>` | questões da disciplina, casada pela disciplina canônica da taxonomia (ou pelo nome, se a taxonomia não a conhece) | `warn` |
+
 ## `concurso.yaml`
 
 O arquivo é gerado por `concursos adicionar` e pode ser editado à mão. Os caminhos são relativos à pasta do concurso.
