@@ -17,12 +17,12 @@ Ver `docs/spec-fase3.md`, histórias 19–23 e 31–34.
 
 **Blocked by:** 01 (Identificação do concurso e escopo por cargo)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Testes puros com trechos reais curtos: quadro 7.1 e item 8.11 do Cebraspe, AgSUS 9.5 e 9.14, CPRM 12.13 e CPNU 8.15.
-- [ ] Teste puro: com dois cargos e cortes diferentes, sai o corte do cargo certo.
-- [ ] Teste puro: o default com palavra-gatilho emite aviso.
-- [ ] Sempre que a fonte for o edital, o trecho, o documento e a página vêm preenchidos.
-- [ ] Teste de CLI: os cortes aparecem no edital estruturado.
-- [ ] `docs/modelo.md` documenta o bloco de cortes.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Testes puros com trechos reais curtos: quadro 7.1 e item 8.11 do Cebraspe, AgSUS 9.5 e 9.14, CPRM 12.13 e CPNU 8.15.
+- [x] Teste puro: com dois cargos e cortes diferentes, sai o corte do cargo certo.
+- [x] Teste puro: o default com palavra-gatilho emite aviso.
+- [x] Sempre que a fonte for o edital, o trecho, o documento e a página vêm preenchidos.
+- [x] Teste de CLI: os cortes aparecem no edital estruturado.
+- [x] `docs/modelo.md` documenta o bloco de cortes.
+- [x] `uv run pytest` e `ruff` verdes.

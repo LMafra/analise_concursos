@@ -17,7 +17,7 @@ from concursos.modelo import Escolaridade
 
 logger = logging.getLogger(__name__)
 
-CHAVES_DAS_REGRAS = ('identificacao', 'avisos')
+CHAVES_DAS_REGRAS = ('identificacao', 'cortes', 'avisos')
 CONFIANCA_LISTA_DE_CARGOS = 0.9
 CONFIANCA_CARGO_UNICO = 0.85
 CONFIANCA_NOME_DO_CARGO = 0.75
@@ -25,6 +25,7 @@ CONFIANCA_CAPA = 0.8
 CONFIANCA_SEM_CASAMENTO = 0.5
 _COBERTURA_MINIMA_CARGO = 0.75
 _JANELA_DE_CARGO = 600
+_JANELA_DE_ITEM = 4000
 
 
 class FonteRegra(StrEnum):
@@ -60,9 +61,33 @@ class Identificacao:
     cargos_do_edital: tuple[str, ...] = ()
 
 
+class EscopoCorte(StrEnum):
+    CONJUNTO = 'conjunto'
+    GERAL = 'geral'
+    ESPECIFICO = 'especifico'
+    DISCIPLINA = 'disciplina'
+    DISCURSIVA = 'discursiva'
+
+
+class UnidadeCorte(StrEnum):
+    PONTOS = 'pontos'
+    ACERTOS = 'acertos'
+
+
+@dataclass(frozen=True, kw_only=True)
+class Corte(Campo):
+    """Um mínimo eliminatório. No escopo `disciplina`, `bloco` diz de que bloco são as disciplinas (vazio:
+    todas); a `discursiva` é só informativa."""
+
+    escopo: EscopoCorte
+    unidade: UnidadeCorte
+    bloco: EscopoCorte | None = None
+
+
 @dataclass(frozen=True)
 class RegrasEdital:
     identificacao: Identificacao = field(default_factory=Identificacao)
+    cortes: tuple[Corte, ...] = ()
     avisos: tuple[str, ...] = ()
 
     def gravar_json(self, caminho: Path) -> None:
@@ -124,6 +149,7 @@ _MENCAO_DE_CARGO = re.compile(
 )
 _SEPARADOR_DE_NOMES = re.compile(r',\s*|\s+e\s+(?=[A-ZÀ-Ý])', re.IGNORECASE)
 _GENERICOS = re.compile(r'^(?:TODOS|TODAS|DEMAIS|CADA|QUALQUER|AMBOS|ESTE|ESSE)\b')
+_SUBITEM = re.compile(r'(?<![\d.,])(?P<pai>\d{1,2}\.\d{1,2})(?:\.\d{1,2})*\.?\s+(?=[A-Za-zÀ-ÿ])')
 _NIVEL = re.compile(r'^NIVEL\s+(?P<nivel>SUPERIOR|MEDIO|INTERMEDIARIO)')
 
 
@@ -139,14 +165,15 @@ def _cobertura(nome: str, palavras: set[str]) -> float:
 
 @dataclass(frozen=True)
 class _Escopo:
-    """Decide se um trecho vale para o cargo: pela última menção a cargos antes dele (ou no próprio trecho)."""
+    """Decide se um trecho vale para o cargo: pela última menção a cargos antes dele (ou no próprio
+    trecho)."""
 
     palavras: frozenset[str]
     escolaridade: Escolaridade = Escolaridade.NAO_INFORMADO
 
     def aplica(self, achado: _Achado) -> bool:
         texto = achado.documento.texto.texto
-        inicio = max(0, achado.match.start() - _JANELA_DE_CARGO)
+        inicio = _inicio_do_item(texto, achado.match.start())
         mencoes = list(_MENCAO_DE_CARGO.finditer(texto, inicio, achado.match.end()))
         return not mencoes or self.cita(mencoes[-1]['nomes'])
 
@@ -155,13 +182,26 @@ class _Escopo:
         return any(self._nome_aplica(normalizar(n.strip())) for n in partes)
 
     def _nome_aplica(self, nome: str) -> bool:
-        if _GENERICOS.match(nome) or not self.palavras:
-            return True
         if nivel := _NIVEL.match(nome):
             if self.escolaridade is Escolaridade.NAO_INFORMADO:
                 return nivel['nivel'] == 'SUPERIOR'
             return (nivel['nivel'] == 'SUPERIOR') == (self.escolaridade is Escolaridade.SUPERIOR)
+        if _GENERICOS.match(nome) or not self.palavras:
+            return True
         return _cobertura(nome, set(self.palavras)) == 1.0
+
+
+def _inicio_do_item(texto: str, posicao: int) -> int:
+    """Início do subitem de dois níveis que contém a posição ("8.11" para um trecho do 8.11.5 c), onde o
+    edital costuma dizer a que cargo a regra vale; sem numeração por perto, uma janela fixa."""
+    inicio = max(0, posicao - _JANELA_DE_ITEM)
+    subitens = list(_SUBITEM.finditer(texto, inicio, posicao))
+    if not subitens:
+        return max(0, posicao - _JANELA_DE_CARGO)
+    ultimo = subitens[-1]
+    cabecalho = re.compile(rf'(?<![\d.]){re.escape(ultimo["pai"])}\.?\s')
+    pais = list(cabecalho.finditer(texto, inicio, ultimo.end()))
+    return pais[-1].start() if pais else ultimo.start()
 
 
 # --- Identificação -----------------------------------------------------------------------------------
@@ -184,7 +224,8 @@ _CONECTOR_NO_FIM = re.compile(r'(?:\b(?:DA|DE|DO|DAS|DOS|E|EM)|[–-])$')
 _LINHA_DE_EDITAL = re.compile(r'^EDITAL\b.*$', re.MULTILINE)
 _NAO_E_ORGAO = re.compile(r'^(?:EDITAL|CONCURSO|PROCESSO|ABERTURA|VERSÃO|ATUALIZADO|RETIFICADO|\d)', re.I)
 _ORGAO_NO_TEXTO = re.compile(
-    r'\b(?:Diretor|Diretora|Presidente|Presidenta)[\w-]*\s+d[ao]\s+(?P<orgao>[A-ZÀ-Ý][^,]{5,120}?)\s*(?:,|tendo|no\s+uso)'
+    r'\b(?:Diretor|Diretora|Presidente|Presidenta)[\w-]*\s+d[ao]\s+'
+    r'(?P<orgao>[A-ZÀ-Ý][^,]{5,120}?)\s*(?:,|tendo|no\s+uso)'
 )
 _CADASTRO_DE_RESERVA = re.compile(
     r'cadastro\s+(?:de\s+)?reserva|banco\s+de\s+candidatos\s+aprovados', re.IGNORECASE
@@ -387,6 +428,142 @@ def _maiusculo(texto: str) -> bool:
     return len(letras) >= 4 and sum(c.isupper() for c in letras) >= 0.9 * len(letras)
 
 
+# --- Cortes ------------------------------------------------------------------------------------------
+
+CONFIANCA_CORTE = 0.9
+CONFIANCA_CORTE_DA_DISCURSIVA = 0.8
+_NUMERO = r'\d+(?:,\d+)?'
+_POR_EXTENSO = r'(?:\s*\([^)]*\))?'
+_CORTE_EM_PONTOS = re.compile(
+    rf'nota\s+inferior\s+a\s+(?P<valor>{_NUMERO})\s*pontos\s+(?P<alvo>[^;.]{{0,120}})', re.IGNORECASE
+)
+_CORTE_EM_ACERTOS_NO_BLOCO = re.compile(
+    rf'acertar,?\s+no\s+m[íi]nimo,?\s+em\s+(?P<alvo>conhecimentos\s+\w+),?\s+'
+    rf'(?P<valor>\d+){_POR_EXTENSO}\s+quest'
+    rf'|acertar\s+(?P<valor_modulo>\d+){_POR_EXTENSO}\s+quest[õo]es\s+do\s+'
+    rf'(?P<modulo>m[óo]dulo\s+[IV]+\b[^;.]{{0,40}})',
+    re.IGNORECASE,
+)
+_CORTE_EM_ACERTOS_NO_CONJUNTO = re.compile(
+    rf'(?P<valor>\d+){_POR_EXTENSO}\s+acertos\s+nas\s+provas\s+objetivas[^;.]{{0,120}}?'
+    r'para\s+os\s+cargos\s+de\s+n[íi]vel\s+\w+',
+    re.IGNORECASE,
+)
+_MINIMO_POR_DISCIPLINA = re.compile(
+    rf'n[ãa]o\s+zerar\s+nenhuma\s+das\s+disciplinas'
+    rf'|ao\s+menos\s+(?P<valor>\d+){_POR_EXTENSO}\s+quest[ãa]o\s+em\s+cada\s+disciplina'
+    rf'(?P<alvo>[^;.]{{0,80}})',
+    re.IGNORECASE,
+)
+_CORTE_DA_DISCURSIVA = re.compile(
+    rf'\baprovad[oa]s?\s+n[ao]s?\s+provas?\s+discursivas?[^.]{{0,250}}?'
+    rf'(?:≥|igual\s+ou\s+superior\s+a)\s*(?P<valor>{_NUMERO}){_POR_EXTENSO}\s*pontos'
+    rf'|\breprovad[oa]s?\s+n[ao]s?\s+provas?\s+discursivas?[^.]{{0,250}}?'
+    rf'<\s*(?P<valor_menor>{_NUMERO})\s*pontos',
+    re.IGNORECASE,
+)
+_GATILHOS_DE_DEFAULT = {
+    'peso': r'\bPESOS?\b',
+    'nota mínima': r'\bNOTA\s+MINIMA\b',
+    'corte': r'\bCORTE\b',
+    'desempate': r'\bDESEMPATE\b',
+    'distribuição': r'\bDISTRIBUICAO\b',
+}
+
+
+def _bloco_citado(alvo: str) -> EscopoCorte | None:
+    texto = normalizar(alvo)
+    if re.search(r'ESPECIFIC|MODULO\s+II\b', texto):
+        return EscopoCorte.ESPECIFICO
+    if re.search(r'GERA|BASIC|MODULO\s+I\b', texto):
+        return EscopoCorte.GERAL
+    return None
+
+
+def _escopo_em_pontos(alvo: str) -> EscopoCorte | None:
+    texto = normalizar(alvo)
+    if 'DISCURSIVA' in texto:
+        return EscopoCorte.DISCURSIVA
+    if 'CONJUNTO' in texto:
+        return EscopoCorte.CONJUNTO
+    if 'BLOCO' in texto:
+        return None
+    return _bloco_citado(alvo) or (EscopoCorte.CONJUNTO if 'PROVA OBJETIVA' in texto else None)
+
+
+def _corte(achado: _Achado, valor: str, escopo: EscopoCorte, unidade: UnidadeCorte, **extra) -> Corte:
+    confianca = CONFIANCA_CORTE_DA_DISCURSIVA if escopo is EscopoCorte.DISCURSIVA else CONFIANCA_CORTE
+    campo = achado.campo(float(valor.replace(',', '.')), confianca)
+    return Corte(**vars(campo), escopo=escopo, unidade=unidade, **extra)
+
+
+def _cortes_do_texto(achado: _Achado) -> Corte | None:
+    m, padrao = achado.match, achado.match.re
+    pontos, acertos = UnidadeCorte.PONTOS, UnidadeCorte.ACERTOS
+    if padrao is _CORTE_EM_PONTOS:
+        escopo = _escopo_em_pontos(m['alvo'])
+        return _corte(achado, m['valor'], escopo, pontos) if escopo else None
+    if padrao is _CORTE_EM_ACERTOS_NO_BLOCO:
+        escopo = _bloco_citado(m['alvo'] or m['modulo'])
+        return _corte(achado, m['valor'] or m['valor_modulo'], escopo, acertos) if escopo else None
+    if padrao is _CORTE_EM_ACERTOS_NO_CONJUNTO:
+        return _corte(achado, m['valor'], EscopoCorte.CONJUNTO, acertos)
+    if padrao is _MINIMO_POR_DISCIPLINA:
+        bloco = _bloco_citado(m['alvo']) if m['alvo'] else None
+        return _corte(achado, m['valor'] or '1', EscopoCorte.DISCIPLINA, acertos, bloco=bloco)
+    return _corte(achado, m['valor'] or m['valor_menor'], EscopoCorte.DISCURSIVA, pontos)
+
+
+def _extrair_cortes(
+    config: ConcursoConfig, docs: _Documentos, escopo: _Escopo
+) -> tuple[tuple[Corte, ...], list[str]]:
+    """Todos os cortes do cargo, na ordem do edital; para cada escopo (e bloco), vale o primeiro na ordem de
+    busca, de modo que a retificação vence o edital."""
+    padroes = (
+        _CORTE_EM_PONTOS,
+        _CORTE_EM_ACERTOS_NO_BLOCO,
+        _CORTE_EM_ACERTOS_NO_CONJUNTO,
+        _MINIMO_POR_DISCIPLINA,
+        _CORTE_DA_DISCURSIVA,
+    )
+    ordem = {doc.nome: indice for indice, doc in enumerate(docs.lista)}
+    achados = sorted(
+        (a for padrao in padroes for a in docs.todos(padrao) if escopo.aplica(a)),
+        key=lambda a: (ordem[a.documento.nome], a.match.start()),
+    )
+    cortes: dict[tuple, Corte] = {}
+    for achado in achados:
+        if (corte := _cortes_do_texto(achado)) and (chave := (corte.escopo, corte.bloco)) not in cortes:
+            cortes[chave] = corte
+    avisos = []
+    declarado = config.correcao.nota_corte if config.correcao else None
+    conjunto = cortes.get((EscopoCorte.CONJUNTO, None))
+    if declarado is not None and conjunto is None:
+        cortes[(EscopoCorte.CONJUNTO, None)] = Corte(
+            declarado,
+            FonteRegra.CONFIG,
+            confianca_extracao=1.0,
+            escopo=EscopoCorte.CONJUNTO,
+            unidade=UnidadeCorte.PONTOS,
+        )
+    elif declarado is not None and conjunto.valor != declarado:
+        avisos.append(
+            f'{config.nome}: nota de corte do concurso.yaml ({declarado:g}) difere da do edital '
+            f'({conjunto.valor:g} {conjunto.unidade}); vale o edital'
+        )
+    if not cortes:
+        avisos.append(_aviso_de_default(config, docs, 'nenhuma nota de corte no edital nem no concurso.yaml'))
+    return tuple(cortes.values()), avisos
+
+
+def _aviso_de_default(config: ConcursoConfig, docs: _Documentos, motivo: str) -> str:
+    texto = ' '.join(normalizar(doc.texto.texto) for doc in docs.lista)
+    gatilhos = [nome for nome, padrao in _GATILHOS_DE_DEFAULT.items() if re.search(padrao, texto)]
+    if not gatilhos:
+        return f'{config.nome}: {motivo}'
+    return f'{config.nome}: {motivo}, embora o edital mencione {", ".join(gatilhos)}; confira à mão'
+
+
 # --- Extração ----------------------------------------------------------------------------------------
 
 
@@ -398,10 +575,12 @@ def extrair_regras(
     """Regras do edital do cargo do concurso. `documentos` são as páginas do edital e dos anexos, na ordem de
     leitura; as `retificacoes`, na ordem de publicação, vencem o edital campo a campo."""
     docs = _Documentos(documentos, retificacoes)
-    identificacao, _escopo, avisos = _identificar(config, docs)
+    identificacao, escopo, avisos = _identificar(config, docs)
+    cortes, avisos_dos_cortes = _extrair_cortes(config, docs, escopo)
+    avisos += avisos_dos_cortes
     for aviso in avisos:
         logger.warning('%s', aviso)
-    return RegrasEdital(identificacao, tuple(avisos))
+    return RegrasEdital(identificacao, cortes, tuple(avisos))
 
 
 def ler_regras(pasta: Path) -> dict | None:

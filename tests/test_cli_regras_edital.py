@@ -68,6 +68,30 @@ def test_discrepancias_tem_o_contrato_e_avisam_cargo_sem_casamento(raizes):
     assert estruturado(analises)['identificacao']['cargo_casado'] is False
 
 
+CORTES = """8.11.4 Será reprovado nas provas objetivas e eliminado do concurso público o candidato que
+se enquadrar em pelo menos um dos itens a seguir:
+a) obtiver nota inferior a 3,00 pontos na prova objetiva de conhecimentos gerais P ;
+b) obtiver nota inferior a 2,00 pontos na prova objetiva de conhecimentos específicos P ;
+c) obtiver nota inferior a 6,00 pontos no conjunto das provas objetivas."""
+
+
+def test_edital_estruturado_ganha_os_cortes_com_unidade_escopo_e_origem(raizes):
+    provas, analises = raizes
+    criar(provas, CERTO_ERRADO, 'edital.txt', edital(CORTES))
+
+    assert analisar(provas, analises) == 0
+
+    cortes = estruturado(analises)['cortes']
+    assert [(c['escopo'], c['valor'], c['unidade']) for c in cortes] == [
+        ('geral', 3.0, 'pontos'),
+        ('especifico', 2.0, 'pontos'),
+        ('conjunto', 6.0, 'pontos'),
+    ]
+    assert {(c['fonte'], c['documento_origem'], c['pagina_origem']) for c in cortes} == {
+        ('edital', 'edital.txt', 6)
+    }
+
+
 def test_cabecalho_do_relatorio_mostra_o_nome_oficial_e_o_cargo(raizes):
     provas, analises = raizes
     criar(provas, CERTO_ERRADO, 'edital.txt', edital())

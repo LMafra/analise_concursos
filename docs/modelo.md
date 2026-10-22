@@ -168,7 +168,39 @@ A precedência é retificação, depois edital, depois configuração, depois de
 
 As vagas, o cadastro de reserva e o teto de classificados são só contexto e não entram em cálculo. A coluna `concurso` dos CSVs e do parquet continua sendo o nome da pasta.
 
-**Escopo por cargo.** Num edital de vários cargos, um trecho vale para o cargo quando a última menção a cargos antes dele (ou dentro dele), até 600 caracteres atrás, cita o cargo. Exemplo: "o candidato ao cargo de Perito Criminal Federal que…". Uma menção cita o cargo quando todas as palavras de um dos nomes citados estão no cargo. Menções genéricas ("todos os cargos", "demais cargos") valem para todos, e "cargos de Nível Superior" casa com a `escolaridade`.
+**Escopo por cargo.** Num edital de vários cargos, um trecho vale para o cargo quando a última menção a cargos antes dele (ou dentro dele) cita o cargo. Exemplo: "o candidato ao cargo de Perito Criminal Federal que…".
+
+- **Onde a menção é procurada:** desde o início do subitem de dois níveis que contém o trecho. Para a alínea c) do 8.11.5, a busca começa no 8.11. Sem numeração por perto, ela cobre os 600 caracteres anteriores.
+- **Quando a menção cita o cargo:** quando todas as palavras de um dos nomes citados estão no cargo.
+- **Menções genéricas:** "todos os cargos" e "demais cargos" valem para todos.
+- **Nível:** "cargos de Nível Superior" e "cargos de Nível Intermediário" casam com a `escolaridade`. Sem escolaridade declarada, vale o nível superior.
+
+**Cortes** (`cortes`). É uma lista com todos os mínimos eliminatórios do cargo, na ordem do edital; nenhum é colapsado num número único. Cada corte é um campo com mais três chaves:
+
+- `escopo`: `conjunto` (todas as objetivas), `geral`, `especifico`, `disciplina` (mínimo em cada disciplina) ou `discursiva`;
+- `unidade`: `pontos` (nota líquida, Cebraspe) ou `acertos` (FGV e CPNU);
+- `bloco`: no escopo `disciplina`, o bloco das disciplinas. Fica vazio quando vale para todas.
+
+| Padrão no edital | Corte |
+|---|---|
+| "nota inferior a 18,00 pontos na prova objetiva de conhecimentos gerais P1" | `geral`, 18 pontos |
+| "… de conhecimentos específicos P2", "… nos itens de conhecimentos específicos" | `especifico` |
+| "… no conjunto das provas objetivas", "… na prova objetiva P1" (prova única) | `conjunto` |
+| "acertar, no mínimo, em Conhecimentos Gerais, 20 questões" (AgSUS) | `geral`, 20 acertos |
+| "Acertar 15 (quinze) questões do Módulo I" (CPRM; módulo II é `especifico`) | `geral`, 15 acertos |
+| "não zerar nenhuma das disciplinas" | `disciplina`, 1 acerto, todas |
+| "ao menos 1 (uma) questão em cada disciplina que compõe o Módulo I" | `disciplina`, 1 acerto, `geral` |
+| "inferior a 36 (trinta e seis) acertos nas provas objetivas … para os cargos de Nível Superior" | `conjunto`, 36 acertos |
+| "aprovado na prova discursiva … NFPD ≥ 30,00 pontos", "reprovado … NPD < 15,00 pontos" | `discursiva` |
+
+Cortes "no bloco I" (escrivão da PF) não são lidos. Para cada escopo e bloco, vale o primeiro na ordem de busca, então a retificação vence o edital. O corte da discursiva é só informativo: o projeto não tem a nota discursiva, e ele fica fora do "atingido".
+
+A precedência é edital, depois `correcao.nota_corte` do `concurso.yaml` (corte do conjunto em pontos, fonte `config`), depois default (lista vazia). Há aviso quando:
+
+- a nota de corte do `concurso.yaml` difere da do edital (vale o edital);
+- não há corte em nenhuma fonte. Se o edital menciona "peso", "nota mínima", "corte", "desempate" ou "distribuição", o aviso cita essas palavras.
+
+O `correcao.json` mantém o seu `nota_corte`, que continua alimentando a nota final dos relatórios.
 
 ## `concurso.yaml`
 
