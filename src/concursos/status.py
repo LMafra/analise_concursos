@@ -10,7 +10,7 @@ from concursos.concurso_config import (
     ConfiguracaoInvalidaError,
     carregar_concurso,
 )
-from concursos.folha import TEMPLATES
+from concursos.perfis import ids_de_ocr
 
 
 class Situacao(StrEnum):
@@ -57,7 +57,7 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
     elif config.folha is not None:
         if not config.caminho(config.folha.arquivo).exists():
             motivos.append(f'{config.caminho(config.folha.arquivo)}: arquivo ausente (folha de resposta)')
-        elif config.folha.template not in TEMPLATES:
+        elif config.folha.template not in ids_de_ocr():
             motivos.append(
                 f'{config.folha.arquivo}: leitura do template {config.folha.template!r} ainda não disponível'
             )

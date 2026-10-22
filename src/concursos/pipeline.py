@@ -380,7 +380,12 @@ def _textos_das_questoes(config: ConcursoConfig) -> dict[int, str]:
 def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabarito]:
     arquivo = prova.gabarito.arquivo
     gabarito = carregar_gabarito(
-        config.caminho(arquivo), config.formato, config.banca, config.cargo, config.tipo
+        config.caminho(arquivo),
+        config.formato,
+        config.banca,
+        config.cargo,
+        config.tipo,
+        config.n_alternativas,
     )
     if gabarito.status_detectado and gabarito.status_detectado != prova.gabarito.status:
         logger.warning(
@@ -397,7 +402,9 @@ def _ler_respostas(config: ConcursoConfig, destino: Path, limiar: float) -> list
     questoes = [q for prova in config.provas for q in prova.questoes]
     if config.respostas_arquivo is not None:
         texto = config.caminho(config.respostas_arquivo).read_text(encoding='utf-8')
-        return ler_respostas_txt(texto, config.formato, questoes, config.respostas_arquivo)
+        return ler_respostas_txt(
+            texto, config.formato, questoes, config.respostas_arquivo, config.n_alternativas
+        )
     folha = config.folha
     lidas = ler_folha(
         config.caminho(folha.arquivo),

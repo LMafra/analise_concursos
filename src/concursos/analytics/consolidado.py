@@ -280,7 +280,7 @@ def _questoes_do_concurso(pasta_provas: Path, pasta_analise: Path) -> pd.DataFra
         dtype={'prova': str, 'disciplina': str, 'topico': str, 'gabarito': str, 'resposta': str},
     )
     regra = correcoes[0]
-    itens = aplicar_correcao(questoes, regra, config.formato).itens
+    itens = aplicar_correcao(questoes, regra, config.formato, config.n_alternativas).itens
     pesos = {
         f'{PREFIXO_PESO}{cfg.variante or VARIANTE_PADRAO}': questoes['questao'].map(cfg.peso_de).astype(float)
         for cfg in correcoes

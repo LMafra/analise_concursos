@@ -7,25 +7,12 @@ import numpy as np
 import pypdfium2 as pdfium
 
 from concursos.modelo import Estado, Origem, RespostaMarcada
+from concursos.perfis import PerfilInvalidoError, PerfilOcr, ids_de_ocr, perfil_ocr
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class Template:
-    alternativas: str
-    itens_por_coluna: int | None = None
-
-
-TEMPLATES = {
-    'cebraspe_ce': Template('CE'),
-    'fgv_mod70ae': Template('ABCDE', 20),
-    'fgv_cpnu_90': Template('ABCDE', 18),
-}
-LARGURA = 2480
-VAZIO = 0.2
-CHEIO = 0.9
-LIMIAR_MARCADA = 0.5
+PADRAO = PerfilOcr('padrao', 'ABCDE')
 _CIRCULARIDADE_MINIMA = 0.8
 _FRACAO_TINTA = 0.5
 _FRACAO_LINHA = 0.25
@@ -58,23 +45,24 @@ def ler_folha(
     limiar: float,
 ) -> list[RespostaMarcada]:
     """Lê a primeira página do arquivo que contenha a grade e grava a imagem de depuração."""
-    modelo = TEMPLATES.get(template)
-    if modelo is None:
+    try:
+        perfil = perfil_ocr(template)
+    except PerfilInvalidoError:
         raise FolhaIlegivelError(
-            f'{caminho.name}: template {template!r} não suportado (use {", ".join(TEMPLATES)})'
-        )
+            f'{caminho.name}: template {template!r} não suportado (use {", ".join(ids_de_ocr())})'
+        ) from None
     erros = []
-    for pagina, imagem in enumerate(carregar_paginas(caminho), start=1):
+    for pagina, imagem in enumerate(carregar_paginas(caminho, perfil.largura), start=1):
         try:
             marcacoes = ler_marcacoes(
-                imagem, modelo.alternativas, total_itens, itens_por_coluna or modelo.itens_por_coluna
+                imagem, perfil.alternativas, total_itens, itens_por_coluna or perfil.itens_por_coluna, perfil
             )
         except FolhaIlegivelError as erro:
             erros.append(f'página {pagina}: {erro}')
             continue
         pasta_depuracao.mkdir(parents=True, exist_ok=True)
         depuracao = pasta_depuracao / f'{caminho.stem}_p{pagina}.png'
-        cv2.imwrite(str(depuracao), desenhar_depuracao(imagem, marcacoes, limiar))
+        cv2.imwrite(str(depuracao), desenhar_depuracao(imagem, marcacoes, limiar, perfil))
         revisar = sum(m.confianca < limiar for m in marcacoes)
         logger.info(
             '%s: página %d lida, %d questões para revisar (%s)', caminho.name, pagina, revisar, depuracao
@@ -88,31 +76,35 @@ def ler_folha(
     raise FolhaIlegivelError(f'{caminho.name}: ' + '; '.join(erros))
 
 
-def carregar_paginas(caminho: Path) -> list[np.ndarray]:
-    """Páginas em tons de cinza com largura normalizada (A4 a 300 dpi), de PDF ou imagem."""
+def carregar_paginas(caminho: Path, largura: int = PADRAO.largura) -> list[np.ndarray]:
+    """Páginas em tons de cinza com largura normalizada (A4 a 300 dpi no padrão), de PDF ou imagem."""
     if caminho.suffix.lower() != '.pdf':
         imagem = cv2.imread(str(caminho), cv2.IMREAD_GRAYSCALE)
         if imagem is None:
             raise FolhaIlegivelError(f'{caminho.name}: imagem ilegível ou formato não suportado')
-        return [_normalizar_largura(imagem)]
+        return [_normalizar_largura(imagem, largura)]
     paginas = []
     for pagina in pdfium.PdfDocument(caminho):
-        renderizada = pagina.render(scale=LARGURA / pagina.get_width(), grayscale=True).to_numpy()
+        renderizada = pagina.render(scale=largura / pagina.get_width(), grayscale=True).to_numpy()
         if renderizada.ndim == 3:
             renderizada = cv2.cvtColor(renderizada, cv2.COLOR_BGR2GRAY)
-        paginas.append(_normalizar_largura(renderizada))
+        paginas.append(_normalizar_largura(renderizada, largura))
     return paginas
 
 
-def _normalizar_largura(imagem: np.ndarray) -> np.ndarray:
+def _normalizar_largura(imagem: np.ndarray, alvo: int) -> np.ndarray:
     altura, largura = imagem.shape
-    if largura == LARGURA:
+    if largura == alvo:
         return imagem
-    return cv2.resize(imagem, (LARGURA, round(altura * LARGURA / largura)), interpolation=cv2.INTER_AREA)
+    return cv2.resize(imagem, (alvo, round(altura * alvo / largura)), interpolation=cv2.INTER_AREA)
 
 
 def ler_marcacoes(
-    imagem: np.ndarray, alternativas: str, total_itens: int, itens_por_coluna: int | None = None
+    imagem: np.ndarray,
+    alternativas: str,
+    total_itens: int,
+    itens_por_coluna: int | None = None,
+    perfil: PerfilOcr = PADRAO,
 ) -> list[Marcacao]:
     """Localiza a grade de bolhas (itens numerados por coluna) e mede a tinta dentro de cada bolha."""
     suave = cv2.GaussianBlur(imagem, (5, 5), 0)
@@ -147,7 +139,9 @@ def ler_marcacoes(
         pontos = _transformar(inversa, np.array([(x, linhas[linha]) for x in xs]))
         centros = tuple((round(x), round(y)) for x, y in pontos)
         preenchimentos = tuple(_preenchimento(tinta, c, raio) for c in centros)
-        marcacoes.append(_classificar(questao, alternativas, preenchimentos, centros, round(diametro / 2)))
+        marcacoes.append(
+            _classificar(questao, alternativas, preenchimentos, centros, round(diametro / 2), perfil)
+        )
     return marcacoes
 
 
@@ -226,17 +220,19 @@ def _preenchimento(binaria: np.ndarray, centro: tuple[int, int], raio: int) -> f
     return float(np.count_nonzero(recorte & mascara)) / total if total else 0.0
 
 
-def _nota(preenchimento: float) -> float:
+def _nota(preenchimento: float, perfil: PerfilOcr) -> float:
     """Preenchimento normalizado: 0 = bolha vazia típica, 1 = bolha cheia típica."""
-    return min(1.0, max(0.0, (preenchimento - VAZIO) / (CHEIO - VAZIO)))
+    return min(1.0, max(0.0, (preenchimento - perfil.vazio) / (perfil.cheio - perfil.vazio)))
 
 
 def _classificar(
-    questao: int, alternativas: str, preenchimentos: tuple[float, ...], centros, raio: int
+    questao: int, alternativas: str, preenchimentos: tuple[float, ...], centros, raio: int, perfil: PerfilOcr
 ) -> Marcacao:
     """Estado pelas bolhas acima do limiar; confiança = margem entre a decisão e a alternativa mais próxima."""
-    notas = [_nota(p) for p in preenchimentos]
-    marcadas = [letra for letra, nota in zip(alternativas, notas, strict=True) if nota >= LIMIAR_MARCADA]
+    notas = [_nota(p, perfil) for p in preenchimentos]
+    marcadas = [
+        letra for letra, nota in zip(alternativas, notas, strict=True) if nota >= perfil.limiar_marcada
+    ]
     primeira, segunda = sorted(notas, reverse=True)[:2]
     if len(marcadas) == 1:
         estado, alternativa, confianca = Estado.MARCADA, marcadas[0], primeira - segunda
@@ -255,12 +251,14 @@ def _classificar(
     )
 
 
-def desenhar_depuracao(imagem: np.ndarray, marcacoes: list[Marcacao], limiar: float) -> np.ndarray:
+def desenhar_depuracao(
+    imagem: np.ndarray, marcacoes: list[Marcacao], limiar: float, perfil: PerfilOcr = PADRAO
+) -> np.ndarray:
     """Bolhas lidas sobrepostas: verde = marcada, azul = múltipla, cinza = vazia; anel vermelho = revisar."""
     colorida = cv2.cvtColor(imagem, cv2.COLOR_GRAY2BGR)
     for marcacao in marcacoes:
         for preenchimento, centro in zip(marcacao.preenchimentos, marcacao.centros, strict=True):
-            if _nota(preenchimento) < LIMIAR_MARCADA:
+            if _nota(preenchimento, perfil) < perfil.limiar_marcada:
                 cor = (160, 160, 160)
             elif marcacao.estado is Estado.MULTIPLA:
                 cor = (255, 0, 0)

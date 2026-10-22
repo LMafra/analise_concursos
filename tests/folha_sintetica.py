@@ -28,6 +28,13 @@ def folha_fgv(marcas: dict[int, str], total_itens: int, itens_por_coluna: int) -
     return _folha('ABCDE', marcas, total_itens, itens_por_coluna, (80, 700), {}, 0.0, fgv=True)
 
 
+def folha_generica(
+    alternativas: str, marcas: dict[int, str], total_itens: int, itens_por_coluna: int
+) -> np.ndarray:
+    """Grade com bolhas de anel preto e qualquer número de alternativas."""
+    return _folha(alternativas, marcas, total_itens, itens_por_coluna, (80, 700), {}, 0.0, fgv=False)
+
+
 def _folha(alternativas, marcas, total_itens, itens_por_coluna, origem, parciais, angulo, fgv) -> np.ndarray:
     imagem = np.full((1754, 1240), 255, np.uint8)
     cv2.putText(imagem, 'FOLHA DE RESPOSTAS', (80, 90), cv2.FONT_HERSHEY_SIMPLEX, 1.4, 0, 3)

@@ -9,7 +9,7 @@ class RespostasInvalidasError(ValueError):
 
 
 def ler_respostas_txt(
-    texto: str, formato: Formato, questoes: Iterable[int], arquivo: str
+    texto: str, formato: Formato, questoes: Iterable[int], arquivo: str, alternativas: int | None = None
 ) -> list[RespostaMarcada]:
     """Converte o respostas.txt em uma resposta por questão esperada; omitidas viram branco."""
     esperadas = sorted(set(questoes))
@@ -24,8 +24,9 @@ def ler_respostas_txt(
             raise RespostasInvalidasError(
                 f'{arquivo}: linha {linha.numero_linha}: questão {linha.questao} fora das faixas configuradas'
             )
-        if linha.valor is not None and linha.valor not in formato.alternativas:
-            validas = ', '.join(sorted(formato.alternativas))
+        letras = formato.letras(alternativas)
+        if linha.valor is not None and linha.valor not in letras:
+            validas = ', '.join(sorted(letras))
             raise RespostasInvalidasError(
                 f'{arquivo}: linha {linha.numero_linha}: resposta {linha.valor!r} inválida (use {validas} ou -)'
             )

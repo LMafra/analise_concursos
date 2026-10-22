@@ -5,8 +5,8 @@ from pathlib import Path
 
 import yaml
 
-from concursos.modelo import Escolaridade, Formato, ModeloCorrecao, Nivel, Pontuacao
-from concursos.perfis import ids_de_banca
+from concursos.modelo import LETRAS, Escolaridade, Formato, ModeloCorrecao, Nivel, Pontuacao
+from concursos.perfis import ids_de_banca, perfil_da_banca
 
 ARQUIVO_CONFIG = 'concurso.yaml'
 STATUS_GABARITO = ('preliminar', 'definitivo')
@@ -147,6 +147,7 @@ class ConcursoConfig:
     formato: Formato
     pontuacao: Pontuacao
     provas: tuple[ProvaConfig, ...]
+    alternativas: int | None = None
     cargo: str | None = None
     tipo: str | None = None
     respostas_arquivo: str | None = None
@@ -175,6 +176,11 @@ class ConcursoConfig:
     def total_itens(self) -> int:
         return sum(len(prova.questoes) for prova in self.provas)
 
+    @property
+    def n_alternativas(self) -> int | None:
+        """O do concurso; sem ele, o do perfil da banca; sem os dois, o padrão do formato."""
+        return self.alternativas or perfil_da_banca(self.banca).alternativas
+
 
 def carregar_concurso(pasta: Path) -> ConcursoConfig:
     caminho = pasta / ARQUIVO_CONFIG
@@ -200,13 +206,15 @@ def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
     respostas = dados.get('respostas') or {}
     if respostas.get('arquivo') and respostas.get('folha'):
         raise ConfiguracaoInvalidaError("respostas: use 'arquivo' ou 'folha', não ambos")
+    formato = _enum(Formato, _obrigatorio(dados, 'formato'), 'formato')
     return ConcursoConfig(
         nome=dados.get('nome', pasta.name),
         pasta=pasta,
         banca=_opcao(_obrigatorio(dados, 'banca'), ids_de_banca(), 'banca'),
-        formato=_enum(Formato, _obrigatorio(dados, 'formato'), 'formato'),
+        formato=formato,
         pontuacao=_enum(Pontuacao, dados.get('pontuacao', 'simples'), 'pontuacao'),
         provas=provas,
+        alternativas=_alternativas(dados.get('alternativas'), formato),
         cargo=dados.get('cargo'),
         tipo=None if dados.get('tipo') is None else str(dados['tipo']),
         respostas_arquivo=respostas.get('arquivo'),
@@ -353,6 +361,20 @@ def _obrigatorio(dados: dict, campo: str, prefixo: str = ''):
     if dados.get(campo) in (None, ''):
         raise ConfiguracaoInvalidaError(f"campo obrigatório '{prefixo}{campo}' ausente")
     return dados[campo]
+
+
+def _alternativas(valor: object, formato: Formato) -> int | None:
+    if valor is None:
+        return None
+    if formato is Formato.CERTO_ERRADO:
+        raise ConfiguracaoInvalidaError(
+            'alternativas: só vale para multipla_escolha (certo_errado tem C e E)'
+        )
+    if not isinstance(valor, int) or not 2 <= valor <= len(LETRAS):
+        raise ConfiguracaoInvalidaError(
+            f'alternativas: deve ser um inteiro de 2 a {len(LETRAS)}, recebido {valor!r}'
+        )
+    return valor
 
 
 def _opcao(valor: str, opcoes: tuple[str, ...], campo: str) -> str:

@@ -19,9 +19,8 @@ from concursos.deteccao import (
 )
 from concursos.gabarito import Secao, cargo_do_gabarito, ler_gabarito_texto, secoes_do_pdf
 from concursos.modelo import Formato, Pontuacao
-from concursos.perfis import ids_de_banca, perfil_da_banca
+from concursos.perfis import ids_de_banca, ids_de_ocr, perfil_da_banca
 
-TEMPLATES_FOLHA = ('cebraspe_ce', 'fgv_mod70ae', 'fgv_cpnu_90')
 _IGNORAR = 'ignorar'
 _NENHUM = '(nenhum)'
 _CAMPOS_MANUAIS = ('data_prova', 'nivel', 'escolaridade', 'correcao')
@@ -301,7 +300,7 @@ class _Cadastro:
         template = perfil_da_banca(banca).template_folha(total_itens)
         if template is None:
             template = self.interacao.escolher(
-                f'{self._nome(escolhida)}: qual é o modelo da folha de resposta?', list(TEMPLATES_FOLHA)
+                f'{self._nome(escolhida)}: qual é o modelo da folha de resposta?', list(ids_de_ocr())
             )
         return {'folha': self._nome(escolhida), 'template': template, 'total_itens': total_itens}
 

@@ -97,7 +97,7 @@ A `pontuacao` continua alimentando a `nota_liquida` dos CSVs; o modelo de corre�
 | corrigida (regra do edital) | 1 | \(-f\) | 0 |
 | ajustada ao acaso | 1 | \(-1/(k-1)\) | 0 |
 
-\(f\) é o fator de penalidade, e \(k\) é o número de alternativas: 2 em `certo_errado` (erro vale −1) e 5 em `multipla_escolha` (erro vale −0,25). A versão ajustada é a métrica padrão para comparar concursos, porque um chute puro vale 0 nos dois formatos.
+\(f\) é o fator de penalidade, e \(k\) é o número de alternativas: 2 em `certo_errado` (erro vale −1) e, em `multipla_escolha`, o `alternativas` do `concurso.yaml`, o do perfil da banca ou 5 (erro vale −0,25; com 4 alternativas, −1/3). A versão ajustada é a métrica padrão para comparar concursos, porque um chute puro vale 0 nos dois formatos.
 
 As anuladas ficam fora das três versões (não medem conhecimento) e os percentuais podem ser negativos. O peso do item não entra nessas pontuações. A exceção é a nota do concurso, que segue o edital: soma das pontuações corrigidas multiplicadas pelo peso de cada item, com cada anulada valendo o seu peso. A nota normalizada é \(\max(0, \text{nota}/\text{nota máxima} \times 100)\), truncada em 0 só ela. Na Cebraspe, a nota corrigida é igual à soma da `nota_liquida` legada.
 
@@ -396,6 +396,23 @@ templates_folha:             # template da folha pelo total de itens; '*' vale p
 - **Validação:** campo desconhecido, `formato` ou `segmentacao` fora das opções, ou `id` e `marcas` ausentes geram erro citando o campo.
 - **Penalidade na agregação:** a nota líquida usa o fator da `pontuacao` do concurso (`cebraspe` = 1, `simples` = 0), nunca o nome da banca.
 
+## Perfis de OCR da folha (fase 4)
+
+A grade da folha de respostas e os limiares de leitura ficam num perfil de OCR, escolhido pelo `template` do `concurso.yaml` (ou pelo `templates_folha` da banca). Os embutidos são YAML em `src/concursos/perfis/folhas/` (`cebraspe_ce`, `fgv_mod70ae`, `fgv_cpnu_90`, `grade_abcd`); outro pacote acrescenta um no entry point `concurso.ocr`, que devolve um `PerfilOcr`, um dict ou o caminho de um YAML.
+
+```yaml
+id: grade_abcd               # valor de `template` em respostas
+alternativas: ABCD           # letras das bolhas, da esquerda para a direita (CE no certo/errado)
+itens_por_coluna: null       # opcional; sem ele vale o do concurso.yaml
+modo_marcacao: bolha
+vazio: 0.2                   # preenchimento de uma bolha vazia
+cheio: 0.9                   # preenchimento de uma bolha marcada
+limiar_marcada: 0.5          # acima disto, a bolha conta como marcada
+largura: 2480                # largura, em pixels, para a qual a página é normalizada
+```
+
+Um `template` sem perfil gera erro com a lista dos perfis disponíveis.
+
 ## Migração das fases 1 a 3
 
 Toda análise do `concurso-analise` (menos o `--dry-run`, que só lista as operações) começa migrando o que estiver no formato antigo. O candidato é o escolhido (`--candidate`, `CONCURSO_CANDIDATO`, `[candidato] ultimo`), o da migração anterior ou o login do sistema.
@@ -421,6 +438,7 @@ nome: tcu_25
 banca: cebraspe                # cebraspe | fgv | selecon | quadrix
 formato: certo_errado          # multipla_escolha | certo_errado
 pontuacao: cebraspe            # simples | cebraspe (padrão: simples)
+alternativas: 4                # só em multipla_escolha, de 2 a 10 (padrão: o do perfil da banca ou 5)
 cargo: 'CARGO 2: AUDITOR ...'  # obrigatório quando o gabarito tem várias seções
 tipo: '1'                      # tipo/versão do caderno, quando houver
 edital: edital.pdf             # ou a forma completa:
@@ -443,7 +461,7 @@ provas:
     itens: [101, 200]
 respostas:                     # use 'arquivo' OU 'folha'
   folha: folha_resposta.pdf
-  template: cebraspe_ce        # cebraspe_ce | fgv_mod70ae | fgv_cpnu_90
+  template: cebraspe_ce        # perfil de OCR: cebraspe_ce | fgv_mod70ae | fgv_cpnu_90 | grade_abcd
   total_itens: 200
   itens_por_coluna: 20         # opcional; detectado pela grade
 # respostas:

@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
+LETRAS = 'ABCDEFGHIJ'
+ALTERNATIVAS_PADRAO = 5
+
 
 class Formato(StrEnum):
     MULTIPLA_ESCOLHA = 'multipla_escolha'
@@ -8,9 +11,13 @@ class Formato(StrEnum):
 
     @property
     def alternativas(self) -> frozenset[str]:
+        return self.letras()
+
+    def letras(self, alternativas: int | None = None) -> frozenset[str]:
+        """Certo/errado ignora o número; a múltipla escolha tem 5 alternativas quando ele não é dado."""
         if self is Formato.CERTO_ERRADO:
             return frozenset('CE')
-        return frozenset('ABCDE')
+        return frozenset(LETRAS[: alternativas or ALTERNATIVAS_PADRAO])
 
 
 class Pontuacao(StrEnum):

@@ -70,7 +70,9 @@ class NotaCorrigida:
     nota: float
 
 
-def aplicar_correcao(questoes: pd.DataFrame, cfg: ConfiguracaoCorrecao, formato: Formato) -> NotaCorrigida:
+def aplicar_correcao(
+    questoes: pd.DataFrame, cfg: ConfiguracaoCorrecao, formato: Formato, alternativas: int | None = None
+) -> NotaCorrigida:
     """Pontuação de cada item: bruta (acerto vale 1), corrigida pela regra do edital e ajustada ao acaso
     (erro vale -1/(k-1), com k alternativas). O peso entra só na nota, para que percentuais de disciplinas
     com pesos diferentes continuem comparáveis."""
@@ -78,7 +80,7 @@ def aplicar_correcao(questoes: pd.DataFrame, cfg: ConfiguracaoCorrecao, formato:
     erro = (questoes['resultado'] == Resultado.ERRO).astype(float)
     anulada = questoes['anulada'].astype(bool)
     peso = questoes['questao'].map(cfg.peso_de).astype(float)
-    k = len(formato.alternativas)
+    k = len(formato.letras(alternativas))
     corrigida = acerto - cfg.fator_penalidade * erro
     itens = questoes.assign(
         peso=peso,

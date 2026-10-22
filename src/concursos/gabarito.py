@@ -174,19 +174,19 @@ def carregar_gabarito(
     banca: str,
     cargo: str | None = None,
     tipo: str | int | None = None,
+    alternativas: int | None = None,
 ) -> GabaritoCarregado:
     """Lê o gabarito do arquivo: PDF pelo parser da banca, txt/csv pelo formato manual."""
     if caminho.suffix.lower() != '.pdf':
-        return GabaritoCarregado(
-            ler_gabarito_texto(caminho.read_text(encoding='utf-8'), formato, caminho.name), None
-        )
+        texto = caminho.read_text(encoding='utf-8')
+        return GabaritoCarregado(ler_gabarito_texto(texto, formato, caminho.name, alternativas), None)
     texto = extrair_texto(caminho)
     perfil = perfil_da_banca(banca)
     if perfil.leitor_gabarito:
         itens = resolver_funcao(perfil.leitor_gabarito, LEITORES_GABARITO)(texto, caminho.name)
     else:
         itens = selecionar_secao(_ler_secoes(texto, banca, caminho.name), cargo, tipo, caminho.name).itens
-    _validar_alternativas(itens, formato, caminho.name)
+    _validar_alternativas(itens, formato.letras(alternativas), formato, caminho.name)
     return GabaritoCarregado(itens, detectar_status(texto))
 
 
@@ -217,8 +217,10 @@ def _ler_secoes(texto: str, banca: str, arquivo: str) -> list[Secao]:
     return resolver_funcao(nome, LEITORES_SECOES)(texto, arquivo)
 
 
-def _validar_alternativas(itens: list[ItemGabarito], formato: Formato, arquivo: str) -> None:
-    invalidos = [i for i in itens if not i.anulada and i.resposta not in formato.alternativas]
+def _validar_alternativas(
+    itens: list[ItemGabarito], letras: frozenset[str], formato: Formato, arquivo: str
+) -> None:
+    invalidos = [i for i in itens if not i.anulada and i.resposta not in letras]
     if invalidos:
         exemplos = ', '.join(f'{i.questao}={i.resposta}' for i in invalidos[:5])
         raise GabaritoInvalidoError(f'{arquivo}: respostas incompatíveis com {formato}: {exemplos}')
@@ -245,22 +247,27 @@ def _resumir(numeros: list[int], limite: int = 10) -> str:
     return texto + (f' (+{len(numeros) - limite})' if len(numeros) > limite else '')
 
 
-def ler_gabarito_texto(texto: str, formato: Formato, arquivo: str) -> list[ItemGabarito]:
+def ler_gabarito_texto(
+    texto: str, formato: Formato, arquivo: str, alternativas: int | None = None
+) -> list[ItemGabarito]:
     """Lê o gabarito manual (txt/csv) no mesmo formato de linhas do respostas.txt; X ou * = anulada."""
     try:
         linhas = ler_linhas(texto)
     except LinhaInvalidaError as erro:
         raise GabaritoInvalidoError(f'{arquivo}: {erro}') from erro
 
+    letras = formato.letras(alternativas)
     itens = []
     for linha in linhas:
         if linha.valor in MARCAS_ANULADA:
             itens.append(ItemGabarito(linha.questao, None, anulada=True))
-        elif linha.valor in formato.alternativas:
+        elif linha.valor in letras:
             itens.append(ItemGabarito(linha.questao, linha.valor))
         else:
+            validas = ', '.join(sorted(letras))
             raise GabaritoInvalidoError(
-                f'{arquivo}: linha {linha.numero_linha}: gabarito {linha.valor!r} inválido para {formato}'
+                f'{arquivo}: linha {linha.numero_linha}: gabarito {linha.valor!r} inválido para {formato} '
+                f'(use {validas}, ou X para anulada)'
             )
     return itens
 

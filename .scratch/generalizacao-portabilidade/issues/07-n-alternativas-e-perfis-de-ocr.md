@@ -6,10 +6,10 @@ Os três templates de folha (`cebraspe_ce`, `fgv_mod70ae`, `fgv_cpnu_90`) viram 
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Um gabarito e um `respostas.txt` de A a D são aceitos num concurso de 4 alternativas. A letra E é rejeitada, com mensagem que diz a linha e as letras aceitas.
-- [ ] Uma folha sintética de 4 alternativas é lida com o perfil correspondente.
-- [ ] Um perfil de OCR desconhecido gera erro com a lista dos perfis disponíveis.
-- [ ] O valor serializado `cebraspe` da pontuação continua aceito.
-- [ ] A paridade com os dados reais não mostra diferença.
+- [x] Um gabarito e um `respostas.txt` de A a D são aceitos num concurso de 4 alternativas. A letra E é rejeitada, com mensagem que diz a linha e as letras aceitas.
+- [x] Uma folha sintética de 4 alternativas é lida com o perfil correspondente.
+- [x] Um perfil de OCR desconhecido gera erro com a lista dos perfis disponíveis.
+- [x] O valor serializado `cebraspe` da pontuação continua aceito.
+- [x] A paridade com os dados reais não mostra diferença.

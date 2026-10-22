@@ -184,7 +184,7 @@ def _corresponde_a_prova(config: ConcursoConfig, prova: ProvaConfig, detectado: 
         return False
     try:
         itens = carregar_gabarito(
-            detectado.caminho, config.formato, config.banca, config.cargo, config.tipo
+            detectado.caminho, config.formato, config.banca, config.cargo, config.tipo, config.n_alternativas
         ).itens
     except GabaritoInvalidoError:
         return False
