@@ -26,6 +26,9 @@ CONFIANCA_SEM_CASAMENTO = 0.5
 _COBERTURA_MINIMA_CARGO = 0.75
 _JANELA_DE_CARGO = 600
 _JANELA_DE_ITEM = 4000
+_ALCANCE_DA_NOTA_DE_RETIFICACAO = 400
+_NOTA_DE_RETIFICACAO = re.compile(r'\(Retificad[oa]\s+(?:por\s+meio\s+d[oa]|pelo)\s+Edital', re.IGNORECASE)
+_FIM_DE_FRASE = re.compile(r'\.(?=\s|$)')
 
 
 class FonteRegra(StrEnum):
@@ -109,11 +112,24 @@ class _Achado:
     match: re.Match
     documento: _Documento
 
+    @property
+    def retificado(self) -> bool:
+        """Numa retificação, ou quando a frase do trecho é seguida da nota "(Retificado por meio do Edital
+        nº …)" antes do próximo subitem."""
+        if self.documento.retificacao:
+            return True
+        texto = self.documento.texto.texto
+        fim = min(len(texto), self.match.end() + _ALCANCE_DA_NOTA_DE_RETIFICACAO)
+        if proximo := _SUBITEM.search(texto, self.match.end(), fim):
+            fim = proximo.start()
+        nota = _NOTA_DE_RETIFICACAO.search(texto, self.match.end(), fim)
+        return nota is not None and len(_FIM_DE_FRASE.findall(texto, self.match.end(), nota.start())) <= 1
+
     def campo(self, valor: Any, confianca: float, trecho: str | None = None) -> Campo:
         texto = self.documento.texto
         return Campo(
             valor,
-            FonteRegra.RETIFICACAO if self.documento.retificacao else FonteRegra.EDITAL,
+            FonteRegra.RETIFICACAO if self.retificado else FonteRegra.EDITAL,
             trecho or texto.trecho(self.match),
             self.documento.nome,
             texto.pagina(self.match.start()),
@@ -527,14 +543,24 @@ def _extrair_cortes(
         _CORTE_DA_DISCURSIVA,
     )
     ordem = {doc.nome: indice for indice, doc in enumerate(docs.lista)}
-    achados = sorted(
-        (a for padrao in padroes for a in docs.todos(padrao) if escopo.aplica(a)),
-        key=lambda a: (ordem[a.documento.nome], a.match.start()),
-    )
-    cortes: dict[tuple, Corte] = {}
-    for achado in achados:
-        if (corte := _cortes_do_texto(achado)) and (chave := (corte.escopo, corte.bloco)) not in cortes:
-            cortes[chave] = corte
+    lidos = [
+        (achado, corte)
+        for padrao in padroes
+        for achado in docs.todos(padrao)
+        if escopo.aplica(achado) and (corte := _cortes_do_texto(achado))
+    ]
+
+    def na_busca(par: tuple[_Achado, Corte]) -> tuple:
+        return ordem[par[0].documento.nome], par[0].match.start()
+
+    def na_leitura(par: tuple[_Achado, Corte]) -> tuple:
+        return par[0].documento.retificacao, *na_busca(par)
+
+    vencedores: dict[tuple, Corte] = {}
+    for _, corte in sorted(lidos, key=na_busca):
+        vencedores.setdefault((corte.escopo, corte.bloco), corte)
+    chaves = dict.fromkeys((corte.escopo, corte.bloco) for _, corte in sorted(lidos, key=na_leitura))
+    cortes = {chave: vencedores[chave] for chave in chaves}
     avisos = []
     declarado = config.correcao.nota_corte if config.correcao else None
     conjunto = cortes.get((EscopoCorte.CONJUNTO, None))

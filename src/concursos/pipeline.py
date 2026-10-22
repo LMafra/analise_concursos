@@ -162,7 +162,10 @@ def _regras_do_edital(
     """Regras do edital no edital estruturado e as discrepâncias com a prova; só quando há PDF do edital."""
     if not documentos:
         return None
-    regras = extrair_regras(config, documentos)
+    retificacoes = {
+        arquivo: extrair_paginas(config.caminho(arquivo), ocr=False) for arquivo in config.edital.retificacoes
+    }
+    regras = extrair_regras(config, documentos, retificacoes)
     regras.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
     gravar_discrepancias(validar_edital(config, regras), destino)
     return regras

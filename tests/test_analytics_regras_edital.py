@@ -36,7 +36,8 @@ ABERTURA DO PROCESSO SELETIVO SIMPLIFICADO
 A AGÊNCIA BRASILEIRA DE APOIO À GESTÃO DO SUS - AgSUS, no uso de suas atribuições, torna pública as normas e
 inscrições relativas à realização do processo seletivo simplificado destinado ao preenchimento de
 106 (cento e seis) vagas para o cargo de Analista de Gestão e 24 (vinte e quatro) vagas para o cargo de
-Auxiliar de Gestão, e formação de cadastro de reserva, para contratação dos profissionais, nos termos deste Edital.
+Auxiliar de Gestão, e formação de cadastro de reserva, para contratação dos profissionais, nos termos
+deste Edital.
 """
 
 
@@ -99,8 +100,8 @@ igual ou superior a 12 (doze) pontos.
 """
 
 CORTES_CPNU = """8.15. Será eliminada, e não constará na classificação final do certame, a pessoa candidata
-que obtiver aproveitamento inferior a 36 (trinta e seis) acertos nas provas objetivas de Conhecimentos Gerais e de
-Conhecimentos Específicos para os cargos de Nível Superior; e 28 (vinte e oito) acertos nas provas
+que obtiver aproveitamento inferior a 36 (trinta e seis) acertos nas provas objetivas de Conhecimentos
+Gerais e de Conhecimentos Específicos para os cargos de Nível Superior; e 28 (vinte e oito) acertos nas provas
 objetivas de Conhecimentos Gerais e de Conhecimentos Específicos para os cargos de Nível Intermediário.
 """
 
@@ -266,6 +267,22 @@ def test_sem_corte_no_edital_vale_o_da_configuracao():
         FonteRegra.CONFIG,
     )
     assert corte.trecho_origem is None
+
+
+def test_nota_inline_de_retificacao_marca_a_fonte_do_subitem_retificado():
+    retificado = CORTES_CD.replace(
+        'conjunto das provas objetivas.',
+        'conjunto das provas objetivas.\n(Retificado por meio do Edital nº 2 – TCU/AUFC, de 29 de outubro '
+        'de 2025, divulgado no endereço eletrônico http://www.cebraspe.org.br/concursos/tcu_25_aufc)',
+    )
+    regras = extrair_regras(config(), {'edital.pdf': [CAPA_TCU, retificado]})
+
+    fontes = {corte.escopo: corte.fonte for corte in regras.cortes}
+    assert fontes[EscopoCorte.CONJUNTO] is FonteRegra.RETIFICACAO
+    assert fontes[EscopoCorte.GERAL] is FonteRegra.RETIFICACAO
+    assert fontes[EscopoCorte.DISCURSIVA] is FonteRegra.EDITAL
+    conjunto = next(c for c in regras.cortes if c.escopo is EscopoCorte.CONJUNTO)
+    assert conjunto.documento_origem == 'edital.pdf'
 
 
 def test_corte_no_default_com_palavra_gatilho_no_edital_gera_aviso():

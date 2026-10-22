@@ -10,10 +10,10 @@ Ver `docs/spec-fase3.md`, histórias 28–30.
 
 **Blocked by:** 02 (Notas de corte com unidade e escopo)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Teste de CLI: uma retificação declarada sobrescreve o corte e marca a fonte como `retificacao`.
-- [ ] Teste puro: um trecho com nota inline de retificação sai com fonte `retificacao`.
-- [ ] Teste de CLI: `edital.retificacoes` é validado como os demais campos (lista de PDFs existentes).
-- [ ] `docs/modelo.md` documenta o campo.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Teste de CLI: uma retificação declarada sobrescreve o corte e marca a fonte como `retificacao`.
+- [x] Teste puro: um trecho com nota inline de retificação sai com fonte `retificacao`.
+- [x] Teste de CLI: `edital.retificacoes` é validado como os demais campos (lista de PDFs existentes).
+- [x] `docs/modelo.md` documenta o campo.
+- [x] `uv run pytest` e `ruff` verdes.

@@ -5,7 +5,9 @@ from test_cli_correcao_edital import CERTO_ERRADO, criar
 from test_cli_edital import MANUAL
 from test_edital import PAGINAS
 
+from concursos.analytics.correcao import ler_correcao
 from concursos.analytics.validacao_edital import COLUNAS_DISCREPANCIAS
+from concursos.cli import main
 
 CAPA = """CONSELHO FEDERAL DE EXEMPLO (CFE)
 CONCURSO PÚBLICO PARA O PROVIMENTO DE VAGAS E A FORMAÇÃO DE CADASTRO DE RESERVA
@@ -90,6 +92,53 @@ def test_edital_estruturado_ganha_os_cortes_com_unidade_escopo_e_origem(raizes):
     assert {(c['fonte'], c['documento_origem'], c['pagina_origem']) for c in cortes} == {
         ('edital', 'edital.txt', 6)
     }
+
+
+RETIFICACAO = """CONSELHO FEDERAL DE EXEMPLO (CFE)
+EDITAL Nº 2 – CFE, DE 9 DE FEVEREIRO DE 2026
+O Presidente torna pública a retificação do subitem 8.11.4, que passa a ter a seguinte redação:
+8.11.4 [...] c) obtiver nota inferior a 7,00 pontos no conjunto das provas objetivas."""
+
+
+def test_retificacao_declarada_sobrescreve_o_corte_e_marca_a_fonte(raizes):
+    provas, analises = raizes
+    declarado = {'arquivo': 'edital.txt', 'retificacoes': ['retificacao.txt']}
+    criar(provas, CERTO_ERRADO, declarado, {**edital(CORTES), 'retificacao.txt': RETIFICACAO})
+
+    assert analisar(provas, analises) == 0
+
+    dados = estruturado(analises)
+    cortes = {c['escopo']: c for c in dados['cortes']}
+    assert list(cortes) == ['geral', 'especifico', 'conjunto']
+    conjunto = cortes['conjunto']
+    assert (conjunto['valor'], conjunto['fonte'], conjunto['documento_origem']) == (
+        7.0,
+        'retificacao',
+        'retificacao.txt',
+    )
+    assert cortes['geral']['fonte'] == 'edital'
+    assert dados['identificacao']['edital']['valor'] == 'EDITAL Nº 1 – CFE, DE 2 DE JANEIRO DE 2026'
+    assert ler_correcao(analises / 'sintetico')[0].nota_corte != 7.0
+
+
+def test_retificacao_ausente_deixa_o_concurso_incompleto(raizes, capsys):
+    provas, _ = raizes
+    declarado = {'arquivo': 'edital.txt', 'retificacoes': ['retificacao.txt']}
+    criar(provas, CERTO_ERRADO, declarado, edital(CORTES))
+
+    assert main(['status', '--provas', str(provas)]) == 0
+
+    saida = capsys.readouterr().out
+    assert 'incompleto' in saida and 'retificacao.txt: arquivo ausente (edital)' in saida
+
+
+def test_retificacoes_que_nao_sao_lista_de_arquivos_apontam_o_campo(raizes, capsys):
+    provas, _ = raizes
+    criar(provas, CERTO_ERRADO, {'arquivo': 'edital.txt', 'retificacoes': 'ret.txt'}, edital())
+
+    assert main(['status', '--provas', str(provas)]) == 0
+
+    assert 'edital.retificacoes: deve ser uma lista de arquivos' in capsys.readouterr().out
 
 
 def test_cabecalho_do_relatorio_mostra_o_nome_oficial_e_o_cargo(raizes):

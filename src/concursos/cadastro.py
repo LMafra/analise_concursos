@@ -331,7 +331,11 @@ class _Cadastro:
             referenciados |= {prova['gabarito']['arquivo'], prova.get('caderno')}
         edital = dados.get('edital')
         if isinstance(edital, dict):
-            referenciados |= {edital.get('arquivo'), *edital.get('anexos', ())}
+            referenciados |= {
+                edital.get('arquivo'),
+                *edital.get('anexos', ()),
+                *edital.get('retificacoes', ()),
+            }
         else:
             referenciados.add(edital)
         respostas = dados.get('respostas') or {}

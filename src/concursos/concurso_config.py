@@ -52,11 +52,17 @@ class EditalConfig:
     arquivo: str | None
     anexos: tuple[str, ...] = ()
     manual: str | None = None
+    retificacoes: tuple[str, ...] = ()
 
     @property
     def documentos(self) -> list[str]:
         """Anexos primeiro: em editais fragmentados (CPNU), o conteúdo programático fica no anexo."""
         return [*self.anexos, *([self.arquivo] if self.arquivo else [])]
+
+    @property
+    def arquivos(self) -> list[str]:
+        """Todos os arquivos declarados: documentos, retificações e o edital manual."""
+        return [*self.documentos, *self.retificacoes, *([self.manual] if self.manual else [])]
 
 
 @dataclass(frozen=True)
@@ -248,7 +254,10 @@ def _montar_edital(edital: str | dict) -> EditalConfig:
         return EditalConfig(edital)
     manual = edital.get('manual')
     arquivo = edital.get('arquivo') if manual else _obrigatorio(edital, 'arquivo', 'edital.')
-    return EditalConfig(arquivo, tuple(edital.get('anexos') or ()), manual)
+    retificacoes = edital.get('retificacoes') or []
+    if not isinstance(retificacoes, list) or not all(isinstance(r, str) for r in retificacoes):
+        raise ConfiguracaoInvalidaError('edital.retificacoes: deve ser uma lista de arquivos')
+    return EditalConfig(arquivo, tuple(edital.get('anexos') or ()), manual, tuple(retificacoes))
 
 
 def _montar_resultado(resultado: str | dict) -> ResultadoOficialConfig:

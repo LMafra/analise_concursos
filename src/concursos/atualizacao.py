@@ -164,7 +164,7 @@ def _nao_cadastrados(config: ConcursoConfig) -> list[Path]:
     for prova in config.provas:
         referenciados |= {prova.gabarito.arquivo, prova.caderno}
     if config.edital is not None:
-        referenciados |= {*config.edital.documentos, config.edital.manual}
+        referenciados |= {*config.edital.arquivos}
     referenciados |= {config.respostas_arquivo, config.folha and config.folha.arquivo}
     referenciados.add(config.resultado_oficial and config.resultado_oficial.arquivo)
     return [

@@ -157,6 +157,11 @@ O módulo `concursos.analytics.regras_edital` lê do texto do edital e dos anexo
 
 A precedência é retificação, depois edital, depois configuração, depois default. Um campo que cai no default fica com `valor` nulo, e o motivo vai para `avisos` (lista de textos) e para o log. O `correcao.json` continua sendo a fonte da regra de correção aplicada; as regras do edital são a expectativa.
 
+**Retificações.** Há duas formas de um valor sair com fonte `retificacao`:
+
+- **PDF de retificação:** o arquivo é declarado em `edital.retificacoes` e lido só pelas regras do edital (o conteúdo programático e a correção não o veem). A busca percorre as retificações da mais recente para a mais antiga, e só depois o edital e os anexos. O valor encontrado numa retificação vence o do edital, campo a campo, com o trecho e o documento da retificação. A ordem dos cortes continua a do edital.
+- **Nota inline no edital consolidado:** a frase do trecho é seguida da nota "(Retificado por meio do Edital nº …)", antes do próximo subitem e com no máximo um fim de frase entre as duas. O documento de origem continua sendo o edital.
+
 **Identificação** (`identificacao`). Tem os campos `nome_oficial` (o órgão na capa), `edital` (a linha "EDITAL Nº …" da capa), `cargo`, `especialidade`, `vagas`, `cadastro_reserva` e `teto_classificados`, mais `cargo_casado` (lógico) e `cargos_do_edital` (lista). O cargo vem do edital:
 
 - **Lista de cargos:** as linhas "CARGO N: …" ou "EMPREGO N: …" (Cebraspe), os blocos temáticos (CPNU), o cargo da capa ("PARA O CARGO DE …", edital de um cargo só) ou os cargos citados no preâmbulo ("vagas para o cargo de Analista de Gestão", FGV).
@@ -218,6 +223,7 @@ edital: edital.pdf             # ou a forma completa:
 #   arquivo: edital.pdf        # opcional se houver manual
 #   anexos: [anexo_ii.pdf]     # lidos antes do edital principal
 #   manual: edital_manual.yaml # tem prioridade sobre os PDFs
+#   retificacoes: [ret_2.pdf, ret_3.pdf]  # na ordem de publicação; só para as regras do edital
 provas:
   cb:
     caderno: prova_cb.pdf      # opcional; usado para disciplinas e tópicos
