@@ -74,12 +74,13 @@ def gravar_catalogo(config: ConcursoConfig, regras: RegrasEdital, destino: Path)
 def _valor(metadado: Metadado | None) -> str:
     if metadado is None or metadado.valor is None:
         return '–'
-    valor = metadado.valor
-    texto = '; '.join(map(_texto, valor)) if isinstance(valor, list) else _texto(valor)
-    return _encurtar(texto, _TAMANHO_DO_VALOR)
+    return _encurtar(texto_do_valor(metadado.valor), _TAMANHO_DO_VALOR)
 
 
-def _texto(valor: object) -> str:
+def texto_do_valor(valor: object) -> str:
+    """Valor de metadado para leitura: lista separada por "; " e float sem ".0"."""
+    if isinstance(valor, list):
+        return '; '.join(map(texto_do_valor, valor))
     return f'{valor:g}' if isinstance(valor, float) else str(valor)
 
 

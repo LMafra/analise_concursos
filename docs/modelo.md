@@ -156,7 +156,7 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
 - **Lado a lado** (`comparar_percentual_e_gap`, em `evolucao`): percentual bruto e ponderado do ranking e, de `gap_para_corte`, o menor gap percentual, o corte mais distante e o "atingido".
 - **Destaque do ranking** (`insights.destaque_do_ranking`): em markdown, quem sobe e quem cai no corrigido e no ponderado, ou a frase de que o ranking é o mesmo.
 - **Peculiaridades** (`insights.peculiaridades_do_edital`): os metadados de impacto alto encontrados, menos `aprovacao` (a régua já são os cortes), mais os cortes em acertos e da discursiva, com o trecho.
-- **Carregamento:** `regras_por_concurso` e `cortes_por_concurso` (em `consolidado`) leem o edital estruturado de cada concurso analisado que já tem as regras.
+- **Carregamento:** `regras_por_concurso` (em `consolidado`) lê o edital estruturado de cada concurso analisado que já tem as regras, e `cortes_por_concurso` tira delas os cortes.
 - **Correlação geral** (`correlacao_tempo_percentual`, em `evolucao`): Spearman entre a ordem e o percentual ajustado de cada concurso. É a medida única de tendência geral; a média dos z-scores de um concurso não serve, porque fica perto de 0 por construção.
 - **Achados:** melhoras e pioras são as tendências por disciplina com p < 0,05; os fracos usam o limiar do `config.yaml`; o ranking muda quando alguma linha tem deslocamento no corrigido ou no ajustado.
 - **Sensibilidade:** os achados são recalculados sem os concursos de nível médio (`escolaridade: medio`), e as diferenças são declaradas.

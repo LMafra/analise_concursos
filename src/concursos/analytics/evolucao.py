@@ -380,7 +380,6 @@ def _acertos_pelo_edital(tabela: pd.DataFrame) -> pd.Series:
 
 
 def _ganho_e_maximo(concurso: pd.DataFrame, peso: pd.Series, corte: Mapping) -> tuple[pd.Series, pd.Series]:
-    """O que cada item soma e pode somar na unidade do corte."""
     if corte['unidade'] == UnidadeCorte.ACERTOS:
         return _acertos_pelo_edital(concurso), pd.Series(1.0, index=concurso.index)
     return peso * _pontos_pelo_edital(concurso), peso

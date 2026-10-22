@@ -206,7 +206,7 @@ def _contagens(
 def _alternativas(regras: RegrasEdital, questoes: pd.DataFrame) -> list[Discrepancia]:
     """A última letra do gabarito contra a última alternativa do edital; anuladas e certo/errado não
     contam."""
-    alternativas = next((m for m in regras.metadados if m.chave == 'alternativas'), None)
+    alternativas = regras.metadado('alternativas')
     if (
         alternativas is None
         or alternativas.status is not StatusExtracao.ENCONTRADO

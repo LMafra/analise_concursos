@@ -19,6 +19,7 @@ from concursos.analytics.consolidado import (
     n_por_topico,
     perfil_de_n,
     perfil_por_concurso,
+    regras_por_concurso,
     topicos_do_edital,
     topicos_por_n,
     validar_schema,
@@ -477,9 +478,10 @@ def test_cortes_por_concurso_le_os_cortes_gravados_e_ignora_pasta_sem_regras(tmp
     )
     RegrasEdital(cortes=(corte,)).gravar_json(tmp_path / 'tcu_25' / 'edital_estruturado.json')
 
-    [lido] = cortes_por_concurso(tmp_path)['tcu_25']
+    cortes = cortes_por_concurso(regras_por_concurso(tmp_path))
 
-    assert set(cortes_por_concurso(tmp_path)) == {'tcu_25'}
+    assert set(cortes) == {'tcu_25'}
+    [lido] = cortes['tcu_25']
     assert (lido['escopo'], lido['unidade'], lido['valor'], lido['bloco']) == (
         'disciplina',
         'acertos',

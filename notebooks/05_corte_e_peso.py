@@ -48,8 +48,8 @@ from concursos.analytics.visualizacao import barras_gap_por_disciplina, resumir
 from concursos.configuracao import carregar_configuracao_global
 
 consolidado = carregar_consolidado()
-cortes = cortes_por_concurso()
 regras = regras_por_concurso()
+cortes = cortes_por_concurso(regras)
 alvo = carregar_configuracao_global(raiz_do_projeto() / 'config.yaml').concurso_alvo
 Markdown(
     f'Concurso-alvo: {alvo or "nenhum (todos os concursos)"}; {len(cortes)} concursos com cortes no edital.'

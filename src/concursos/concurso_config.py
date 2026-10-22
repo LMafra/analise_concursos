@@ -61,7 +61,6 @@ class EditalConfig:
 
     @property
     def arquivos(self) -> list[str]:
-        """Todos os arquivos declarados: documentos, retificações e o edital manual."""
         return [*self.documentos, *self.retificacoes, *([self.manual] if self.manual else [])]
 
 

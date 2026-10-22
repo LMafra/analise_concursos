@@ -19,21 +19,11 @@ from concursos.analytics.correcao import (
 )
 from concursos.concurso_config import ConcursoConfig, pesos_variam
 from concursos.deteccao import normalizar
-from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, titulo_legivel
+from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, mesclar_json, titulo_legivel
 from concursos.modelo import Escolaridade
 
 logger = logging.getLogger(__name__)
 
-CHAVES_DAS_REGRAS = (
-    'identificacao',
-    'pesos',
-    'distribuicao',
-    'cortes',
-    'cronograma',
-    'metadados',
-    'versao_candidatos',
-    'avisos',
-)
 CONFIANCA_DESCOBERTA = 0.6
 CONFIANCA_LISTA_DE_CARGOS = 0.9
 CONFIANCA_CARGO_UNICO = 0.85
@@ -177,14 +167,16 @@ class RegrasEdital:
     versao_candidatos: int = VERSAO_CANDIDATOS
     avisos: tuple[str, ...] = ()
 
-    def metadado(self, chave: str) -> Metadado:
-        return next(m for m in self.metadados if m.chave == chave)
+    def metadado(self, chave: str) -> Metadado | None:
+        return next((m for m in self.metadados if m.chave == chave), None)
 
     def gravar_json(self, caminho: Path) -> None:
         """Grava as regras no edital estruturado, preservando o conteúdo programático já gravado."""
-        dados = json.loads(caminho.read_text(encoding='utf-8')) if caminho.exists() else {}
-        dados.update(json.loads(json.dumps(asdict(self), ensure_ascii=False, default=str)))
-        caminho.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding='utf-8')
+        mesclar_json(caminho, json.loads(json.dumps(asdict(self), ensure_ascii=False, default=str)))
+
+
+def _fonte_do_documento(retificacao: bool) -> FonteRegra:
+    return FonteRegra.RETIFICACAO if retificacao else FonteRegra.EDITAL
 
 
 @dataclass(frozen=True)
@@ -216,7 +208,7 @@ class _Achado:
         texto = self.documento.texto
         return Campo(
             valor,
-            FonteRegra.RETIFICACAO if self.retificado else FonteRegra.EDITAL,
+            _fonte_do_documento(self.retificado),
             trecho or texto.trecho(self.match),
             self.documento.nome,
             texto.pagina(self.match.start()),
@@ -261,7 +253,6 @@ def _palavras(texto: str) -> set[str]:
 
 
 def _cobertura(nome: str, palavras: set[str]) -> float:
-    """Fração das palavras de `nome` presentes em `palavras`."""
     do_nome = _palavras(nome)
     return len(do_nome & palavras) / len(do_nome) if do_nome else 0.0
 
@@ -562,8 +553,13 @@ def _extrair_pesos(config: ConcursoConfig, docs: _Documentos) -> tuple[Pesos, li
     for doc in docs.lista:
         if (regra := extrair_fator_correcao(docs.paginas[doc.nome], config.total_itens)) is None:
             continue
-        fonte = FonteRegra.RETIFICACAO if doc.retificacao else FonteRegra.EDITAL
-        origem = (fonte, regra.trecho_origem, doc.nome, regra.pagina_origem, regra.confianca)
+        origem = (
+            _fonte_do_documento(doc.retificacao),
+            regra.trecho_origem,
+            doc.nome,
+            regra.pagina_origem,
+            regra.confianca,
+        )
         if pesos_variam(regra.pesos):
             return Pesos(
                 Campo(TipoPeso.POR_BLOCO, *origem), {'': Campo(regra.pesos, *origem)}, soma_dos_eixos
@@ -581,7 +577,7 @@ def _quadro_de_eixos(config: ConcursoConfig, docs: _Documentos) -> dict[str, Cam
     return {
         variante: Campo(
             linha.pesos,
-            FonteRegra.RETIFICACAO if linha.documento in retificacoes else FonteRegra.EDITAL,
+            _fonte_do_documento(linha.documento in retificacoes),
             linha.trecho,
             linha.documento,
             linha.pagina,
@@ -850,7 +846,7 @@ def _corte(achado: _Achado, valor: str, escopo: EscopoCorte, unidade: UnidadeCor
     return Corte(**vars(campo), escopo=escopo, unidade=unidade, **extra)
 
 
-def _cortes_do_texto(achado: _Achado) -> Corte | None:
+def _corte_do_texto(achado: _Achado) -> Corte | None:
     m, padrao = achado.match, achado.match.re
     pontos, acertos = UnidadeCorte.PONTOS, UnidadeCorte.ACERTOS
     if padrao is _CORTE_EM_PONTOS:
@@ -884,7 +880,7 @@ def _extrair_cortes(
         (achado, corte)
         for padrao in padroes
         for achado in docs.todos(padrao)
-        if escopo.aplica(achado) and (corte := _cortes_do_texto(achado))
+        if escopo.aplica(achado) and (corte := _corte_do_texto(achado))
     ]
 
     def na_busca(par: tuple[_Achado, Corte]) -> tuple:
@@ -1113,7 +1109,6 @@ def _alineas(lista: str) -> list[str]:
 def _derivados(
     identificacao: Identificacao, pesos: Pesos, cortes: tuple[Corte, ...], desempate: Campo
 ) -> dict[str, Campo]:
-    """Descobertas que saem das regras já extraídas."""
     ponderada = pesos.tipo.valor in {TipoPeso.POR_FAIXA_DE_ITENS, TipoPeso.POR_BLOCO}
     em_acertos = next((c for c in cortes if c.unidade is UnidadeCorte.ACERTOS), None)
     derivados = {

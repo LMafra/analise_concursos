@@ -266,8 +266,14 @@ def barras_gap_por_disciplina(gaps: pd.DataFrame) -> go.Figure:
 
 
 def _rotulo_do_gap(tabela: pd.DataFrame) -> pd.Series:
-    variantes = tabela['variante'].map(lambda v: f' ({v})' if pd.notna(v) else '')
-    return tabela['concurso'] + variantes + ' · ' + tabela['disciplina']
+    concursos = [
+        rotulo_com_variante(c, v) for c, v in zip(tabela['concurso'], tabela['variante'], strict=True)
+    ]
+    return pd.Series(concursos, index=tabela.index) + ' · ' + tabela['disciplina']
+
+
+def rotulo_com_variante(concurso: str, variante: object) -> str:
+    return concurso if pd.isna(variante) else f'{concurso} ({variante})'
 
 
 def exportar_linha_evolucao(

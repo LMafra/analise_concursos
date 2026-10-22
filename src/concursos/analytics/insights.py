@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from concursos.analytics.candidatos_edital import CANDIDATOS, Impacto
+from concursos.analytics.catalogo_edital import texto_do_valor
 from concursos.analytics.consolidado import N_MINIMO_TOPICO, pasta_consolidado
 from concursos.analytics.correcao import NotaFinal
 from concursos.analytics.evolucao import (
@@ -30,6 +31,7 @@ from concursos.analytics.visualizacao import (
     exportar_heatmap_topicos,
     exportar_linha_evolucao,
     exportar_painel_correcao,
+    rotulo_com_variante,
 )
 from concursos.consolidado import MINIMO_CONCURSOS
 from concursos.modelo import Escolaridade, ModeloCorrecao
@@ -209,7 +211,7 @@ def notas_finais_em_markdown(consolidado: pd.DataFrame) -> str:
     if com_regra.empty:
         return 'Nenhum concurso com desconto por erro ou pesos.'
     return '\n'.join(
-        f'- {linha.concurso}{f" ({linha.variante})" if pd.notna(linha.variante) else ""}: '
+        f'- {rotulo_com_variante(linha.concurso, linha.variante)}: '
         f'{NotaFinal(linha.nota, linha.nota_maxima, _ou_none(linha.nota_corte)).texto}.'
         for linha in com_regra.itertuples()
     )
@@ -233,7 +235,7 @@ def descrever_simulacao(simulacao: pd.DataFrame, disciplina: str, pontos_percent
             for linha in linhas.itertuples()
         )
         partes.append(
-            f'- {concurso}{f" ({variante})" if pd.notna(variante) else ""}: '
+            f'- {rotulo_com_variante(concurso, variante)}: '
             f'{_contagem(primeira.itens_convertidos, "item vira", "itens viram")} acerto '
             f'({_contagem(primeira.erros_convertidos, "erro", "erros")} e '
             f'{_contagem(primeira.brancos_convertidos, "branco", "brancos")}). {cortes}. '
@@ -261,8 +263,8 @@ def destaque_do_ranking(ranking: pd.DataFrame) -> str:
         if mudancas.empty:
             continue
         partes = '; '.join(
-            f'{_rotulo(linha)} {"sobe" if linha[f"deslocamento_{metrica}"] > 0 else "cai"} '
-            f'{_posicoes(abs(linha[f"deslocamento_{metrica}"]))}'
+            f'{rotulo_com_variante(linha["concurso"], linha["variante"])} {"sobe" if linha[f"deslocamento_{metrica}"] > 0 else "cai"} '
+            f'{_em_posicoes(abs(linha[f"deslocamento_{metrica}"]))}'
             for _, linha in mudancas.iterrows()
         )
         frases.append(f'No {metrica}: {partes}.')
@@ -271,11 +273,7 @@ def destaque_do_ranking(ranking: pd.DataFrame) -> str:
     return '> **O ranking muda entre as métricas.** ' + ' '.join(frases)
 
 
-def _rotulo(linha: pd.Series) -> str:
-    return f'{linha["concurso"]}{f" ({linha['variante']})" if pd.notna(linha["variante"]) else ""}'
-
-
-def _posicoes(n: int) -> str:
+def _em_posicoes(n: int) -> str:
     return f'{n} posição' if n == 1 else f'{n} posições'
 
 
@@ -293,12 +291,11 @@ def peculiaridades_do_edital(regras: Mapping[str, dict], concurso_alvo: str | No
             candidato = alto_impacto.get(metadado['chave'])
             if candidato is None or metadado['status'] != StatusExtracao.ENCONTRADO:
                 continue
-            valor = metadado['valor']
             linhas.append(
                 {
                     'concurso': concurso,
                     'peculiaridade': candidato.informacao,
-                    'valor': '; '.join(map(_texto, valor)) if isinstance(valor, list) else _texto(valor),
+                    'valor': texto_do_valor(metadado['valor']),
                     'uso': candidato.uso,
                     'trecho': metadado['trecho_origem'],
                 }
@@ -326,10 +323,6 @@ def peculiaridades_do_edital(regras: Mapping[str, dict], concurso_alvo: str | No
                 }
             )
     return pd.DataFrame(linhas, columns=['concurso', 'peculiaridade', 'valor', 'uso', 'trecho'])
-
-
-def _texto(valor: object) -> str:
-    return f'{valor:g}' if isinstance(valor, float) else str(valor)
 
 
 def desempate_por_concurso(regras: Mapping[str, dict], concurso_alvo: str | None = None) -> pd.DataFrame:
@@ -417,7 +410,7 @@ def _comparar_ranking(com: pd.DataFrame, sem: pd.DataFrame) -> str:
     if mudou.empty:
         return 'Ranking: o deslocamento entre bruto e ajustado de cada concurso é o mesmo sem o nível médio.'
     descricoes = [
-        f'{_nome(linha)} ({_numero(linha["deslocamento_ajustada_com"], 0, sinal=True)} → '
+        f'{rotulo_com_variante(linha["concurso"], linha["variante"])} ({_numero(linha["deslocamento_ajustada_com"], 0, sinal=True)} → '
         f'{_numero(linha["deslocamento_ajustada_sem"], 0, sinal=True)})'
         for _, linha in mudou.iterrows()
     ]
@@ -441,13 +434,9 @@ def _fraco(linha: pd.Series) -> str:
 
 def _posicao(linha: pd.Series) -> str:
     return (
-        f'{_nome(linha)}: {linha["posicao_bruta"]}º no bruto, {linha["posicao_corrigida"]}º no corrigido, '
+        f'{rotulo_com_variante(linha["concurso"], linha["variante"])}: {linha["posicao_bruta"]}º no bruto, {linha["posicao_corrigida"]}º no corrigido, '
         f'{linha["posicao_ajustada"]}º no ajustado'
     )
-
-
-def _nome(linha: pd.Series) -> str:
-    return linha['concurso'] if pd.isna(linha['variante']) else f'{linha["concurso"]} ({linha["variante"]})'
 
 
 def _correlacao(correlacao: Correlacao) -> str:

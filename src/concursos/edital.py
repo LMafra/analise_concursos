@@ -44,9 +44,15 @@ class Edital:
 
     def gravar_json(self, caminho: Path) -> None:
         """Grava o conteúdo programático preservando as demais chaves do arquivo (as regras do edital)."""
-        dados = json.loads(caminho.read_text(encoding='utf-8')) if caminho.exists() else {}
-        dados.update(asdict(self))
-        caminho.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding='utf-8')
+        mesclar_json(caminho, asdict(self))
+
+
+def mesclar_json(caminho: Path, dados: dict) -> None:
+    """O edital estruturado é gravado em partes (conteúdo programático e regras): cada uma troca só as
+    próprias chaves."""
+    existentes = json.loads(caminho.read_text(encoding='utf-8')) if caminho.exists() else {}
+    existentes.update(dados)
+    caminho.write_text(json.dumps(existentes, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
 _MINUSCULAS = {
