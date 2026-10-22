@@ -8,10 +8,12 @@ from concursos.analytics.evolucao import (
     cobertura_edital,
     comparar_bruto_vs_corrigido,
     comparar_com_meta,
+    comparar_percentual_e_gap,
     correlacao_tempo_percentual,
     correlacao_tempo_zscore,
     evolucao_por_topico,
     gap_para_corte,
+    gap_por_disciplina,
     modelos_distintos,
     nota_ponderada_por_disciplina,
     percentual_por_disciplina_ao_longo_do_tempo,
@@ -766,3 +768,40 @@ def test_simulacao_nao_converte_mais_itens_do_que_os_que_nao_sao_acerto():
     )
 
     assert (linha['itens_convertidos'], linha['nota_estimada'], linha['atingido_estimado']) == (1, 10.0, True)
+
+
+def test_gap_por_disciplina_usa_o_corte_que_mais_aperta_cada_disciplina():
+    prova = concurso(
+        'cd_25',
+        ['acerto', 'acerto', 'acerto', 'erro'] + ['acerto', 'branco', 'branco', 'branco'],
+        blocos=['geral'] * 4 + ['especifico'] * 4,
+        disciplinas=['Português'] * 4 + ['Dados'] * 4,
+    )
+    cortes = [corte('conjunto', 2), corte('especifico', 2)]
+
+    tabela = gap_por_disciplina(consolidado(prova), {'cd_25': cortes}).set_index('disciplina')
+
+    portugues, dados = tabela.loc['Português'], tabela.loc['Dados']
+    assert (portugues['corte_escopo'], portugues['percentual'], portugues['exigido']) == (
+        'conjunto',
+        50.0,
+        25.0,
+    )
+    assert (portugues['gap_percentual'], portugues['falta'], portugues['atingido']) == (25.0, 0.0, True)
+    assert (dados['corte_escopo'], dados['percentual'], dados['exigido']) == ('especifico', 25.0, 50.0)
+    assert (dados['gap_percentual'], dados['falta'], dados['atingido']) == (-25.0, 1.0, False)
+    assert not tabela['amostra_suficiente'].any()
+    assert list(tabela.index) == ['Dados', 'Português']
+
+
+def test_comparacao_lado_a_lado_traz_bruto_ponderado_e_o_gap_mais_distante():
+    prova = cebraspe(['acerto', 'acerto', 'erro', 'branco'], ['acerto'] * 4)
+
+    [linha] = comparar_percentual_e_gap(consolidado(prova), {'cd_25': CORTES_CEBRASPE}).to_dict('records')
+
+    assert (linha['percentual_bruto'], linha['percentual_ponderado']) == (75.0, 75.0)
+    assert (linha['menor_gap_percentual'], linha['corte_mais_distante'], linha['atingido']) == (
+        -50.0,
+        'geral',
+        False,
+    )

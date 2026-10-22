@@ -1,8 +1,10 @@
 import pandas as pd
 
 from concursos.analytics.visualizacao import (
+    OPACIDADE_AMOSTRA_INSUFICIENTE,
     aviso_modelos,
     barras_fracos,
+    barras_gap_por_disciplina,
     box_por_disciplina,
     exportar_heatmap_topicos,
     exportar_linha_evolucao,
@@ -204,3 +206,31 @@ def test_exporta_o_painel_com_as_tres_versoes(tmp_path):
     assert caminho.read_bytes().startswith(PNG)
     assert [barras.get_label() for barras in figura.axes[0].containers] == ['bruto', 'corrigido', 'ajustado']
     assert len(figura.axes[0].containers[0]) == len(COMPARACAO)
+
+
+def test_barras_de_gap_por_disciplina_sao_horizontais_e_coloridas_por_atingido():
+    gaps = pd.DataFrame(
+        {
+            'concurso': ['cd_25', 'cd_25', 'cpnu'],
+            'variante': [None, None, 'B3-08-A'],
+            'disciplina': ['Português', 'Dados', 'Dados'],
+            'percentual': [50.0, 25.0, 70.0],
+            'exigido': [25.0, 50.0, 40.0],
+            'gap_percentual': [25.0, -25.0, 30.0],
+            'falta': [0.0, 1.0, 0.0],
+            'unidade': ['pontos', 'pontos', 'acertos'],
+            'atingido': [True, False, True],
+            'n': [12, 3, 20],
+            'amostra_suficiente': [True, False, True],
+        }
+    )
+
+    figura = barras_gap_por_disciplina(gaps)
+
+    por_nome = {barra.name: barra for barra in figura.data}
+    assert set(por_nome) == {'no ritmo do corte', 'abaixo do corte'}
+    assert all(barra.orientation == 'h' for barra in figura.data)
+    assert list(por_nome['abaixo do corte'].x) == [-25.0]
+    assert list(por_nome['abaixo do corte'].marker.opacity) == [OPACIDADE_AMOSTRA_INSUFICIENTE]
+    assert list(por_nome['no ritmo do corte'].marker.opacity) == [1.0, 1.0]
+    assert list(por_nome['no ritmo do corte'].y) == ['cd_25 · Português', 'cpnu (B3-08-A) · Dados']

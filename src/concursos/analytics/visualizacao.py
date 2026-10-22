@@ -22,6 +22,7 @@ ESCALA_PERCENTUAL = 'RdYlGn'
 LIMITES_PERCENTUAL = (-100, 100)
 DPI_EXPORTACAO = 120
 _CORES_DOS_RESULTADOS = (('acertos', 'seagreen'), ('erros', 'indianred'), ('brancos', 'lightgray'))
+_CORES_DO_GAP = ((True, 'no ritmo do corte', 'seagreen'), (False, 'abaixo do corte', 'indianred'))
 _METRICAS_DA_LINHA = (('percentual', 'percentual'), ('zscore', 'z-score'))
 _COLUNAS_DO_HOVER = ['concurso', 'banca', 'n']
 
@@ -226,6 +227,47 @@ def barras_fracos(fracos: pd.DataFrame) -> go.Figure:
         height=200 + 30 * len(tabela),
     )
     return figura
+
+
+def barras_gap_por_disciplina(gaps: pd.DataFrame) -> go.Figure:
+    """Barras horizontais do gap percentual de cada disciplina, a partir de `gap_por_disciplina`, coloridas
+    por atingido e transparentes com amostra insuficiente, com o percentual, a exigência, o que falta e o n
+    no hover."""
+    tabela = gaps.assign(rotulo=_rotulo_do_gap)
+    figura = go.Figure()
+    for atingido, nome, cor in _CORES_DO_GAP:
+        parte = tabela[tabela['atingido'] == atingido]
+        if parte.empty:
+            continue
+        figura.add_bar(
+            name=nome,
+            x=parte['gap_percentual'],
+            y=parte['rotulo'],
+            orientation='h',
+            marker={
+                'color': cor,
+                'opacity': parte['amostra_suficiente'].map(
+                    {True: 1.0, False: OPACIDADE_AMOSTRA_INSUFICIENTE}
+                ),
+            },
+            customdata=parte[['percentual', 'exigido', 'falta', 'unidade', 'n']].to_numpy(),
+            hovertemplate=(
+                '%{y}<br>gap %{x:+.1f} p.p.<br>%{customdata[0]:.1f}% contra %{customdata[1]:.1f}% exigidos'
+                '<br>falta %{customdata[2]:.1f} %{customdata[3]}<br>n = %{customdata[4]}<extra></extra>'
+            ),
+        )
+    figura.update_layout(
+        title='Gap para o corte por disciplina',
+        xaxis_title='gap (pontos percentuais da nota máxima da disciplina)',
+        yaxis={'autorange': 'reversed', 'categoryorder': 'array', 'categoryarray': list(tabela['rotulo'])},
+        height=200 + 25 * len(tabela),
+    )
+    return figura
+
+
+def _rotulo_do_gap(tabela: pd.DataFrame) -> pd.Series:
+    variantes = tabela['variante'].map(lambda v: f' ({v})' if pd.notna(v) else '')
+    return tabela['concurso'] + variantes + ' · ' + tabela['disciplina']
 
 
 def exportar_linha_evolucao(

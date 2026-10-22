@@ -18,10 +18,10 @@ Ver `docs/spec-fase3.md`, histórias 60–64 e 66.
 
 **Blocked by:** 07 (Descoberta dirigida e catálogo), 09 (Ranking entre métricas, simulação e desempate)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Os gráficos e o painel vêm de funções testadas do pacote.
-- [ ] As células não têm regra de negócio.
-- [ ] O notebook novo e os existentes executam do zero pelo script.
-- [ ] A conclusão em prosa cita os números que as células imprimem.
-- [ ] `uv run pytest` e `ruff` verdes.
+- [x] Os gráficos e o painel vêm de funções testadas do pacote.
+- [x] As células não têm regra de negócio.
+- [x] O notebook novo e os existentes executam do zero pelo script.
+- [x] A conclusão em prosa cita os números que as células imprimem.
+- [x] `uv run pytest` e `ruff` verdes.

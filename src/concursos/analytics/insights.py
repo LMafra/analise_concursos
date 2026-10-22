@@ -7,10 +7,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from concursos.analytics.candidatos_edital import CANDIDATOS, Impacto
 from concursos.analytics.consolidado import N_MINIMO_TOPICO, pasta_consolidado
 from concursos.analytics.correcao import NotaFinal
 from concursos.analytics.evolucao import (
     LIMIAR_TOPICO_FRACO,
+    METRICAS_DO_RANKING,
     MINIMO_PONTOS_TENDENCIA,
     TENDENCIA,
     Correlacao,
@@ -23,6 +25,7 @@ from concursos.analytics.evolucao import (
     topicos_fracos_persistentes,
     zscore_por_disciplina,
 )
+from concursos.analytics.regras_edital import EscopoCorte, StatusExtracao, UnidadeCorte
 from concursos.analytics.visualizacao import (
     exportar_heatmap_topicos,
     exportar_linha_evolucao,
@@ -31,6 +34,18 @@ from concursos.analytics.visualizacao import (
 from concursos.consolidado import MINIMO_CONCURSOS
 from concursos.modelo import Escolaridade, ModeloCorrecao
 
+_FORA_DO_PAINEL = {'aprovacao'}
+"""A régua de aprovação já é a dos cortes, na tabela de gap."""
+_ALVO_DO_CORTE = {
+    EscopoCorte.CONJUNTO: 'no conjunto',
+    EscopoCorte.GERAL: 'nos conhecimentos gerais',
+    EscopoCorte.ESPECIFICO: 'nos conhecimentos específicos',
+    EscopoCorte.DISCIPLINA: 'em cada disciplina',
+}
+_DO_BLOCO = {
+    EscopoCorte.GERAL: 'dos conhecimentos gerais',
+    EscopoCorte.ESPECIFICO: 'dos conhecimentos específicos',
+}
 P_SIGNIFICATIVO = 0.05
 TENDENCIAS_LISTADAS = 3
 ARQUIVO_RELATORIO = 'relatorio_evolucao.md'
@@ -219,15 +234,102 @@ def descrever_simulacao(simulacao: pd.DataFrame, disciplina: str, pontos_percent
         )
         partes.append(
             f'- {concurso}{f" ({variante})" if pd.notna(variante) else ""}: '
-            f'{primeira.itens_convertidos} itens viram acerto ({primeira.erros_convertidos} erros e '
-            f'{primeira.brancos_convertidos} brancos). {cortes}. Todos os cortes satisfeitos no cenário: '
+            f'{_contagem(primeira.itens_convertidos, "item vira", "itens viram")} acerto '
+            f'({_contagem(primeira.erros_convertidos, "erro", "erros")} e '
+            f'{_contagem(primeira.brancos_convertidos, "branco", "brancos")}). {cortes}. '
+            'Todos os cortes satisfeitos no cenário: '
             f'{"sim" if primeira.atingido_estimado else "não"}.'
         )
     return '\n\n'.join(partes)
 
 
+def _contagem(n: int, singular: str, plural: str) -> str:
+    return f'{n} {singular if n == 1 else plural}'
+
+
 def _escopo_do_corte(linha) -> str:
     return linha.escopo if pd.isna(linha.disciplina) else f'{linha.escopo} {linha.disciplina}'
+
+
+def destaque_do_ranking(ranking: pd.DataFrame) -> str:
+    """O destaque em markdown de `ranking_concursos_por_metrica`: quem sobe e quem cai em cada métrica."""
+    frases = []
+    for metrica in METRICAS_DO_RANKING[1:]:
+        mudancas = ranking[ranking[f'deslocamento_{metrica}'] != 0].sort_values(
+            [f'deslocamento_{metrica}', 'concurso'], ascending=[False, True]
+        )
+        if mudancas.empty:
+            continue
+        partes = '; '.join(
+            f'{_rotulo(linha)} {"sobe" if linha[f"deslocamento_{metrica}"] > 0 else "cai"} '
+            f'{_posicoes(abs(linha[f"deslocamento_{metrica}"]))}'
+            for _, linha in mudancas.iterrows()
+        )
+        frases.append(f'No {metrica}: {partes}.')
+    if not frases:
+        return 'O ranking é o mesmo no bruto, no corrigido e no ponderado.'
+    return '> **O ranking muda entre as métricas.** ' + ' '.join(frases)
+
+
+def _rotulo(linha: pd.Series) -> str:
+    return f'{linha["concurso"]}{f" ({linha['variante']})" if pd.notna(linha["variante"]) else ""}'
+
+
+def _posicoes(n: int) -> str:
+    return f'{n} posição' if n == 1 else f'{n} posições'
+
+
+def peculiaridades_do_edital(regras: Mapping[str, dict], concurso_alvo: str | None = None) -> pd.DataFrame:
+    """As regras que surpreendem: as descobertas de alto impacto encontradas e os cortes em acertos e da
+    discursiva, com o trecho do edital."""
+    alto_impacto = {
+        c.chave: c for c in CANDIDATOS if c.impacto is Impacto.ALTO and c.chave not in _FORA_DO_PAINEL
+    }
+    linhas = []
+    for concurso, dados in regras.items():
+        if concurso_alvo is not None and concurso != concurso_alvo:
+            continue
+        for metadado in dados.get('metadados', []):
+            candidato = alto_impacto.get(metadado['chave'])
+            if candidato is None or metadado['status'] != StatusExtracao.ENCONTRADO:
+                continue
+            valor = metadado['valor']
+            linhas.append(
+                {
+                    'concurso': concurso,
+                    'peculiaridade': candidato.informacao,
+                    'valor': '; '.join(map(_texto, valor)) if isinstance(valor, list) else _texto(valor),
+                    'uso': candidato.uso,
+                    'trecho': metadado['trecho_origem'],
+                }
+            )
+        for corte in dados.get('cortes', []):
+            if corte['escopo'] == EscopoCorte.DISCURSIVA:
+                peculiaridade, valor = 'Corte da discursiva', f'{corte["valor"]:g} {corte["unidade"]}'
+                uso = 'Registrado e exibido, fora do "atingido"'
+            elif corte['unidade'] == UnidadeCorte.ACERTOS:
+                peculiaridade = 'Corte em acertos'
+                acertos = 'acerto' if corte['valor'] == 1 else 'acertos'
+                valor = f'{corte["valor"]:g} {acertos} {_ALVO_DO_CORTE[corte["escopo"]]}'
+                if corte['escopo'] == EscopoCorte.DISCIPLINA and corte.get('bloco'):
+                    valor += f' {_DO_BLOCO[corte["bloco"]]}'
+                uso = 'O gap desse corte conta acertos, com a anulada valendo acerto'
+            else:
+                continue
+            linhas.append(
+                {
+                    'concurso': concurso,
+                    'peculiaridade': peculiaridade,
+                    'valor': valor,
+                    'uso': uso,
+                    'trecho': corte.get('trecho_origem'),
+                }
+            )
+    return pd.DataFrame(linhas, columns=['concurso', 'peculiaridade', 'valor', 'uso', 'trecho'])
+
+
+def _texto(valor: object) -> str:
+    return f'{valor:g}' if isinstance(valor, float) else str(valor)
 
 
 def desempate_por_concurso(regras: Mapping[str, dict], concurso_alvo: str | None = None) -> pd.DataFrame:

@@ -1,13 +1,15 @@
 import pandas as pd
 from consolidado_sintetico import concurso, consolidado
 
-from concursos.analytics.evolucao import simular_cenario
+from concursos.analytics.evolucao import ranking_concursos_por_metrica, simular_cenario
 from concursos.analytics.insights import (
     calcular_achados,
     descrever_simulacao,
     desempate_por_concurso,
+    destaque_do_ranking,
     diferencas,
     gravar_relatorio_evolucao,
+    peculiaridades_do_edital,
     respostas,
     sem_nivel_medio,
     sensibilidade_em_markdown,
@@ -144,3 +146,93 @@ def test_desempate_sai_na_ordem_do_edital_sem_calculo():
         {'concurso': 'tcu_25', 'prioridade': 2, 'criterio': 'maior nota em P2'},
     ]
     assert desempate_por_concurso(regras, concurso_alvo='agsus').empty
+
+
+def test_destaque_do_ranking_diz_quem_sobe_e_quem_cai_em_cada_metrica():
+    liquida = concurso('a', ['acerto'] * 7 + ['erro'] * 3)
+    bruta = concurso('b', ['acerto'] * 6 + ['erro'] * 4, formato='multipla_escolha')
+    ranking = ranking_concursos_por_metrica(consolidado(liquida, bruta))
+
+    texto = destaque_do_ranking(ranking)
+
+    assert texto.startswith('> **O ranking muda entre as métricas.**')
+    assert 'No corrigido: b sobe 1 posição; a cai 1 posição.' in texto
+    assert 'ponderado' not in texto
+
+
+def test_sem_mudanca_de_ranking_o_destaque_diz_que_e_o_mesmo():
+    ranking = ranking_concursos_por_metrica(consolidado(concurso('a', ['acerto', 'erro'])))
+
+    assert destaque_do_ranking(ranking) == 'O ranking é o mesmo no bruto, no corrigido e no ponderado.'
+
+
+def test_painel_de_peculiaridades_traz_as_descobertas_de_alto_impacto_e_os_cortes_especiais():
+    regras = {
+        'cpnu': {
+            'metadados': [
+                {
+                    'chave': 'teto_de_classificados',
+                    'status': 'encontrado',
+                    'valor': 80,
+                    'trecho_origem': 'até 80',
+                },
+                {'chave': 'desempate', 'status': 'encontrado', 'valor': ['idade'], 'trecho_origem': 'ordem'},
+                {'chave': 'anulacao', 'status': 'nao_encontrado', 'valor': None, 'trecho_origem': None},
+                {
+                    'chave': 'aprovacao',
+                    'status': 'encontrado',
+                    'valor': 'será eliminado',
+                    'trecho_origem': 'x',
+                },
+            ],
+            'cortes': [
+                {
+                    'escopo': 'conjunto',
+                    'valor': 36,
+                    'unidade': 'acertos',
+                    'bloco': None,
+                    'trecho_origem': '36 acertos',
+                },
+                {
+                    'escopo': 'geral',
+                    'valor': 3,
+                    'unidade': 'pontos',
+                    'bloco': None,
+                    'trecho_origem': '3 pontos',
+                },
+                {
+                    'escopo': 'disciplina',
+                    'valor': 1,
+                    'unidade': 'acertos',
+                    'bloco': 'geral',
+                    'trecho_origem': 'zerar',
+                },
+                {
+                    'escopo': 'discursiva',
+                    'valor': 30,
+                    'unidade': 'pontos',
+                    'bloco': None,
+                    'trecho_origem': 'discursiva',
+                },
+            ],
+        }
+    }
+
+    tabela = peculiaridades_do_edital(regras)
+
+    assert tabela[['peculiaridade', 'valor']].values.tolist() == [
+        ['Teto de classificados', '80'],
+        ['Corte em acertos', '36 acertos no conjunto'],
+        ['Corte em acertos', '1 acerto em cada disciplina dos conhecimentos gerais'],
+        ['Corte da discursiva', '30 pontos'],
+    ]
+    assert set(tabela['concurso']) == {'cpnu'}
+
+
+def test_simulacao_de_um_item_fala_no_singular():
+    prova = concurso('cd_25', ['acerto'] * 5 + ['erro'] * 5, disciplinas=['Dados'] * 10)
+    cortes = {'cd_25': [{'escopo': 'conjunto', 'valor': 2, 'unidade': 'pontos', 'bloco': None}]}
+
+    texto = descrever_simulacao(simular_cenario(consolidado(prova), cortes, 'Dados', 10), 'Dados', 10)
+
+    assert '1 item vira acerto (1 erro e 0 brancos)' in texto

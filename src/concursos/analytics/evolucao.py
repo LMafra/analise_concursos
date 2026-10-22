@@ -162,11 +162,9 @@ def gap_para_corte(
     `cortes` vem do edital estruturado (`cortes_por_concurso`); o corte da discursiva fica de fora."""
     linhas = []
     for (nome, concurso), variante, peso in _por_variante(consolidado, concurso_alvo):
-        pontos, acertos = peso * _pontos_pelo_edital(concurso), _acertos_pelo_edital(concurso)
         do_concurso = []
         for corte in cortes.get(nome, ()):
-            em_acertos = corte['unidade'] == UnidadeCorte.ACERTOS
-            ganho, maximo = (acertos, pd.Series(1.0, index=concurso.index)) if em_acertos else (pontos, peso)
+            ganho, maximo = _ganho_e_maximo(concurso, peso, corte)
             for disciplina, itens in _escopos_do_corte(concurso, corte):
                 nota, nota_maxima = float(ganho[itens].sum()), float(maximo[itens].sum())
                 gap = nota - float(corte['valor'])
@@ -189,6 +187,90 @@ def gap_para_corte(
                 )
         atingido = all(linha['satisfeito'] for linha in do_concurso)
         linhas.extend({**linha, 'atingido': atingido} for linha in do_concurso)
+    return _em_ordem(linhas)
+
+
+def gap_por_disciplina(
+    consolidado: pd.DataFrame, cortes: Mapping[str, Sequence[Mapping]], concurso_alvo: str | None = None
+) -> pd.DataFrame:
+    """Quanto cada disciplina precisa melhorar para acompanhar o corte que mais a aperta. Um corte de escopo
+    exige `100 × corte / nota máxima do escopo` por cento; a disciplina é comparada com essa exigência na
+    unidade do corte (no mínimo por disciplina, com o próprio corte). `falta` é o que falta na unidade do
+    corte para a disciplina chegar à exigência, e `atingido` diz se ela já chegou. Com n abaixo de
+    `N_MINIMO_TOPICO`, a disciplina sai com `amostra_suficiente` falso. Em cada concurso, a que está mais
+    longe vem primeiro."""
+    linhas = []
+    for (nome, concurso), variante, peso in _por_variante(consolidado, concurso_alvo):
+        por_disciplina: dict[tuple, dict] = {}
+        for corte in cortes.get(nome, ()):
+            ganho, maximo = _ganho_e_maximo(concurso, peso, corte)
+            for _, itens in _escopos_do_corte(concurso, corte):
+                maximo_do_escopo = float(maximo[itens].sum())
+                if not maximo_do_escopo:
+                    continue
+                exigido = 100 * float(corte['valor']) / maximo_do_escopo
+                grupos = concurso.loc[itens].groupby(['bloco', 'disciplina_canonica'], sort=True).groups
+                for (bloco, disciplina), da_disciplina in grupos.items():
+                    maximo_da_disciplina = float(maximo[da_disciplina].sum())
+                    percentual = 100 * float(ganho[da_disciplina].sum()) / maximo_da_disciplina
+                    gap = percentual - exigido
+                    anterior = por_disciplina.get((bloco, disciplina))
+                    if anterior is not None and anterior['gap_percentual'] <= gap:
+                        continue
+                    por_disciplina[bloco, disciplina] = {
+                        'concurso': nome,
+                        'variante': variante,
+                        'ordem': concurso['ordem'].iloc[0],
+                        'bloco': bloco,
+                        'disciplina': disciplina,
+                        'n': len(da_disciplina),
+                        'unidade': corte['unidade'],
+                        'corte_escopo': corte['escopo'],
+                        'percentual': percentual,
+                        'exigido': exigido,
+                        'gap_percentual': gap,
+                        'falta': max(0.0, -gap / 100 * maximo_da_disciplina),
+                        'atingido': gap >= 0,
+                        'amostra_suficiente': len(da_disciplina) >= N_MINIMO_TOPICO,
+                    }
+        linhas.extend(sorted(por_disciplina.values(), key=lambda linha: linha['gap_percentual']))
+    return _em_ordem(linhas)
+
+
+def comparar_percentual_e_gap(
+    consolidado: pd.DataFrame, cortes: Mapping[str, Sequence[Mapping]], concurso_alvo: str | None = None
+) -> pd.DataFrame:
+    """Por concurso e variante, lado a lado: percentual bruto e ponderado (`ranking_concursos_por_metrica`)
+    e o corte mais distante (`gap_para_corte`), com o menor gap percentual e o "atingido" de todos os
+    cortes. Sem cortes no edital, as colunas do gap ficam vazias."""
+    ranking = ranking_concursos_por_metrica(consolidado)
+    if concurso_alvo is not None:
+        ranking = ranking[ranking['concurso'] == concurso_alvo]
+    gaps = gap_para_corte(consolidado, cortes, concurso_alvo)
+    mais_distante = {}
+    if not gaps.empty:
+        for linha in gaps.sort_values('gap_percentual', kind='stable').itertuples():
+            rotulo = linha.escopo if pd.isna(linha.disciplina) else f'{linha.escopo}: {linha.disciplina}'
+            mais_distante.setdefault(
+                (linha.concurso, linha.variante), (linha.gap_percentual, rotulo, linha.atingido)
+            )
+    linhas = []
+    for linha in ranking.itertuples():
+        gap, rotulo, atingido = mais_distante.get(
+            (linha.concurso, linha.variante), (float('nan'), None, None)
+        )
+        linhas.append(
+            {
+                'concurso': linha.concurso,
+                'variante': linha.variante,
+                'ordem': linha.ordem,
+                'percentual_bruto': linha.percentual_bruto,
+                'percentual_ponderado': linha.percentual_ponderado,
+                'menor_gap_percentual': gap,
+                'corte_mais_distante': rotulo,
+                'atingido': atingido,
+            }
+        )
     return _em_ordem(linhas)
 
 
@@ -295,6 +377,13 @@ def _por_variante(
 
 def _acertos_pelo_edital(tabela: pd.DataFrame) -> pd.Series:
     return ((tabela['resultado'] == Resultado.ACERTO) | tabela['anulada']).astype(float)
+
+
+def _ganho_e_maximo(concurso: pd.DataFrame, peso: pd.Series, corte: Mapping) -> tuple[pd.Series, pd.Series]:
+    """O que cada item soma e pode somar na unidade do corte."""
+    if corte['unidade'] == UnidadeCorte.ACERTOS:
+        return _acertos_pelo_edital(concurso), pd.Series(1.0, index=concurso.index)
+    return peso * _pontos_pelo_edital(concurso), peso
 
 
 def _escopos_do_corte(concurso: pd.DataFrame, corte: Mapping) -> Iterator[tuple[str | None, pd.Index]]:

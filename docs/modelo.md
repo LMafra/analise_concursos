@@ -146,6 +146,15 @@ A posição 1 é o maior percentual, e empates dividem a posição. As posiçõe
 
   A saída tem `natureza = estimativa`, e o texto se apresenta como estimativa de cenário, sem linguagem de previsão e sem estimar colocação.
 - **Desempate** (`insights.desempate_por_concurso`): os critérios do metadado `desempate`, na ordem das alíneas do edital, sem cálculo.
+- **Gap por disciplina** (`gap_por_disciplina`, em `evolucao`): cada disciplina comparada com o corte que mais a aperta.
+  - Um corte de escopo exige `exigido = 100 × corte / nota máxima do escopo`; no mínimo por disciplina, o escopo é a própria disciplina.
+  - `percentual` é o da disciplina na unidade do corte, `gap_percentual = percentual − exigido`, e fica o corte de menor gap.
+  - `falta = max(0, −gap_percentual / 100 × nota máxima da disciplina)`, na unidade do corte; `atingido = gap_percentual ≥ 0`; `amostra_suficiente = n ≥ N_MINIMO_TOPICO`.
+  - Em cada concurso, a disciplina mais longe vem primeiro.
+- **Lado a lado** (`comparar_percentual_e_gap`, em `evolucao`): percentual bruto e ponderado do ranking e, de `gap_para_corte`, o menor gap percentual, o corte mais distante e o "atingido".
+- **Destaque do ranking** (`insights.destaque_do_ranking`): em markdown, quem sobe e quem cai no corrigido e no ponderado, ou a frase de que o ranking é o mesmo.
+- **Peculiaridades** (`insights.peculiaridades_do_edital`): os metadados de impacto alto encontrados, menos `aprovacao` (a régua já são os cortes), mais os cortes em acertos e da discursiva, com o trecho.
+- **Carregamento:** `regras_por_concurso` e `cortes_por_concurso` (em `consolidado`) leem o edital estruturado de cada concurso analisado que já tem as regras.
 - **Correlação geral** (`correlacao_tempo_percentual`, em `evolucao`): Spearman entre a ordem e o percentual ajustado de cada concurso. É a medida única de tendência geral; a média dos z-scores de um concurso não serve, porque fica perto de 0 por construção.
 - **Achados:** melhoras e pioras são as tendências por disciplina com p < 0,05; os fracos usam o limiar do `config.yaml`; o ranking muda quando alguma linha tem deslocamento no corrigido ou no ajustado.
 - **Sensibilidade:** os achados são recalculados sem os concursos de nível médio (`escolaridade: medio`), e as diferenças são declaradas.
