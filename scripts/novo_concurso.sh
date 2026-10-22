@@ -276,27 +276,18 @@ fi
 stage "Cadastrar"
 say "O cadastro detecta o papel de cada arquivo e pergunta só o que for ambíguo (cargo, tipo, banca)."
 say "Ao final ele mostra o concurso.yaml e pede confirmação antes de gravar."
-if confirm "Rodar 'concursos adicionar $PASTA' agora?"; then
-  until uv run concursos adicionar "$PASTA"; do
+if confirm "Rodar 'concurso-analise add $PASTA' agora?"; then
+  until uv run concurso-analise add "$PASTA"; do
     warn "O cadastro não foi concluído (veja a mensagem acima)."
     confirm "Corrigiu os arquivos e quer tentar de novo?" || break
   done
 fi
 
 stage "Analisar"
-say "A análise processa o concurso e atualiza o consolidado em $ANALISES_DIR/consolidado/."
-if confirm "Rodar 'concursos analisar --concurso $CONCURSO' agora?"; then
-  if uv run concursos analisar --provas "$PROVAS_DIR" --analises "$ANALISES_DIR" --concurso "$CONCURSO"; then
-    uv run concursos status --provas "$PROVAS_DIR"
-    RELATORIO="$ANALISES_DIR/$CONCURSO/relatorio.md"
-    if [[ -f "$RELATORIO" ]]; then
-      say "Relatório: $RELATORIO"
-      if confirm "Abrir o relatório?"; then
-        if command -v wslpath >/dev/null 2>&1; then open_url "$(wslpath -w "$RELATORIO")"; else open_url "$RELATORIO"; fi
-      fi
-    else
-      warn "Sem relatório: o concurso está incompleto ou desatualizado (veja o status acima)."
-    fi
+say "A análise processa o concurso, atualiza o consolidado em $ANALISES_DIR/<candidato>/consolidado/ e abre o relatório."
+if confirm "Rodar 'concurso-analise analyze $CONCURSO' agora?"; then
+  if uv run concurso-analise --provas "$PROVAS_DIR" --analises "$ANALISES_DIR" analyze "$CONCURSO"; then
+    uv run concurso-analise --provas "$PROVAS_DIR" status
   else
     warn "A análise falhou; veja o log acima."
   fi
@@ -304,9 +295,9 @@ fi
 
 stage "Próximos passos"
 step "Com edital cadastrado, revise os tópicos sugeridos em $PASTA/revisao/questoes_revisado.csv (colunas disciplina e topico)."
-step "Corrigiu a revisão, trocou um arquivo ou saiu o gabarito definitivo? Rode: uv run concursos analisar"
-step "Veja a situação de todos os concursos com: uv run concursos status"
-step "Comparativo entre concursos: $ANALISES_DIR/consolidado/comparativo_concursos.md"
+step "Corrigiu a revisão, trocou um arquivo ou saiu o gabarito definitivo? Rode: uv run concurso-analise"
+step "Veja a situação de todos os concursos com: uv run concurso-analise status"
+step "Reabra o relatório com: uv run concurso-analise report"
 pause "Pressione Enter para concluir"
 
 finish

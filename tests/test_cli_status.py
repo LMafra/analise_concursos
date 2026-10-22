@@ -58,7 +58,7 @@ def test_pasta_sem_cadastro_aparece_como_incompleta(raizes, capsys):
     linhas = {linha.split()[0]: linha for linha in status(provas, capsys).splitlines()[2:]}
 
     assert 'incompleto' in linhas['novo']
-    assert 'concurso.yaml ausente' in linhas['novo'] and 'adicionar' in linhas['novo']
+    assert 'concurso.yaml ausente' in linhas['novo'] and 'concurso-analise add' in linhas['novo']
     assert analisar(provas, analises) == 0
     comparativo = (analises / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
     assert '| novo | incompleto |' in comparativo

@@ -1,24 +1,42 @@
 # AGENTS.md
 
-Pipeline local de correção e análise de provas de concurso. Fase 1: a CLI `concursos` (`src/concursos/`), que gera `analises/<concurso>/`. Fase 2: a análise evolutiva entre concursos (`src/concursos/analytics/` e `notebooks/`). Fase 3: o edital como fonte de verdade (regras, validação e catálogo de descobertas) e a aplicação delas em corte e peso.
+Ferramenta local de correção e análise de provas de concurso, com um comando só: `concurso-analise` (`src/concursos/cli/`), que gera `analises/<candidato>/<concurso>/`. Fase 1: correção por concurso. Fase 2: a análise evolutiva entre concursos (`src/concursos/analytics/` e `notebooks/`). Fase 3: o edital como fonte de verdade (regras, validação e catálogo de descobertas). Fase 4: um comando, multi-candidato, perfis de banca e de OCR, fallbacks, onboarding, `doctor`, LLM opcional e distribuição.
 
-- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3) e `docs/spec-fase4.md` (fase 4: um comando, multi-candidato, perfis e fallbacks). Leia a da fase antes de mudar comportamento.
-- Paridade: antes de um refactor que toca código das fases 1 a 3, rode `concurso-analise --force` e `scripts/paridade.py retrato`; depois, `comparar` não pode mostrar diferença.
-- Modelo de domínio, contratos de arquivo e fórmulas: `docs/modelo.md`. É a fonte única dos campos do `concurso.yaml`, do `correcao.json`, do `edital_estruturado.json`, do template do `catalogo_edital.md` e do schema do parquet; atualize-o na mesma mudança que o código.
+- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3) e `docs/spec-fase4.md` (fase 4). Leia a da fase antes de mudar comportamento.
+- Paridade: antes de um refactor que toca código das fases 1 a 3, rode `concurso-analise --force` e `scripts/paridade.py retrato analises/<candidato> <arquivo>`; depois, `comparar` não pode mostrar diferença.
+- Ponta a ponta: `scripts/smoke.py` roda onboarding, análise e idempotência num projeto temporário; rode-o pelo `uvx --from "$PWD"` ao mexer em dependências, CLI ou empacotamento.
+- Modelo de domínio, contratos de arquivo e fórmulas: `docs/modelo.md`. É a fonte única dos campos do `concurso.yaml`, do `candidato.yaml`, do `config.toml`, dos perfis, do `correcao.json`, do `edital_estruturado.json`, do template do `catalogo_edital.md` e do schema do parquet; atualize-o na mesma mudança que o código.
 
 ## Dados pessoais
 
-`provas/` e `analises/` têm CPF, nome e notas e ficam fora do git, assim como os `notebooks/*.ipynb` gerados.
+`provas/`, `analises/` e `.concurso/` têm CPF, nome e notas e ficam fora do git e da imagem Docker, assim como os `notebooks/*.ipynb` gerados. `test_sem_dado_pessoal_no_pacote` procura no pacote nomes, slugs, inscrições, CPF e caminhos de usuário; fixtures usam nomes fictícios.
+
+Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na configuração global e só recebe texto do edital. A chave de API nunca vai para TOML.
 
 ## Onde mora cada lógica
 
 | Assunto | Módulo |
 |---|---|
+| CLI: comando padrão, subcomandos, flags globais, códigos de saída e erro em duas linhas | `cli/comandos.py`, `cli/erros.py` |
+| Comando obsoleto `concursos` | `cli/legado.py` |
+| Pastas de uma execução (global, projeto, provas, análises) e `config.toml` | `config/contexto.py`, `configuracao.py` |
+| Onboarding (wizard de 6 perguntas e `init`) | `onboarding.py` |
+| Diagnóstico do ambiente com o comando de correção por sistema | `doctor.py` |
+| Migração das fases 1 a 3, com backup verificado | `migracao.py` |
+| Candidatos: subpasta, `candidato.yaml`, perfil global, revisão da leitura (`--reuse-csv`) | `candidatos.py` |
+| Perfis de banca e de OCR, entry points `concurso.banca` e `concurso.ocr` | `perfis/` (YAML em `perfis/bancas/` e `perfis/folhas/`) |
+| Leitura da folha: perfil, detecção automática, amostra para calibração | `folha.py` |
+| Calibração da folha pelas 5 respostas digitadas | `calibracao.py` |
+| Campos que nenhuma camada do edital preencheu (`edital_a_confirmar.yaml`) | `edital_a_confirmar.py` |
+| Cliente LLM (OpenAI-compatível e Anthropic), chave e consentimento | `llm.py` |
+| Camada LLM das regras do edital, com citação literal | `edital_llm.py` |
+| Relatório HTML por candidato e abertura no navegador | `relatorio_html.py` |
+| Exportação do consolidado (`export`) | `exportacao.py` |
+| Gravação que preserva o `mtime` quando o conteúdo não muda | `arquivos.py` |
 | Regra de correção: extração do edital, precedência, pontuação por item, nota | `analytics/correcao.py` |
 | Parquet por questão, cache, `validar_schema`, ordem cronológica, regras gravadas por concurso | `analytics/consolidado.py` |
-| Perfis de banca: detecção, leitores de gabarito, segmentação, chaves de prova, templates da folha | `perfis/` e `perfis/bancas/*.yaml` |
 | Disciplina canônica e bloco | `analytics/taxonomia.py` e `.concurso/taxonomia.yaml` |
-| Regras do edital: identificação, cargo, pesos, distribuição, cortes, cronograma, desempate, metadados | `analytics/regras_edital.py` |
+| Regras do edital: identificação, cargo, pesos, distribuição, cortes, cronograma, desempate, metadados, fonte e confiança | `analytics/regras_edital.py` |
 | Registro versionado de pistas do edital (`VERSAO_CANDIDATOS`) | `analytics/pistas_edital.py` |
 | Discrepâncias edital × prova × gabarito (`discrepancias_edital.csv`) | `analytics/validacao_edital.py` |
 | Catálogo de descobertas (`catalogo_edital.md`) | `analytics/catalogo_edital.py` |
@@ -26,10 +44,39 @@ Pipeline local de correção e análise de provas de concurso. Fase 1: a CLI `co
 | Respostas em texto, `relatorio_evolucao.md`, desempate e peculiaridades do edital | `analytics/insights.py` |
 | Gráficos (plotly no notebook, PNG com matplotlib) e resumo de tabelas | `analytics/visualizacao.py` |
 
+## Perfis
+
+- O que muda de uma banca para outra mora num perfil YAML, não em `if banca == ...`. Um ramo por banca no código é um campo de perfil que falta.
+- Perfil de banca: `id`, `marcas` (palavras inteiras no texto normalizado), `formato`, `alternativas`, `penalidade`, leitores (`cebraspe`, `fgv`, `lista` ou `modulo:funcao`), `segmentacao`, `chaves_prova`, `templates_folha`. Perfil de OCR: `id`, `alternativas`, `itens_por_coluna`, `vazio`, `cheio`, `limiar_marcada`, `largura`. Os campos e a validação estão em `docs/modelo.md`.
+- O perfil preenche só o que o edital e o `concurso.yaml` não trazem, com fonte `perfil` e confiança menor. Quem decide o corte é sempre o edital; os cortes típicos da banca ficam como comentário no YAML.
+- Outro pacote acrescenta ou substitui um perfil (pelo mesmo `id`) nos entry points `concurso.banca` e `concurso.ocr`.
+
+### Banca nova
+
+1. Copie `perfis/bancas/generic.yaml` para `perfis/bancas/<id>.yaml`; troque `id`, `nome` e `marcas`, e preencha `formato`, `alternativas` e `penalidade` pelo edital da banca.
+2. Escreva primeiro o teste: um trecho curto de edital real da banca em `tests/editais_bancas.py` e o caso em `tests/test_perfis_novos.py`, com as regras esperadas.
+3. Se o gabarito ou a folha da banca têm um formato próprio, acrescente o leitor ou o perfil de OCR com fixture sintética (`tests/folha_sintetica.py`).
+4. Rode a paridade: um perfil novo não pode mudar a saída dos concursos já analisados.
+
+## Fallbacks
+
+Cada informação tem uma cadeia de camadas, e o valor registra de qual veio (`fonte`, `camada`, `confianca`):
+
+- **Regras do edital:** texto do edital (heurística), retificação, LLM (só os campos que cairiam no perfil ou no padrão), perfil da banca, padrão, `edital_a_confirmar.yaml` (fonte `config`).
+- **Folha:** `respostas_revisadas.csv` (`--reuse-csv`), perfil de OCR do `template`, detecção automática (com os limiares calibrados, se houver), CSV manual.
+
+Para acrescentar uma camada:
+
+1. Um teste que mostra a camada anterior falhando e a nova preenchendo, com dados sintéticos.
+2. A camada só entra depois das fontes que vêm do usuário ou do documento: ela nunca troca um valor de `edital`, `retificacao` ou `config`.
+3. Um valor novo leva fonte, confiança e, quando vem de documento, trecho, documento e página. Uma camada nova é um valor novo de `FonteRegra` e de `CAMADA_DA_FONTE`.
+4. O que a camada decidiu aparece em "O que o app decidiu sozinho" no `index.html` e como aviso no log.
+5. Falha da camada vira aviso e a análise segue com a próxima; nunca aborta os outros concursos.
+
 ## Notebooks
 
 - Cada notebook é um script jupytext no formato percent, `notebooks/NN_*.py`; rode com `scripts/rodar_notebooks.sh [arquivos]`.
-- Uma célula só chama funções do pacote (`concursos.analytics` e `carregar_configuracao_global`) e exibe o resultado. Parsing, OCR, regra de negócio e cálculo de correção moram nos módulos acima, com teste; um número novo que o notebook precise vira antes uma função testada.
+- Uma célula só chama funções do pacote (`concursos.analytics` e `carregar_configuracao_global`) e exibe o resultado. Parsing, OCR, regra de negócio e cálculo de correção moram nos módulos acima, com teste; um número novo que o notebook precise vira antes uma função testada. Nenhum módulo do pacote importa de `notebooks/`.
 - Tabelas longas passam por `resumir` (em `visualizacao`). A conclusão em prosa cita os números que as células imprimem; rode o notebook de novo ao mudar uma função da qual ele depende.
 
 ## Convenções de análise
@@ -37,17 +84,23 @@ Pipeline local de correção e análise de provas de concurso. Fase 1: a CLI `co
 - Métrica padrão: `ajustada` (ao acaso; erro vale −1/(k−1)). A evolução se lê pelo z-score por disciplina, porque a média dos z de um concurso fica perto de 0 por construção.
 - Todo percentual vem com o n. n < `N_MINIMO_TOPICO` (5) é amostra insuficiente, e uma tendência exige `MINIMO_PONTOS_TENDENCIA` (3) ordens distintas. Use as constantes nos limiares e nos textos.
 - Gerais e específicos ficam separados (`bloco`) nas séries por disciplina.
-- O limiar de tópico fraco vem do `.concurso/config.toml` (`[analise] limiar_topico_baixo`).
+- O limiar de tópico fraco vem do `config.toml` (`[analise] limiar_topico_baixo`).
 
 ## Edital como fonte de verdade
 
-- **Rastreável:** todo valor com fonte `edital`, `retificacao` ou `descoberta` traz trecho, documento e página, para conferir no PDF. A busca respeita o escopo do cargo (`_Escopo`), e a retificação mais recente vence campo a campo.
+- **Rastreável:** todo valor com fonte `edital`, `retificacao`, `descoberta` ou `llm` traz trecho, documento e página, para conferir no PDF. A busca respeita o escopo do cargo (`_Escopo`), e a retificação mais recente vence campo a campo. Uma resposta do LLM sem trecho literal conferível é descartada.
 - **Peso realizado vence:** a nota usa o peso do `correcao.json`. O peso do edital é expectativa, e a divergência vira `warn` no CSV de discrepâncias. `correcao.py` não importa `regras_edital`; o `correcao.json`, os CSVs das fases 1 e 2 e o parquet mantêm schema e valores.
-- **Corte é múltiplo:** o gap é calculado contra cada corte aplicável, na unidade dele (pontos ou acertos), e "atingido" exige todos. O corte da discursiva fica fora do "atingido".
-- **Data só do edital ou da configuração:** sem data em nenhuma das duas fontes, o concurso fica sem data, com aviso.
+- **Corte é múltiplo:** o gap é calculado contra cada corte aplicável, na unidade dele (pontos ou acertos), e "atingido" exige todos. O corte da discursiva fica fora do "atingido", e escore padronizado e corte por classificação saem como não calculáveis.
+- **Data só do edital ou da configuração:** sem data em nenhuma das duas fontes (nem no LLM, se ligado), o concurso fica sem data, com aviso.
 - **Descoberta tem uso:** cada candidato do registro declara o uso no projeto, o impacto e o status. Sem uso que mude análise, decisão ou gráfico, ele vai para os descartados com o motivo. Mudar um candidato sobe `VERSAO_CANDIDATOS`.
 - **Descoberta propõe:** quando ela afeta código de fase anterior (OCR da folha, `correcao.py`), registre-a como `proposto`, com o diff estimado em `proposta`, e peça confirmação. O catálogo lista essas propostas.
 - **Simulação é estimativa:** os textos de cenário se apresentam como estimativa e não estimam colocação.
+
+## CLI
+
+- Erro do usuário: `ErroDoUsuario(causa, dica)`, código 1; do ambiente: `ErroDoAmbiente`, código 2. Na tela, no máximo `erro:` e `dica:`; o traceback vai só para o log em `~/.concurso/logs/`.
+- Toda pergunta tem padrão e é pulada sem TTY, com `CI` ou com `--yes`. `--dry-run` não grava nada, nem configuração.
+- Reexecutar sem mudança não altera nenhum `mtime` em `analises/`; grave saídas regeneradas a cada execução com `gravar_se_mudou`.
 
 ## Código
 
@@ -55,3 +108,12 @@ Pipeline local de correção e análise de provas de concurso. Fase 1: a CLI `co
 - Comentários e docstrings só registram restrições que o código não mostra.
 - Preserve o final de linha de cada arquivo: boa parte da fase 1 (e `docs/modelo.md`) usa CRLF.
 - TDD: o teste que falha vem primeiro, em `tests/` (os das fases 2 e 3 são `test_analytics_<módulo>.py`), com dados sintéticos; `tests/consolidado_sintetico.py` monta consolidados mínimos. Para regras do edital, use trechos curtos de texto real como fixture.
+- Python 3.11 e 3.12; o `uv.lock` é commitado. O que o comando principal importa é dependência do projeto, não de grupo: o `uvx` não instala grupos.
+
+## Fora de escopo
+
+- Interface web, app mobile, servidor multiusuário e sincronização em nuvem.
+- OCR treinado próprio, idiomas além do português, e LLM para classificar tópicos, ler a folha ou ler a prova.
+- Telemetria, mesmo opt-in, e atualização automática silenciosa (`upgrade` só roda quando pedido).
+- Calcular corte por escore padronizado ou por quantidade de classificados, e estimar colocação.
+- Marketplace de perfis, pacotes Homebrew ou Chocolatey e, enquanto não houver remoto, publicar no PyPI e rodar o CI.

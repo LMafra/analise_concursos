@@ -48,7 +48,7 @@ def verificar(config: ConcursoConfig) -> Pendencias:
     Troca só quando cada prova tem um único candidato e não há outro arquivo pendente; qualquer outro caso
     vira motivo de concurso desatualizado.
     """
-    instrucao = f'rode `concursos adicionar {config.pasta}`'
+    instrucao = f'rode `concurso-analise add {config.pasta}`'
     preliminares = [p for p in config.provas if p.gabarito.status == 'preliminar']
     candidatos: dict[str, list[str]] = {p.chave: [] for p in preliminares}
     motivos = []

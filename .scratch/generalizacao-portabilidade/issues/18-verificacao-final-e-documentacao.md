@@ -8,10 +8,10 @@
 
 **Blocked by:** 17
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `grep -r "/home/" src/` retorna vazio, e o teste de ausência de dado pessoal passa.
-- [ ] Nenhum arquivo do pacote importa de `notebooks/`.
-- [ ] O `AGENTS.md` e o README estão atualizados.
-- [ ] `scripts/rodar_notebooks.sh` executa todos os notebooks do zero.
-- [ ] A suíte está verde, o ruff está limpo e a paridade final não mostra diferença.
+- [x] `grep -r "/home/" src/` retorna vazio, e o teste de ausência de dado pessoal passa. (Só os `.pyc` de `__pycache__` casam, fora do git.)
+- [x] Nenhum arquivo do pacote importa de `notebooks/`.
+- [x] O `AGENTS.md` e o README estão atualizados. (Wizard e progresso como captura de terminal; relatório em `docs/img/relatorio.png`, de um projeto sintético.)
+- [x] `scripts/rodar_notebooks.sh` executa todos os notebooks do zero. (O 00 contava as questões na raiz de `analises/`; passou a usar a pasta do candidato.)
+- [x] A suíte está verde, o ruff está limpo e a paridade final não mostra diferença. (Retrato regravado: as mensagens de pasta sem cadastro no `comparativo_concursos.md` passaram a citar `concurso-analise add`.)

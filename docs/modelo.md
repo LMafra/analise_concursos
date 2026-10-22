@@ -694,3 +694,9 @@ No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_htm
 - espaço em disco: menos de 200 MB é `✗`, menos de 1 GB é `!`.
 
 Sai com 2 se algum item tem `✗`, senão com 0.
+
+**`upgrade`.** Só imprime `uv tool upgrade concurso-analise`; com `--run`, executa-o pelo `uv` do PATH (sem ele, sai com 2 e a `dica:` de instalação). Com `--dry-run`, só imprime. A ferramenta nunca se atualiza sozinha.
+
+**Idempotência.** Uma execução sem mudança nas entradas não altera nenhum `mtime` em `analises/`, nem com `--dry-run`: as saídas por concurso dependem do manifesto, o `index.html` só é regerado quando algo foi reprocessado, e o consolidado (`desempenho_geral.csv`, `comparativo_concursos.md`) só é regravado quando o conteúdo muda.
+
+**Distribuição.** `uvx --from <repositório> concurso-analise` ou `uv tool install <repositório>` (o comando principal não depende de grupos de dependência). O `Dockerfile` (`python:3.12-slim-trixie`, `tesseract-ocr-por`, `uv sync --locked --no-dev`) espera o projeto montado em `/dados`, com `CONCURSO_HOME=/dados/.concurso-home`; o `.dockerignore` deixa `provas/`, `analises/` e `.concurso/` fora da imagem. `scripts/smoke.py` é o teste de ponta a ponta: onboarding com `--yes`, análise de dois concursos sintéticos num caminho com espaço e acento e reexecuções sem mudança de `mtime`.

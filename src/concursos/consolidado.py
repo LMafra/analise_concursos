@@ -212,7 +212,7 @@ def _pendentes(situacoes: dict[str, StatusConcurso], analisados: set[str]) -> li
         {
             'concurso': s.nome,
             'situacao': 'sem análise',
-            'motivo': 'a última análise falhou; veja o log de `analisar`',
+            'motivo': 'a última análise falhou; rode `concurso-analise --verbose` e veja o log',
         }
         for pasta, s in situacoes.items()
         if s.situacao is Situacao.COMPLETO and pasta not in analisados

@@ -37,7 +37,7 @@ def listar_concursos(raiz_provas: Path) -> list[Path]:
 def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
     """Sem candidato, as respostas vêm do `concurso.yaml` (layout das fases 1 a 3)."""
     if not (pasta / ARQUIVO_CONFIG).exists():
-        motivo = f'{ARQUIVO_CONFIG} ausente; rode `concursos adicionar {pasta}`'
+        motivo = f'{ARQUIVO_CONFIG} ausente; rode `concurso-analise add {pasta}`'
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
     try:
         config = carregar_concurso(pasta)
