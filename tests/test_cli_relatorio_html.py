@@ -55,6 +55,31 @@ def test_indice_liga_cada_concurso_ao_seu_relatorio_com_os_numeros(projeto):
     assert '<table>' in relatorio.read_text(encoding='utf-8')
 
 
+def test_percentual_do_indice_segue_a_regra_da_banca(projeto):
+    pasta = projeto / 'provas' / 'gama'
+    pasta.mkdir(parents=True)
+    config = {
+        'nome': 'gama',
+        'banca': 'cebraspe',
+        'formato': 'certo_errado',
+        'pontuacao': 'cebraspe',
+        'data_prova': '2025-06-01',
+        'provas': {'unica': {'gabarito': 'gabarito.txt', 'itens': [1, 4]}},
+    }
+    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(config), encoding='utf-8')
+    (pasta / 'gabarito.txt').write_text('1 C\n2 E\n3 C\n4 E\n', encoding='utf-8')
+    respostas(projeto, 'gama', '1 C\n2 E\n3 C\n4 C\n')
+
+    assert main(['--candidate', 'alice']) == 0
+
+    html = indice(projeto).read_text(encoding='utf-8')
+    linha = re.search(r'<tr><td><a href="gama/.*?</tr>', html).group(0)
+    assert '3 de 4' in linha
+    assert '50,0%' in linha and '2 de 4 pontos' in linha
+    linha = re.search(r'<tr><td><a href="alfa/.*?</tr>', html).group(0)
+    assert '75,0%' in linha
+
+
 def test_indice_diz_o_que_o_app_decidiu_sozinho_e_a_origem(projeto):
     assert main(['--candidate', 'alice']) == 0
 

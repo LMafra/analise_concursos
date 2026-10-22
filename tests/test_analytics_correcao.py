@@ -15,6 +15,7 @@ from concursos.analytics.correcao import (
     mencao_penalidade,
     nota_normalizada,
     notas_finais,
+    notas_pela_regra,
     resolver_correcao,
 )
 from concursos.concurso_config import PesoItens, validar_dados
@@ -262,6 +263,26 @@ def test_nota_final_so_quando_a_regra_desconta_erro_ou_pesa_itens():
         NotaFinal(1.0 + 2.0 + 2.0, 6.0, variante='ti')
     ]
     assert notas_finais(itens, [BRUTA], Formato.CERTO_ERRADO) == []
+
+
+def test_percentual_pela_regra_desconta_o_erro_do_cebraspe():
+    itens = questoes(*['acerto'] * 35, *['erro'] * 15)
+
+    (nota,) = notas_pela_regra(itens, [LIQUIDA], Formato.CERTO_ERRADO)
+
+    assert nota == NotaFinal(20.0, 50.0)
+    assert nota.percentual == 40.0
+
+
+def test_percentual_pela_regra_inclui_a_bruta_e_pesa_os_itens():
+    itens = questoes('acerto', 'erro', 'acerto', 'branco', anuladas=(4,))
+    ponderada = ConfiguracaoCorrecao(ModeloCorrecao.PONDERADA, pesos=(PesoItens(3, 4, 2.0),), variante='ti')
+
+    bruta, pesada = notas_pela_regra(itens, [BRUTA, ponderada], Formato.CERTO_ERRADO)
+
+    assert bruta.percentual == 75.0
+    assert pesada == NotaFinal(5.0, 6.0, variante='ti')
+    assert pesada.percentual == 83.33
 
 
 @pytest.mark.parametrize(

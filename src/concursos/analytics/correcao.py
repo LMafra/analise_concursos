@@ -118,6 +118,10 @@ class NotaFinal:
     def rotulado(self) -> str:
         return f'{self.variante}: {self.texto}' if self.variante else self.texto
 
+    @property
+    def percentual(self) -> float:
+        return round(100 * self.nota / self.nota_maxima, 2) if self.nota_maxima else 0.0
+
 
 def notas_finais(
     questoes: pd.DataFrame, configuracoes: list[ConfiguracaoCorrecao], formato: Formato
@@ -133,12 +137,37 @@ def notas_finais(
     ]
 
 
+def notas_pela_regra(
+    questoes: pd.DataFrame, configuracoes: list[ConfiguracaoCorrecao], formato: Formato
+) -> list[NotaFinal]:
+    """Uma por variante, inclusive na bruta, sobre a soma dos pesos das questões: o percentual que a regra da
+    banca dá (no Cebraspe, 35 acertos e 15 erros em 50 itens valem 40%)."""
+    return [
+        NotaFinal(
+            aplicar_correcao(questoes, cfg, formato).nota,
+            float(questoes['questao'].map(cfg.peso_de).sum()),
+            cfg.nota_corte,
+            cfg.variante,
+        )
+        for cfg in configuracoes
+    ]
+
+
 def notas_finais_gravadas(pasta: Path, formato: Formato) -> list[NotaFinal]:
     """As notas finais de um concurso já analisado, a partir do `questoes.csv` e do `correcao.json`."""
     if not (pasta / ARQUIVO_CORRECAO).exists():
         return []
-    questoes = pd.read_csv(pasta / ARQUIVO_QUESTOES, usecols=['questao', 'resultado', 'anulada'])
-    return notas_finais(questoes, ler_correcao(pasta), formato)
+    return notas_finais(_questoes_gravadas(pasta), ler_correcao(pasta), formato)
+
+
+def notas_pela_regra_gravadas(pasta: Path, formato: Formato) -> list[NotaFinal]:
+    if not (pasta / ARQUIVO_CORRECAO).exists():
+        return []
+    return notas_pela_regra(_questoes_gravadas(pasta), ler_correcao(pasta), formato)
+
+
+def _questoes_gravadas(pasta: Path) -> pd.DataFrame:
+    return pd.read_csv(pasta / ARQUIVO_QUESTOES, usecols=['questao', 'resultado', 'anulada'])
 
 
 _NUMERO = r'\d+(?:,\d+)?'

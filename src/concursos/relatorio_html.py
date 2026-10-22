@@ -21,11 +21,14 @@ from concursos.analytics.consolidado import (
     pasta_consolidado,
     regras_por_concurso,
 )
+from concursos.analytics.correcao import NotaFinal, notas_pela_regra_gravadas
 from concursos.analytics.evolucao import comparar_percentual_e_gap
 from concursos.analytics.insights import gravar_relatorio_evolucao
+from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso
 from concursos.consolidado import MINIMO_CONCURSOS, PASTA_CONSOLIDADO
 from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
+from concursos.resultado_oficial import formatar
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +61,7 @@ code { background: #eef1f5; padding: 0 0.2rem; }
 .ok { background: #d8f3dc; } .info { background: #dbeafe; }
 .atencao { background: #fef3c7; } .alerta { background: #fde2e1; }
 footer { margin-top: 2rem; color: #616e7c; font-size: 0.8rem; }
+.nota { color: #616e7c; font-size: 0.85rem; }
 """
 
 
@@ -71,6 +75,7 @@ class ConcursoNoIndice:
     confianca: float | None
     data_prova: str | None
     nivel_edital: str | None
+    notas: tuple[NotaFinal, ...] = ()
 
 
 def gerar_relatorio_html(
@@ -85,7 +90,7 @@ def gerar_relatorio_html(
         markdown = (pasta / 'relatorio.md').read_text(encoding='utf-8')
         corpo = f'<p><a href="../{ARQUIVO_INDICE}">← todos os concursos</a></p>\n{_html(markdown)}'
         (pasta / ARQUIVO_RELATORIO_HTML).write_text(_pagina(pasta.name, corpo), encoding='utf-8')
-    concursos = [_resumo(pasta) for pasta in pastas]
+    concursos = [_resumo(pasta, raiz_provas / pasta.name) for pasta in pastas]
     corpo = '\n'.join(
         [
             f'<h1>Relatório de {escape(raiz_analises.name)}</h1>',
@@ -133,11 +138,14 @@ def _no_wsl() -> bool:
         return False
 
 
-def _resumo(pasta: Path) -> ConcursoNoIndice:
+def _resumo(pasta: Path, pasta_provas: Path) -> ConcursoNoIndice:
     desempenho = pd.read_csv(pasta / 'desempenho_por_disciplina.csv', keep_default_na=False)
     total, acertos, anuladas = (int(desempenho[c].sum()) for c in ('total', 'acertos', 'anuladas'))
     validas = total - anuladas
     correcao = _correcao(pasta)
+    notas = ()
+    if (pasta_provas / ARQUIVO_CONFIG).exists():
+        notas = tuple(notas_pela_regra_gravadas(pasta, carregar_concurso(pasta_provas).formato))
     return ConcursoNoIndice(
         nome=pasta.name,
         total=total,
@@ -147,6 +155,7 @@ def _resumo(pasta: Path) -> ConcursoNoIndice:
         confianca=correcao.get('confianca'),
         data_prova=correcao.get('data_prova'),
         nivel_edital=(_json(pasta / ARQUIVO_EDITAL_ESTRUTURADO).get('confianca_edital') or {}).get('nivel'),
+        notas=notas,
     )
 
 
@@ -155,7 +164,7 @@ def _tabela_de_concursos(concursos: list[ConcursoNoIndice]) -> str:
         return '<p>Nenhum concurso analisado.</p>'
     linhas = [
         '<table>',
-        '<tr><th>Concurso</th><th>Data</th><th>Acertos</th><th>Percentual</th><th>Edital</th>'
+        '<tr><th>Concurso</th><th>Data</th><th>Acertos</th><th>Percentual pela regra</th><th>Edital</th>'
         '<th>Correção</th></tr>',
     ]
     for concurso in concursos:
@@ -166,12 +175,28 @@ def _tabela_de_concursos(concursos: list[ConcursoNoIndice]) -> str:
             f'<tr><td><a href="{escape(concurso.nome)}/{ARQUIVO_RELATORIO_HTML}">{escape(concurso.nome)}</a></td>'
             f'<td>{escape(concurso.data_prova or "sem data")}</td>'
             f'<td>{concurso.acertos} de {concurso.total}</td>'
-            f'<td>{_numero(concurso.percentual, 1)}%</td>'
+            f'<td>{_percentual_pela_regra(concurso)}</td>'
             f'<td><span class="selo {classe_do_nivel}">{escape(nivel)}</span></td>'
             f'<td><span class="selo {classe}">{escape(rotulo)}{confianca}</span></td></tr>'
         )
     linhas.append('</table>')
+    linhas.append(
+        '<p class="nota">Percentual pela regra: a nota pela regra de correção (desconto por erro e pesos do '
+        'edital; anulada vale ponto) sobre a nota máxima.</p>'
+    )
     return '\n'.join(linhas)
+
+
+def _percentual_pela_regra(concurso: ConcursoNoIndice) -> str:
+    if not concurso.notas:
+        return f'{_numero(concurso.percentual, 1)}%'
+    return '<br>'.join(
+        escape(
+            f'{nota.variante + ": " if nota.variante else ""}{_numero(nota.percentual, 1)}% '
+            f'({formatar(round(nota.nota, 2))} de {formatar(nota.nota_maxima)} pontos)'
+        )
+        for nota in concurso.notas
+    )
 
 
 def _decisoes(pasta: Path) -> list[str]:
