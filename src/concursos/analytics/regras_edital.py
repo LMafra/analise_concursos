@@ -181,6 +181,36 @@ class Prova:
     penalidade: Campo = field(default_factory=Campo)
 
 
+class NivelConfianca(StrEnum):
+    ALTA = 'alta'
+    MEDIA = 'media'
+    BAIXA = 'baixa'
+    MINIMA = 'minima'
+
+
+LIMIAR_CONFIANCA_ALTA = 0.8
+LIMIAR_CONFIANCA_MEDIA = 0.5
+FONTES_DO_TEXTO = frozenset({FonteRegra.EDITAL, FonteRegra.RETIFICACAO, FonteRegra.DESCOBERTA})
+CAMADA_DA_FONTE = {
+    FonteRegra.EDITAL: 'heuristica',
+    FonteRegra.RETIFICACAO: 'heuristica',
+    FonteRegra.DESCOBERTA: 'heuristica',
+    FonteRegra.PERFIL: 'perfil',
+    FonteRegra.CONFIG: 'config',
+    FonteRegra.DEFAULT: 'nenhuma',
+}
+
+
+@dataclass(frozen=True)
+class ConfiancaEdital:
+    """Média da confiança dos campos essenciais, contando 0 nos que não vieram do texto do edital. Sem
+    nenhum do texto (edital em imagem, banca desconhecida), o nível é `minima`: só o conteúdo programático,
+    se houver, e o que o usuário confirmar."""
+
+    valor: float = 0.0
+    nivel: NivelConfianca = NivelConfianca.MINIMA
+
+
 @dataclass(frozen=True)
 class RegrasEdital:
     identificacao: Identificacao = field(default_factory=Identificacao)
@@ -190,6 +220,7 @@ class RegrasEdital:
     cronograma: Cronograma = field(default_factory=Cronograma)
     metadados: tuple[Metadado, ...] = ()
     prova: Prova = field(default_factory=Prova)
+    confianca_edital: ConfiancaEdital = field(default_factory=ConfiancaEdital)
     versao_candidatos: int = VERSAO_CANDIDATOS
     avisos: tuple[str, ...] = ()
 
@@ -197,8 +228,47 @@ class RegrasEdital:
         return next((m for m in self.metadados if m.chave == chave), None)
 
     def gravar_json(self, caminho: Path) -> None:
-        """Grava as regras no edital estruturado, preservando o conteúdo programático já gravado."""
-        mesclar_json(caminho, json.loads(json.dumps(asdict(self), ensure_ascii=False, default=str)))
+        """Grava as regras no edital estruturado, preservando o conteúdo programático já gravado. Cada campo
+        ganha a `camada` que o preencheu."""
+        dados = json.loads(json.dumps(asdict(self), ensure_ascii=False, default=str))
+        mesclar_json(caminho, _com_camadas(dados))
+
+
+def _com_camadas(valor: Any) -> Any:
+    if isinstance(valor, list):
+        return [_com_camadas(item) for item in valor]
+    if not isinstance(valor, dict):
+        return valor
+    valor = {chave: _com_camadas(item) for chave, item in valor.items()}
+    if 'fonte' in valor and 'confianca_extracao' in valor:
+        valor['camada'] = CAMADA_DA_FONTE[FonteRegra(valor['fonte'])]
+    return valor
+
+
+def confianca_do_edital(regras: RegrasEdital) -> ConfiancaEdital:
+    calculaveis = [
+        c for c in regras.cortes if c.unidade.calculavel and c.escopo is not EscopoCorte.DISCURSIVA
+    ]
+    essenciais = [
+        regras.identificacao.cargo,
+        regras.prova.formato,
+        regras.prova.penalidade,
+        regras.distribuicao.total,
+        regras.cronograma.objetiva,
+        regras.pesos.tipo,
+        max(calculaveis, key=lambda corte: corte.confianca_extracao, default=Campo()),
+    ]
+    if regras.prova.formato.valor == Formato.MULTIPLA_ESCOLHA:
+        essenciais.append(regras.prova.alternativas)
+    do_texto = [c.confianca_extracao for c in essenciais if c.fonte in FONTES_DO_TEXTO]
+    if not do_texto:
+        return ConfiancaEdital()
+    valor = round(sum(do_texto) / len(essenciais), 2)
+    if valor >= LIMIAR_CONFIANCA_ALTA:
+        return ConfiancaEdital(valor, NivelConfianca.ALTA)
+    if valor >= LIMIAR_CONFIANCA_MEDIA:
+        return ConfiancaEdital(valor, NivelConfianca.MEDIA)
+    return ConfiancaEdital(valor, NivelConfianca.BAIXA)
 
 
 def _fonte_do_documento(retificacao: bool) -> FonteRegra:
@@ -1410,7 +1480,7 @@ def extrair_regras(
     avisos += avisos_dos_pesos + avisos_da_distribuicao + avisos_dos_cortes + avisos_do_cronograma
     for aviso in avisos:
         logger.warning('%s', aviso)
-    return RegrasEdital(
+    regras = RegrasEdital(
         identificacao,
         pesos,
         distribuicao,
@@ -1420,6 +1490,7 @@ def extrair_regras(
         prova=_extrair_prova(config, docs, escopo),
         avisos=tuple(avisos),
     )
+    return replace(regras, confianca_edital=confianca_do_edital(regras))
 
 
 def ler_regras(pasta: Path) -> dict | None:

@@ -37,6 +37,12 @@ _SELOS = {
     'perfil': ('regra do perfil da banca', 'atencao'),
     'default': ('regra padrão', 'alerta'),
 }
+_NIVEIS_DO_EDITAL = {
+    'alta': ('edital: alta', 'ok'),
+    'media': ('edital: média', 'info'),
+    'baixa': ('edital: baixa', 'atencao'),
+    'minima': ('edital: mínima', 'alerta'),
+}
 _ORIGEM_DO_CAMPO = {'perfil': 'perfil da banca', 'default': 'padrão'}
 _SEVERIDADES_NO_RELATORIO = ('error', 'warn')
 _CSS = """
@@ -64,6 +70,7 @@ class ConcursoNoIndice:
     fonte: str | None
     confianca: float | None
     data_prova: str | None
+    nivel_edital: str | None
 
 
 def gerar_relatorio_html(
@@ -139,6 +146,7 @@ def _resumo(pasta: Path) -> ConcursoNoIndice:
         fonte=correcao.get('fonte'),
         confianca=correcao.get('confianca'),
         data_prova=correcao.get('data_prova'),
+        nivel_edital=(_json(pasta / ARQUIVO_EDITAL_ESTRUTURADO).get('confianca_edital') or {}).get('nivel'),
     )
 
 
@@ -147,16 +155,19 @@ def _tabela_de_concursos(concursos: list[ConcursoNoIndice]) -> str:
         return '<p>Nenhum concurso analisado.</p>'
     linhas = [
         '<table>',
-        '<tr><th>Concurso</th><th>Data</th><th>Acertos</th><th>Percentual</th><th>Edital</th></tr>',
+        '<tr><th>Concurso</th><th>Data</th><th>Acertos</th><th>Percentual</th><th>Edital</th>'
+        '<th>Correção</th></tr>',
     ]
     for concurso in concursos:
         rotulo, classe = _SELOS.get(concurso.fonte or '', ('sem regra de correção', 'alerta'))
         confianca = f' ({_numero(concurso.confianca, 2)})' if concurso.confianca is not None else ''
+        nivel, classe_do_nivel = _NIVEIS_DO_EDITAL.get(concurso.nivel_edital or '', ('sem edital', 'info'))
         linhas.append(
             f'<tr><td><a href="{escape(concurso.nome)}/{ARQUIVO_RELATORIO_HTML}">{escape(concurso.nome)}</a></td>'
             f'<td>{escape(concurso.data_prova or "sem data")}</td>'
             f'<td>{concurso.acertos} de {concurso.total}</td>'
             f'<td>{_numero(concurso.percentual, 1)}%</td>'
+            f'<td><span class="selo {classe_do_nivel}">{escape(nivel)}</span></td>'
             f'<td><span class="selo {classe}">{escape(rotulo)}{confianca}</span></td></tr>'
         )
     linhas.append('</table>')

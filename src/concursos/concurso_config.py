@@ -9,6 +9,9 @@ from concursos.modelo import LETRAS, Escolaridade, Formato, ModeloCorrecao, Nive
 from concursos.perfis import ids_de_banca, perfil_da_banca
 
 ARQUIVO_CONFIG = 'concurso.yaml'
+ARQUIVO_CONFIRMACAO = 'edital_a_confirmar.yaml'
+CAMPOS_CONFIRMAVEIS = ('data_prova', 'alternativas', 'fator_penalidade', 'nota_corte')
+_CAMPOS_DE_CORRECAO = ('fator_penalidade', 'nota_corte')
 STATUS_GABARITO = ('preliminar', 'definitivo')
 
 
@@ -186,11 +189,51 @@ def carregar_concurso(pasta: Path) -> ConcursoConfig:
     caminho = pasta / ARQUIVO_CONFIG
     if not caminho.exists():
         raise ArquivoAusenteError(f'{caminho}: arquivo de configuração ausente')
+    dados = _ler_yaml(caminho)
+    confirmados = _ler_confirmacao(pasta / ARQUIVO_CONFIRMACAO)
+    if not confirmados:
+        return validar_dados(pasta, dados)
+    try:
+        return _montar(pasta, _com_confirmados(dados, confirmados))
+    except (KeyError, TypeError, ValueError) as erro:
+        validar_dados(pasta, dados)
+        raise ConfiguracaoInvalidaError(f'{pasta / ARQUIVO_CONFIRMACAO}: {erro}') from erro
+
+
+def _ler_yaml(caminho: Path) -> dict:
     try:
         dados = yaml.load(caminho.read_text(encoding='utf-8'), Loader=_CarregadorSemDatas) or {}
     except yaml.YAMLError as erro:
         raise ConfiguracaoInvalidaError(f'{caminho}: {erro}') from erro
-    return validar_dados(pasta, dados)
+    if not isinstance(dados, dict):
+        raise ConfiguracaoInvalidaError(f'{caminho}: esperado um mapa de campo para valor')
+    return dados
+
+
+def _ler_confirmacao(caminho: Path) -> dict:
+    """Os campos preenchidos do `edital_a_confirmar.yaml`; os vazios ficam de fora."""
+    if not caminho.exists():
+        return {}
+    dados = _ler_yaml(caminho)
+    if desconhecidos := sorted(set(dados) - set(CAMPOS_CONFIRMAVEIS)):
+        raise ConfiguracaoInvalidaError(
+            f"{caminho}: campo desconhecido '{desconhecidos[0]}' (use {', '.join(CAMPOS_CONFIRMAVEIS)})"
+        )
+    return {campo: valor for campo, valor in dados.items() if valor is not None}
+
+
+def _com_confirmados(dados: dict, confirmados: dict) -> dict:
+    """O que o `concurso.yaml` declara vence o que foi confirmado."""
+    dados = dict(dados)
+    for campo, valor in confirmados.items():
+        if campo in _CAMPOS_DE_CORRECAO:
+            correcao = dict(dados.get('correcao') or {})
+            if correcao.get(campo) is None:
+                correcao[campo] = valor
+            dados['correcao'] = correcao
+        elif dados.get(campo) is None:
+            dados[campo] = valor
+    return dados
 
 
 def validar_dados(pasta: Path, dados: dict) -> ConcursoConfig:

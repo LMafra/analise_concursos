@@ -94,12 +94,13 @@ def test_edital_manual_tem_precedencia(raizes):
     assert [t['nome'] for t in disciplina['topicos']] == ['Modelagem relacional', 'NoSQL']
 
 
-def test_edital_sem_conteudo_programatico_e_sem_manual_falha_com_mensagem_clara(raizes, caplog):
+def test_edital_sem_conteudo_programatico_e_sem_manual_segue_sem_topicos_e_avisa(raizes, caplog):
     provas, analises = raizes
     criar(provas, {'arquivo': 'edital.txt'}, {'edital.txt': 'EDITAL Nº 1\nDas inscrições.\n'})
 
-    with caplog.at_level(logging.ERROR):
-        assert analisar(provas, analises) == 1
+    with caplog.at_level(logging.WARNING):
+        assert analisar(provas, analises) == 0
 
     assert 'edital.txt: conteúdo programático não encontrado' in caplog.text
-    assert 'edital.manual' in caplog.text
+    assert 'dica:' in caplog.text and 'edital.manual' in caplog.text
+    assert ler_csv(analises / 'sintetico' / 'questoes.csv')['topico'].eq('nao_mapeado').all()

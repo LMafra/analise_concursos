@@ -30,6 +30,7 @@ from concursos.edital import (
     carregar_edital_manual,
     estruturar_edital,
 )
+from concursos.edital_a_confirmar import gravar_confirmacao
 from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.graficos import gerar_graficos
@@ -40,7 +41,7 @@ from concursos.relatorio import ConteudoRelatorio, gerar_relatorio
 from concursos.respostas import ler_respostas_txt
 from concursos.resultado_oficial import gravar_validacao, validar_resultado
 from concursos.status import Situacao, avaliar, listar_concursos
-from concursos.texto import MINIMO_CARACTERES_PAGINA, extrair_paginas
+from concursos.texto import MINIMO_CARACTERES_PAGINA, OcrIndisponivelError, extrair_paginas
 from concursos.topicos import ARQUIVO_REVISAO, gravar_revisao, ler_revisao, sugerir_topicos
 
 logger = logging.getLogger(__name__)
@@ -230,6 +231,7 @@ def _regras_do_edital(
     }
     regras = extrair_regras(config, documentos, retificacoes)
     regras.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
+    gravar_confirmacao(config, regras, correcoes)
     gravar_discrepancias(validar_edital(config, regras, resultados, taxonomia, correcoes), destino)
     gravar_catalogo(config, regras, destino)
     return regras
@@ -272,16 +274,30 @@ def _ler_edital(config: ConcursoConfig, documentos: dict[str, list[str]]) -> Edi
         return None
     if config.edital.manual:
         return carregar_edital_manual(config.caminho(config.edital.manual), config.cargo)
-    erros = []
+    erros, sem_ocr = [], []
     for arquivo, paginas in documentos.items():
         try:
             return _estruturar_documento(config.caminho(arquivo), paginas, config.cargo)
         except EditalNaoEstruturadoError as erro:
             erros.append(str(erro))
-    raise EditalNaoEstruturadoError(
-        f'{"; ".join(erros)}. Forneça o conteúdo programático num edital manual '
-        '(edital.manual no concurso.yaml; formato em docs/modelo.md)'
-    )
+        except OcrIndisponivelError:
+            sem_ocr.append(arquivo)
+    if sem_ocr:
+        logger.warning(
+            '%s: %s sem texto e o Tesseract não está instalado; seguindo em modo mínimo, sem o conteúdo '
+            'programático. dica: instale o Tesseract com o idioma português (sudo apt install tesseract-ocr '
+            'tesseract-ocr-por) ou rode `concurso-analise doctor`',
+            config.nome,
+            ', '.join(sem_ocr),
+        )
+    else:
+        logger.warning(
+            '%s: %s; seguindo sem o conteúdo programático, com os tópicos como nao_mapeado. dica: forneça um '
+            'edital manual (edital.manual no concurso.yaml; formato em docs/modelo.md)',
+            config.nome,
+            '; '.join(erros),
+        )
+    return None
 
 
 def _estruturar_documento(caminho: Path, paginas: list[str], cargo: str | None) -> Edital:

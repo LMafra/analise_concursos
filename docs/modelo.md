@@ -184,9 +184,21 @@ O módulo `concursos.analytics.regras_edital` lê do texto do edital e dos anexo
 - `valor`;
 - `fonte`: `retificacao`, `edital`, `config`, `perfil`, `default` ou `descoberta`;
 - `trecho_origem`, `documento_origem` e `pagina_origem`, sempre preenchidos quando a fonte é `retificacao`, `edital` ou `descoberta`;
-- `confianca_extracao`, de 0 a 1.
+- `confianca_extracao`, de 0 a 1;
+- `camada`, só no JSON: `heuristica` (fontes `retificacao`, `edital` e `descoberta`), `perfil`, `config` ou `nenhuma` (`default`).
 
 A precedência é retificação, depois edital, depois configuração, depois perfil da banca (só nos campos que o perfil traz), depois default. Um campo que cai no default fica com `valor` nulo, e o motivo vai para `avisos` (lista de textos) e para o log. O `correcao.json` continua sendo a fonte da regra de correção aplicada; as regras do edital são a expectativa.
+
+**Confiança do edital** (`confianca_edital`, `{valor, nivel}`). Agrega os campos essenciais: cargo, formato, penalidade, total da distribuição, data da objetiva, tipo de pesos, o melhor corte calculável fora da discursiva e, em múltipla escolha, as alternativas. O `valor` é a soma das confianças dos essenciais que vieram do texto (edital, retificação ou descoberta) dividida pelo número de essenciais, com 2 casas. O `nivel` é `alta` a partir de 0,8, `media` a partir de 0,5, `baixa` abaixo disso e `minima` quando nenhum essencial veio do texto (`valor` 0).
+
+**Modo mínimo e `edital_a_confirmar.yaml`.** Um edital sem conteúdo programático (texto sem a seção, ou PDF imagem sem o Tesseract) não aborta a análise: o log avisa com uma `dica:` (instalar o Tesseract com o idioma português, rodar `concurso-analise doctor` ou fornecer `edital.manual`), e as questões ficam com tópico `nao_mapeado`. Depois das regras, faltando algum destes campos, a análise grava `provas/<concurso>/edital_a_confirmar.yaml` e avisa no log:
+
+- `data_prova`: a correção ficou sem data;
+- `alternativas`: múltipla escolha com alternativas no default;
+- `fator_penalidade`: regra de correção no default;
+- `nota_corte`: nenhum corte calculável fora da discursiva.
+
+O arquivo traz um cabeçalho, a lista do que foi extraído (ou "Nada foi extraído do edital") e, para cada campo, um comentário e a chave vazia. Já existindo, só ganha as chaves que faltam; o que o usuário escreveu fica. Na próxima análise, os valores preenchidos entram como se estivessem no `concurso.yaml` (fonte `config`; `fator_penalidade` e `nota_corte` dentro de `correcao`), e o `concurso.yaml` vence quando os dois trazem o campo. Chave desconhecida ou valor inválido param a análise com o nome do arquivo.
 
 **Retificações.** Há duas formas de um valor sair com fonte `retificacao`:
 
@@ -541,7 +553,7 @@ Editar a taxonomia reconstrói o consolidado na próxima carga.
 
 ## Edital manual
 
-Use quando o conteúdo programático não puder ser extraído do PDF, ou para corrigir a estrutura extraída. O caminho vai em `edital.manual`.
+Use quando o conteúdo programático não puder ser extraído do PDF (sem ele, a análise segue com os tópicos `nao_mapeado`), ou para corrigir a estrutura extraída. O caminho vai em `edital.manual`.
 
 ```yaml
 cargo: Analista de TI          # opcional
@@ -626,7 +638,7 @@ No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_htm
 
 - **`<concurso>/relatorio.html`:** o `relatorio.md` em HTML, com as imagens relativas de `graficos/` e um link de volta ao índice.
 - **`index.html`:**
-  - tabela de concursos: link para o `relatorio.html`, data da prova, acertos de total, percentual de mérito (como no `desempenho_por_disciplina.csv`) e o selo da regra de correção (`regra do edital`, `do concurso.yaml`, `do perfil da banca` ou `padrão`, com a confiança);
+  - tabela de concursos: link para o `relatorio.html`, data da prova, acertos de total, percentual de mérito (como no `desempenho_por_disciplina.csv`), o selo da confiança do edital (`edital: alta`, `média`, `baixa` ou `mínima`; `sem edital` sem o JSON) e o selo da regra de correção (`regra do edital`, `do concurso.yaml`, `do perfil da banca` ou `padrão`, com a confiança);
   - o que o app decidiu sozinho: regra de correção do perfil ou padrão, campos do bloco `prova` do edital vindos do perfil ou do padrão, e as questões com tópico sugerido por similaridade sem revisão;
   - avisos: os do `edital_estruturado.json`, concurso sem data, as linhas `error` e `warn` do `discrepancias_edital.csv` e as leituras da folha com `revisar`;
   - evolução: o `relatorio_evolucao.md` e as figuras, mais a tabela de gap para o corte (`comparar_percentual_e_gap`, uma linha por concurso e variante com corte), ou o aviso de que a evolução precisa de 2 concursos;
