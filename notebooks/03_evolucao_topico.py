@@ -21,7 +21,7 @@
 # percentual é o ajustado ao acaso, que compara Cebraspe e FGV.
 
 # %%
-from concursos.analytics.consolidado import carregar_consolidado, raiz_do_projeto, topicos_do_edital
+from concursos.analytics.consolidado import carregar_consolidado, topicos_do_edital
 from concursos.analytics.evolucao import (
     cobertura_edital,
     evolucao_por_topico,
@@ -29,10 +29,10 @@ from concursos.analytics.evolucao import (
     topicos_fracos_persistentes,
 )
 from concursos.analytics.visualizacao import barras_fracos, heatmap_topicos, resumir
-from concursos.configuracao import carregar_configuracao_global
+from concursos.configuracao import configuracao_do_projeto
 
 consolidado = carregar_consolidado()
-limiar = carregar_configuracao_global(raiz_do_projeto() / 'config.yaml').limiar_topico_baixo
+limiar = configuracao_do_projeto().limiar_topico_baixo
 
 # %% [markdown]
 # ## Cobertura do edital

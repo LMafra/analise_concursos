@@ -24,7 +24,7 @@
 # %%
 from IPython.display import Markdown
 
-from concursos.analytics.consolidado import carregar_consolidado, raiz_do_projeto
+from concursos.analytics.consolidado import carregar_consolidado
 from concursos.analytics.evolucao import comparar_com_meta
 from concursos.analytics.insights import (
     calcular_achados,
@@ -33,10 +33,10 @@ from concursos.analytics.insights import (
     sensibilidade_em_markdown,
 )
 from concursos.analytics.visualizacao import resumir
-from concursos.configuracao import carregar_configuracao_global
+from concursos.configuracao import configuracao_do_projeto
 
 consolidado = carregar_consolidado()
-limiar = carregar_configuracao_global(raiz_do_projeto() / 'config.yaml').limiar_topico_baixo
+limiar = configuracao_do_projeto().limiar_topico_baixo
 achados = calcular_achados(consolidado, limiar)
 
 # %%

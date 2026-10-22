@@ -271,7 +271,7 @@ O CSV de discrepâncias compara a distribuição com as questões corrigidas (`q
 | `itens de conhecimentos gerais` / `… específicos` | questões por bloco: pela prova (P1/P2) ou, na prova única, pelo bloco da disciplina na taxonomia. Fica de fora se alguma questão não tem bloco conhecido | `error` |
 | `disciplina: <nome>` | questões da disciplina, casada pela disciplina canônica da taxonomia (ou pelo nome, se a taxonomia não a conhece) | `warn` |
 
-**Metadados e descoberta dirigida** (`metadados`, `versao_candidatos`). O registro versionado de candidatos (`concursos.analytics.candidatos_edital`, `VERSAO_CANDIDATOS`) declara, para cada candidato, a informação, os padrões de busca, o uso no projeto, o impacto (`alto`, `medio`, `baixo`), o status (`aplicado`, `proposto` ou `descartado`) e a severidade quando ausente. Mudar um candidato sobe a versão. Cada concurso tem um metadado por candidato, na ordem do registro, e nenhum some da saída. O metadado é um campo com mais duas chaves:
+**Metadados e descoberta dirigida** (`metadados`, `versao_candidatos`). O registro versionado de pistas do edital (`concursos.analytics.pistas_edital`, `VERSAO_CANDIDATOS`) declara, para cada pista, a informação, os padrões de busca, o uso no projeto, o impacto (`alto`, `medio`, `baixo`), o status (`aplicado`, `proposto` ou `descartado`) e a severidade quando ausente. Mudar uma pista sobe a versão. O campo serializado `versao_candidatos` no JSON não muda de nome. Cada concurso tem um metadado por pista, na ordem do registro, e nenhum some da saída. O metadado é um campo com mais duas chaves:
 
 - `chave`: a do candidato (`alternativas`, `desempate`, `validade`…);
 - `status`: `encontrado`, `nao_encontrado` ou `ambiguo`. Ambíguo é o candidato de valor único (alternativas, tipo de questão, validade) com valores diferentes no edital; o `valor` vira a lista deles.
@@ -316,6 +316,26 @@ O resolvedor de contexto (`config/contexto.py`) decide todos os caminhos; nada m
 | Análises | `./analises/` | `--analises` |
 
 O log técnico, com traceback, fica em `<global>/logs/concurso-analise.log` (rotativo, 3 cópias de 1 MB). Na tela, um erro sai em até duas linhas: `erro: <causa>` e `dica: <comando>`. Códigos de saída: 0 sucesso, 1 falha do usuário ou dos dados, 2 falha do ambiente ou uso inválido da CLI.
+
+Pastas de provas e análises também podem vir da seção `[pastas]` do `config.toml` do projeto, sobrepostas por `CONCURSO_PROVAS`, `CONCURSO_ANALISES` e pelas flags `--provas` e `--analises`.
+
+## `config.toml` do projeto
+
+Fica em `./.concurso/config.toml` (ou em `--data-dir`). Enquanto a migração da fase 4 não rodou, os limiares e o concurso-alvo continuam no `config.yaml` legado da raiz do projeto.
+
+```toml
+[pastas]
+provas = "provas"
+analises = "analises"
+
+[analise]
+limiar_confianca = 0.75
+limiar_topico_baixo = 0.6
+concurso_alvo = "tcu_25"   # opcional; nome da pasta do concurso
+```
+
+- **Validação:** os campos de `[analise]` são os mesmos do `config.yaml` antigo. Campo desconhecido ou valor fora de 0 a 1 (nos limiares) gera erro citando o campo e as opções.
+- **Precedência:** flag, variável de ambiente, `config.toml`, `config.yaml` legado, padrão.
 
 ## `concurso.yaml`
 
@@ -386,7 +406,7 @@ Todo arquivo da pasta precisa aparecer no `concurso.yaml` (num campo ou em `igno
 
 ## Taxonomia de disciplinas
 
-A `taxonomia.yaml`, na raiz do projeto, é escrita e revisada à mão. Ela mapeia cada nome de disciplina, como aparece nos `questoes.csv`, para uma **disciplina canônica**. Assim, a mesma matéria é comparada entre editais que usam nomes diferentes:
+A taxonomia fica em `./.concurso/taxonomia.yaml` (até a migração, vale o `taxonomia.yaml` legado na raiz do projeto). É escrita e revisada à mão. Ela mapeia cada nome de disciplina, como aparece nos `questoes.csv`, para uma **disciplina canônica**. Assim, a mesma matéria é comparada entre editais que usam nomes diferentes:
 
 ```yaml
 Raciocínio Lógico:
@@ -396,7 +416,7 @@ Raciocínio Lógico:
     - Raciocínio Análitico
 ```
 
-- **Nomes:** um nome só pode aparecer em uma disciplina canônica. A taxonomia não tem fallback: um nome ausente reprova a validação do consolidado, com a lista dos nomes que faltam. A disciplina `nao_mapeado`, das questões que o pipeline não classificou, passa direto, sem entrada na taxonomia.
+- **Nomes:** um nome só pode aparecer em uma disciplina canônica. Sem o arquivo de taxonomia, cada disciplina bruta vira canônica de si mesma. Um nome ausente do mapa também vira canônico de si mesmo, com bloco `nao_informado` na prova única (nas provas divididas, o bloco vem da chave da prova), e o consolidado registra aviso com a lista de nomes. A disciplina `nao_mapeado`, das questões que o pipeline não classificou, passa direto, sem entrada na taxonomia.
 - **Bloco:**
   - Nas provas divididas, o bloco vem da própria prova: `cg` e `cb` são `geral`, e `ce` é `especifico`.
   - Na prova única, vem do bloco da disciplina canônica. Uma questão `nao_mapeado` em prova única fica com bloco `nao_informado`.

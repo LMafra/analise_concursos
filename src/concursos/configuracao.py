@@ -4,6 +4,7 @@ from pathlib import Path
 import yaml
 
 from concursos.concurso_config import ConfiguracaoInvalidaError
+from concursos.config.contexto import Contexto, ler_toml, resolver_contexto
 
 
 @dataclass(frozen=True)
@@ -11,6 +12,15 @@ class ConfiguracaoGlobal:
     limiar_confianca: float = 0.75
     limiar_topico_baixo: float = 0.6
     concurso_alvo: str | None = None
+
+
+def configuracao_do_projeto(contexto: Contexto | None = None) -> ConfiguracaoGlobal:
+    """A seção `[analise]` do `config.toml` do projeto; sem ele, o `config.yaml` legado da raiz."""
+    contexto = contexto or resolver_contexto()
+    if contexto.config_projeto.exists():
+        dados = ler_toml(contexto.config_projeto).get('analise', {})
+        return _validar(dados, contexto.config_projeto)
+    return carregar_configuracao_global(contexto.config_legado)
 
 
 def carregar_configuracao_global(caminho: Path) -> ConfiguracaoGlobal:
@@ -21,6 +31,10 @@ def carregar_configuracao_global(caminho: Path) -> ConfiguracaoGlobal:
         dados = yaml.safe_load(caminho.read_text(encoding='utf-8')) or {}
     except yaml.YAMLError as erro:
         raise ConfiguracaoInvalidaError(f'{caminho}: {erro}') from erro
+    return _validar(dados, caminho)
+
+
+def _validar(dados: dict, caminho: Path) -> ConfiguracaoGlobal:
     conhecidos = {campo.name for campo in fields(ConfiguracaoGlobal)}
     if desconhecidos := sorted(set(dados) - conhecidos):
         raise ConfiguracaoInvalidaError(

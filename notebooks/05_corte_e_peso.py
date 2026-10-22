@@ -24,12 +24,7 @@
 # %%
 from IPython.display import Markdown
 
-from concursos.analytics.consolidado import (
-    carregar_consolidado,
-    cortes_por_concurso,
-    raiz_do_projeto,
-    regras_por_concurso,
-)
+from concursos.analytics.consolidado import carregar_consolidado, cortes_por_concurso, regras_por_concurso
 from concursos.analytics.evolucao import (
     comparar_percentual_e_gap,
     gap_para_corte,
@@ -45,12 +40,12 @@ from concursos.analytics.insights import (
     peculiaridades_do_edital,
 )
 from concursos.analytics.visualizacao import barras_gap_por_disciplina, resumir
-from concursos.configuracao import carregar_configuracao_global
+from concursos.configuracao import configuracao_do_projeto
 
 consolidado = carregar_consolidado()
 regras = regras_por_concurso()
 cortes = cortes_por_concurso(regras)
-alvo = carregar_configuracao_global(raiz_do_projeto() / 'config.yaml').concurso_alvo
+alvo = configuracao_do_projeto().concurso_alvo
 Markdown(
     f'Concurso-alvo: {alvo or "nenhum (todos os concursos)"}; {len(cortes)} concursos com cortes no edital.'
 )

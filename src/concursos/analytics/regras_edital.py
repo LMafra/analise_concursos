@@ -10,13 +10,13 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from concursos.analytics.candidatos_edital import CANDIDATOS, VERSAO_CANDIDATOS, Candidato
 from concursos.analytics.correcao import (
     CONFIANCA_QUADRO_DE_PESOS,
     TextoCorrido,
     extrair_fator_correcao,
     extrair_quadro_de_pesos,
 )
+from concursos.analytics.pistas_edital import CANDIDATOS, VERSAO_CANDIDATOS, Candidato
 from concursos.concurso_config import ConcursoConfig, pesos_variam
 from concursos.deteccao import normalizar
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, mesclar_json, titulo_legivel

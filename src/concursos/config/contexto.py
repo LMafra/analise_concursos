@@ -1,13 +1,21 @@
 import os
+import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from concursos.concurso_config import ConfiguracaoInvalidaError
+
 VARIAVEL_HOME = 'CONCURSO_HOME'
+VARIAVEL_PROVAS = 'CONCURSO_PROVAS'
+VARIAVEL_ANALISES = 'CONCURSO_ANALISES'
 PASTA_HOME = '.concurso'
 PASTA_PROJETO = '.concurso'
 PASTA_PROVAS = 'provas'
 PASTA_ANALISES = 'analises'
+ARQUIVO_CONFIG_PROJETO = 'config.toml'
+ARQUIVO_TAXONOMIA = 'taxonomia.yaml'
+ARQUIVO_CONFIG_LEGADO = 'config.yaml'
 
 
 @dataclass(frozen=True)
@@ -23,6 +31,21 @@ class Contexto:
     @property
     def logs(self) -> Path:
         return self.home / 'logs'
+
+    @property
+    def config_projeto(self) -> Path:
+        return self.projeto / ARQUIVO_CONFIG_PROJETO
+
+    @property
+    def config_legado(self) -> Path:
+        """O `config.yaml` da raiz, das fases 1 a 3; a migração o converte para o `config.toml`."""
+        return self.raiz / ARQUIVO_CONFIG_LEGADO
+
+    @property
+    def taxonomia(self) -> Path:
+        do_projeto = self.projeto / ARQUIVO_TAXONOMIA
+        legada = self.raiz / ARQUIVO_TAXONOMIA
+        return legada if not do_projeto.exists() and legada.exists() else do_projeto
 
 
 def resolver_home(ambiente: Mapping[str, str] | None = None) -> Path:
@@ -40,14 +63,47 @@ def resolver_contexto(
     analises: Path | None = None,
     ambiente: Mapping[str, str] | None = None,
 ) -> Contexto:
-    raiz = (cwd or Path.cwd()).resolve()
+    """Precedência de cada pasta: flag, variável de ambiente, `config.toml` do projeto, padrão."""
+    ambiente = os.environ if ambiente is None else ambiente
+    home = resolver_home(ambiente)
+    atual = (cwd or Path.cwd()).resolve()
+    raiz = _raiz_do_projeto(atual, home) if data_dir is None else atual
+    projeto = _absoluto(data_dir, raiz) if data_dir else raiz / PASTA_PROJETO
+    pastas = ler_toml(projeto / ARQUIVO_CONFIG_PROJETO).get('pastas', {})
     return Contexto(
         raiz=raiz,
-        home=resolver_home(ambiente),
-        projeto=_absoluto(data_dir, raiz) if data_dir else raiz / PASTA_PROJETO,
-        provas=_absoluto(provas, raiz) if provas else raiz / PASTA_PROVAS,
-        analises=_absoluto(analises, raiz) if analises else raiz / PASTA_ANALISES,
+        home=home,
+        projeto=projeto,
+        provas=_pasta(provas, ambiente.get(VARIAVEL_PROVAS), pastas.get('provas'), PASTA_PROVAS, raiz),
+        analises=_pasta(
+            analises, ambiente.get(VARIAVEL_ANALISES), pastas.get('analises'), PASTA_ANALISES, raiz
+        ),
     )
+
+
+def ler_toml(caminho: Path) -> dict:
+    if not caminho.exists():
+        return {}
+    try:
+        return tomllib.loads(caminho.read_text(encoding='utf-8'))
+    except tomllib.TOMLDecodeError as erro:
+        raise ConfiguracaoInvalidaError(f'{caminho}: {erro}') from erro
+
+
+def _raiz_do_projeto(atual: Path, home: Path) -> Path:
+    """A pasta mais próxima com `.concurso/`, para rodar de uma subpasta (ex.: notebooks/)."""
+    for pasta in (atual, *atual.parents):
+        marcador = pasta / PASTA_PROJETO
+        if marcador.is_dir() and marcador.resolve() != home.resolve():
+            return pasta
+    return atual
+
+
+def _pasta(flag: Path | None, variavel: str | None, configurada: str | None, padrao: str, raiz: Path) -> Path:
+    for valor in (flag, variavel, configurada):
+        if valor:
+            return _absoluto(Path(valor), raiz)
+    return raiz / padrao
 
 
 def _absoluto(caminho: Path, raiz: Path) -> Path:

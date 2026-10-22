@@ -5,9 +5,10 @@ from typing import Annotated
 
 import typer
 
+from concursos.analytics.taxonomia import carregar_taxonomia
 from concursos.cli.erros import ErroDoUsuario, ajustar_nivel_console
 from concursos.config.contexto import Contexto, resolver_contexto
-from concursos.configuracao import carregar_configuracao_global
+from concursos.configuracao import configuracao_do_projeto
 from concursos.pipeline import analisar_todos, planejar
 from concursos.status import avaliar, formatar_tabela, listar_concursos
 
@@ -94,8 +95,9 @@ def _analisar(opcoes: Opcoes, concurso: str | None = None) -> int:
         for nome, acao in planejar(provas, analises, opcoes.forcar, concurso):
             typer.echo(f'{nome}: {acao}')
         return 0
-    configuracao = carregar_configuracao_global(contexto.raiz / 'config.yaml')
-    sucesso = analisar_todos(provas, analises, opcoes.forcar, concurso, configuracao)
+    configuracao = configuracao_do_projeto(contexto)
+    taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else None
+    sucesso = analisar_todos(provas, analises, opcoes.forcar, concurso, configuracao, taxonomia)
     return 0 if sucesso else 1
 
 

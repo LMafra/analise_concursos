@@ -1,5 +1,6 @@
 """Taxonomia de disciplinas: nome bruto da análise -> disciplina canônica e bloco (geral ou específico)."""
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,6 +10,8 @@ import yaml
 from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.modelo import Bloco
 from concursos.topicos import chave_de_palavras
+
+logger = logging.getLogger(__name__)
 
 ARQUIVO_TAXONOMIA = 'taxonomia.yaml'
 BLOCO_DA_PROVA = {'cg': Bloco.GERAL, 'cb': Bloco.GERAL, 'ce': Bloco.ESPECIFICO}
@@ -26,11 +29,10 @@ class DisciplinaCanonica:
 
 
 def carregar_taxonomia(caminho: Path) -> dict[str, DisciplinaCanonica]:
-    """Mapa de cada nome bruto (e do próprio nome canônico) para a sua disciplina canônica."""
+    """Mapa de cada nome bruto (e do próprio nome canônico) para a sua disciplina canônica; vazio sem o
+    arquivo."""
     if not caminho.exists():
-        raise TaxonomiaInvalidaError(
-            f'taxonomia não encontrada: {caminho} (mapeie cada nome de disciplina para uma canônica e um bloco)'
-        )
+        return {}
     dados = yaml.safe_load(caminho.read_text(encoding='utf-8')) or {}
     if not isinstance(dados, dict):
         raise TaxonomiaInvalidaError(f'{caminho}: esperado um mapa de disciplina canônica para bloco e nomes')
@@ -46,18 +48,21 @@ def carregar_taxonomia(caminho: Path) -> dict[str, DisciplinaCanonica]:
 
 
 def classificar(questoes: pd.DataFrame, taxonomia: dict[str, DisciplinaCanonica]) -> pd.DataFrame:
-    """Acrescenta disciplina canônica, bloco e chave de tópico; vazios quando a disciplina não está na taxonomia.
+    """Acrescenta disciplina canônica, bloco e chave de tópico.
 
     Nas provas divididas o bloco vem da prova. Na prova única vem da taxonomia, e uma questão que o pipeline
-    não classificou (`nao_mapeado`) fica com bloco `nao_informado`. Tópico não classificado fica sem chave,
-    para não virar um tópico comum a todos os concursos.
+    não classificou (`nao_mapeado`) fica com bloco `nao_informado`. Disciplina fora da taxonomia é canônica
+    de si mesma, com bloco `nao_informado` fora das provas divididas. Tópico não classificado fica sem
+    chave, para não virar um tópico comum a todos os concursos.
     """
-    nao_mapeado = DisciplinaCanonica(TOPICO_NAO_MAPEADO, Bloco.NAO_INFORMADO)
+    fora = sorted(set(questoes['disciplina']) - set(taxonomia) - {TOPICO_NAO_MAPEADO})
+    if fora:
+        logger.warning('disciplinas fora da taxonomia: %s; cada uma conta como canônica de si mesma', fora)
     canonicas = questoes['disciplina'].map(
-        lambda bruto: nao_mapeado if bruto == TOPICO_NAO_MAPEADO else taxonomia.get(bruto)
+        lambda bruto: taxonomia.get(bruto) or DisciplinaCanonica(bruto, Bloco.NAO_INFORMADO)
     )
-    nomes = canonicas.map(lambda c: c and c.nome).astype('str')
-    bloco_da_taxonomia = canonicas.map(lambda c: c and c.bloco.value)
+    nomes = canonicas.map(lambda c: c.nome).astype('str')
+    bloco_da_taxonomia = canonicas.map(lambda c: c.bloco.value)
     return questoes.assign(
         disciplina_canonica=nomes,
         bloco=questoes['prova'].map(BLOCO_DA_PROVA).fillna(bloco_da_taxonomia).astype('str'),

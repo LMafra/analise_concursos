@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from concursos.analytics.candidatos_edital import CANDIDATOS, Impacto
 from concursos.analytics.catalogo_edital import texto_do_valor
 from concursos.analytics.consolidado import N_MINIMO_TOPICO, pasta_consolidado
 from concursos.analytics.correcao import NotaFinal
@@ -26,6 +25,7 @@ from concursos.analytics.evolucao import (
     topicos_fracos_persistentes,
     zscore_por_disciplina,
 )
+from concursos.analytics.pistas_edital import CANDIDATOS, Impacto
 from concursos.analytics.regras_edital import EscopoCorte, StatusExtracao, UnidadeCorte
 from concursos.analytics.visualizacao import (
     exportar_heatmap_topicos,

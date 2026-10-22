@@ -6,7 +6,6 @@ import pandas as pd
 from concursos import manifesto
 from concursos.agregacao import agregar
 from concursos.analytics.catalogo_edital import gravar_catalogo
-from concursos.analytics.consolidado import raiz_do_projeto
 from concursos.analytics.correcao import (
     ConfiguracaoCorrecao,
     gravar_correcao,
@@ -14,16 +13,12 @@ from concursos.analytics.correcao import (
     resolver_correcao,
 )
 from concursos.analytics.regras_edital import RegrasEdital, extrair_regras
-from concursos.analytics.taxonomia import (
-    ARQUIVO_TAXONOMIA,
-    DisciplinaCanonica,
-    TaxonomiaInvalidaError,
-    carregar_taxonomia,
-)
+from concursos.analytics.taxonomia import DisciplinaCanonica, TaxonomiaInvalidaError, carregar_taxonomia
 from concursos.analytics.validacao_edital import gravar_discrepancias, validar_edital
 from concursos.atualizacao import ARQUIVO_DIFF, diff_gabarito, questoes_preliminares, trocar_gabaritos
 from concursos.caderno import faixas_do_caderno
 from concursos.concurso_config import ConcursoConfig, ProvaConfig
+from concursos.config.contexto import resolver_contexto
 from concursos.configuracao import ConfiguracaoGlobal
 from concursos.consolidado import consolidar
 from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO, corrigir
@@ -87,12 +82,14 @@ def analisar_todos(
     forcar: bool = False,
     apenas: str | None = None,
     configuracao: ConfiguracaoGlobal | None = None,
+    taxonomia: dict[str, DisciplinaCanonica] | None = None,
 ) -> bool:
     """Analisa os concursos completos que mudaram; retorna False se algum falhou durante a análise."""
     configuracao = configuracao or ConfiguracaoGlobal()
     sucesso = True
     for pasta in _selecionar(raiz_provas, apenas):
-        sucesso &= _analisar_se_necessario(pasta, raiz_analises / pasta.name, forcar, configuracao)
+        destino = raiz_analises / pasta.name
+        sucesso &= _analisar_se_necessario(pasta, destino, forcar, configuracao, taxonomia)
     consolidar(raiz_provas, raiz_analises, configuracao.limiar_topico_baixo)
     return sucesso
 
@@ -125,7 +122,11 @@ def _selecionar(raiz_provas: Path, apenas: str | None) -> list[Path]:
 
 
 def _analisar_se_necessario(
-    pasta: Path, destino: Path, forcar: bool, configuracao: ConfiguracaoGlobal
+    pasta: Path,
+    destino: Path,
+    forcar: bool,
+    configuracao: ConfiguracaoGlobal,
+    taxonomia: dict[str, DisciplinaCanonica] | None,
 ) -> bool:
     situacao = avaliar(pasta)
     if situacao.trocas:
@@ -139,7 +140,7 @@ def _analisar_se_necessario(
         return True
     manifesto.invalidar(destino)
     try:
-        analisar_concurso(situacao.config, destino, configuracao)
+        analisar_concurso(situacao.config, destino, configuracao, taxonomia)
     except (ValueError, FileNotFoundError, RuntimeError) as erro:
         logger.error('%s: falha na análise: %s', situacao.nome, erro)
         return False
@@ -147,8 +148,15 @@ def _analisar_se_necessario(
     return True
 
 
-def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: ConfiguracaoGlobal) -> None:
+def analisar_concurso(
+    config: ConcursoConfig,
+    destino: Path,
+    configuracao: ConfiguracaoGlobal,
+    taxonomia: dict[str, DisciplinaCanonica] | None = None,
+) -> None:
     logger.info('Analisando %s', config.nome)
+    if taxonomia is None:
+        taxonomia = _taxonomia_do_contexto()
     documentos = _paginas_dos_documentos(config)
     edital = _ler_edital(config, documentos)
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
@@ -172,7 +180,7 @@ def analisar_concurso(config: ConcursoConfig, destino: Path, configuracao: Confi
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
     correcoes = resolver_correcao(config, documentos)
     gravar_correcao(correcoes, destino)
-    regras = _regras_do_edital(config, documentos, resultados, correcoes, destino)
+    regras = _regras_do_edital(config, documentos, resultados, correcoes, destino, taxonomia)
     diff = _diff_da_troca(destino, resultados)
     gravar_validacao(validacao, destino)
     conteudo = ConteudoRelatorio(
@@ -197,6 +205,7 @@ def _regras_do_edital(
     resultados: pd.DataFrame,
     correcoes: list[ConfiguracaoCorrecao],
     destino: Path,
+    taxonomia: dict[str, DisciplinaCanonica] | None,
 ) -> RegrasEdital | None:
     """Regras do edital no edital estruturado e as discrepâncias com a prova; só quando há PDF do edital."""
     if not documentos:
@@ -206,21 +215,22 @@ def _regras_do_edital(
     }
     regras = extrair_regras(config, documentos, retificacoes)
     regras.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
-    gravar_discrepancias(validar_edital(config, regras, resultados, _taxonomia(), correcoes), destino)
+    gravar_discrepancias(validar_edital(config, regras, resultados, taxonomia, correcoes), destino)
     gravar_catalogo(config, regras, destino)
     return regras
 
 
-def _taxonomia() -> dict[str, DisciplinaCanonica] | None:
-    """A taxonomia da raiz do projeto, se houver; sem ela, as disciplinas casam só pelo nome."""
-    caminho = raiz_do_projeto() / ARQUIVO_TAXONOMIA
+def _taxonomia_do_contexto() -> dict[str, DisciplinaCanonica] | None:
+    """Taxonomia do projeto (`.concurso/` ou legado na raiz); vazia ou inválida vira None na validação."""
+    caminho = resolver_contexto().taxonomia
     if not caminho.exists():
         return None
     try:
-        return carregar_taxonomia(caminho)
+        mapeamento = carregar_taxonomia(caminho)
     except TaxonomiaInvalidaError as erro:
         logger.warning('%s; disciplinas do edital comparadas só pelo nome', erro)
         return None
+    return mapeamento or None
 
 
 def _diff_da_troca(destino: Path, resultados: pd.DataFrame) -> pd.DataFrame | None:

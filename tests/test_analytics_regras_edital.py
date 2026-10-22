@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from test_analytics_correcao import AGSUS, CEBRASPE, DATAPREV, DOCUMENTOS_CPNU, cpnu, pesos_cpnu
 
-from concursos.analytics.candidatos_edital import CANDIDATOS
+from concursos.analytics.pistas_edital import CANDIDATOS
 from concursos.analytics.regras_edital import (
     EscopoCorte,
     FonteRegra,

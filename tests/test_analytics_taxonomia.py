@@ -60,9 +60,8 @@ def test_taxonomia_invalida_aponta_o_problema(tmp_path, dados, mensagem):
         carregar_taxonomia(gravar(tmp_path, dados))
 
 
-def test_taxonomia_ausente_diz_onde_criar(tmp_path):
-    with pytest.raises(TaxonomiaInvalidaError, match='taxonomia não encontrada'):
-        carregar_taxonomia(tmp_path / 'taxonomia.yaml')
+def test_taxonomia_ausente_e_vazia(tmp_path):
+    assert carregar_taxonomia(tmp_path / 'taxonomia.yaml') == {}
 
 
 def test_chave_de_topico_ignora_acento_caixa_e_palavras_vazias():

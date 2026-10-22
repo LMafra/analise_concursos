@@ -28,11 +28,12 @@ from concursos.analytics.consolidado import (
     contar_questoes,
     disciplinas_por_quantidade_de_concursos,
     perfil_por_concurso,
-    raiz_do_projeto,
     validar_schema,
 )
 from concursos.analytics.visualizacao import resumir
+from concursos.config.contexto import resolver_contexto
 
+contexto = resolver_contexto()
 consolidado = carregar_consolidado()
 
 # %% [markdown]
@@ -44,7 +45,7 @@ consolidado = carregar_consolidado()
 # Se algo estiver errado, a célula abaixo falha listando todos os problemas.
 
 # %%
-validar_schema(consolidado, contar_questoes(raiz_do_projeto() / 'analises'))
+validar_schema(consolidado, contar_questoes(contexto.analises))
 resumir(consolidado, n=5, contar='concurso')
 
 # %% [markdown]

@@ -1,5 +1,5 @@
-"""Registro versionado dos candidatos a metadado do edital: o que procurar, para que serve e o que fazer com
-cada um. Mudar um candidato (padrão, uso, status) sobe a versão."""
+"""Registro versionado das pistas de metadado do edital: o que procurar, para que serve e o que fazer com
+cada uma. Mudar uma pista (padrão, uso, status) sobe a versão."""
 
 from dataclasses import dataclass
 from enum import StrEnum

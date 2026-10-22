@@ -1,3 +1,4 @@
+import logging
 import os
 from dataclasses import replace
 from datetime import date
@@ -248,15 +249,29 @@ def test_topico_nao_classificado_fica_sem_chave(base):
     assert chaves.isna().tolist() == [True, True, False]
 
 
-def test_disciplina_sem_mapeamento_reprova_a_validacao_com_os_nomes(base):
+def test_disciplina_sem_mapeamento_vira_canonica_de_si_mesma_com_aviso(base, caplog):
     gravar_taxonomia(base[2], {'Língua Portuguesa': {'bloco': 'geral'}})
     criar_analise(base, 'outro', ['acerto'] * 3, [LIQUIDA], disciplinas=['Português', 'Redes', 'TI'])
-    consolidado = construir_consolidado(*base)
+    criar_analise(base, 'dividida', ['acerto'] * 3, [LIQUIDA], prova='ce', disciplinas=['Redes'] * 3)
 
-    with pytest.raises(
-        SchemaInvalidoError, match=r"sem mapeamento na taxonomia: \['Português', 'Redes', 'TI'\]"
-    ):
-        validar_schema(consolidado, contar_questoes(base[1]))
+    with caplog.at_level(logging.WARNING):
+        consolidado = construir_consolidado(*base)
+
+    validar_schema(consolidado, contar_questoes(base[1]))
+    outro = consolidado.query("concurso == 'outro'")
+    assert outro['disciplina_canonica'].tolist() == ['Português', 'Redes', 'TI']
+    assert outro['bloco'].tolist() == ['nao_informado'] * 3
+    assert consolidado.query("concurso == 'dividida'")['bloco'].tolist() == ['especifico'] * 3
+    assert "fora da taxonomia: ['Português', 'Redes', 'TI']" in caplog.text
+
+
+def test_sem_arquivo_de_taxonomia_cada_disciplina_e_canonica_de_si_mesma(base):
+    provas, analises, _ = base
+
+    consolidado = construir_consolidado(provas, analises, provas.parent / 'nao_existe.yaml')
+
+    validar_schema(consolidado, contar_questoes(analises))
+    assert set(consolidado['disciplina_canonica']) == {'Português', 'TI'}
 
 
 def test_disciplinas_por_quantidade_de_concursos(base):

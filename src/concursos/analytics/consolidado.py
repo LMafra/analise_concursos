@@ -11,8 +11,9 @@ from pandas.api import types
 
 from concursos.analytics.correcao import ARQUIVO_CORRECAO, FonteCorrecao, aplicar_correcao, ler_correcao
 from concursos.analytics.regras_edital import ler_regras
-from concursos.analytics.taxonomia import ARQUIVO_TAXONOMIA, carregar_taxonomia, classificar
+from concursos.analytics.taxonomia import carregar_taxonomia, classificar
 from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso
+from concursos.config.contexto import resolver_contexto
 from concursos.consolidado import PASTA_CONSOLIDADO
 from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
@@ -106,14 +107,14 @@ def carregar_consolidado(
 ) -> pd.DataFrame:
     """Lê o parquet em cache ou o reconstrói quando alguma entrada (questões, correção, concurso.yaml ou
     taxonomia) é mais nova que ele, ou quando o conjunto de concursos analisados mudou. Sem caminhos, usa os
-    do projeto."""
-    raiz = raiz_do_projeto()
-    raiz_provas, raiz_analises = raiz_provas or raiz / 'provas', raiz_das_analises(raiz_analises)
-    arquivo_taxonomia = arquivo_taxonomia or raiz / ARQUIVO_TAXONOMIA
+    do contexto do projeto."""
+    contexto = resolver_contexto()
+    raiz_provas, raiz_analises = raiz_provas or contexto.provas, raiz_das_analises(raiz_analises)
+    arquivo_taxonomia = arquivo_taxonomia or contexto.taxonomia
     cache = pasta_consolidado(raiz_analises) / ARQUIVO_PARQUET
     nomes = concursos_analisados(raiz_provas, raiz_analises)
     entradas = [*_entradas(raiz_provas, raiz_analises, nomes), arquivo_taxonomia]
-    if cache.exists() and arquivo_taxonomia.exists() and not _alguma_mais_nova(cache, entradas):
+    if cache.exists() and not _alguma_mais_nova(cache, entradas):
         consolidado = pd.read_parquet(cache)
         if sorted(consolidado['concurso'].unique()) == nomes:
             return consolidado
@@ -165,10 +166,6 @@ def validar_schema(consolidado: pd.DataFrame, linhas_esperadas: int) -> None:
             fora = sorted(set(consolidado[coluna].dropna()) - {item.value for item in dominio})
             if fora:
                 problemas.append(f'{coluna}: valores fora do domínio {fora}')
-    if 'disciplina_canonica' in consolidado:
-        sem_mapeamento = consolidado.loc[consolidado['disciplina_canonica'].isna(), 'disciplina']
-        if len(sem_mapeamento):
-            problemas.append(f'disciplinas sem mapeamento na taxonomia: {sorted(sem_mapeamento.unique())}')
     if not colunas_de_peso(consolidado):
         problemas.append(f'nenhuma coluna de peso ({PREFIXO_PESO}<variante>)')
     if len(consolidado) != linhas_esperadas:
@@ -334,7 +331,7 @@ def _entradas(raiz_provas: Path, raiz_analises: Path, nomes: list[str]) -> list[
 
 def _alguma_mais_nova(cache: Path, entradas: list[Path]) -> bool:
     limite = cache.stat().st_mtime
-    return any(entrada.stat().st_mtime > limite for entrada in entradas)
+    return any(entrada.exists() and entrada.stat().st_mtime > limite for entrada in entradas)
 
 
 def regras_por_concurso(raiz_analises: Path | None = None) -> dict[str, dict]:
@@ -354,19 +351,12 @@ def cortes_por_concurso(regras: Mapping[str, dict]) -> dict[str, list[dict]]:
 
 
 def raiz_das_analises(raiz_analises: Path | None = None) -> Path:
-    return raiz_analises or raiz_do_projeto() / PASTA_ANALISES
+    return raiz_analises or resolver_contexto().analises
 
 
 def pasta_consolidado(raiz_analises: Path | None = None) -> Path:
     """Onde ficam o cache do consolidado e o relatório de evolução."""
     return raiz_das_analises(raiz_analises) / PASTA_CONSOLIDADO
-
-
-def raiz_do_projeto() -> Path:
-    for pasta in (Path.cwd(), *Path.cwd().parents):
-        if (pasta / 'pyproject.toml').exists():
-            return pasta
-    return Path.cwd()
 
 
 def _real(valor: float | None) -> float:
