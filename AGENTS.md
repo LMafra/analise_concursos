@@ -2,7 +2,8 @@
 
 Pipeline local de correção e análise de provas de concurso. Fase 1: a CLI `concursos` (`src/concursos/`), que gera `analises/<concurso>/`. Fase 2: a análise evolutiva entre concursos (`src/concursos/analytics/` e `notebooks/`). Fase 3: o edital como fonte de verdade (regras, validação e catálogo de descobertas) e a aplicação delas em corte e peso.
 
-- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2) e `docs/spec-fase3.md` (fase 3). Leia a da fase antes de mudar comportamento.
+- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3) e `docs/spec-fase4.md` (fase 4: um comando, multi-candidato, perfis e fallbacks). Leia a da fase antes de mudar comportamento.
+- Paridade: antes de um refactor que toca código das fases 1 a 3, rode `concursos analisar --forcar` e `scripts/paridade.py retrato`; depois, `comparar` não pode mostrar diferença.
 - Modelo de domínio, contratos de arquivo e fórmulas: `docs/modelo.md`. É a fonte única dos campos do `concurso.yaml`, do `correcao.json`, do `edital_estruturado.json`, do template do `catalogo_edital.md` e do schema do parquet; atualize-o na mesma mudança que o código.
 
 ## Dados pessoais
