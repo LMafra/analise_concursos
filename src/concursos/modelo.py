@@ -70,6 +70,7 @@ class Estado(StrEnum):
 class Origem(StrEnum):
     MANUAL = 'manual'
     FOLHA = 'folha'
+    REVISADA = 'revisada'
 
 
 class Resultado(StrEnum):

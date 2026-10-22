@@ -17,6 +17,7 @@ from concursos.analytics.taxonomia import DisciplinaCanonica, TaxonomiaInvalidaE
 from concursos.analytics.validacao_edital import gravar_discrepancias, validar_edital
 from concursos.atualizacao import ARQUIVO_DIFF, diff_gabarito, questoes_preliminares, trocar_gabaritos
 from concursos.caderno import faixas_do_caderno
+from concursos.candidatos import ler_respostas_do_csv
 from concursos.concurso_config import ConcursoConfig, ProvaConfig
 from concursos.config.contexto import resolver_contexto
 from concursos.configuracao import ConfiguracaoGlobal
@@ -44,6 +45,7 @@ from concursos.topicos import ARQUIVO_REVISAO, gravar_revisao, ler_revisao, suge
 
 logger = logging.getLogger(__name__)
 
+ARQUIVO_RESPOSTAS = 'respostas_extraidas.csv'
 COLUNAS_QUESTOES = [
     'questao',
     'prova',
@@ -182,7 +184,7 @@ def analisar_concurso(
 
     destino.mkdir(parents=True, exist_ok=True)
     tabela = _tabela_respostas(config, respostas, configuracao.limiar_confianca)
-    tabela.to_csv(destino / 'respostas_extraidas.csv', index=False)
+    tabela.to_csv(destino / ARQUIVO_RESPOSTAS, index=False)
     resultados[COLUNAS_QUESTOES].to_csv(destino / ARQUIVO_QUESTOES, index=False)
     if edital is not None:
         edital.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
@@ -401,7 +403,10 @@ def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabari
 def _ler_respostas(config: ConcursoConfig, destino: Path, limiar: float) -> list[RespostaMarcada]:
     questoes = [q for prova in config.provas for q in prova.questoes]
     if config.respostas_arquivo is not None:
-        texto = config.caminho(config.respostas_arquivo).read_text(encoding='utf-8')
+        caminho = config.caminho(config.respostas_arquivo)
+        if caminho.suffix.lower() == '.csv':
+            return ler_respostas_do_csv(config, caminho)
+        texto = caminho.read_text(encoding='utf-8')
         return ler_respostas_txt(
             texto, config.formato, questoes, config.respostas_arquivo, config.n_alternativas
         )

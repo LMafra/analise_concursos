@@ -1,5 +1,6 @@
 """Candidatos de um concurso: a subpasta `candidatos/<slug>/` com as respostas e o `candidato.yaml`."""
 
+import json
 import logging
 import posixpath
 import re
@@ -12,11 +13,16 @@ import tomli_w
 import yaml
 
 from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, FolhaConfig
+from concursos.manifesto import hash_arquivo
+from concursos.modelo import Origem, RespostaMarcada
+from concursos.respostas import ler_respostas_csv
 
 logger = logging.getLogger(__name__)
 
 PASTA_CANDIDATOS = 'candidatos'
 ARQUIVO_CANDIDATO = 'candidato.yaml'
+ARQUIVO_REVISADAS = 'respostas_revisadas.csv'
+ARQUIVO_FOLHA_REVISADA = 'respostas_revisadas.json'
 PASTA_PERFIS_GLOBAIS = 'candidatos'
 _EXTENSOES_FOLHA = {'.pdf', '.png', '.jpg', '.jpeg'}
 
@@ -78,12 +84,69 @@ def aplicar_candidato(config: ConcursoConfig, candidato: str) -> ConcursoConfig:
     if resultado is not None:
         identificador = (perfil.get('resultado_oficial') or {}).get('identificador')
         resultado = replace(resultado, identificador=None if identificador is None else str(identificador))
+    arquivo = respostas.get('arquivo')
+    if (pasta_do_candidato(config.pasta, candidato) / ARQUIVO_REVISADAS).exists():
+        arquivo = ARQUIVO_REVISADAS
     return replace(
         config,
-        respostas_arquivo=da_pasta_do_concurso(respostas['arquivo']) if respostas.get('arquivo') else None,
+        respostas_arquivo=da_pasta_do_concurso(arquivo) if arquivo else None,
         folha=folha,
         resultado_oficial=resultado,
     )
+
+
+def ler_respostas_do_csv(config: ConcursoConfig, caminho: Path) -> list[RespostaMarcada]:
+    """O CSV manual ou o revisado (`--reuse-csv`), que vence a folha; avisa se a folha mudou depois da revisão."""
+    revisado = caminho.name == ARQUIVO_REVISADAS
+    if revisado:
+        _avisar_revisao_antiga(config, caminho)
+    return ler_respostas_csv(
+        caminho.read_bytes(),
+        config.formato,
+        [q for prova in config.provas for q in prova.questoes],
+        str(caminho.relative_to(config.pasta)),
+        config.n_alternativas,
+        Origem.REVISADA if revisado else Origem.MANUAL,
+    )
+
+
+def gravar_revisao(config: ConcursoConfig, candidato: str, csv: Path) -> Path:
+    """Copia o CSV de leitura corrigido para a subpasta do candidato, com o hash da folha lida nele.
+
+    O CSV é validado antes da cópia, para uma revisão inválida não substituir a folha."""
+    pasta = pasta_do_candidato(config.pasta, candidato)
+    ler_respostas_csv(
+        csv.read_bytes(),
+        config.formato,
+        [q for prova in config.provas for q in prova.questoes],
+        csv.name,
+        config.n_alternativas,
+        Origem.REVISADA,
+    )
+    pasta.mkdir(parents=True, exist_ok=True)
+    destino = pasta / ARQUIVO_REVISADAS
+    shutil.copyfile(csv, destino)
+    folha = config.folha and config.caminho(config.folha.arquivo)
+    origem = {'folha': folha.name, 'sha256': hash_arquivo(folha)} if folha and folha.exists() else {}
+    (pasta / ARQUIVO_FOLHA_REVISADA).write_text(json.dumps(origem, indent=2), encoding='utf-8')
+    return destino
+
+
+def _avisar_revisao_antiga(config: ConcursoConfig, revisado: Path) -> None:
+    registro = revisado.with_name(ARQUIVO_FOLHA_REVISADA)
+    if config.folha is None or not registro.exists():
+        return
+    folha = config.caminho(config.folha.arquivo)
+    revisada = json.loads(registro.read_text(encoding='utf-8')).get('sha256')
+    if folha.exists() and revisada and hash_arquivo(folha) != revisada:
+        logger.warning(
+            '%s: revisão antiga: a folha %s mudou depois do --reuse-csv, e as respostas continuam vindo do %s. '
+            'Para ler a folha nova, apague o %s e rode de novo',
+            config.nome,
+            folha.name,
+            ARQUIVO_REVISADAS,
+            ARQUIVO_REVISADAS,
+        )
 
 
 def ler_perfil(config: ConcursoConfig, candidato: str) -> dict:
@@ -99,16 +162,22 @@ def ler_perfil(config: ConcursoConfig, candidato: str) -> dict:
 
 
 def inferir_perfil(pasta: Path) -> dict:
-    """`respostas.txt` (ou o único .txt) vira arquivo de respostas; o único PDF ou imagem vira folha."""
+    """`respostas.txt` ou `respostas.csv` (ou o único .txt ou .csv) vira arquivo de respostas; o único PDF ou
+    imagem vira folha. O CSV revisado não conta: ele vence o que for inferido."""
     if not pasta.is_dir():
         return {}
-    arquivos = [p for p in sorted(pasta.iterdir()) if p.is_file() and ':' not in p.name]
-    textos = [p for p in arquivos if p.suffix.lower() == '.txt']
+    arquivos = [
+        p
+        for p in sorted(pasta.iterdir())
+        if p.is_file() and ':' not in p.name and p.name != ARQUIVO_REVISADAS
+    ]
     folhas = [p for p in arquivos if p.suffix.lower() in _EXTENSOES_FOLHA]
-    if (pasta / 'respostas.txt').exists():
-        return {'respostas': {'arquivo': 'respostas.txt'}}
-    if len(textos) == 1:
-        return {'respostas': {'arquivo': textos[0].name}}
+    for extensao in ('.txt', '.csv'):
+        if (pasta / f'respostas{extensao}').exists():
+            return {'respostas': {'arquivo': f'respostas{extensao}'}}
+    for extensao in ('.txt', '.csv'):
+        if len(candidatos := [p for p in arquivos if p.suffix.lower() == extensao]) == 1:
+            return {'respostas': {'arquivo': candidatos[0].name}}
     if len(folhas) == 1:
         return {'respostas': {'folha': folhas[0].name}}
     return {}

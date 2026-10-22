@@ -47,8 +47,8 @@ O tópico vem da sugestão por similaridade ou da revisão manual. Sem classific
 **RespostaMarcada.** É a leitura de uma questão. Tem:
 - alternativa (ou vazio);
 - estado: `marcada`, `branco` ou `multipla`;
-- confiança (0–1; 1 no `respostas.txt`);
-- origem: `folha` ou `manual`;
+- confiança (0–1; 1 no `respostas.txt` e nos CSVs de respostas);
+- origem: `folha`, `manual` (`respostas.txt` ou CSV manual) ou `revisada` (CSV de leitura corrigido e aplicado com `--reuse-csv`);
 - arquivo e página.
 
 Uma leitura abaixo de `limiar_confianca` fica com `revisar = True`.
@@ -358,7 +358,9 @@ Um concurso pode ter vários candidatos. Cada um tem uma subpasta com as respost
 
 ```
 provas/<concurso>/candidatos/<slug>/candidato.yaml
-provas/<concurso>/candidatos/<slug>/respostas.txt   # ou folha.pdf/png/jpg
+provas/<concurso>/candidatos/<slug>/respostas.txt   # ou respostas.csv, folha.pdf/png/jpg
+provas/<concurso>/candidatos/<slug>/respostas_revisadas.csv   # com --reuse-csv; vence a folha
+provas/<concurso>/candidatos/<slug>/respostas_revisadas.json  # hash da folha lida na revisão
 analises/<slug>/<concurso>/                         # saída do candidato
 analises/comparativo_candidatos.md                  # com --all-candidates
 ~/.concurso/candidatos/<slug>.toml                  # perfil global: nome e slug
@@ -374,7 +376,9 @@ resultado_oficial:           # opcional; nunca herdado do concurso.yaml
 
 - **Slug:** o nome sem acento, em minúsculas, com `_` no lugar do que não for letra ou dígito (`Carol Souza` vira `carol_souza`).
 - **Herança:** gabarito, edital, template da folha, `total_itens` e `itens_por_coluna` vêm do `concurso.yaml`. O identificador do resultado oficial vem só do perfil do candidato.
-- **Perfil ausente:** uma subpasta sem `candidato.yaml` tem o perfil inferido (`respostas.txt`, o único `.txt` ou a única folha), gravado com aviso.
+- **Perfil ausente:** uma subpasta sem `candidato.yaml` tem o perfil inferido (`respostas.txt`, `respostas.csv`, o único `.txt`, o único `.csv` ou a única folha), gravado com aviso.
+- **CSV manual:** quem não tem folha informa as respostas num CSV com as colunas `questao,alternativa` (`respostas.arquivo` ou inferido). Separador `,` ou `;`, UTF-8 (com ou sem BOM) ou cp1252, como o Excel grava; os nomes das colunas ignoram acento e caixa. Alternativa vazia ou `-` é branco, e questão omitida também. Questão fora das faixas, repetida ou com letra inválida é erro, com o arquivo e a linha.
+- **Revisão da leitura (`analyze <concurso> --reuse-csv`):** o candidato corrige a coluna `alternativa_marcada` do `analises/<slug>/<concurso>/respostas_extraidas.csv` no Excel ou no LibreOffice. O comando valida o CSV com as regras do CSV manual e o copia para `respostas_revisadas.csv` na subpasta do candidato, com o hash da folha em `respostas_revisadas.json`. A partir daí ele vence a folha e o `respostas.arquivo`, e entra no manifesto como qualquer arquivo do candidato. Uma linha sem alternativa e com `estado = multipla` continua múltipla. Se o hash da folha mudar depois, a análise avisa ("revisão antiga") e continua usando a revisão; para ler a folha nova, apague o `respostas_revisadas.csv`. Sem o CSV de leitura, sem concurso ou sem candidato, o comando para com uma `dica:`.
 - **Escolha:** `--candidate`, `CONCURSO_CANDIDATO` ou `[candidato] ultimo` do `config.toml`, gravado a cada análise que não seja `--dry-run` nem `--all-candidates`. Com vários candidatos e nenhum escolhido, a CLI pede `--candidate` ou `--all-candidates`.
 - **Manifesto por par:** o hash de entrada de um par (candidato, concurso) cobre os arquivos comuns e só a subpasta do candidato. Mudar as respostas de um reprocessa só ele; mudar o gabarito reprocessa todos.
 - **Layout legado:** só o comando obsoleto `concursos analisar` ainda lê as respostas do `concurso.yaml` e grava em `analises/<concurso>/`; o `concurso-analise` migra antes de analisar.
@@ -481,7 +485,7 @@ respostas:                     # use 'arquivo' OU 'folha'
   total_itens: 200
   itens_por_coluna: 20         # opcional; detectado pela grade
 # respostas:
-#   arquivo: respostas.txt
+#   arquivo: respostas.txt     # ou respostas.csv (colunas questao,alternativa)
 data_prova: 2026-02-22         # opcional; ISO 8601, prevalece sobre a data provável do edital
 nivel: federal                 # opcional; federal | estadual | municipal (padrão: nao_informado)
 escolaridade: superior         # opcional; superior | medio (padrão: nao_informado)

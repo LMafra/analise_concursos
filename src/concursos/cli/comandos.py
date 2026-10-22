@@ -13,6 +13,7 @@ from concursos.candidatos import (
     candidatos_existentes,
     completar_perfis,
     gravar_perfil_global,
+    gravar_revisao,
     slug,
 )
 from concursos.cli.erros import ErroDoAmbiente, ErroDoUsuario, ajustar_nivel_console
@@ -20,7 +21,8 @@ from concursos.config.contexto import Contexto, gravar_no_config_projeto, ler_to
 from concursos.configuracao import configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
 from concursos.migracao import MigracaoError, executar_migracao, planejar_migracao
-from concursos.pipeline import analisar_todos, planejar
+from concursos.pipeline import ARQUIVO_RESPOSTAS, analisar_todos, planejar
+from concursos.respostas import RespostasInvalidasError
 from concursos.status import avaliar, formatar_tabela, listar_concursos
 
 app = typer.Typer(
@@ -91,6 +93,13 @@ def analyze(
     dry_run: DryRun = False,
     candidato: Candidato = None,
     todos: Todos = False,
+    reaproveitar: Annotated[
+        bool,
+        typer.Option(
+            '--reuse-csv',
+            help='usa o respostas_extraidas.csv corrigido à mão no lugar da leitura da folha',
+        ),
+    ] = False,
 ) -> int:
     opcoes = replace(
         ctx.obj,
@@ -100,7 +109,7 @@ def analyze(
     )
     if candidato:
         opcoes = replace(opcoes, contexto=replace(opcoes.contexto, candidato=slug(candidato)))
-    return _analisar(opcoes, concurso)
+    return _analisar(opcoes, concurso, reaproveitar)
 
 
 @app.command('add', help='cadastra a pasta de um concurso ou acrescenta as respostas de um candidato')
@@ -148,10 +157,12 @@ def status(
     return 0
 
 
-def _analisar(opcoes: Opcoes, concurso: str | None = None) -> int:
+def _analisar(opcoes: Opcoes, concurso: str | None = None, reaproveitar: bool = False) -> int:
     _exigir_provas(opcoes.contexto.provas)
     opcoes = _migrar(opcoes)
     contexto = opcoes.contexto
+    if reaproveitar:
+        _reaproveitar_csv(opcoes, concurso)
     if not opcoes.todos:
         return 0 if _analisar_candidato(opcoes, _escolher_candidato(contexto), concurso) else 1
     candidatos = candidatos_existentes(contexto.provas)
@@ -182,6 +193,41 @@ def _analisar_candidato(opcoes: Opcoes, candidato: str | None, concurso: str | N
     configuracao = configuracao_do_projeto(contexto)
     taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else None
     return analisar_todos(provas, destino, opcoes.forcar, concurso, configuracao, taxonomia, candidato)
+
+
+def _reaproveitar_csv(opcoes: Opcoes, concurso: str | None) -> None:
+    contexto = opcoes.contexto
+    if concurso is None or opcoes.todos:
+        raise ErroDoUsuario(
+            '--reuse-csv vale para um concurso e um candidato por vez',
+            'rode `concurso-analise analyze <concurso> --reuse-csv --candidate <nome>`',
+        )
+    candidato = _escolher_candidato(contexto)
+    if candidato is None:
+        raise ErroDoUsuario(
+            '--reuse-csv precisa de um candidato, e este projeto não tem nenhum',
+            'acrescente as respostas com `concurso-analise add <folha> --candidate <nome> --concurso <pasta>`',
+        )
+    csv = contexto.analises / candidato / concurso / ARQUIVO_RESPOSTAS
+    if not csv.exists():
+        raise ErroDoUsuario(
+            f'{csv}: CSV de leitura da folha não encontrado',
+            f'rode `concurso-analise analyze {concurso}` para ler a folha, corrija o CSV e rode de novo '
+            'com --reuse-csv',
+        )
+    status = avaliar(contexto.provas / concurso, candidato)
+    if status.config is None:
+        raise ErroDoUsuario(
+            f'{concurso}: {"; ".join(status.motivos)}', 'corrija o concurso.yaml e rode de novo'
+        )
+    if opcoes.dry_run:
+        typer.echo(f'copiaria {csv} para {contexto.provas / concurso / "candidatos" / candidato}')
+        return
+    try:
+        destino = gravar_revisao(status.config, candidato, csv)
+    except RespostasInvalidasError as erro:
+        raise ErroDoUsuario(str(erro), f'corrija o {csv} e rode de novo com --reuse-csv') from erro
+    typer.echo(f'revisão copiada para {destino}; ela vence a folha a partir de agora')
 
 
 def _migrar(opcoes: Opcoes) -> Opcoes:
