@@ -13,7 +13,7 @@ EXTENSOES_IMAGEM = frozenset({'.png', '.jpg', '.jpeg'})
 EXTENSOES_TEXTO = frozenset({'.txt', '.csv'})
 EXTENSOES_COMPACTADAS = frozenset({'.rar', '.zip', '.7z', '.tar', '.gz'})
 ARQUIVOS_DO_SISTEMA = frozenset({'concurso.yaml'})
-PASTAS_DO_SISTEMA = frozenset({'revisao'})
+PASTAS_DO_SISTEMA = frozenset({'revisao', 'candidatos'})
 MAXIMO_CARACTERES_FOLHA = 400
 
 _MARCAS_PROVA = (

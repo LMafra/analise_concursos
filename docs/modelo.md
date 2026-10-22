@@ -337,6 +337,33 @@ concurso_alvo = "tcu_25"   # opcional; nome da pasta do concurso
 - **Validação:** os campos de `[analise]` são os mesmos do `config.yaml` antigo. Campo desconhecido ou valor fora de 0 a 1 (nos limiares) gera erro citando o campo e as opções.
 - **Precedência:** flag, variável de ambiente, `config.toml`, `config.yaml` legado, padrão.
 
+## Candidatos (fase 4)
+
+Um concurso pode ter vários candidatos. Cada um tem uma subpasta com as respostas e o perfil:
+
+```
+provas/<concurso>/candidatos/<slug>/candidato.yaml
+provas/<concurso>/candidatos/<slug>/respostas.txt   # ou folha.pdf/png/jpg
+analises/<slug>/<concurso>/                         # saída do candidato
+analises/comparativo_candidatos.md                  # com --all-candidates
+~/.concurso/candidatos/<slug>.toml                  # perfil global: nome e slug
+```
+
+```yaml
+nome: Alice Souza
+respostas:
+  arquivo: respostas.txt     # ou folha: folha.pdf
+resultado_oficial:           # opcional; nunca herdado do concurso.yaml
+  identificador: '12345678'
+```
+
+- **Slug:** o nome sem acento, em minúsculas, com `_` no lugar do que não for letra ou dígito (`Carol Souza` vira `carol_souza`).
+- **Herança:** gabarito, edital, template da folha, `total_itens` e `itens_por_coluna` vêm do `concurso.yaml`. O identificador do resultado oficial vem só do perfil do candidato.
+- **Perfil ausente:** uma subpasta sem `candidato.yaml` tem o perfil inferido (`respostas.txt`, o único `.txt` ou a única folha), gravado com aviso.
+- **Escolha:** `--candidate`, `CONCURSO_CANDIDATO` ou `[candidato] ultimo` do `config.toml`, gravado a cada análise que não seja `--dry-run` nem `--all-candidates`. Com vários candidatos e nenhum escolhido, a CLI pede `--candidate` ou `--all-candidates`.
+- **Manifesto por par:** o hash de entrada de um par (candidato, concurso) cobre os arquivos comuns e só a subpasta do candidato. Mudar as respostas de um reprocessa só ele; mudar o gabarito reprocessa todos.
+- **Layout legado:** sem nenhuma subpasta de candidato, as respostas vêm do `concurso.yaml` e a saída fica em `analises/<concurso>/`, até a migração.
+
 ## `concurso.yaml`
 
 O arquivo é gerado por `concursos adicionar` e pode ser editado à mão. Os caminhos são relativos à pasta do concurso.

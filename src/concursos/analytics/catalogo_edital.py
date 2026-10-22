@@ -33,7 +33,7 @@ def gerar_catalogo(config: ConcursoConfig, regras: RegrasEdital) -> str:
     linhas = [
         f'# Catálogo do edital: {titulo}',
         '',
-        f'Concurso `{config.nome}`; registro de pistas do edital na versão {regras.versao_candidatos}. '
+        f'Concurso `{config.nome}`; registro de candidatos na versão {regras.versao_candidatos}. '
         '"(descoberta)" marca o que veio além da lista inicial de candidatos.',
         '',
         '## Descobertas',

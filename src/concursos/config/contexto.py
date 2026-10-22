@@ -4,11 +4,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+import tomli_w
+
 from concursos.concurso_config import ConfiguracaoInvalidaError
 
 VARIAVEL_HOME = 'CONCURSO_HOME'
 VARIAVEL_PROVAS = 'CONCURSO_PROVAS'
 VARIAVEL_ANALISES = 'CONCURSO_ANALISES'
+VARIAVEL_CANDIDATO = 'CONCURSO_CANDIDATO'
 PASTA_HOME = '.concurso'
 PASTA_PROJETO = '.concurso'
 PASTA_PROVAS = 'provas'
@@ -27,6 +30,12 @@ class Contexto:
     projeto: Path
     provas: Path
     analises: Path
+    candidato: str | None = None
+
+    @property
+    def analises_do_candidato(self) -> Path:
+        """`analises/<candidato>/`; sem candidato, a pasta de análises do layout das fases 1 a 3."""
+        return self.analises / self.candidato if self.candidato else self.analises
 
     @property
     def logs(self) -> Path:
@@ -61,16 +70,21 @@ def resolver_contexto(
     data_dir: Path | None = None,
     provas: Path | None = None,
     analises: Path | None = None,
+    candidato: str | None = None,
     ambiente: Mapping[str, str] | None = None,
 ) -> Contexto:
-    """Precedência de cada pasta: flag, variável de ambiente, `config.toml` do projeto, padrão."""
+    """Precedência de cada pasta e do candidato: flag, variável de ambiente, `config.toml` do projeto,
+    padrão."""
     ambiente = os.environ if ambiente is None else ambiente
     home = resolver_home(ambiente)
     atual = (cwd or Path.cwd()).resolve()
     raiz = _raiz_do_projeto(atual, home) if data_dir is None else atual
     projeto = _absoluto(data_dir, raiz) if data_dir else raiz / PASTA_PROJETO
-    pastas = ler_toml(projeto / ARQUIVO_CONFIG_PROJETO).get('pastas', {})
+    config = ler_toml(projeto / ARQUIVO_CONFIG_PROJETO)
+    pastas = config.get('pastas', {})
+    ultimo = config.get('candidato', {}).get('ultimo')
     return Contexto(
+        candidato=candidato or ambiente.get(VARIAVEL_CANDIDATO) or ultimo or None,
         raiz=raiz,
         home=home,
         projeto=projeto,
@@ -88,6 +102,14 @@ def ler_toml(caminho: Path) -> dict:
         return tomllib.loads(caminho.read_text(encoding='utf-8'))
     except tomllib.TOMLDecodeError as erro:
         raise ConfiguracaoInvalidaError(f'{caminho}: {erro}') from erro
+
+
+def gravar_no_config_projeto(contexto: Contexto, secao: str, valores: dict) -> None:
+    """Atualiza uma seção do `config.toml` do projeto, preservando as demais."""
+    dados = ler_toml(contexto.config_projeto)
+    dados[secao] = {**dados.get(secao, {}), **valores}
+    contexto.config_projeto.parent.mkdir(parents=True, exist_ok=True)
+    contexto.config_projeto.write_text(tomli_w.dumps(dados), encoding='utf-8')
 
 
 def _raiz_do_projeto(atual: Path, home: Path) -> Path:

@@ -83,37 +83,45 @@ def analisar_todos(
     apenas: str | None = None,
     configuracao: ConfiguracaoGlobal | None = None,
     taxonomia: dict[str, DisciplinaCanonica] | None = None,
+    candidato: str | None = None,
 ) -> bool:
-    """Analisa os concursos completos que mudaram; retorna False se algum falhou durante a análise."""
+    """Analisa os concursos completos que mudaram; retorna False se algum falhou durante a análise.
+
+    Com candidato, `raiz_analises` é a pasta dele e só entram os concursos com `candidatos/<candidato>/`.
+    """
     configuracao = configuracao or ConfiguracaoGlobal()
     sucesso = True
-    for pasta in _selecionar(raiz_provas, apenas):
+    for pasta in _selecionar(raiz_provas, apenas, candidato):
         destino = raiz_analises / pasta.name
-        sucesso &= _analisar_se_necessario(pasta, destino, forcar, configuracao, taxonomia)
-    consolidar(raiz_provas, raiz_analises, configuracao.limiar_topico_baixo)
+        sucesso &= _analisar_se_necessario(pasta, destino, forcar, configuracao, taxonomia, candidato)
+    consolidar(raiz_provas, raiz_analises, configuracao.limiar_topico_baixo, candidato)
     return sucesso
 
 
 def planejar(
-    raiz_provas: Path, raiz_analises: Path, forcar: bool = False, apenas: str | None = None
+    raiz_provas: Path,
+    raiz_analises: Path,
+    forcar: bool = False,
+    apenas: str | None = None,
+    candidato: str | None = None,
 ) -> list[tuple[str, str]]:
     """O que `analisar_todos` faria com cada concurso, sem gravar nada."""
     plano = []
-    for pasta in _selecionar(raiz_provas, apenas):
-        situacao = avaliar(pasta)
+    for pasta in _selecionar(raiz_provas, apenas, candidato):
+        situacao = avaliar(pasta, candidato)
         if situacao.situacao is not Situacao.COMPLETO:
             plano.append((pasta.name, f'pularia ({situacao.situacao}: {"; ".join(situacao.motivos)})'))
         elif situacao.trocas:
             plano.append((pasta.name, 'analisaria (gabarito definitivo novo)'))
-        elif not forcar and manifesto.atualizado(pasta, raiz_analises / pasta.name):
+        elif not forcar and manifesto.atualizado(pasta, raiz_analises / pasta.name, candidato):
             plano.append((pasta.name, 'sem mudanças'))
         else:
             plano.append((pasta.name, 'analisaria'))
     return plano
 
 
-def _selecionar(raiz_provas: Path, apenas: str | None) -> list[Path]:
-    pastas = listar_concursos(raiz_provas)
+def _selecionar(raiz_provas: Path, apenas: str | None, candidato: str | None = None) -> list[Path]:
+    pastas = listar_concursos(raiz_provas, candidato)
     if apenas is None:
         return pastas
     if selecionadas := [p for p in pastas if p.name == apenas]:
@@ -127,12 +135,17 @@ def _analisar_se_necessario(
     forcar: bool,
     configuracao: ConfiguracaoGlobal,
     taxonomia: dict[str, DisciplinaCanonica] | None,
+    candidato: str | None,
 ) -> bool:
-    situacao = avaliar(pasta)
+    situacao = avaliar(pasta, candidato)
     if situacao.trocas:
         trocar_gabaritos(situacao.config, situacao.trocas, destino)
-        situacao = avaliar(pasta)
-    elif situacao.situacao is Situacao.COMPLETO and not forcar and manifesto.atualizado(pasta, destino):
+        situacao = avaliar(pasta, candidato)
+    elif (
+        situacao.situacao is Situacao.COMPLETO
+        and not forcar
+        and manifesto.atualizado(pasta, destino, candidato)
+    ):
         logger.info('%s: sem mudanças desde a última análise', situacao.nome)
         return True
     if situacao.situacao is not Situacao.COMPLETO:
@@ -144,7 +157,7 @@ def _analisar_se_necessario(
     except (ValueError, FileNotFoundError, RuntimeError) as erro:
         logger.error('%s: falha na análise: %s', situacao.nome, erro)
         return False
-    manifesto.gravar(pasta, destino)
+    manifesto.gravar(pasta, destino, candidato)
     return True
 
 

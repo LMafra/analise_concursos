@@ -351,7 +351,7 @@ def cortes_por_concurso(regras: Mapping[str, dict]) -> dict[str, list[dict]]:
 
 
 def raiz_das_analises(raiz_analises: Path | None = None) -> Path:
-    return raiz_analises or resolver_contexto().analises
+    return raiz_analises or resolver_contexto().analises_do_candidato
 
 
 def pasta_consolidado(raiz_analises: Path | None = None) -> Path:

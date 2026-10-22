@@ -10,12 +10,12 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Alice e Bob no mesmo concurso sintético geram `analises/alice/...` e `analises/bob/...`, cada um com o seu consolidado e as notas corretas.
-- [ ] Mudar o arquivo de respostas de Bob reprocessa só o par de Bob. Mudar o gabarito reprocessa os dois.
-- [ ] Sem `--candidate`, vale o último candidato usado, gravado em `./.concurso/config.toml`.
-- [ ] `add <arquivo> --candidate bob` copia o arquivo para `candidatos/bob/` e gera o `candidato.yaml`.
-- [ ] Uma subpasta `candidatos/<slug>/` sem perfil cria o candidato, com aviso.
-- [ ] `--all-candidates` gera o comparativo entre candidatos.
-- [ ] O `docs/modelo.md` descreve o `candidato.yaml`, o perfil do candidato e o layout novo.
+- [x] Alice e Bob no mesmo concurso sintético geram `analises/alice/...` e `analises/bob/...`, cada um com o seu consolidado e as notas corretas.
+- [x] Mudar o arquivo de respostas de Bob reprocessa só o par de Bob. Mudar o gabarito reprocessa os dois.
+- [x] Sem `--candidate`, vale o último candidato usado, gravado em `./.concurso/config.toml`.
+- [x] `add <arquivo> --candidate bob` copia o arquivo para `candidatos/bob/` e gera o `candidato.yaml`.
+- [x] Uma subpasta `candidatos/<slug>/` sem perfil cria o candidato, com aviso.
+- [x] `--all-candidates` gera o comparativo entre candidatos.
+- [x] O `docs/modelo.md` descreve o `candidato.yaml`, o perfil do candidato e o layout novo.

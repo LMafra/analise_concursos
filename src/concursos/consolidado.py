@@ -21,9 +21,11 @@ SEM_NOTA_FINAL = '-'
 _SOMAS = ['total', 'acertos', 'erros', 'em_branco', 'anuladas', 'nota_liquida']
 
 
-def consolidar(raiz_provas: Path, raiz_analises: Path, limiar_topico_baixo: float) -> None:
+def consolidar(
+    raiz_provas: Path, raiz_analises: Path, limiar_topico_baixo: float, candidato: str | None = None
+) -> None:
     """Junta os desempenhos por tópico de todos os concursos analisados e gera o comparativo."""
-    situacoes = {pasta.name: avaliar(pasta) for pasta in listar_concursos(raiz_provas)}
+    situacoes = {pasta.name: avaliar(pasta, candidato) for pasta in listar_concursos(raiz_provas, candidato)}
     analisados = {
         nome: s
         for nome, s in situacoes.items()
@@ -36,6 +38,41 @@ def consolidar(raiz_provas: Path, raiz_analises: Path, limiar_topico_baixo: floa
     comparativo = _comparativo(geral, situacoes, analisados, raiz_analises, limiar_topico_baixo)
     (destino / 'comparativo_concursos.md').write_text(comparativo, encoding='utf-8')
     logger.info('Consolidado de %d concursos gravado em %s', len(analisados), destino)
+
+
+def comparar_candidatos(raiz_analises: Path, candidatos: list[str]) -> Path:
+    """Percentual de cada candidato no total e em cada concurso, a partir do consolidado de cada um."""
+    gerais = []
+    for candidato in candidatos:
+        arquivo = raiz_analises / candidato / PASTA_CONSOLIDADO / 'desempenho_geral.csv'
+        if arquivo.exists():
+            gerais.append(pd.read_csv(arquivo, keep_default_na=False).assign(candidato=candidato))
+    linhas = ['# Comparativo entre candidatos', '']
+    if not gerais:
+        linhas += ['Nenhum candidato analisado.', '']
+    else:
+        geral = pd.concat(gerais, ignore_index=True)
+        total = geral.groupby('candidato', sort=True)[_SOMAS].sum().reset_index()
+        total['concursos'] = total['candidato'].map(geral.groupby('candidato')['concurso'].nunique())
+        total['percentual'] = _percentual(total)
+        por_concurso = geral.groupby(['concurso', 'candidato'])[_SOMAS].sum()
+        por_concurso = _percentual(por_concurso).unstack('candidato').reset_index()
+        linhas += [
+            '## No total',
+            '',
+            tabela_markdown(total, ['candidato', 'concursos', 'total', 'acertos', 'anuladas', 'percentual']),
+            '',
+            '## Percentual por concurso',
+            '',
+            tabela_markdown(
+                por_concurso.fillna(SEM_NOTA_FINAL), ['concurso', *sorted(set(geral['candidato']))]
+            ),
+            '',
+        ]
+    destino = raiz_analises / 'comparativo_candidatos.md'
+    destino.write_text('\n'.join(linhas), encoding='utf-8')
+    logger.info('Comparativo de %d candidatos gravado em %s', len(gerais), destino)
+    return destino
 
 
 def _analisado(destino: Path) -> bool:
