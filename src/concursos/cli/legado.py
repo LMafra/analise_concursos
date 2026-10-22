@@ -5,6 +5,7 @@ from pathlib import Path
 
 from concursos.assistente import InteracaoAutomatica, InteracaoConsole
 from concursos.cadastro import cadastrar
+from concursos.cli.erros import ajustar_nivel_console
 from concursos.configuracao import carregar_configuracao_global
 from concursos.pipeline import analisar_todos
 from concursos.status import avaliar, formatar_tabela, listar_concursos
@@ -12,11 +13,10 @@ from concursos.status import avaliar, formatar_tabela, listar_concursos
 logger = logging.getLogger('concursos')
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str]) -> int:
+    """Subcomandos da fase 1 (`adicionar`, `analisar`), mantidos até a fase 5."""
     args = _parser().parse_args(argv)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO, format='%(levelname)s %(message)s'
-    )
+    ajustar_nivel_console(logging.DEBUG if args.verbose else logging.INFO)
     try:
         if args.comando == 'adicionar':
             interacao = InteracaoAutomatica() if args.aceitar_sugestoes else InteracaoConsole()
@@ -47,7 +47,7 @@ def _parser() -> argparse.ArgumentParser:
     adicionar = subcomandos.add_parser(
         'adicionar', help='cadastra a pasta de um concurso (gera concurso.yaml)'
     )
-    adicionar.add_argument('pasta', help='pasta com os arquivos do concurso, ex.: provas/tcu_25')
+    adicionar.add_argument('pasta', help='pasta com os arquivos do concurso, ex.: provas/meu_concurso')
     adicionar.add_argument(
         '--aceitar-sugestoes', action='store_true', help='não pergunta; falha se algo for ambíguo'
     )

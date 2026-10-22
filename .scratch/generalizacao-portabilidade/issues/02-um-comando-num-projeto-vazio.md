@@ -9,12 +9,12 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A distribuição se chama `concurso-analise`, tem os executáveis `concurso-analise` e `concursos`, e declara `requires-python >=3.11,<3.13`, com lock resolvido para 3.11 e 3.12.
-- [ ] Sem subcomando, o comando analisa as provas da pasta configurada (padrão `./provas`), escreve em `./analises` e, numa segunda execução, registra "sem mudanças".
-- [ ] Sem a pasta de provas, sai com código 1 e mostra até duas linhas: onde a pasta era esperada e uma `dica:` com o comando. Não aparece `Traceback`.
-- [ ] Uma exceção inesperada mostra uma mensagem genérica com o caminho do log. O log fica em `<pasta global>/logs/`.
-- [ ] `--dry-run` não grava nada e lista os concursos que seriam processados.
-- [ ] `concursos analisar` e `concursos status` continuam funcionando e avisam que estão obsoletos.
-- [ ] A suíte atual continua verde, e a paridade com os dados reais não mostra diferença.
+- [x] A distribuição se chama `concurso-analise`, tem os executáveis `concurso-analise` e `concursos`, e declara `requires-python >=3.11,<3.13`, com lock resolvido para 3.11 e 3.12.
+- [x] Sem subcomando, o comando analisa as provas da pasta configurada (padrão `./provas`), escreve em `./analises` e, numa segunda execução, registra "sem mudanças".
+- [x] Sem a pasta de provas, sai com código 1 e mostra até duas linhas: onde a pasta era esperada e uma `dica:` com o comando. Não aparece `Traceback`.
+- [x] Uma exceção inesperada mostra uma mensagem genérica com o caminho do log. O log fica em `<pasta global>/logs/`.
+- [x] `--dry-run` não grava nada e lista os concursos que seriam processados.
+- [x] `concursos analisar` e `concursos status` continuam funcionando e avisam que estão obsoletos.
+- [x] A suíte atual continua verde, e a paridade com os dados reais não mostra diferença.

@@ -90,16 +90,38 @@ def analisar_todos(
 ) -> bool:
     """Analisa os concursos completos que mudaram; retorna False se algum falhou durante a análise."""
     configuracao = configuracao or ConfiguracaoGlobal()
-    pastas = listar_concursos(raiz_provas)
-    if apenas is not None:
-        pastas = [p for p in pastas if p.name == apenas]
-        if not pastas:
-            raise ConcursoNaoEncontradoError(f'{raiz_provas / apenas}: concurso não encontrado')
     sucesso = True
-    for pasta in pastas:
+    for pasta in _selecionar(raiz_provas, apenas):
         sucesso &= _analisar_se_necessario(pasta, raiz_analises / pasta.name, forcar, configuracao)
     consolidar(raiz_provas, raiz_analises, configuracao.limiar_topico_baixo)
     return sucesso
+
+
+def planejar(
+    raiz_provas: Path, raiz_analises: Path, forcar: bool = False, apenas: str | None = None
+) -> list[tuple[str, str]]:
+    """O que `analisar_todos` faria com cada concurso, sem gravar nada."""
+    plano = []
+    for pasta in _selecionar(raiz_provas, apenas):
+        situacao = avaliar(pasta)
+        if situacao.situacao is not Situacao.COMPLETO:
+            plano.append((pasta.name, f'pularia ({situacao.situacao}: {"; ".join(situacao.motivos)})'))
+        elif situacao.trocas:
+            plano.append((pasta.name, 'analisaria (gabarito definitivo novo)'))
+        elif not forcar and manifesto.atualizado(pasta, raiz_analises / pasta.name):
+            plano.append((pasta.name, 'sem mudanças'))
+        else:
+            plano.append((pasta.name, 'analisaria'))
+    return plano
+
+
+def _selecionar(raiz_provas: Path, apenas: str | None) -> list[Path]:
+    pastas = listar_concursos(raiz_provas)
+    if apenas is None:
+        return pastas
+    if selecionadas := [p for p in pastas if p.name == apenas]:
+        return selecionadas
+    raise ConcursoNaoEncontradoError(f'{raiz_provas / apenas}: concurso não encontrado')
 
 
 def _analisar_se_necessario(

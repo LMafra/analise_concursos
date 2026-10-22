@@ -304,6 +304,19 @@ Concurso `<slug>`; registro de candidatos na versão <n>. "(descoberta)" marca o
 - **Propostas de evolução:** os candidatos de impacto alto com proposta. A que muda código de uma fase anterior (o número de alternativas no OCR da folha) fica só como proposta, com o diff estimado, e só é aplicada com confirmação.
 - **Descartados:** os candidatos descartados e as informações que nem viraram candidato (taxa, remuneração, jornada, lotação, cotas, isenção, atendimento especial, nome social, amamentação, heteroidentificação, perícia médica), cada um com o motivo.
 
+## Pastas de uma execução (fase 4)
+
+O resolvedor de contexto (`config/contexto.py`) decide todos os caminhos; nada mais procura o `pyproject.toml`.
+
+| Pasta | Padrão | Sobreposta por |
+|---|---|---|
+| Global (preferências, logs, backups) | `~/.concurso/` | `CONCURSO_HOME` |
+| Projeto (configuração e taxonomia) | `./.concurso/` | `--data-dir` |
+| Provas | `./provas/` | `--provas` |
+| Análises | `./analises/` | `--analises` |
+
+O log técnico, com traceback, fica em `<global>/logs/concurso-analise.log` (rotativo, 3 cópias de 1 MB). Na tela, um erro sai em até duas linhas: `erro: <causa>` e `dica: <comando>`. Códigos de saída: 0 sucesso, 1 falha do usuário ou dos dados, 2 falha do ambiente ou uso inválido da CLI.
+
 ## `concurso.yaml`
 
 O arquivo é gerado por `concursos adicionar` e pode ser editado à mão. Os caminhos são relativos à pasta do concurso.

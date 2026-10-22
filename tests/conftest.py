@@ -7,6 +7,13 @@ import yaml
 from concursos.cli import main
 
 
+@pytest.fixture(autouse=True)
+def home_isolada(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / 'home_concurso'
+    monkeypatch.setenv('CONCURSO_HOME', str(home))
+    return home
+
+
 @pytest.fixture
 def raizes(tmp_path: Path) -> tuple[Path, Path]:
     provas = tmp_path / 'provas'
