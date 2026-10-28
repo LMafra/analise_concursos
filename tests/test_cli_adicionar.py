@@ -44,9 +44,10 @@ def ler_config(pasta: Path) -> dict:
 def test_caminho_feliz_grava_config_aceita_pelo_analisar(raizes, monkeypatch, capsys):
     provas, analises = raizes
     pasta = criar_pasta(provas, {'gab.txt': GABARITO_FGV, 'minhas.txt': RESPOSTAS})
-    roteirizar(monkeypatch, 's')
+    prompts = roteirizar(monkeypatch, '', '', 's')
 
     assert adicionar(pasta) == 0
+    assert len(prompts) == 3
 
     config = ler_config(pasta)
     assert config['banca'] == 'fgv'
@@ -103,7 +104,7 @@ def test_cebraspe_gera_uma_prova_por_gabarito_com_regra_cebraspe(raizes, monkeyp
 def test_duplicado_por_hash_pergunta_qual_manter(raizes, monkeypatch, capsys):
     provas, _ = raizes
     pasta = criar_pasta(
-        provas, {'gab.txt': GABARITO_FGV, 'respostas.txt': RESPOSTAS, 'respostas (1).txt': RESPOSTAS}
+        provas, {'gabarito.txt': GABARITO_FGV, 'respostas.txt': RESPOSTAS, 'respostas (1).txt': RESPOSTAS}
     )
     roteirizar(monkeypatch, '', 's')
 
@@ -136,7 +137,9 @@ def test_preliminar_e_definitivo_juntos_prefere_definitivo(raizes, monkeypatch):
 
 def test_arquivo_desconhecido_pergunta_o_papel(raizes, monkeypatch):
     provas, _ = raizes
-    pasta = criar_pasta(provas, {'gab.txt': GABARITO_FGV, 'respostas.txt': RESPOSTAS, 'notas.txt': 'estudar'})
+    pasta = criar_pasta(
+        provas, {'gabarito.txt': GABARITO_FGV, 'respostas.txt': RESPOSTAS, 'notas.txt': 'estudar'}
+    )
     prompts = roteirizar(monkeypatch, '1', 's')
 
     assert adicionar(pasta) == 0
@@ -147,8 +150,8 @@ def test_arquivo_desconhecido_pergunta_o_papel(raizes, monkeypatch):
 @pytest.mark.parametrize(
     ('arquivos', 'mensagem'),
     [
-        ({'gab.txt': GABARITO_FGV, 'respostas.txt': RESPOSTAS, 'notas.txt': 'estudar'}, 'notas.txt'),
-        ({'gab.txt': GABARITO_FGV.replace('FGV - ', ''), 'respostas.txt': RESPOSTAS}, 'banca'),
+        ({'gabarito.txt': GABARITO_FGV, 'respostas.txt': RESPOSTAS, 'notas.txt': 'estudar'}, 'notas.txt'),
+        ({'gabarito.txt': GABARITO_FGV.replace('FGV - ', ''), 'respostas.txt': RESPOSTAS}, 'banca'),
     ],
     ids=['arquivo_desconhecido', 'banca_nao_detectada'],
 )
@@ -167,7 +170,7 @@ def test_recadastro_mostra_diff_e_preserva_ajustes_manuais(raizes, monkeypatch, 
     provas, _ = raizes
     pasta = criar_pasta(
         provas,
-        {'gab.txt': GABARITO_FGV.replace('definitivo', 'preliminar'), 'respostas.txt': RESPOSTAS},
+        {'gabarito.txt': GABARITO_FGV.replace('definitivo', 'preliminar'), 'respostas.txt': RESPOSTAS},
     )
     roteirizar(monkeypatch)
     assert adicionar(pasta, '--aceitar-sugestoes') == 0
@@ -176,7 +179,7 @@ def test_recadastro_mostra_diff_e_preserva_ajustes_manuais(raizes, monkeypatch, 
     config['correcao'] = {'variantes': ['B3-08-A']}
     config |= {'data_prova': '2026-02-22', 'nivel': 'federal', 'escolaridade': 'medio'}
     (pasta / 'concurso.yaml').write_text(yaml.safe_dump(config, allow_unicode=True), encoding='utf-8')
-    (pasta / 'gab.txt').write_text(GABARITO_FGV, encoding='utf-8')
+    (pasta / 'gabarito.txt').write_text(GABARITO_FGV, encoding='utf-8')
     capsys.readouterr()
 
     roteirizar(monkeypatch, 'n')
@@ -204,7 +207,7 @@ def test_recadastro_mostra_diff_e_preserva_ajustes_manuais(raizes, monkeypatch, 
 
 def test_recadastro_sem_mudancas_nao_pergunta(raizes, monkeypatch, capsys):
     provas, _ = raizes
-    pasta = criar_pasta(provas, {'gab.txt': GABARITO_FGV, 'respostas.txt': RESPOSTAS})
+    pasta = criar_pasta(provas, {'gabarito.txt': GABARITO_FGV, 'respostas.txt': RESPOSTAS})
     roteirizar(monkeypatch)
     assert adicionar(pasta, '--aceitar-sugestoes') == 0
 
@@ -217,3 +220,28 @@ def test_pasta_inexistente_falha_com_mensagem_clara(raizes, caplog):
     provas, _ = raizes
     assert adicionar(provas / 'nao_existe') == 1
     assert 'nao_existe' in caplog.text
+
+
+def test_txt_sem_sinal_no_nome_pergunta_se_e_gabarito_ou_respostas(raizes, monkeypatch, capsys):
+    provas, _ = raizes
+    sem_titulo = GABARITO_FGV.replace('# FGV - Gabarito definitivo', '# FGV')
+    pasta = criar_pasta(provas, {'definitivo.txt': sem_titulo, 'respostas.txt': RESPOSTAS})
+    roteirizar(monkeypatch, '1', '', 's')
+
+    assert adicionar(pasta) == 0
+
+    config = ler_config(pasta)
+    assert config['provas']['unica']['gabarito'] == {'arquivo': 'definitivo.txt', 'status': 'definitivo'}
+    assert config['respostas'] == {'arquivo': 'respostas.txt'}
+    assert 'definitivo.txt: é gabarito ou respostas?' in capsys.readouterr().out
+
+
+def test_sem_tty_aceita_a_sugestao_do_txt_ambiguo_e_avisa(raizes, monkeypatch, caplog):
+    provas, _ = raizes
+    pasta = criar_pasta(provas, {'gab.txt': GABARITO_FGV, 'respostas.txt': RESPOSTAS})
+    roteirizar(monkeypatch)
+
+    assert adicionar(pasta, '--aceitar-sugestoes') == 0
+
+    assert ler_config(pasta)['provas']['unica']['gabarito']['arquivo'] == 'gab.txt'
+    assert 'gab.txt: tratado como gabarito' in caplog.text

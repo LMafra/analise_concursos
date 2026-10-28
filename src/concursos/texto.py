@@ -23,6 +23,27 @@ def normalizar(texto: str) -> str:
     return ' '.join(re.sub(r'[–—]', '-', sem_acento).upper().split())
 
 
+def juntar_linhas(linhas: list[str]) -> str:
+    """Uma linha só, com espaços simples; 'da-' seguido de 'dos' vira 'dados', mas 'Anti-' + 'Corrupção' não."""
+    texto = ''
+    for linha in (linha.strip() for linha in linhas):
+        if texto.endswith('-') and linha[:1].islower():
+            texto = texto[:-1] + linha
+        else:
+            texto = f'{texto} {linha}' if texto else linha
+    return re.sub(r'\s+', ' ', texto).strip()
+
+
+def abreviar(texto: str, limite: int) -> str:
+    """Até `limite` caracteres, cortando no último espaço e marcando o corte com '…'."""
+    if len(texto) <= limite:
+        return texto
+    corte = texto[: limite - 1]
+    if (espaco := corte.rfind(' ')) > 0:
+        corte = corte[:espaco]
+    return corte.rstrip(' ,;:.–-') + '…'
+
+
 def extrair_paginas(caminho: Path, ocr: bool = True) -> list[str]:
     """Texto de cada página (PDF ou txt com páginas separadas por form feed); páginas sem camada de
     texto passam por OCR (Tesseract), a menos que ocr=False."""

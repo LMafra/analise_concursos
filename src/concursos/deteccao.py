@@ -49,6 +49,7 @@ class ArquivoDetectado:
     status_gabarito: StatusGabarito | None = None
     tipo_caderno: str | None = None
     texto: str = ''
+    ambiguo: bool = False
 
 
 def classificar_texto(texto: str, paginas: int, tem_imagem: bool) -> Papel:
@@ -114,9 +115,10 @@ def classificar_arquivo(caminho: Path, pasta: Path) -> ArquivoDetectado:
         return ArquivoDetectado(caminho, Papel.IGNORADO)
     if sufixo in EXTENSOES_IMAGEM:
         return ArquivoDetectado(caminho, Papel.FOLHA)
+    ambiguo = False
     if sufixo in EXTENSOES_TEXTO:
         texto = caminho.read_text(encoding='utf-8', errors='replace')
-        papel = classificar_texto_manual(caminho.name, texto)
+        papel, ambiguo = classificar_texto_manual(caminho.name, texto)
     elif sufixo == '.pdf':
         texto, paginas, tem_imagem = _ler_pdf(caminho)
         papel = classificar_texto(texto, paginas, tem_imagem)
@@ -129,18 +131,35 @@ def classificar_arquivo(caminho: Path, pasta: Path) -> ArquivoDetectado:
         status_gabarito=detectar_status(texto) if papel is Papel.GABARITO else None,
         tipo_caderno=detectar_tipo_caderno(texto) if papel is Papel.PROVA else None,
         texto=texto,
+        ambiguo=ambiguo,
     )
 
 
-def classificar_texto_manual(nome: str, texto: str) -> Papel:
-    """Arquivo de texto com uma questão por linha: gabarito se citar 'gabarito', senão respostas."""
+def classificar_texto_manual(nome: str, texto: str) -> tuple[Papel, bool]:
+    """Papel de um arquivo de texto com uma questão por linha e se ele é ambíguo.
+
+    Só o nome que cita 'gabarito' ou 'resposta', e não os dois, decide sem dúvida. Nos demais casos, o papel
+    é uma sugestão: gabarito se o nome ou o texto citarem 'gabarito', senão respostas.
+    """
+    no_nome = normalizar(nome)
+    sinais = {Papel.GABARITO: 'GABARITO' in no_nome, Papel.RESPOSTAS: 'RESPOSTA' in no_nome}
+    if sum(sinais.values()) == 1:
+        papel = next(p for p, citado in sinais.items() if citado)
+        return (
+            (papel, False)
+            if papel is Papel.GABARITO or _linhas_validas(texto)
+            else (Papel.DESCONHECIDO, False)
+        )
     if 'GABARITO' in normalizar(f'{nome} {texto}'):
-        return Papel.GABARITO
+        return Papel.GABARITO, True
+    return (Papel.RESPOSTAS, True) if _linhas_validas(texto) else (Papel.DESCONHECIDO, False)
+
+
+def _linhas_validas(texto: str) -> bool:
     try:
-        linhas = ler_linhas(texto)
+        return bool(ler_linhas(texto))
     except LinhaInvalidaError:
-        return Papel.DESCONHECIDO
-    return Papel.RESPOSTAS if linhas else Papel.DESCONHECIDO
+        return False
 
 
 def arquivo_do_sistema(caminho: Path, pasta: Path) -> bool:

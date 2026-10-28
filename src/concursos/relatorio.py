@@ -9,9 +9,11 @@ from concursos.concurso_config import ConcursoConfig
 from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.modelo import StatusGabarito
 from concursos.resultado_oficial import Validacao, formatar
+from concursos.texto import abreviar
 from concursos.topicos import ARQUIVO_REVISAO, SCORE_BAIXO
 
 MAXIMO_TOPICOS_FRACOS = 10
+LIMITE_TOPICO = 150
 
 
 @dataclass(frozen=True)
@@ -127,6 +129,7 @@ def _secao_topicos_fracos(por_topico: pd.DataFrame) -> list[str]:
     fracos = mapeados.sort_values(['percentual', 'total'], ascending=[True, False]).head(
         MAXIMO_TOPICOS_FRACOS
     )
+    fracos = fracos.assign(topico=[abreviar(topico, LIMITE_TOPICO) for topico in fracos['topico']])
     return [
         f'## Tópicos com menor desempenho (até {MAXIMO_TOPICOS_FRACOS})',
         '',

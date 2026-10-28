@@ -11,6 +11,7 @@ from concursos.analytics.pistas_edital import (
 )
 from concursos.analytics.regras_edital import Metadado, RegrasEdital, StatusExtracao
 from concursos.concurso_config import ConcursoConfig
+from concursos.texto import abreviar
 
 ARQUIVO_CATALOGO = 'catalogo_edital.md'
 _TAMANHO_DO_VALOR = 80
@@ -98,8 +99,7 @@ def _no_edital(metadado: Metadado | None, severidade_se_ausente: str) -> str:
 
 
 def _encurtar(texto: str, tamanho: int) -> str:
-    texto = ' '.join(texto.split())
-    return texto if len(texto) <= tamanho else texto[: tamanho - 1] + '…'
+    return abreviar(' '.join(texto.split()), tamanho)
 
 
 def _celula(texto: str) -> str:

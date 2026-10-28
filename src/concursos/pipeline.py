@@ -324,7 +324,12 @@ def _disciplinas_por_questao(config: ConcursoConfig) -> dict[int, str]:
     disciplinas = {}
     for prova in config.provas:
         faixas = prova.disciplinas
-        if not faixas and prova.caderno_pdf and perfil_da_banca(config.banca).disciplinas_pelo_caderno:
+        if (
+            not faixas
+            and prova.caderno_pdf
+            and perfil_da_banca(config.banca).disciplinas_pelo_caderno
+            and _caderno_presente(config, prova)
+        ):
             faixas = tuple(faixas_do_caderno(config.caminho(prova.caderno), prova.inicio))
             cobertas = sum(f.fim - f.inicio + 1 for f in faixas)
             logger.info(
@@ -389,7 +394,7 @@ def _classificar_topicos(
 def _textos_das_questoes(config: ConcursoConfig) -> dict[int, str]:
     textos = {}
     for prova in config.provas:
-        if not prova.caderno:
+        if not prova.caderno or not _caderno_presente(config, prova):
             continue
         texto = texto_em_colunas(config.caminho(prova.caderno))
         da_prova = segmentar(
@@ -398,6 +403,15 @@ def _textos_das_questoes(config: ConcursoConfig) -> dict[int, str]:
         logger.info('%s: texto de %d de %d questões', prova.caderno, len(da_prova), len(prova.questoes))
         textos.update(da_prova)
     return textos
+
+
+def _caderno_presente(config: ConcursoConfig, prova: ProvaConfig) -> bool:
+    if config.caminho(prova.caderno).exists():
+        return True
+    logger.warning(
+        '%s: caderno ausente; a prova %s segue sem o texto das questões', prova.caderno, prova.chave
+    )
+    return False
 
 
 def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabarito]:

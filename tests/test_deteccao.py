@@ -1,6 +1,13 @@
 import pytest
 
-from concursos.deteccao import Papel, classificar_texto, detectar_banca, detectar_tipo_caderno, eh_anexo
+from concursos.deteccao import (
+    Papel,
+    classificar_texto,
+    classificar_texto_manual,
+    detectar_banca,
+    detectar_tipo_caderno,
+    eh_anexo,
+)
 from concursos.gabarito import detectar_status
 
 EDITAL_CEBRASPE = """ORGAO EXEMPLO
@@ -141,3 +148,19 @@ def test_detecta_tipo_do_caderno(texto, tipo):
 def test_status_vem_do_titulo_e_nao_do_texto_de_recurso():
     assert detectar_status(GABARITO_PRELIMINAR_COM_RECURSO) == 'preliminar'
     assert detectar_status(GABARITO_CEBRASPE) == 'definitivo'
+
+
+@pytest.mark.parametrize(
+    ('nome', 'texto', 'esperado'),
+    [
+        ('gabarito.txt', '1 A\n2 B\n', (Papel.GABARITO, False)),
+        ('respostas.txt', '1 A\n2 B\n', (Papel.RESPOSTAS, False)),
+        ('minhas_respostas.txt', '# conferido com o gabarito\n1 A\n', (Papel.RESPOSTAS, False)),
+        ('respostas_conferidas_com_gabarito.txt', '1 A\n2 B\n', (Papel.GABARITO, True)),
+        ('definitivo.txt', '1 A\n2 B\n', (Papel.RESPOSTAS, True)),
+        ('minhas.txt', '# FGV - Gabarito definitivo\n1 A\n', (Papel.GABARITO, True)),
+        ('notas.txt', 'estudar', (Papel.DESCONHECIDO, False)),
+    ],
+)
+def test_txt_so_dispensa_pergunta_quando_o_nome_diz_gabarito_ou_respostas(nome, texto, esperado):
+    assert classificar_texto_manual(nome, texto) == esperado

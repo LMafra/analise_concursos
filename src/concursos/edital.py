@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from concursos.texto import normalizar
+from concursos.texto import juntar_linhas, normalizar
 
 ARQUIVO_EDITAL_ESTRUTURADO = 'edital_estruturado.json'
 
@@ -344,7 +344,7 @@ def _disciplinas(
     titulo, linhas = None, []
 
     def fechar() -> None:
-        disciplinas.extend(_disciplinas_do_texto(_juntar(linhas), titulo or nome_padrao, restricao))
+        disciplinas.extend(_disciplinas_do_texto(juntar_linhas(linhas), titulo or nome_padrao, restricao))
 
     for item in itens:
         if item.tipo == 'titulo':
@@ -354,16 +354,6 @@ def _disciplinas(
             linhas.append(item.texto)
     fechar()
     return tuple(disciplinas)
-
-
-def _juntar(linhas: list[str]) -> str:
-    texto = ''
-    for linha in linhas:
-        if texto.endswith('-') and linha[:1].islower():
-            texto = texto[:-1] + linha
-        else:
-            texto = f'{texto} {linha}' if texto else linha
-    return re.sub(r'\s+', ' ', texto).strip()
 
 
 def _disciplinas_do_texto(texto: str, nome_padrao: str, restricao: _Restricao | None) -> list[Disciplina]:
@@ -417,4 +407,4 @@ def _topico(numero: str, texto: str, numerado: bool) -> Topico:
     descricao = texto.strip().rstrip(' ;')
     subtopico = re.search(rf'\s{numero}\.\d{{1,2}}(?!\d)', descricao) if numerado else None
     nome = (descricao[: subtopico.start()] if subtopico else descricao).strip().rstrip('.;: ')
-    return Topico(numero, nome[:150], descricao)
+    return Topico(numero, nome, descricao)

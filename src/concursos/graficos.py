@@ -7,9 +7,11 @@ import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from concursos.correcao import TOPICO_NAO_MAPEADO  # noqa: E402
+from concursos.texto import abreviar  # noqa: E402
 
 PASTA_GRAFICOS = 'graficos'
 MAXIMO_TOPICOS = 25
+LIMITE_ROTULO = 50
 _ALTURA_POR_BARRA = 0.35
 
 
@@ -38,13 +40,9 @@ def _rotulos(dados: pd.DataFrame, colunas: list[str]) -> list[str]:
     varias_provas = dados['prova'].nunique() > 1 if not dados.empty else False
     prefixo = ['prova'] if varias_provas else []
     return [
-        ' · '.join(_encurtar(str(v)) for v in linha)
+        ' · '.join(abreviar(str(v), LIMITE_ROTULO) for v in linha)
         for linha in dados[prefixo + colunas].itertuples(index=False)
     ]
-
-
-def _encurtar(texto: str, limite: int = 50) -> str:
-    return texto if len(texto) <= limite else texto[: limite - 1] + '…'
 
 
 def _barras(valores: list[float], rotulos: list[str], titulo: str, caminho: Path) -> None:

@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 ARQUIVO_MANIFESTO = '.manifesto.json'
-VERSAO_ANALISE = 8
+VERSAO_ANALISE = 9
 _IGNORADOS = (':Zone.Identifier',)
 _PASTA_CANDIDATOS = 'candidatos'
 

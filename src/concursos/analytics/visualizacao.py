@@ -14,6 +14,7 @@ from plotly.subplots import make_subplots
 
 from concursos.analytics.consolidado import N_MINIMO_TOPICO
 from concursos.analytics.evolucao import MINIMO_PONTOS_TENDENCIA
+from concursos.texto import abreviar
 
 OPACIDADE_AMOSTRA_INSUFICIENTE = 0.35
 TAMANHO_ROTULO_TOPICO = 50
@@ -440,10 +441,7 @@ def _rotulo_disciplina(tabela: pd.DataFrame) -> pd.Series:
 
 
 def _rotulo_topico(tabela: pd.DataFrame) -> pd.Series:
-    topico = tabela['topico'].where(
-        tabela['topico'].str.len() <= TAMANHO_ROTULO_TOPICO,
-        tabela['topico'].str.slice(0, TAMANHO_ROTULO_TOPICO - 1) + '…',
-    )
+    topico = tabela['topico'].map(lambda nome: abreviar(nome, TAMANHO_ROTULO_TOPICO))
     return topico + ' (' + tabela['disciplina'] + ')'
 
 

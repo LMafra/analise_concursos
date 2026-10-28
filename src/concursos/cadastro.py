@@ -1,5 +1,6 @@
 import difflib
 import hashlib
+import logging
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, replace
@@ -7,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from concursos.assistente import Interacao
+from concursos.assistente import Interacao, InteracaoAutomatica
 from concursos.concurso_config import ARQUIVO_CONFIG, gravar_dados, ler_dados, validar_dados
 from concursos.deteccao import (
     ArquivoDetectado,
@@ -16,10 +17,12 @@ from concursos.deteccao import (
     classificar_arquivo,
     eh_anexo,
 )
-from concursos.gabarito import Secao, cargo_do_gabarito, ler_gabarito_texto, secoes_do_pdf
+from concursos.gabarito import Secao, cargo_do_gabarito, detectar_status, ler_gabarito_texto, secoes_do_pdf
 from concursos.modelo import Formato, Pontuacao, StatusGabarito
 from concursos.perfis import ids_de_banca, ids_de_ocr, perfil_da_banca
 from concursos.texto import normalizar
+
+logger = logging.getLogger(__name__)
 
 _IGNORAR = 'ignorar'
 _NENHUM = '(nenhum)'
@@ -54,6 +57,7 @@ class _Cadastro:
         detectados = self._detectar()
         detectados = self._descartar_duplicados(detectados)
         detectados = self._resolver_desconhecidos(detectados)
+        detectados = [self._confirmar_papel(d) if d.ambiguo else d for d in detectados]
         por_papel: dict[Papel, list[ArquivoDetectado]] = defaultdict(list)
         for detectado in detectados:
             por_papel[detectado.papel].append(detectado)
@@ -117,6 +121,24 @@ class _Cadastro:
             if escolha != _IGNORAR:
                 resolvidos.append(replace(detectado, papel=Papel(escolha)))
         return resolvidos
+
+    def _confirmar_papel(self, detectado: ArquivoDetectado) -> ArquivoDetectado:
+        nome = self._nome(detectado)
+        escolha = Papel(
+            self.interacao.escolher(
+                f'{nome}: é gabarito ou respostas? (o nome do arquivo não diz)',
+                [Papel.GABARITO.value, Papel.RESPOSTAS.value],
+                detectado.papel.value,
+            )
+        )
+        if isinstance(self.interacao, InteracaoAutomatica):
+            logger.warning(
+                '%s: tratado como %s pelo conteúdo; ponha "gabarito" ou "respostas" no nome para não depender disso',
+                nome,
+                escolha,
+            )
+        status = detectar_status(detectado.texto) if escolha is Papel.GABARITO else None
+        return replace(detectado, papel=escolha, status_gabarito=status, ambiguo=False)
 
     def _banca(self, detectados: list[ArquivoDetectado]) -> str:
         contagem = Counter(d.banca for d in detectados if d.banca).most_common()

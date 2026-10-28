@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pdfplumber
 
+from concursos.texto import juntar_linhas
+
 _ITEM_CEBRASPE = re.compile(r'^(\d{1,3})\s+(\S.*)$')
 _QUESTAO = re.compile(r'^(\d{1,3})(?:\.\s+(\S.*)|\s*)$')
 _COMANDO = re.compile(r'\bjulgue\b', re.IGNORECASE)
@@ -39,7 +41,7 @@ def segmentar(texto: str, questoes: range, por_itens: bool) -> dict[int, str]:
             for numero, item in bloco.itens.items()
         }
     por_numero = _por_numero(_sem_cabecalhos(texto), questoes, _QUESTAO)
-    return {numero: _juntar(linhas) for numero, linhas in por_numero.items()}
+    return {numero: juntar_linhas(linhas) for numero, linhas in por_numero.items()}
 
 
 def blocos_cebraspe(texto: str, questoes: range) -> list[Bloco]:
@@ -52,7 +54,7 @@ def blocos_cebraspe(texto: str, questoes: range) -> list[Bloco]:
         fim = inicios[indice + 1][1] if indice + 1 < len(inicios) else len(linhas)
         primeira = _ITEM_CEBRASPE.match(linhas[linha].strip()).group(2)
         proximo_comando, corpo = _separar_comando(linhas[linha + 1 : fim])
-        bloco.itens[numero] = _juntar([primeira, *corpo])
+        bloco.itens[numero] = juntar_linhas([primeira, *corpo])
         if proximo_comando:
             blocos.append(bloco)
             bloco = Bloco(proximo_comando)
@@ -74,7 +76,7 @@ def _separar_comando(linhas: list[str]) -> tuple[str, list[str]]:
     while corpo and not corpo[-1].rstrip().endswith(_FIM_DE_FRASE):
         corpo.pop()
     corpo = _sem_texto_base(corpo)
-    return _juntar(linhas[inicio : fim + 1]), corpo
+    return juntar_linhas(linhas[inicio : fim + 1]), corpo
 
 
 def _sem_cabecalhos(texto: str) -> list[str]:
@@ -117,7 +119,3 @@ def _por_numero(linhas: list[str], questoes: range, padrao: re.Pattern) -> dict[
         resto = padrao.match(linhas[linha].strip()).group(2)
         textos[numero] = [*([resto] if resto else []), *linhas[linha + 1 : fim]]
     return textos
-
-
-def _juntar(linhas: list[str]) -> str:
-    return re.sub(r'\s+', ' ', ' '.join(linha.strip() for linha in linhas)).strip()

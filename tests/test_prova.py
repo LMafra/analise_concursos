@@ -78,3 +78,9 @@ def test_selecon_numero_com_ponto():
     textos = segmentar(CADERNO_SELECON, range(1, 3), por_itens=False)
 
     assert textos[2].startswith('Segundo o Manual de Redação')
+
+
+def test_palavra_hifenizada_na_quebra_de_linha_chega_inteira():
+    caderno = '1. Sobre bancos de da-\ndos NoSQL, assinale a alternativa correta.\n2. Outra questão.\n'
+
+    assert segmentar(caderno, range(1, 3), por_itens=False)[1].startswith('Sobre bancos de dados NoSQL')

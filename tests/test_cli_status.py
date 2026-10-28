@@ -142,3 +142,34 @@ def test_status_do_gabarito_vira_enum_ao_carregar(raizes):
     pasta = criar_concurso(provas, 'completo', config('completo'), ARQUIVOS)
 
     assert carregar_concurso(pasta).provas[0].gabarito.status is StatusGabarito.PRELIMINAR
+
+
+EDITAL_MANUAL = """conhecimentos:
+  - nome: Conhecimentos Gerais
+    disciplinas:
+      - nome: Língua Portuguesa
+        topicos: [Crase]
+"""
+
+
+def test_caderno_e_resultado_oficial_ausentes_so_avisam(raizes, capsys, caplog):
+    provas, analises = raizes
+    sem_opcionais = config(
+        'sem_opcionais',
+        edital={'manual': 'edital_manual.yaml'},
+        resultado_oficial={'arquivo': 'resultado.pdf', 'identificador': '1'},
+    )
+    sem_opcionais['provas']['unica']['caderno'] = 'prova.pdf'
+    pasta = criar_concurso(
+        provas, 'sem_opcionais', sem_opcionais, {**ARQUIVOS, 'edital_manual.yaml': EDITAL_MANUAL}
+    )
+
+    linha = status(provas, capsys).splitlines()[2]
+    assert 'completo' in linha and 'incompleto' not in linha
+    assert f'{pasta / "prova.pdf"}: arquivo ausente (caderno da prova unica)' in linha
+    assert f'{pasta / "resultado.pdf"}: arquivo ausente (resultado oficial)' in linha
+
+    with caplog.at_level(logging.WARNING):
+        assert analisar(provas, analises) == 0
+    assert (analises / 'sem_opcionais' / 'relatorio.md').exists()
+    assert 'prova.pdf: caderno ausente' in caplog.text

@@ -1,6 +1,8 @@
 import pandas as pd
 from conftest import analisar, criar_concurso, ler_csv
-from test_edital import PAGINAS
+from test_edital import PAGINAS, TOPICO_LONGO
+
+from concursos.relatorio import LIMITE_TOPICO
 
 CADERNO = """CEBRASPE – CONCURSO TESTE
 Acerca de bancos de dados NoSQL, julgue os itens a seguir.
@@ -11,7 +13,7 @@ No que se refere à ortografia oficial, julgue o item seguinte.
 """
 
 
-def criar(provas):
+def criar(provas, paginas: list[str] = PAGINAS):
     config = {
         'nome': 'sintetico',
         'banca': 'cebraspe',
@@ -23,7 +25,7 @@ def criar(provas):
         'respostas': {'arquivo': 'respostas.txt'},
     }
     arquivos = {
-        'edital.txt': '\f'.join(PAGINAS),
+        'edital.txt': '\f'.join(paginas),
         'prova.txt': CADERNO,
         'gabarito.txt': '1 C\n2 E\n3 C\n',
         'respostas.txt': '1 C\n2 C\n3 C\n',
@@ -82,3 +84,19 @@ def test_revisao_manual_sobrescreve_a_sugestao(raizes):
     questoes = ler_csv(analises / 'sintetico' / 'questoes.csv').set_index('questao')
     assert questoes.loc[3, ['topico', 'revisado']].tolist() == ['Reescrita de frases', True]
     assert questoes.loc[3, 'topico_sugerido'] == 'Domínio da ortografia'
+
+
+def test_nome_de_topico_longo_fica_inteiro_nos_csvs_e_abreviado_no_relatorio(raizes):
+    provas, analises = raizes
+    paginas = [p.replace('Bancos de dados NoSQL', f'Bancos de dados NoSQL e {TOPICO_LONGO}') for p in PAGINAS]
+    criar(provas, paginas)
+
+    assert analisar(provas, analises) == 0
+
+    nome = f'Bancos de dados NoSQL e {TOPICO_LONGO}'
+    assert ('Banco de Dados', nome) in topicos(analises)
+    relatorio = (analises / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
+    assert nome not in relatorio
+    abreviado = next(linha for linha in relatorio.splitlines() if 'Bancos de dados NoSQL e' in linha)
+    celula = next(c.strip() for c in abreviado.split('|') if 'Bancos de dados NoSQL e' in c)
+    assert celula.endswith('…') and len(celula) <= LIMITE_TOPICO

@@ -53,11 +53,10 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
         for arquivo, papel in config.arquivos_referenciados.items()
         if not config.caminho(arquivo).exists()
     }
-    motivos = [
-        f'{config.caminho(arquivo)}: arquivo ausente ({papel})'
-        for arquivo, papel in ausentes.items()
-        if not papel.startswith(_PAPEIS_OPCIONAIS)
-    ]
+    motivos, opcionais = [], []
+    for arquivo, papel in ausentes.items():
+        lista = opcionais if papel.startswith(_PAPEIS_OPCIONAIS) else motivos
+        lista.append(f'{config.caminho(arquivo)}: arquivo ausente ({papel})')
     if config.respostas_arquivo is None and config.folha is None:
         motivos.append('respostas não configuradas (folha de resposta ou respostas.txt)')
     elif (
@@ -79,8 +78,9 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
         return StatusConcurso(
             config.nome, Situacao.DESATUALIZADO, pendencias.motivos, config.status_gabarito, config
         )
-    avisos = tuple(
-        f'{t.novo}: gabarito definitivo será aplicado na próxima análise' for t in pendencias.trocas
+    avisos = (
+        *opcionais,
+        *(f'{t.novo}: gabarito definitivo será aplicado na próxima análise' for t in pendencias.trocas),
     )
     return StatusConcurso(
         config.nome, Situacao.COMPLETO, avisos, config.status_gabarito, config, pendencias.trocas

@@ -134,6 +134,20 @@ def test_edital_com_varios_cargos_exige_cargo_configurado():
         estruturar_edital(PAGINAS, None, 'edital.pdf')
 
 
+TOPICO_LONGO = (
+    'Ameaças e vulnerabilidades em aplicações: injection (SQL, LDAP), cross-site scripting (XSS), quebra de '
+    'autenticação e gerenciamento de sessão, referência insegura a objetos, cross-site request forgery'
+)
+
+
+def test_nome_de_topico_longo_fica_inteiro():
+    paginas = [ANEXO_POR_EIXOS[0].replace('Conceitos de Big Data e Internet das Coisas (IoT)', TOPICO_LONGO)]
+
+    edital = estruturar_edital(paginas, 'Bloco Temático 3 - Ciências, Dados e Tecnologia', 'anexo.pdf')
+
+    assert edital.conhecimentos[1].disciplinas[1].topicos[1].nome == TOPICO_LONGO
+
+
 def test_anexo_por_eixos_usa_eixos_como_disciplinas():
     edital = estruturar_edital(
         ANEXO_POR_EIXOS, 'Bloco Temático 3 - Ciências, Dados e Tecnologia', 'anexo.pdf'
