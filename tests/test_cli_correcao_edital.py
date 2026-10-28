@@ -131,9 +131,9 @@ def test_nota_final_por_variante_no_relatorio_e_no_comparativo(raizes):
     assert linha_do_comparativo(analises)['nota_final'] == 'ti: 4 de 8 pontos'
 
 
-def test_sem_edital_nem_configuracao_grava_default_e_avisa(raizes, caplog):
+def test_edital_sem_a_regra_nem_configuracao_grava_default_e_avisa(raizes, caplog):
     provas, analises = raizes
-    criar(provas, MULTIPLA_ESCOLHA, banca='generic')
+    criar(provas, MULTIPLA_ESCOLHA, 'edital.txt', edital_com(), banca='generic')
 
     with caplog.at_level(logging.WARNING):
         assert analisar(provas, analises) == 0

@@ -20,6 +20,9 @@ Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na conf
 | CLI: comando padrão, subcomandos, flags globais, códigos de saída e erro em duas linhas | `cli/comandos.py`, `cli/erros.py` |
 | Comando obsoleto `concursos` | `cli/legado.py` |
 | Pastas de uma execução (global, projeto, provas, análises) e `config.toml` | `config/contexto.py`, `configuracao.py` |
+| `concurso.yaml`: leitura, validação, gravação e `arquivos_referenciados` | `concurso_config.py` |
+| Texto: extração do PDF, `normalizar`, `abreviar`, `juntar_linhas` | `texto.py` |
+| Papel e banca de cada arquivo, e cadastro (`add`, txt de papel ambíguo) | `deteccao.py`, `cadastro.py` |
 | Onboarding (wizard de 6 perguntas e `init`) | `onboarding.py` |
 | Diagnóstico do ambiente com o comando de correção por sistema | `doctor.py` |
 | Migração das fases 1 a 3, com backup verificado | `migracao.py` |
@@ -85,9 +88,11 @@ Para acrescentar uma camada:
 - Todo percentual vem com o n. n < `N_MINIMO_TOPICO` (5) é amostra insuficiente, e uma tendência exige `MINIMO_PONTOS_TENDENCIA` (3) ordens distintas. Use as constantes nos limiares e nos textos.
 - Gerais e específicos ficam separados (`bloco`) nas séries por disciplina.
 - O limiar de tópico fraco vem do `config.toml` (`[analise] limiar_topico_baixo`).
+- O dado guarda o texto inteiro (CSV, parquet, `chave_topico`); só a apresentação abrevia, com `abreviar`.
 
 ## Edital como fonte de verdade
 
+- **Edital obrigatório:** sem `edital` no `concurso.yaml`, o concurso fica incompleto. O modo mínimo segue com tópicos `nao_mapeado` e revisão em `revisao/questoes_revisado.csv`.
 - **Rastreável:** todo valor com fonte `edital`, `retificacao`, `descoberta` ou `llm` traz trecho, documento e página, para conferir no PDF. A busca respeita o escopo do cargo (`_Escopo`), e a retificação mais recente vence campo a campo. Uma resposta do LLM sem trecho literal conferível é descartada.
 - **Peso realizado vence:** a nota usa o peso do `correcao.json`. O peso do edital é expectativa, e a divergência vira `warn` no CSV de discrepâncias. `correcao.py` não importa `regras_edital`; o `correcao.json`, os CSVs das fases 1 e 2 e o parquet mantêm schema e valores.
 - **Corte é múltiplo:** o gap é calculado contra cada corte aplicável, na unidade dele (pontos ou acertos), e "atingido" exige todos. O corte da discursiva fica fora do "atingido", e escore padronizado e corte por classificação saem como não calculáveis.
@@ -107,7 +112,8 @@ Para acrescentar uma camada:
 - Nomes, docstrings, comentários e docs em português. O ruff não quebra strings nem comentários longos, e o E501 está desligado: quebre à mão o que passar do `line-length`.
 - Comentários e docstrings só registram restrições que o código não mostra.
 - Preserve o final de linha de cada arquivo: boa parte da fase 1 (e `docs/modelo.md`) usa CRLF.
-- TDD: o teste que falha vem primeiro, em `tests/` (os das fases 2 e 3 são `test_analytics_<módulo>.py`), com dados sintéticos; `tests/consolidado_sintetico.py` monta consolidados mínimos. Para regras do edital, use trechos curtos de texto real como fixture.
+- Valor fechado (status do gabarito, formato, pontuação) é enum de `modelo.py`. O yaml grava `.value`, porque o `yaml.safe_dump` recusa `StrEnum`.
+- TDD: o teste que falha vem primeiro, em `tests/` (os das fases 2 e 3 são `test_analytics_<módulo>.py`), com dados sintéticos; `tests/consolidado_sintetico.py` monta consolidados mínimos. Concurso de teste usa `criar_concurso` (ou `com_edital_minimo`) do `conftest.py`, que grava um edital manual mínimo. Para regras do edital, use trechos curtos de texto real como fixture.
 - Python 3.11 e 3.12; o `uv.lock` é commitado. O que o comando principal importa é dependência do projeto, não de grupo: o `uvx` não instala grupos.
 
 ## Fora de escopo

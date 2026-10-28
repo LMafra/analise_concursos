@@ -57,6 +57,10 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
     for arquivo, papel in ausentes.items():
         lista = opcionais if papel.startswith(_PAPEIS_OPCIONAIS) else motivos
         lista.append(f'{config.caminho(arquivo)}: arquivo ausente ({papel})')
+    if config.edital is None:
+        motivos.append(
+            f'edital ausente; adicione o PDF do edital à pasta e rode `concurso-analise add {pasta}`'
+        )
     if config.respostas_arquivo is None and config.folha is None:
         motivos.append('respostas não configuradas (folha de resposta ou respostas.txt)')
     elif (

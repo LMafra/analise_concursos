@@ -268,6 +268,7 @@ Erros saem em português, com uma linha de dica executável e sem traceback, e o
   5. `edital_a_confirmar.yaml`.
 
   Cada campo grava a camada que o preencheu.
+- **Edital obrigatório:** as camadas partem de um edital. Sem `edital` no `concurso.yaml` (nem PDF, nem `manual`), o concurso fica incompleto, e o `add` grava o yaml e avisa. Sem tópicos no edital, `revisao/questoes_revisado.csv` sai do mesmo jeito, com a disciplina das faixas e o tópico `nao_mapeado`.
 - **Confiança agregada do edital:** é gravada no edital estruturado e define o selo do relatório (alta, média, baixa ou mínima).
 - **`edital_a_confirmar.yaml`:**
   - É gerado só quando faltam campos.

@@ -25,6 +25,8 @@ banca: fgv
 formato: multipla_escolha
 pontuacao: simples
 data_prova: {data}
+edital:
+  manual: edital_manual.yaml
 provas:
   unica:
     gabarito: gabarito.txt
@@ -42,6 +44,7 @@ def montar_projeto(raiz: Path) -> None:
         pasta = raiz / 'provas' / nome
         (pasta / 'candidatos' / CANDIDATO).mkdir(parents=True)
         (pasta / 'concurso.yaml').write_text(CONCURSO_YAML.format(data=data), encoding='utf-8')
+        (pasta / 'edital_manual.yaml').write_text('conhecimentos: []\n', encoding='utf-8')
         (pasta / 'gabarito.txt').write_text(GABARITO, encoding='utf-8')
         linhas = ''.join(f'{n} {letra}\n' for n, letra in enumerate(respostas, start=1))
         (pasta / 'candidatos' / CANDIDATO / 'respostas.txt').write_text(linhas, encoding='utf-8')

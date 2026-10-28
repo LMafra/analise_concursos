@@ -10,7 +10,7 @@ Faço muitos concursos públicos (Cebraspe, FGV, SELECON, Quadrix) e não sei co
 
 Uma ferramenta local de linha de comando com fluxo em três passos:
 
-1. **Coletar:** eu crio uma pasta por concurso e copio os arquivos que tiver: edital, provas, gabaritos, e a folha de resposta ou um arquivo de texto com minhas respostas. O resultado oficial é opcional. Os nomes dos arquivos são livres.
+1. **Coletar:** eu crio uma pasta por concurso e copio os arquivos que tiver: edital, provas, gabaritos, e a folha de resposta ou um arquivo de texto com minhas respostas. O edital é obrigatório; o resultado oficial é opcional. Os nomes dos arquivos são livres.
 2. **Cadastrar:** um assistente lê o conteúdo de cada arquivo, identifica o papel, a banca, as faixas de itens e os cargos/tipos disponíveis no gabarito. Ele só pergunta o que não consegue inferir e grava uma configuração explícita dentro da pasta do concurso.
 3. **Analisar:** um comando processa apenas o que é novo ou mudou e gera, por concurso, as respostas extraídas (com confiança da leitura), o desempenho por disciplina e por tópico, gráficos e um relatório legível. Também gera um consolidado que responde: "em quais tópicos meu desempenho é consistentemente baixo entre concursos?".
 
@@ -113,8 +113,8 @@ Quando o gabarito definitivo sai, basta colocá-lo na pasta. A análise troca o 
 - Configuração em dois níveis: uma configuração global só com defaults (limiar de confiança da leitura = 0.75; limiar de tópico baixo = 0.6) e um arquivo de configuração por pasta de concurso, gerado pelo cadastro e editável à mão.
 
 ### Configuração do concurso (schema)
-- Campos: nome, banca (`cebraspe | fgv | selecon | quadrix`), formato (`multipla_escolha | certo_errado`), pontuação (`simples | cebraspe`), cargo e tipo (obrigatórios quando o gabarito tem múltiplas seções), edital (arquivo principal e anexos opcionais), mapa de provas (chave da prova → arquivo do caderno, gabarito com arquivo e status `preliminar | definitivo`, faixa de itens `[inicio, fim]`), respostas (folha + template + parâmetros de grade, ou arquivo de texto), resultado oficial opcional (arquivo + identificador do candidato), lista `ignorar` e lista `historico` de eventos (data, tipo, prova, arquivo anterior, arquivo novo).
-- Para cada concurso, o status é derivado: `completo`, `incompleto` (com motivo: falta edital, respostas, gabarito ou prova) ou `desatualizado` (arquivo novo não cadastrado ou configuração inválida).
+- Campos: nome, banca (`cebraspe | fgv | selecon | quadrix`), formato (`multipla_escolha | certo_errado`), pontuação (`simples | cebraspe`), cargo e tipo (obrigatórios quando o gabarito tem múltiplas seções), edital (obrigatório: arquivo principal e anexos opcionais, ou o edital manual), mapa de provas (chave da prova → arquivo do caderno, gabarito com arquivo e status `preliminar | definitivo`, faixa de itens `[inicio, fim]`), respostas (folha + template + parâmetros de grade, ou arquivo de texto), resultado oficial opcional (arquivo + identificador do candidato), lista `ignorar` e lista `historico` de eventos (data, tipo, prova, arquivo anterior, arquivo novo).
+- Para cada concurso, o status é derivado: `completo`, `incompleto` (com motivo: falta edital, respostas ou gabarito; caderno ou resultado oficial ausente só gera aviso) ou `desatualizado` (arquivo novo não cadastrado ou configuração inválida).
 
 ### Módulos
 - **Configuração do concurso:** carrega, valida o schema e a existência dos arquivos, e calcula o status. Arquivo ausente gera erro específico com o caminho completo.

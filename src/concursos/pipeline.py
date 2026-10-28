@@ -348,10 +348,11 @@ def _disciplinas_por_questao(config: ConcursoConfig) -> dict[int, str]:
 def _classificar_topicos(
     config: ConcursoConfig, edital: Edital | None, resultados: pd.DataFrame
 ) -> pd.DataFrame:
-    """Tópico sugerido por similaridade com o edital; a revisão manual (revisao/) tem prioridade."""
+    """Tópico sugerido por similaridade com o edital; a revisão manual (revisao/) tem prioridade.
+
+    Sem tópicos no edital, a revisão sai do mesmo jeito, com a disciplina das faixas e o tópico nao_mapeado.
+    """
     resultados = resultados.assign(topico_sugerido=TOPICO_NAO_MAPEADO, score=0.0, revisado=False)
-    if edital is None:
-        return resultados
     textos = _textos_das_questoes(config)
     conhecidas = {
         q: d

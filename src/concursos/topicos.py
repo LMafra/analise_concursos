@@ -135,7 +135,7 @@ class _Candidato:
 
 
 def sugerir_topicos(
-    edital: Edital, textos: dict[int, str], disciplinas: dict[int, str]
+    edital: Edital | None, textos: dict[int, str], disciplinas: dict[int, str]
 ) -> dict[int, Sugestao]:
     """Tópico do edital mais parecido (TF-IDF, cosseno) com o texto de cada questão.
 
@@ -144,7 +144,7 @@ def sugerir_topicos(
     """
     candidatos = [
         _Candidato(disciplina.nome, topico.nome, f'{disciplina.nome} {topico.descricao or topico.nome}')
-        for conhecimento in edital.conhecimentos
+        for conhecimento in (edital.conhecimentos if edital else ())
         for disciplina in conhecimento.disciplinas
         for topico in disciplina.topicos
     ]

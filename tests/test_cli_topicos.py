@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 from conftest import analisar, criar_concurso, ler_csv
 from test_edital import PAGINAS, TOPICO_LONGO
 
@@ -100,3 +101,51 @@ def test_nome_de_topico_longo_fica_inteiro_nos_csvs_e_abreviado_no_relatorio(rai
     abreviado = next(linha for linha in relatorio.splitlines() if 'Bancos de dados NoSQL e' in linha)
     celula = next(c.strip() for c in abreviado.split('|') if 'Bancos de dados NoSQL e' in c)
     assert celula.endswith('…') and len(celula) <= LIMITE_TOPICO
+
+
+@pytest.mark.parametrize(
+    ('edital', 'documento'),
+    [
+        ({'manual': 'edital_manual.yaml'}, {'edital_manual.yaml': 'conhecimentos: []\n'}),
+        ('edital.txt', {'edital.txt': 'EDITAL DE ABERTURA\nO concurso tem prova objetiva.\n'}),
+    ],
+    ids=['manual_vazio', 'sem_conteudo_programatico'],
+)
+def test_sem_topicos_do_edital_a_revisao_sai_com_a_disciplina_das_faixas(raizes, edital, documento):
+    provas, analises = raizes
+    config = {
+        'nome': 'sintetico',
+        'banca': 'cebraspe',
+        'formato': 'certo_errado',
+        'pontuacao': 'cebraspe',
+        'edital': edital,
+        'provas': {
+            'unica': {
+                'caderno': 'prova.txt',
+                'gabarito': 'gabarito.txt',
+                'itens': [1, 3],
+                'disciplinas': [{'inicio': 1, 'fim': 2, 'disciplina': 'Banco de Dados'}],
+            }
+        },
+        'respostas': {'arquivo': 'respostas.txt'},
+    }
+    arquivos = {
+        **documento,
+        'prova.txt': CADERNO,
+        'gabarito.txt': '1 C\n2 E\n3 C\n',
+        'respostas.txt': '1 C\n2 C\n3 C\n',
+    }
+    pasta = criar_concurso(provas, 'sintetico', config, arquivos)
+
+    assert analisar(provas, analises) == 0
+
+    caminho = pasta / 'revisao' / 'questoes_revisado.csv'
+    revisao = ler_csv(caminho)
+    assert revisao['disciplina_sugerida'].tolist() == ['Banco de Dados', 'Banco de Dados', 'nao_mapeado']
+    assert (revisao['topico_sugerido'] == 'nao_mapeado').all()
+    assert 'MongoDB' in revisao.loc[0, 'enunciado']
+
+    revisao.loc[revisao['questao'] == 3, ['disciplina', 'topico']] = ['Língua Portuguesa', 'Ortografia']
+    revisao.to_csv(caminho, index=False)
+    assert analisar(provas, analises) == 0
+    assert ('Língua Portuguesa', 'Ortografia') in topicos(analises)

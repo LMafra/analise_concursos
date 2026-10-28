@@ -1,5 +1,6 @@
 import logging
 
+import yaml
 from conftest import analisar, criar_concurso
 
 from concursos.cli import main
@@ -173,3 +174,19 @@ def test_caderno_e_resultado_oficial_ausentes_so_avisam(raizes, capsys, caplog):
         assert analisar(provas, analises) == 0
     assert (analises / 'sem_opcionais' / 'relatorio.md').exists()
     assert 'prova.pdf: caderno ausente' in caplog.text
+
+
+def test_concurso_sem_edital_fica_incompleto(raizes, capsys):
+    provas, _ = raizes
+    sem_edital = config('sem_edital')
+    sem_edital.pop('edital', None)
+    pasta = provas / 'sem_edital'
+    pasta.mkdir()
+    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(sem_edital), encoding='utf-8')
+    for nome, conteudo in ARQUIVOS.items():
+        (pasta / nome).write_text(conteudo, encoding='utf-8')
+
+    linha = status(provas, capsys).splitlines()[2]
+
+    assert 'incompleto' in linha
+    assert 'edital ausente; adicione o PDF do edital à pasta e rode `concurso-analise add' in linha

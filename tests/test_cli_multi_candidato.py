@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import ler_csv
+from conftest import com_edital_minimo, ler_csv
 
 from concursos.cli import main
 
@@ -23,7 +23,7 @@ def projeto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     raiz = tmp_path / 'projeto'
     pasta = raiz / 'provas' / 'alfa'
     pasta.mkdir(parents=True)
-    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(CONCURSO), encoding='utf-8')
+    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(com_edital_minimo(pasta, CONCURSO)), encoding='utf-8')
     (pasta / 'gabarito.txt').write_text(GABARITO, encoding='utf-8')
     candidato(raiz, 'alice', '1 A\n2 B\n3 C\n4 D\n')
     candidato(raiz, 'bob', '1 A\n2 C\n3 D\n4 E\n')
@@ -149,7 +149,9 @@ def test_subpasta_sem_perfil_cria_o_candidato_com_aviso(projeto, caplog):
 def test_concurso_sem_respostas_do_candidato_aparece_como_pendente(projeto):
     beta = projeto / 'provas' / 'beta'
     beta.mkdir()
-    (beta / 'concurso.yaml').write_text(yaml.safe_dump({**CONCURSO, 'nome': 'beta'}), encoding='utf-8')
+    (beta / 'concurso.yaml').write_text(
+        yaml.safe_dump(com_edital_minimo(beta, {**CONCURSO, 'nome': 'beta'})), encoding='utf-8'
+    )
     (beta / 'gabarito.txt').write_text(GABARITO, encoding='utf-8')
     (projeto / 'provas' / 'gama').mkdir()
 
@@ -167,7 +169,7 @@ def test_identificador_do_resultado_oficial_nao_e_herdado(projeto):
 
     pasta = projeto / 'provas' / 'alfa'
     dados = {**CONCURSO, 'resultado_oficial': {'arquivo': 'resultado.pdf', 'identificador': '999'}}
-    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(dados), encoding='utf-8')
+    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(com_edital_minimo(pasta, dados)), encoding='utf-8')
     perfil = {'respostas': {'arquivo': 'respostas.txt'}, 'resultado_oficial': {'identificador': '123'}}
     (pasta / 'candidatos' / 'alice' / 'candidato.yaml').write_text(yaml.safe_dump(perfil), encoding='utf-8')
 

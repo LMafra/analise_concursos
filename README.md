@@ -105,7 +105,7 @@ provas/
         respostas.txt
 ```
 
-1. Crie `provas/<concurso>/` e copie os arquivos com os nomes que vieram da banca: edital e anexos, cadernos de prova, gabaritos (preliminar ou definitivo; PDFs com vários cargos são aceitos) e, opcionalmente, o resultado oficial com a sua nota.
+1. Crie `provas/<concurso>/` e copie os arquivos com os nomes que vieram da banca: edital e anexos (sem edital, o concurso fica incompleto), cadernos de prova, gabaritos (preliminar ou definitivo; PDFs com vários cargos são aceitos) e, opcionalmente, o resultado oficial com a sua nota.
 2. Coloque suas respostas em `candidatos/<seu nome>/`: a folha de resposta (PDF ou imagem), um `respostas.txt` ou um `respostas.csv`. `add <arquivo> --candidate <nome>` faz isso por você.
 3. Rode `concurso-analise`. Uma pasta sem `concurso.yaml` aparece no `status` como incompleta; `add provas/<concurso>` a cadastra.
 

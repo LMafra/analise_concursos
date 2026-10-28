@@ -4,7 +4,7 @@ from pathlib import Path
 import cv2
 import pytest
 import yaml
-from conftest import ler_csv
+from conftest import com_edital_minimo, ler_csv
 from folha_sintetica import folha_cebraspe
 
 from concursos.cli import main
@@ -34,7 +34,7 @@ def projeto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     pasta = raiz / 'provas' / 'cebraspe'
     candidato = pasta / 'candidatos' / 'ana'
     candidato.mkdir(parents=True)
-    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(CONCURSO), encoding='utf-8')
+    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(com_edital_minimo(pasta, CONCURSO)), encoding='utf-8')
     (pasta / 'gabarito.txt').write_text(GABARITO, encoding='utf-8')
     (candidato / 'candidato.yaml').write_text(yaml.safe_dump(PERFIL_FOLHA), encoding='utf-8')
     gravar_folha(raiz, marcas())

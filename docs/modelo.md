@@ -10,13 +10,13 @@ Este documento descreve as entidades do domínio, o schema do `concurso.yaml`, o
 - formato: `multipla_escolha` (A–E) ou `certo_errado` (C/E);
 - regra de pontuação;
 - cargo e tipo do caderno;
-- edital;
+- edital (obrigatório: o PDF ou o `edital.manual`);
 - uma ou mais provas;
 - a fonte das respostas;
 - o resultado oficial (opcional);
 - o histórico de eventos.
 
-A situação é derivada: `completo`, `incompleto` (falta um arquivo, com o caminho) ou `desatualizado` (arquivo novo não cadastrado ou configuração inválida).
+A situação é derivada: `completo`, `incompleto` (falta o edital, as respostas ou um arquivo obrigatório, com o caminho) ou `desatualizado` (arquivo novo não cadastrado ou configuração inválida). Caderno ou resultado oficial ausente só gera aviso: o concurso continua completo, e a análise segue sem o texto das questões ou sem a conferência da nota.
 
 **Prova.** É uma parte do concurso com gabarito próprio. Exemplos: `cg` e `ce` na Cebraspe; `unica` nas demais bancas. Tem:
 - chave;
@@ -42,7 +42,7 @@ A disciplina de uma questão vem, em ordem de prioridade:
 
 O tópico vem da sugestão por similaridade ou da revisão manual. Sem classificação, o valor é `nao_mapeado`.
 
-**Gabarito.** É o arquivo de uma prova, com status `preliminar` ou `definitivo`. Cada item tem questão, resposta e se foi anulado (`X` ou `*`). Um PDF pode ter várias seções (cargo e tipo); a seção é escolhida pelo `cargo`/`tipo` do concurso.
+**Gabarito.** É o arquivo de uma prova, com status `preliminar` ou `definitivo` (`StatusGabarito` em `modelo.py`; o yaml grava o texto). Cada item tem questão, resposta e se foi anulado (`X` ou `*`). Um PDF pode ter várias seções (cargo e tipo); a seção é escolhida pelo `cargo`/`tipo` do concurso.
 
 **RespostaMarcada.** É a leitura de uma questão. Tem:
 - alternativa (ou vazio);
@@ -293,7 +293,7 @@ O CSV de discrepâncias compara a distribuição com as questões corrigidas (`q
 **Prova** (`prova`). Três campos sobre o formato da prova objetiva, com a mesma precedência dos outros (edital, configuração, perfil da banca, default):
 
 - `formato`: `certo_errado` ou `multipla_escolha`, lido do edital ("julgamento de itens … CERTO ou ERRADO", "múltipla escolha"; com só o número de alternativas, múltipla escolha com confiança 0,7). Sem menção, o `formato` do `concurso.yaml` (fonte `config`);
-- `alternativas`: "cinco alternativas", "5 (cinco) opções"; vazio em certo/errado. Sem edital, `alternativas` do `concurso.yaml`, depois o perfil e, por fim, 5 (fonte `default`);
+- `alternativas`: "cinco alternativas", "5 (cinco) opções"; vazio em certo/errado. Sem a menção no edital, `alternativas` do `concurso.yaml`, depois o perfil e, por fim, 5 (fonte `default`);
 - `penalidade`: o fator que a correção leria do edital; sem ele, o do `concurso.yaml`, depois o do perfil (mesmo formato), depois 0.
 
 **Metadados e descoberta dirigida** (`metadados`, `versao_candidatos`). O registro versionado de pistas do edital (`concursos.analytics.pistas_edital`, `VERSAO_CANDIDATOS`) declara, para cada pista, a informação, os padrões de busca, o uso no projeto, o impacto (`alto`, `medio`, `baixo`), o status (`aplicado`, `proposto` ou `descartado`) e a severidade quando ausente. Mudar uma pista sobe a versão. O campo serializado `versao_candidatos` no JSON não muda de nome. Cada concurso tem um metadado por pista, na ordem do registro, e nenhum some da saída. O metadado é um campo com mais duas chaves:
@@ -459,7 +459,7 @@ templates_folha:             # template da folha pelo total de itens; '*' vale p
 - **Leitores:** um nome embutido (`cebraspe`, `fgv`, `lista`) ou `modulo:funcao` de outro pacote, com a assinatura do embutido.
 - **Validação:** campo desconhecido, `formato` ou `segmentacao` fora das opções, ou `id` e `marcas` ausentes geram erro citando o campo. `marcas: []` é válido: o perfil nunca é detectado.
 - **Embutidos:** `cebraspe` (certo/errado, fator 1), `fgv`, `fcc`, `vunesp` (múltipla escolha, 5 alternativas, fator 0), `ibfc` e `idecan` (múltipla escolha, fator 0, alternativas variam por edital) e `generic`. Os cortes típicos de cada banca ficam nos comentários do YAML, como referência: quem decide o corte é o edital.
-- **`generic`:** sem marcas, nunca detectado; é o template de banca nova e vale quando o concurso não declara banca. Ele não preenche regra (não há fonte `perfil` vinda dele): sem edital nem configuração, cai no default.
+- **`generic`:** sem marcas, nunca detectado; é o template de banca nova e vale quando o concurso não declara banca. Ele não preenche regra (não há fonte `perfil` vinda dele): sem a regra no edital nem na configuração, cai no default.
 - **Regra que o perfil preenche:** penalidade (na correção e no bloco `prova`) e alternativas, quando nem o edital nem o `concurso.yaml` as trazem e o perfil é do mesmo formato do concurso.
 - **Penalidade na agregação:** a nota líquida usa o fator da `pontuacao` do concurso (`cebraspe` = 1, `simples` = 0), nunca o nome da banca.
 
@@ -512,7 +512,7 @@ pontuacao: cebraspe            # simples | cebraspe (padrão: simples)
 alternativas: 4                # só em multipla_escolha, de 2 a 10 (padrão: o do perfil da banca ou 5)
 cargo: 'CARGO 2: AUDITOR ...'  # obrigatório quando o gabarito tem várias seções
 tipo: '1'                      # tipo/versão do caderno, quando houver
-edital: edital.pdf             # ou a forma completa:
+edital: edital.pdf             # obrigatório; sem ele, o concurso fica incompleto. Ou a forma completa:
 # edital:
 #   arquivo: edital.pdf        # opcional se houver manual
 #   anexos: [anexo_ii.pdf]     # lidos antes do edital principal
@@ -520,7 +520,7 @@ edital: edital.pdf             # ou a forma completa:
 #   retificacoes: [ret_2.pdf, ret_3.pdf]  # na ordem de publicação; só para as regras do edital
 provas:
   cb:
-    caderno: prova_cb.pdf      # opcional; usado para disciplinas e tópicos
+    caderno: prova_cb.pdf      # opcional; usado para disciplinas e tópicos (ausente, só avisa)
     gabarito:                  # ou só o nome do arquivo (status definitivo)
       arquivo: gabarito_cb.pdf
       status: preliminar       # preliminar | definitivo
@@ -590,7 +590,7 @@ Editar a taxonomia reconstrói o consolidado na próxima carga.
 
 ## Edital manual
 
-Use quando o conteúdo programático não puder ser extraído do PDF (sem ele, a análise segue com os tópicos `nao_mapeado`), ou para corrigir a estrutura extraída. O caminho vai em `edital.manual`.
+Use quando o conteúdo programático não puder ser extraído do PDF (sem ele, a análise segue com os tópicos `nao_mapeado`), ou para corrigir a estrutura extraída. O caminho vai em `edital.manual`. Sem o PDF do edital, o manual mínimo (`conhecimentos: []`) cumpre a obrigatoriedade do edital, mas não traz regra nem tópico.
 
 ```yaml
 cargo: Analista de TI          # opcional
@@ -608,7 +608,7 @@ conhecimentos:
 
 ## Revisão de tópicos
 
-O arquivo `provas/<concurso>/revisao/questoes_revisado.csv` é criado na primeira análise com edital e nunca é sobrescrito. Colunas:
+O arquivo `provas/<concurso>/revisao/questoes_revisado.csv` é criado na primeira análise e nunca é sobrescrito. Sem tópicos no edital (modo mínimo ou manual sem conhecimentos), a disciplina sugerida vem das faixas do `concurso.yaml` (ou `nao_mapeado`) e o tópico sugerido é `nao_mapeado`. Colunas:
 
 - `questao`, `prova`;
 - `disciplina_sugerida`, `topico_sugerido`, `score`;

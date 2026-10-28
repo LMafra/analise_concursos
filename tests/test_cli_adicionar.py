@@ -2,9 +2,10 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import analisar
+from conftest import analisar, com_edital_minimo
 
 from concursos.cli import main
+from concursos.concurso_config import gravar_dados
 
 GABARITO_FGV = '# FGV - Gabarito definitivo\n1 A\n2 B\n3 C\n4 D\n5 E\n6 A\n'
 RESPOSTAS = '1 A\n2 B\n3 D\n4 D\n5 -\n6 A\n'
@@ -58,6 +59,7 @@ def test_caminho_feliz_grava_config_aceita_pelo_analisar(raizes, monkeypatch, ca
     }
     assert config['respostas'] == {'arquivo': 'minhas.txt'}
     assert 'gab.txt' in capsys.readouterr().out
+    gravar_dados(pasta, com_edital_minimo(pasta, config))
     assert analisar(provas, analises) == 0
     assert (analises / 'novo' / 'desempenho_por_disciplina.csv').exists()
 
@@ -245,3 +247,14 @@ def test_sem_tty_aceita_a_sugestao_do_txt_ambiguo_e_avisa(raizes, monkeypatch, c
 
     assert ler_config(pasta)['provas']['unica']['gabarito']['arquivo'] == 'gab.txt'
     assert 'gab.txt: tratado como gabarito' in caplog.text
+
+
+def test_sem_edital_grava_e_avisa_que_fica_incompleto(raizes, monkeypatch, capsys):
+    provas, _ = raizes
+    pasta = criar_pasta(provas, {'gabarito.txt': GABARITO_FGV, 'respostas.txt': RESPOSTAS})
+    roteirizar(monkeypatch)
+
+    assert adicionar(pasta, '--aceitar-sugestoes') == 0
+
+    assert 'edital' not in ler_config(pasta)
+    assert 'nenhum edital; o concurso ficará incompleto' in capsys.readouterr().out

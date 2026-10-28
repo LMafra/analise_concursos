@@ -244,7 +244,7 @@ fi
 
 stage "Copiar os arquivos"
 say "Copie para $PASTA os arquivos do concurso, com os nomes que vieram da banca:"
-step "edital (e anexos com o conteúdo programático, se houver);"
+step "edital (obrigatório; sem ele o concurso fica incompleto) e anexos com o conteúdo programático;"
 step "cadernos de prova (do seu tipo/cargo);"
 step "gabaritos (preliminar ou definitivo; vários cargos no mesmo PDF não tem problema);"
 step "folha de resposta (PDF ou imagem) OU um respostas.txt (próxima etapa);"
@@ -294,7 +294,7 @@ if confirm "Rodar 'concurso-analise analyze $CONCURSO' agora?"; then
 fi
 
 stage "Próximos passos"
-step "Com edital cadastrado, revise os tópicos sugeridos em $PASTA/revisao/questoes_revisado.csv (colunas disciplina e topico)."
+step "Revise os tópicos sugeridos em $PASTA/revisao/questoes_revisado.csv (colunas disciplina e topico)."
 step "Corrigiu a revisão, trocou um arquivo ou saiu o gabarito definitivo? Rode: uv run concurso-analise"
 step "Veja a situação de todos os concursos com: uv run concurso-analise status"
 step "Reabra o relatório com: uv run concurso-analise report"

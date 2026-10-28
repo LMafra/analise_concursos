@@ -1,12 +1,12 @@
 # Bugs encontrados na revisão de código
 
-Revisão feita sobre as mudanças desde o commit inicial `9c59679`. Os três primeiros bugs foram corrigidos em `a611ef1`; o quarto continua aberto. As lacunas em relação à spec que foram mantidas por decisão de projeto estão no fim do documento.
+Revisão feita sobre as mudanças desde o commit inicial `9c59679`. Os três primeiros bugs foram corrigidos em `a611ef1` e o quarto em `251190e`. As duas lacunas em relação à spec, registradas no fim do documento, foram fechadas no commit seguinte.
 
 Ambiente comum a todos os relatos:
 
 - **Dispositivo**: Desktop
 - **SO**: Linux (WSL2, kernel 6.18)
-- **Versão**: Python 3.12.3, pacote `concursos` (CLI), `VERSAO_ANALISE = 3`
+- **Versão**: Python 3.12.3, pacote `concursos` (CLI `concurso-analise`), `VERSAO_ANALISE = 9`
 - **Usuário**: local, sem autenticação
 
 | Bug | Severidade | Situação |
@@ -14,7 +14,7 @@ Ambiente comum a todos os relatos:
 | [Consolidado quebra quando um concurso analisado perde o `concurso.yaml`](#bug-1) | Alta | Corrigido em `a611ef1` |
 | [`banca` e status do gabarito aceitam qualquer valor](#bug-2) | Média | Corrigido em `a611ef1` |
 | [Diff preliminar → definitivo se perde ou fica defasado](#bug-3) | Alta | Corrigido em `a611ef1` |
-| [Nomes de tópicos cortados em 150 caracteres](#bug-4) | Baixa | Aberto |
+| [Nomes de tópicos cortados em 150 caracteres](#bug-4) | Baixa | Corrigido em `251190e` |
 
 ---
 
@@ -156,13 +156,13 @@ O corte existe para manter tabelas e gráficos legíveis. Se for mantido, deve s
 
 ## Possible Fix
 
-Remover o `[:150]` de `edital.py` e abreviar apenas em `relatorio.py` e `graficos.py`, cortando no último espaço antes do limite e acrescentando "…". Mudar o nome do tópico altera os dados; por isso `VERSAO_ANALISE` precisa subir para forçar a reanálise.
+Aplicado: `edital.py` guarda o nome inteiro, e só a apresentação abrevia, com `abreviar(texto, limite)` de `texto.py`, que corta no último espaço e acrescenta "…". O `relatorio.md` usa `LIMITE_TOPICO = 150`; os gráficos, o notebook e o catálogo mantêm os limites que já tinham. CSVs, parquet e `chave_topico` ficam com o nome completo, e `VERSAO_ANALISE` subiu para 9. Nos dados reais, a reanálise mudou só nomes de tópico, `chave_topico`, `topico_sugerido` e `score`: 33 nomes que estavam cortados voltaram inteiros, e nenhuma sugestão trocou de tópico. Coberto por `test_nome_de_topico_longo_fica_inteiro` em `tests/test_edital.py` e `test_nome_de_topico_longo_fica_inteiro_nos_csvs_e_abreviado_no_relatorio` em `tests/test_cli_topicos.py`.
 
 ---
 
-## Lacunas em relação à spec mantidas por decisão
+## Lacunas em relação à spec (fechadas)
 
-Não são tratadas como bugs: foram escolhas feitas em tickets anteriores. Ficam registradas para reavaliação.
+Eram escolhas de tickets anteriores, registradas para reavaliação. As duas foram fechadas:
 
-- **`concursos status` não acusa edital ausente.** O edital passou a ser opcional; sem ele, a análise roda com todas as questões em "não mapeado" e o status do concurso continua completo.
-- **A revisão manual de tópicos só existe com edital.** `revisao/questoes_revisado.csv` só é criado quando há edital, porque as sugestões vêm dele. Sem edital, não há onde atribuir disciplina e tópico manualmente.
+- **`status` não acusava edital ausente.** Agora o edital é obrigatório: sem `edital` no `concurso.yaml` (nem `arquivo`, nem `manual`), o concurso fica incompleto, com o motivo "edital ausente; adicione o PDF do edital à pasta e rode `concurso-analise add <pasta>`". O `add` grava o yaml mesmo sem edital e avisa que o concurso fica incompleto. Um edital sem conteúdo programático continua no modo mínimo, com os tópicos `nao_mapeado`.
+- **A revisão manual de tópicos só existia com edital.** `revisao/questoes_revisado.csv` passou a ser criado também sem tópicos do edital (modo mínimo ou edital manual sem conhecimentos), com a disciplina sugerida pelas faixas do `concurso.yaml` (ou `nao_mapeado`), o tópico sugerido `nao_mapeado` e o enunciado do caderno, quando houver. A revisão se aplica como antes.

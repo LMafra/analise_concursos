@@ -285,7 +285,13 @@ class _Cadastro:
         anterior = self.anterior.get('edital')
         manual = anterior.get('manual') if isinstance(anterior, dict) else None
         if not editais:
-            return {'manual': manual} if manual else None
+            if manual:
+                return {'manual': manual}
+            self.interacao.mostrar(
+                'Aviso: nenhum edital; o concurso ficará incompleto. Adicione o PDF do edital à pasta e rode '
+                f'`concurso-analise add {self.pasta}` de novo.'
+            )
+            return None
         nomes = [self._nome(e) for e in editais]
         principais = [self._nome(e) for e in editais if not eh_anexo(e.texto)]
         if len(editais) == 1 or len(principais) == 1:

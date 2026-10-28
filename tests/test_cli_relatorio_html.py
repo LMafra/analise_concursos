@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import yaml
+from conftest import com_edital_minimo
 
 from concursos.cli import main
 
@@ -21,7 +22,7 @@ def concurso(raiz: Path, nome: str, data: str) -> Path:
         'data_prova': data,
         'provas': {'unica': {'gabarito': 'gabarito.txt', 'itens': [1, 4]}},
     }
-    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(config), encoding='utf-8')
+    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(com_edital_minimo(pasta, config)), encoding='utf-8')
     (pasta / 'gabarito.txt').write_text(GABARITO, encoding='utf-8')
     return pasta
 
@@ -66,7 +67,7 @@ def test_percentual_do_indice_segue_a_regra_da_banca(projeto):
         'data_prova': '2025-06-01',
         'provas': {'unica': {'gabarito': 'gabarito.txt', 'itens': [1, 4]}},
     }
-    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(config), encoding='utf-8')
+    (pasta / 'concurso.yaml').write_text(yaml.safe_dump(com_edital_minimo(pasta, config)), encoding='utf-8')
     (pasta / 'gabarito.txt').write_text('1 C\n2 E\n3 C\n4 E\n', encoding='utf-8')
     respostas(projeto, 'gama', '1 C\n2 E\n3 C\n4 C\n')
 
