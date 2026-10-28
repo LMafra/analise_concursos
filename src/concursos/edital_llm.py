@@ -10,9 +10,9 @@ from concursos.analytics.regras_edital import (
     RegrasEdital,
     confianca_do_edital,
 )
-from concursos.deteccao import normalizar
 from concursos.llm import ClienteLlm, LlmIndisponivelError
 from concursos.modelo import Formato
+from concursos.texto import normalizar
 
 logger = logging.getLogger(__name__)
 

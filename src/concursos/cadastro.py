@@ -8,18 +8,18 @@ from pathlib import Path
 import yaml
 
 from concursos.assistente import Interacao
-from concursos.concurso_config import ARQUIVO_CONFIG, validar_dados
+from concursos.concurso_config import ARQUIVO_CONFIG, gravar_dados, ler_dados, validar_dados
 from concursos.deteccao import (
     ArquivoDetectado,
     Papel,
     arquivo_do_sistema,
     classificar_arquivo,
     eh_anexo,
-    normalizar,
 )
 from concursos.gabarito import Secao, cargo_do_gabarito, ler_gabarito_texto, secoes_do_pdf
-from concursos.modelo import Formato, Pontuacao
+from concursos.modelo import Formato, Pontuacao, StatusGabarito
 from concursos.perfis import ids_de_banca, ids_de_ocr, perfil_da_banca
+from concursos.texto import normalizar
 
 _IGNORAR = 'ignorar'
 _NENHUM = '(nenhum)'
@@ -29,7 +29,7 @@ _CAMPOS_MANUAIS = ('data_prova', 'nivel', 'escolaridade', 'correcao')
 @dataclass(frozen=True)
 class _Gabarito:
     nome: str
-    status: str | None
+    status: StatusGabarito | None
     chave: str
     secoes: list[Secao]
 
@@ -48,7 +48,7 @@ class _Cadastro:
     def __init__(self, pasta: Path, interacao: Interacao):
         self.pasta = pasta
         self.interacao = interacao
-        self.anterior = self._config_anterior()
+        self.anterior = ler_dados(pasta)
 
     def executar(self) -> bool:
         detectados = self._detectar()
@@ -190,7 +190,7 @@ class _Cadastro:
             if len(grupo) == 1:
                 escolhidos[chave] = grupo[0]
                 continue
-            definitivos = [g.nome for g in grupo if g.status == 'definitivo']
+            definitivos = [g.nome for g in grupo if g.status is StatusGabarito.DEFINITIVO]
             descricao = ', '.join(f'{g.nome} ({g.status or "status desconhecido"})' for g in grupo)
             nome = self.interacao.escolher(
                 f'Prova {chave}: mais de um gabarito ({descricao}). Qual usar?',
@@ -220,10 +220,10 @@ class _Cadastro:
             prova['caderno'] = caderno
         status = gabarito.status or self.interacao.escolher(
             f'{gabarito.nome}: status do gabarito não identificado',
-            ['definitivo', 'preliminar'],
-            'definitivo',
+            [StatusGabarito.DEFINITIVO.value, StatusGabarito.PRELIMINAR.value],
+            StatusGabarito.DEFINITIVO.value,
         )
-        prova['gabarito'] = {'arquivo': gabarito.nome, 'status': status}
+        prova['gabarito'] = {'arquivo': gabarito.nome, 'status': StatusGabarito(status).value}
         itens = _itens(secao)
         prova['itens'] = [min(itens), max(itens)]
         disciplinas = self.anterior.get('provas', {}).get(chave, {}).get('disciplinas')
@@ -328,32 +328,9 @@ class _Cadastro:
         return resultado
 
     def _ignorados(self, dados: dict) -> list[str]:
-        referenciados = set()
-        for prova in dados['provas'].values():
-            referenciados |= {prova['gabarito']['arquivo'], prova.get('caderno')}
-        edital = dados.get('edital')
-        if isinstance(edital, dict):
-            referenciados |= {
-                edital.get('arquivo'),
-                *edital.get('anexos', ()),
-                *edital.get('retificacoes', ()),
-            }
-        else:
-            referenciados.add(edital)
-        respostas = dados.get('respostas') or {}
-        referenciados |= {respostas.get('arquivo'), respostas.get('folha')}
-        referenciados.add((dados.get('resultado_oficial') or {}).get('arquivo'))
+        referenciados = validar_dados(self.pasta, dados).arquivos_referenciados
         todos = (p.relative_to(self.pasta).as_posix() for p in self._arquivos())
         return [nome for nome in todos if nome not in referenciados]
-
-    def _config_anterior(self) -> dict:
-        caminho = self.pasta / ARQUIVO_CONFIG
-        if not caminho.exists():
-            return {}
-        try:
-            return yaml.safe_load(caminho.read_text(encoding='utf-8')) or {}
-        except yaml.YAMLError:
-            return {}
 
     def _gravar(self, dados: dict) -> bool:
         validar_dados(self.pasta, dados)
@@ -371,7 +348,7 @@ class _Cadastro:
         if not self.interacao.confirmar(pergunta):
             self.interacao.mostrar('Nada foi gravado.')
             return False
-        caminho.write_text(_yaml(dados, ordenar=False), encoding='utf-8')
+        gravar_dados(self.pasta, dados)
         self.interacao.mostrar(f'Gravado {caminho}.')
         return True
 

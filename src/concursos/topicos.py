@@ -7,8 +7,8 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from concursos.deteccao import normalizar
 from concursos.edital import Edital
+from concursos.texto import normalizar
 
 logger = logging.getLogger(__name__)
 

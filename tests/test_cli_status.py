@@ -3,6 +3,8 @@ import logging
 from conftest import analisar, criar_concurso
 
 from concursos.cli import main
+from concursos.concurso_config import carregar_concurso
+from concursos.modelo import StatusGabarito
 
 
 def config(nome: str, **extra) -> dict:
@@ -105,4 +107,38 @@ def test_yaml_invalido_aponta_o_campo(raizes, capsys):
     assert "campo obrigatório 'banca' ausente" in saida
     assert "formato: valor 'discursiva' inválido" in saida
     assert "banca: valor 'cespe' inválido" in saida
-    assert "provas.unica.gabarito.status: valor 'Preliminar' inválido" in saida
+    assert "provas.unica.gabarito.status: valor 'Preliminar' inválido (use preliminar, definitivo)" in saida
+
+
+def test_arquivos_referenciados_cobrem_todo_arquivo_do_yaml_com_o_papel(raizes):
+    provas, _ = raizes
+    completo = config(
+        'completo',
+        edital={
+            'arquivo': 'edital.pdf',
+            'anexos': ['anexo.pdf'],
+            'retificacoes': ['retificacao.pdf'],
+            'manual': 'edital_manual.yaml',
+        },
+        resultado_oficial={'arquivo': 'resultado.pdf', 'identificador': '1'},
+    )
+    completo['provas']['unica']['caderno'] = 'prova.pdf'
+    pasta = criar_concurso(provas, 'completo', completo, ARQUIVOS)
+
+    assert carregar_concurso(pasta).arquivos_referenciados == {
+        'gabarito.txt': 'gabarito da prova unica',
+        'prova.pdf': 'caderno da prova unica',
+        'respostas.txt': 'respostas',
+        'anexo.pdf': 'edital',
+        'edital.pdf': 'edital',
+        'retificacao.pdf': 'edital',
+        'edital_manual.yaml': 'edital',
+        'resultado.pdf': 'resultado oficial',
+    }
+
+
+def test_status_do_gabarito_vira_enum_ao_carregar(raizes):
+    provas, _ = raizes
+    pasta = criar_concurso(provas, 'completo', config('completo'), ARQUIVOS)
+
+    assert carregar_concurso(pasta).provas[0].gabarito.status is StatusGabarito.PRELIMINAR

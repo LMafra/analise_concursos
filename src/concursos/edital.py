@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from concursos.deteccao import normalizar
+from concursos.texto import normalizar
 
 ARQUIVO_EDITAL_ESTRUTURADO = 'edital_estruturado.json'
 

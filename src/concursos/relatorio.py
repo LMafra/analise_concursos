@@ -7,6 +7,7 @@ from concursos.analytics.regras_edital import Identificacao
 from concursos.atualizacao import COLUNAS_DIFF, impacto
 from concursos.concurso_config import ConcursoConfig
 from concursos.correcao import TOPICO_NAO_MAPEADO
+from concursos.modelo import StatusGabarito
 from concursos.resultado_oficial import Validacao, formatar
 from concursos.topicos import ARQUIVO_REVISAO, SCORE_BAIXO
 
@@ -78,7 +79,7 @@ def _identificacao(identificacao: Identificacao | None) -> list[str]:
 
 
 def _selo_preliminar(config: ConcursoConfig) -> list[str]:
-    preliminares = [p.chave for p in config.provas if p.gabarito.status == 'preliminar']
+    preliminares = [p.chave for p in config.provas if p.gabarito.status is StatusGabarito.PRELIMINAR]
     if not preliminares:
         return []
     return [

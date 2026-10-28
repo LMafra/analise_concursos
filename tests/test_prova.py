@@ -60,14 +60,14 @@ def test_cebraspe_agrupa_itens_por_bloco_de_comando():
 
 
 def test_texto_do_item_cebraspe_inclui_o_comando_do_bloco():
-    textos = segmentar(CADERNO_CEBRASPE, range(91, 96), cebraspe=True)
+    textos = segmentar(CADERNO_CEBRASPE, range(91, 96), por_itens=True)
 
     assert textos[93].startswith('Em relação aos direitos')
     assert textos[93].endswith('previsto expressamente no texto constitucional.')
 
 
 def test_fgv_numero_isolado_na_linha():
-    textos = segmentar(CADERNO_FGV, range(1, 4), cebraspe=False)
+    textos = segmentar(CADERNO_FGV, range(1, 4), por_itens=False)
 
     assert sorted(textos) == [1, 2, 3]
     assert textos[1].startswith('Assinale a opção em que o gerúndio')
@@ -75,6 +75,6 @@ def test_fgv_numero_isolado_na_linha():
 
 
 def test_selecon_numero_com_ponto():
-    textos = segmentar(CADERNO_SELECON, range(1, 3), cebraspe=False)
+    textos = segmentar(CADERNO_SELECON, range(1, 3), por_itens=False)
 
     assert textos[2].startswith('Segundo o Manual de Redação')

@@ -3,7 +3,7 @@ from PIL import Image
 
 from concursos import texto
 from concursos.gabarito import detectar_status, ler_gabarito_cebraspe
-from concursos.modelo import ItemGabarito
+from concursos.modelo import ItemGabarito, StatusGabarito
 from concursos.texto import OcrIndisponivelError, extrair_paginas
 
 TRECHO_CG = """CÂMARA DOS DEPUTADOS
@@ -42,10 +42,10 @@ def test_le_faixa_que_nao_comeca_em_um():
 
 
 def test_detecta_status_do_gabarito_pelo_texto():
-    assert detectar_status(TRECHO_CG) == 'definitivo'
-    assert detectar_status(TRECHO_CE) == 'preliminar'
-    assert detectar_status('GABARITO OFICIAL PRELIMINAR\n100 - PAS') == 'preliminar'
-    assert detectar_status('Gabaritos Definitivos da prova aplicada') == 'definitivo'
+    assert detectar_status(TRECHO_CG) is StatusGabarito.DEFINITIVO
+    assert detectar_status(TRECHO_CE) is StatusGabarito.PRELIMINAR
+    assert detectar_status('GABARITO OFICIAL PRELIMINAR\n100 - PAS') is StatusGabarito.PRELIMINAR
+    assert detectar_status('Gabaritos Definitivos da prova aplicada') is StatusGabarito.DEFINITIVO
     assert detectar_status('Item 1 2\nGabarito C E') is None
 
 

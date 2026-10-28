@@ -9,6 +9,7 @@ from concursos.analytics.correcao import notas_finais_gravadas
 from concursos.arquivos import gravar_se_mudou
 from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.manifesto import ARQUIVO_MANIFESTO
+from concursos.modelo import StatusGabarito
 from concursos.relatorio import tabela_markdown
 from concursos.resultado_oficial import formatar, ler_validacao
 from concursos.status import Situacao, StatusConcurso, avaliar, listar_concursos
@@ -143,7 +144,9 @@ def _por_concurso(
     tabela['nota_final'] = tabela['concurso'].map(notas).replace('', SEM_NOTA_FINAL).fillna(SEM_NOTA_FINAL)
     colunas = ['concurso', 'gabarito', *_SOMAS, 'nota_final', 'percentual']
     linhas = [tabela_markdown(tabela, colunas), '']
-    preliminares = sorted(s.config.nome for s in analisados.values() if s.gabarito != 'definitivo')
+    preliminares = sorted(
+        s.config.nome for s in analisados.values() if s.gabarito != StatusGabarito.DEFINITIVO
+    )
     if preliminares:
         linhas += [
             f'Concursos com gabarito preliminar (resultados provisórios): {", ".join(preliminares)}.',

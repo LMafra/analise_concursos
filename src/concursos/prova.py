@@ -30,9 +30,9 @@ def texto_em_colunas(caminho: Path) -> str:
     return '\n'.join(partes)
 
 
-def segmentar(texto: str, questoes: range, cebraspe: bool) -> dict[int, str]:
-    """Texto de cada questão; na Cebraspe, o comando do bloco vem antes do item."""
-    if cebraspe:
+def segmentar(texto: str, questoes: range, por_itens: bool) -> dict[int, str]:
+    """Texto de cada questão; na segmentação por itens (Cebraspe), o comando do bloco vem antes do item."""
+    if por_itens:
         return {
             numero: f'{bloco.comando} {item}'.strip()
             for bloco in blocos_cebraspe(texto, questoes)

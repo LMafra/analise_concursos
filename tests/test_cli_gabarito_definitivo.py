@@ -4,6 +4,7 @@ import yaml
 from conftest import analisar, criar_concurso, ler_csv
 
 from concursos.cli import main
+from concursos.concurso_config import com_gabarito_definitivo
 
 PRELIMINAR = '# FGV - Gabarito preliminar\n1 A\n2 B\n3 C\n4 D\n5 E\n6 A\n'
 DEFINITIVO = '# FGV - Gabarito definitivo\n1 A\n2 B\n3 D\n4 X\n5 E\n6 A\n'
@@ -172,3 +173,28 @@ def test_arquivo_nao_cadastrado_deixa_desatualizado(raizes, capsys):
     saida = status(provas, capsys)
 
     assert 'desatualizado' in saida and 'anotacoes.docx' in saida and 'concurso-analise add' in saida
+
+
+def test_com_gabarito_definitivo_troca_o_arquivo_ignora_o_anterior_e_registra_o_evento():
+    dados = {
+        'provas': {'unica': {'gabarito': {'arquivo': 'prel.txt', 'status': 'preliminar'}, 'itens': [1, 6]}},
+        'ignorar': ['velho.txt'],
+    }
+
+    novo = com_gabarito_definitivo(dados, 'unica', 'prel.txt', 'def.txt', '2026-03-01')
+
+    assert novo['provas']['unica'] == {
+        'gabarito': {'arquivo': 'def.txt', 'status': 'definitivo'},
+        'itens': [1, 6],
+    }
+    assert novo['ignorar'] == ['velho.txt', 'prel.txt']
+    assert novo['historico'] == [
+        {
+            'data': '2026-03-01',
+            'tipo': 'gabarito_definitivo',
+            'prova': 'unica',
+            'anterior': 'prel.txt',
+            'novo': 'def.txt',
+        }
+    ]
+    assert dados['provas']['unica']['gabarito']['arquivo'] == 'prel.txt'

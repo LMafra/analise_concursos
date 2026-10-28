@@ -1,5 +1,7 @@
 import logging
+import re
 import shutil
+import unicodedata
 from pathlib import Path
 
 import pdfplumber
@@ -13,6 +15,12 @@ ESCALA_OCR = 300 / 72
 
 class OcrIndisponivelError(RuntimeError):
     pass
+
+
+def normalizar(texto: str) -> str:
+    """Forma de comparação: sem acento, em maiúsculas, com um espaço entre palavras e '–'/'—' como '-'."""
+    sem_acento = ''.join(c for c in unicodedata.normalize('NFKD', texto) if not unicodedata.combining(c))
+    return ' '.join(re.sub(r'[–—]', '-', sem_acento).upper().split())
 
 
 def extrair_paginas(caminho: Path, ocr: bool = True) -> list[str]:

@@ -1,5 +1,4 @@
 import re
-import unicodedata
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -8,7 +7,9 @@ import pdfplumber
 
 from concursos.gabarito import detectar_status
 from concursos.linhas import LinhaInvalidaError, ler_linhas
+from concursos.modelo import StatusGabarito
 from concursos.perfis import perfis_de_banca
+from concursos.texto import normalizar
 
 EXTENSOES_IMAGEM = frozenset({'.png', '.jpg', '.jpeg'})
 EXTENSOES_TEXTO = frozenset({'.txt', '.csv'})
@@ -45,21 +46,12 @@ class ArquivoDetectado:
     caminho: Path
     papel: Papel
     banca: str | None = None
-    status_gabarito: str | None = None
+    status_gabarito: StatusGabarito | None = None
     tipo_caderno: str | None = None
     texto: str = ''
 
-    @property
-    def nome(self) -> str:
-        return self.caminho.name
 
-
-def normalizar(texto: str) -> str:
-    sem_acento = ''.join(c for c in unicodedata.normalize('NFKD', texto) if not unicodedata.combining(c))
-    return ' '.join(re.sub(r'[–—]', '-', sem_acento).upper().split())
-
-
-def classificar_texto(nome: str, texto: str, paginas: int, tem_imagem: bool) -> Papel:
+def classificar_texto(texto: str, paginas: int, tem_imagem: bool) -> Papel:
     """Papel de um PDF a partir do texto das primeiras páginas, do número de páginas e de imagens."""
     texto = re.sub(r'https?://\S+', '', texto)
     inicio = normalizar(texto[:900])
@@ -127,7 +119,7 @@ def classificar_arquivo(caminho: Path, pasta: Path) -> ArquivoDetectado:
         papel = classificar_texto_manual(caminho.name, texto)
     elif sufixo == '.pdf':
         texto, paginas, tem_imagem = _ler_pdf(caminho)
-        papel = classificar_texto(caminho.name, texto, paginas, tem_imagem)
+        papel = classificar_texto(texto, paginas, tem_imagem)
     else:
         return ArquivoDetectado(caminho, Papel.DESCONHECIDO)
     return ArquivoDetectado(

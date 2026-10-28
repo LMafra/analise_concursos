@@ -5,12 +5,18 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-import yaml
 
-from concursos.concurso_config import ARQUIVO_CONFIG, ConcursoConfig, ProvaConfig
-from concursos.deteccao import ArquivoDetectado, Papel, arquivo_do_sistema, classificar_arquivo, normalizar
+from concursos.concurso_config import (
+    ConcursoConfig,
+    ProvaConfig,
+    com_gabarito_definitivo,
+    gravar_dados,
+    ler_dados,
+)
+from concursos.deteccao import ArquivoDetectado, Papel, arquivo_do_sistema, classificar_arquivo
 from concursos.gabarito import GabaritoInvalidoError, cargo_do_gabarito, carregar_gabarito
-from concursos.modelo import Pontuacao, Resultado
+from concursos.modelo import Pontuacao, Resultado, StatusGabarito
+from concursos.texto import normalizar
 
 logger = logging.getLogger(__name__)
 
@@ -49,13 +55,13 @@ def verificar(config: ConcursoConfig) -> Pendencias:
     vira motivo de concurso desatualizado.
     """
     instrucao = f'rode `concurso-analise add {config.pasta}`'
-    preliminares = [p for p in config.provas if p.gabarito.status == 'preliminar']
+    preliminares = [p for p in config.provas if p.gabarito.status is StatusGabarito.PRELIMINAR]
     candidatos: dict[str, list[str]] = {p.chave: [] for p in preliminares}
     motivos = []
     for prova in preliminares:
         if (
             classificar_arquivo(config.caminho(prova.gabarito.arquivo), config.pasta).status_gabarito
-            == 'definitivo'
+            is StatusGabarito.DEFINITIVO
         ):
             candidatos[prova.chave].append(prova.gabarito.arquivo)
     for caminho in _nao_cadastrados(config):
@@ -63,7 +69,10 @@ def verificar(config: ConcursoConfig) -> Pendencias:
         nome = caminho.relative_to(config.pasta).as_posix()
         if detectado.papel is Papel.IGNORADO:
             continue
-        if detectado.papel is not Papel.GABARITO or detectado.status_gabarito != 'definitivo':
+        if (
+            detectado.papel is not Papel.GABARITO
+            or detectado.status_gabarito is not StatusGabarito.DEFINITIVO
+        ):
             motivos.append(f'{nome}: arquivo não cadastrado ({detectado.papel}); {instrucao}')
             continue
         provas = [p for p in preliminares if _corresponde_a_prova(config, p, detectado)]
@@ -160,13 +169,7 @@ def _normalizar_gabarito(tabela: pd.DataFrame) -> pd.DataFrame:
 
 
 def _nao_cadastrados(config: ConcursoConfig) -> list[Path]:
-    referenciados = {*config.ignorar}
-    for prova in config.provas:
-        referenciados |= {prova.gabarito.arquivo, prova.caderno}
-    if config.edital is not None:
-        referenciados |= {*config.edital.arquivos}
-    referenciados |= {config.respostas_arquivo, config.folha and config.folha.arquivo}
-    referenciados.add(config.resultado_oficial and config.resultado_oficial.arquivo)
+    referenciados = {*config.ignorar, *config.arquivos_referenciados}
     return [
         caminho
         for caminho in sorted(config.pasta.rglob('*'))
@@ -183,9 +186,7 @@ def _corresponde_a_prova(config: ConcursoConfig, prova: ProvaConfig, detectado: 
     if cargo and config.cargo and normalizar(cargo) != normalizar(config.cargo):
         return False
     try:
-        itens = carregar_gabarito(
-            detectado.caminho, config.formato, config.banca, config.cargo, config.tipo, config.n_alternativas
-        ).itens
+        itens = carregar_gabarito(detectado.caminho, config).itens
     except GabaritoInvalidoError:
         return False
     return [item.questao for item in itens] == list(prova.questoes)
@@ -203,19 +204,8 @@ def _guardar_saidas(destino: Path) -> None:
 
 
 def _atualizar_config(config: ConcursoConfig, trocas: tuple[Troca, ...]) -> None:
-    caminho = config.pasta / ARQUIVO_CONFIG
-    dados = yaml.safe_load(caminho.read_text(encoding='utf-8'))
+    dados = ler_dados(config.pasta)
     data = datetime.now().date().isoformat()
     for troca in trocas:
-        dados['provas'][troca.prova]['gabarito'] = {'arquivo': troca.novo, 'status': 'definitivo'}
-        if troca.anterior != troca.novo:
-            dados['ignorar'] = [*(dados.get('ignorar') or []), troca.anterior]
-        evento = {
-            'data': data,
-            'tipo': 'gabarito_definitivo',
-            'prova': troca.prova,
-            'anterior': troca.anterior,
-            'novo': troca.novo,
-        }
-        dados['historico'] = [*(dados.get('historico') or []), evento]
-    caminho.write_text(yaml.safe_dump(dados, allow_unicode=True, sort_keys=False), encoding='utf-8')
+        dados = com_gabarito_definitivo(dados, troca.prova, troca.anterior, troca.novo, data)
+    gravar_dados(config.pasta, dados)

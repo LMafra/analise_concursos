@@ -1,17 +1,17 @@
 import re
-import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from concursos.concurso_config import ConcursoConfig
 from concursos.linhas import LinhaInvalidaError, ler_linhas
-from concursos.modelo import Formato, ItemGabarito
+from concursos.modelo import Formato, ItemGabarito, StatusGabarito
 from concursos.perfis import perfil_da_banca, resolver_funcao
-from concursos.texto import extrair_texto
+from concursos.texto import extrair_texto, normalizar
 
 MARCAS_ANULADA = frozenset({'X', '*'})
 _PRELIMINAR = re.compile(r'gabaritos?\s+(oficia(l|is)\s+)?preliminar', re.IGNORECASE)
 _DEFINITIVO = re.compile(r'gabaritos?\s+(oficia(l|is)\s+)?definitivos?', re.IGNORECASE)
-_PADROES_STATUS = (('preliminar', _PRELIMINAR), ('definitivo', _DEFINITIVO))
+_PADROES_STATUS = ((StatusGabarito.PRELIMINAR, _PRELIMINAR), (StatusGabarito.DEFINITIVO, _DEFINITIVO))
 _CARGO_CEBRASPE = re.compile(r'((?:CARGO|EMPREGO)\s+\d+\s*:.+?)(?:\s+-\s+C[ÓO]DIGO\b.*)?$', re.MULTILINE)
 
 
@@ -19,7 +19,7 @@ class GabaritoInvalidoError(ValueError):
     pass
 
 
-def detectar_status(texto: str) -> str | None:
+def detectar_status(texto: str) -> StatusGabarito | None:
     """Status pela primeira menção no texto (o título vem antes das instruções de recurso)."""
     mencoes = [(m.start(), status) for status, padrao in _PADROES_STATUS if (m := padrao.search(texto))]
     return min(mencoes)[1] if mencoes else None
@@ -119,10 +119,10 @@ def ler_secoes_lista(texto: str, arquivo: str) -> list[Secao]:
 
 
 def selecionar_secao(secoes: list[Secao], cargo: str | None, tipo: str | int | None, arquivo: str) -> Secao:
-    alvo_cargo = _normalizar(cargo or '')
+    alvo_cargo = normalizar(cargo or '')
     alvo_tipo = _normalizar_tipo(tipo)
     for secao in secoes:
-        if _normalizar(secao.cargo) == alvo_cargo and _normalizar_tipo(secao.tipo) == alvo_tipo:
+        if normalizar(secao.cargo) == alvo_cargo and _normalizar_tipo(secao.tipo) == alvo_tipo:
             return secao
     disponiveis = '; '.join(f'{s.cargo} (tipo {s.tipo})' for s in secoes)
     raise GabaritoInvalidoError(
@@ -130,15 +130,10 @@ def selecionar_secao(secoes: list[Secao], cargo: str | None, tipo: str | int | N
     )
 
 
-def _normalizar(texto: str) -> str:
-    sem_acento = ''.join(c for c in unicodedata.normalize('NFKD', texto) if not unicodedata.combining(c))
-    return ' '.join(sem_acento.replace('–', '-').casefold().split())
-
-
 def _normalizar_tipo(tipo: str | int | None) -> str | None:
     if tipo is None:
         return None
-    return re.sub(r'^(tipo|prova)\s*', '', _normalizar(str(tipo))) or None
+    return re.sub(r'^(TIPO|PROVA)\s*', '', normalizar(str(tipo))) or None
 
 
 def _validar_continuidade(secao: Secao, primeiro: int, arquivo: str) -> None:
@@ -165,27 +160,22 @@ def _item(numero: str, valor: str) -> ItemGabarito:
 @dataclass(frozen=True)
 class GabaritoCarregado:
     itens: list[ItemGabarito]
-    status_detectado: str | None
+    status_detectado: StatusGabarito | None
 
 
-def carregar_gabarito(
-    caminho: Path,
-    formato: Formato,
-    banca: str,
-    cargo: str | None = None,
-    tipo: str | int | None = None,
-    alternativas: int | None = None,
-) -> GabaritoCarregado:
+def carregar_gabarito(caminho: Path, config: ConcursoConfig) -> GabaritoCarregado:
     """Lê o gabarito do arquivo: PDF pelo parser da banca, txt/csv pelo formato manual."""
+    formato, alternativas = config.formato, config.n_alternativas
     if caminho.suffix.lower() != '.pdf':
         texto = caminho.read_text(encoding='utf-8')
         return GabaritoCarregado(ler_gabarito_texto(texto, formato, caminho.name, alternativas), None)
     texto = extrair_texto(caminho)
-    perfil = perfil_da_banca(banca)
+    perfil = perfil_da_banca(config.banca)
     if perfil.leitor_gabarito:
         itens = resolver_funcao(perfil.leitor_gabarito, LEITORES_GABARITO)(texto, caminho.name)
     else:
-        itens = selecionar_secao(_ler_secoes(texto, banca, caminho.name), cargo, tipo, caminho.name).itens
+        secoes = _ler_secoes(texto, config.banca, caminho.name)
+        itens = selecionar_secao(secoes, config.cargo, config.tipo, caminho.name).itens
     _validar_alternativas(itens, formato.letras(alternativas), formato, caminho.name)
     return GabaritoCarregado(itens, detectar_status(texto))
 

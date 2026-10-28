@@ -324,7 +324,7 @@ def _disciplinas_por_questao(config: ConcursoConfig) -> dict[int, str]:
     disciplinas = {}
     for prova in config.provas:
         faixas = prova.disciplinas
-        if not faixas and _caderno_pdf(prova) and perfil_da_banca(config.banca).disciplinas_pelo_caderno:
+        if not faixas and prova.caderno_pdf and perfil_da_banca(config.banca).disciplinas_pelo_caderno:
             faixas = tuple(faixas_do_caderno(config.caminho(prova.caderno), prova.inicio))
             cobertas = sum(f.fim - f.inicio + 1 for f in faixas)
             logger.info(
@@ -338,10 +338,6 @@ def _disciplinas_por_questao(config: ConcursoConfig) -> dict[int, str]:
                 {q: faixa.disciplina for q in range(faixa.inicio, faixa.fim + 1) if q in prova.questoes}
             )
     return disciplinas
-
-
-def _caderno_pdf(prova: ProvaConfig) -> bool:
-    return bool(prova.caderno) and prova.caderno.lower().endswith('.pdf')
 
 
 def _classificar_topicos(
@@ -397,7 +393,7 @@ def _textos_das_questoes(config: ConcursoConfig) -> dict[int, str]:
             continue
         texto = texto_em_colunas(config.caminho(prova.caderno))
         da_prova = segmentar(
-            texto, prova.questoes, cebraspe=perfil_da_banca(config.banca).segmentacao == 'itens'
+            texto, prova.questoes, por_itens=perfil_da_banca(config.banca).segmentacao == 'itens'
         )
         logger.info('%s: texto de %d de %d questões', prova.caderno, len(da_prova), len(prova.questoes))
         textos.update(da_prova)
@@ -406,14 +402,7 @@ def _textos_das_questoes(config: ConcursoConfig) -> dict[int, str]:
 
 def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabarito]:
     arquivo = prova.gabarito.arquivo
-    gabarito = carregar_gabarito(
-        config.caminho(arquivo),
-        config.formato,
-        config.banca,
-        config.cargo,
-        config.tipo,
-        config.n_alternativas,
-    )
+    gabarito = carregar_gabarito(config.caminho(arquivo), config)
     if gabarito.status_detectado and gabarito.status_detectado != prova.gabarito.status:
         logger.warning(
             '%s: gabarito configurado como %s, mas o arquivo indica %s',

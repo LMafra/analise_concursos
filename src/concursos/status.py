@@ -12,6 +12,8 @@ from concursos.concurso_config import (
 )
 from concursos.perfis import ids_de_ocr
 
+_PAPEIS_OPCIONAIS = ('caderno', 'resultado oficial')
+
 
 class Situacao(StrEnum):
     COMPLETO = 'completo'
@@ -46,29 +48,27 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
     except ConfiguracaoInvalidaError as erro:
         return StatusConcurso(pasta.name, Situacao.DESATUALIZADO, (str(erro),), '-', None)
 
+    ausentes = {
+        arquivo: papel
+        for arquivo, papel in config.arquivos_referenciados.items()
+        if not config.caminho(arquivo).exists()
+    }
     motivos = [
-        f'{config.caminho(prova.gabarito.arquivo)}: arquivo ausente (gabarito da prova {prova.chave})'
-        for prova in config.provas
-        if not config.caminho(prova.gabarito.arquivo).exists()
+        f'{config.caminho(arquivo)}: arquivo ausente ({papel})'
+        for arquivo, papel in ausentes.items()
+        if not papel.startswith(_PAPEIS_OPCIONAIS)
     ]
-    if config.respostas_arquivo is not None:
-        if not config.caminho(config.respostas_arquivo).exists():
-            motivos.append(f'{config.caminho(config.respostas_arquivo)}: arquivo ausente (respostas)')
-    elif config.folha is not None:
-        if not config.caminho(config.folha.arquivo).exists():
-            motivos.append(f'{config.caminho(config.folha.arquivo)}: arquivo ausente (folha de resposta)')
-        elif config.folha.template is not None and config.folha.template not in ids_de_ocr():
-            motivos.append(
-                f'{config.folha.arquivo}: leitura do template {config.folha.template!r} ainda não disponível'
-            )
-    else:
+    if config.respostas_arquivo is None and config.folha is None:
         motivos.append('respostas não configuradas (folha de resposta ou respostas.txt)')
-    if config.edital is not None:
-        motivos += [
-            f'{config.caminho(arquivo)}: arquivo ausente (edital)'
-            for arquivo in config.edital.arquivos
-            if not config.caminho(arquivo).exists()
-        ]
+    elif (
+        config.folha is not None
+        and config.folha.arquivo not in ausentes
+        and config.folha.template is not None
+        and config.folha.template not in ids_de_ocr()
+    ):
+        motivos.append(
+            f'{config.folha.arquivo}: leitura do template {config.folha.template!r} ainda não disponível'
+        )
 
     if motivos:
         return StatusConcurso(

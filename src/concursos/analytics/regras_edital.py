@@ -21,10 +21,10 @@ from concursos.analytics.correcao import (
 )
 from concursos.analytics.pistas_edital import CANDIDATOS, VERSAO_CANDIDATOS, Candidato
 from concursos.concurso_config import ConcursoConfig, PesoItens, pesos_variam
-from concursos.deteccao import normalizar
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, mesclar_json, titulo_legivel
 from concursos.modelo import ALTERNATIVAS_PADRAO, Escolaridade, Formato
 from concursos.perfis import PERFIL_GENERICO, perfil_da_banca
+from concursos.texto import normalizar
 
 logger = logging.getLogger(__name__)
 

@@ -29,6 +29,11 @@ class Pontuacao(StrEnum):
         return 1.0 if self is Pontuacao.CEBRASPE else 0.0
 
 
+class StatusGabarito(StrEnum):
+    PRELIMINAR = 'preliminar'
+    DEFINITIVO = 'definitivo'
+
+
 class Nivel(StrEnum):
     FEDERAL = 'federal'
     ESTADUAL = 'estadual'

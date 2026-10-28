@@ -5,14 +5,21 @@ from pathlib import Path
 
 import yaml
 
-from concursos.modelo import LETRAS, Escolaridade, Formato, ModeloCorrecao, Nivel, Pontuacao
+from concursos.modelo import (
+    LETRAS,
+    Escolaridade,
+    Formato,
+    ModeloCorrecao,
+    Nivel,
+    Pontuacao,
+    StatusGabarito,
+)
 from concursos.perfis import ids_de_banca, perfil_da_banca
 
 ARQUIVO_CONFIG = 'concurso.yaml'
 ARQUIVO_CONFIRMACAO = 'edital_a_confirmar.yaml'
 CAMPOS_CONFIRMAVEIS = ('data_prova', 'alternativas', 'fator_penalidade', 'nota_corte')
 _CAMPOS_DE_CORRECAO = ('fator_penalidade', 'nota_corte')
-STATUS_GABARITO = ('preliminar', 'definitivo')
 
 
 class _CarregadorSemDatas(yaml.SafeLoader):
@@ -47,7 +54,7 @@ class FaixaDisciplina:
 @dataclass(frozen=True)
 class GabaritoConfig:
     arquivo: str
-    status: str = 'definitivo'
+    status: StatusGabarito = StatusGabarito.DEFINITIVO
 
 
 @dataclass(frozen=True)
@@ -138,6 +145,10 @@ class ProvaConfig:
     def questoes(self) -> range:
         return range(self.inicio, self.fim + 1)
 
+    @property
+    def caderno_pdf(self) -> bool:
+        return bool(self.caderno) and self.caderno.lower().endswith('.pdf')
+
     def disciplina_de(self, questao: int) -> str:
         return next((f.disciplina for f in self.disciplinas if f.contem(questao)), 'nao_mapeado')
 
@@ -166,6 +177,24 @@ class ConcursoConfig:
 
     def caminho(self, arquivo: str) -> Path:
         return self.pasta / arquivo
+
+    @property
+    def arquivos_referenciados(self) -> dict[str, str]:
+        """Cada arquivo que o `concurso.yaml` cita, com o papel dele (caminho relativo à pasta)."""
+        referenciados = {}
+        for prova in self.provas:
+            referenciados[prova.gabarito.arquivo] = f'gabarito da prova {prova.chave}'
+            if prova.caderno:
+                referenciados[prova.caderno] = f'caderno da prova {prova.chave}'
+        if self.respostas_arquivo:
+            referenciados[self.respostas_arquivo] = 'respostas'
+        if self.folha:
+            referenciados[self.folha.arquivo] = 'folha de resposta'
+        for arquivo in self.edital.arquivos if self.edital else ():
+            referenciados[arquivo] = 'edital'
+        if self.resultado_oficial:
+            referenciados[self.resultado_oficial.arquivo] = 'resultado oficial'
+        return referenciados
 
     @property
     def status_gabarito(self) -> str:
@@ -198,6 +227,37 @@ def carregar_concurso(pasta: Path) -> ConcursoConfig:
     except (KeyError, TypeError, ValueError) as erro:
         validar_dados(pasta, dados)
         raise ConfiguracaoInvalidaError(f'{pasta / ARQUIVO_CONFIRMACAO}: {erro}') from erro
+
+
+def ler_dados(pasta: Path) -> dict:
+    """O `concurso.yaml` cru, para regravar; vazio se ausente ou ilegível."""
+    caminho = pasta / ARQUIVO_CONFIG
+    if not caminho.exists():
+        return {}
+    try:
+        return yaml.safe_load(caminho.read_text(encoding='utf-8')) or {}
+    except yaml.YAMLError:
+        return {}
+
+
+def gravar_dados(pasta: Path, dados: dict) -> None:
+    texto = yaml.safe_dump(dados, allow_unicode=True, sort_keys=False)
+    (pasta / ARQUIVO_CONFIG).write_text(texto, encoding='utf-8')
+
+
+def com_gabarito_definitivo(dados: dict, prova: str, anterior: str, novo: str, data: str) -> dict:
+    """Cópia dos dados com o gabarito definitivo na prova, o anterior ignorado e o evento no histórico."""
+    provas = {**dados['provas']}
+    provas[prova] = {
+        **provas[prova],
+        'gabarito': {'arquivo': novo, 'status': StatusGabarito.DEFINITIVO.value},
+    }
+    alterado = {**dados, 'provas': provas}
+    if anterior != novo:
+        alterado['ignorar'] = [*(dados.get('ignorar') or []), anterior]
+    evento = {'data': data, 'tipo': 'gabarito_definitivo', 'prova': prova, 'anterior': anterior, 'novo': novo}
+    alterado['historico'] = [*(dados.get('historico') or []), evento]
+    return alterado
 
 
 def _ler_yaml(caminho: Path) -> dict:
@@ -286,7 +346,8 @@ def _montar_prova(chave: str, dados: dict) -> ProvaConfig:
         FaixaDisciplina(f['inicio'], f['fim'], f['disciplina']) for f in dados.get('disciplinas') or ()
     )
     gabarito = GabaritoConfig(**gabarito)
-    _opcao(gabarito.status, STATUS_GABARITO, f'provas.{chave}.gabarito.status')
+    status = _enum(StatusGabarito, gabarito.status, f'provas.{chave}.gabarito.status')
+    gabarito = GabaritoConfig(gabarito.arquivo, status)
     return ProvaConfig(chave, gabarito, int(inicio), int(fim), faixas, dados.get('caderno'))
 
 

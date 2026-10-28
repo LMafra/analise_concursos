@@ -101,7 +101,7 @@ O Presidente, no uso de suas atribuições legais, torna publica a retificação
     ],
 )
 def test_classifica_papel_pelo_conteudo(texto, paginas, tem_imagem, papel):
-    assert classificar_texto('qualquer.pdf', texto, paginas, tem_imagem) is papel
+    assert classificar_texto(texto, paginas, tem_imagem) is papel
 
 
 def test_anexo_do_edital_e_reconhecido():

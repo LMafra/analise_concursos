@@ -8,8 +8,8 @@ import pandas as pd
 import pdfplumber
 
 from concursos.concurso_config import ConcursoConfig, ResultadoOficialConfig
-from concursos.deteccao import normalizar
 from concursos.modelo import Pontuacao, Resultado
+from concursos.texto import normalizar
 
 _TOLERANCIA = 0.005
 ARQUIVO_VALIDACAO = 'validacao_oficial.json'
