@@ -1,18 +1,153 @@
-# Análise de Desempenho em Concursos
+<a id="readme-top"></a>
+
+<!-- BADGES -->
+[![Versão][versao-shield]][pyproject-url]
+[![Python][python-shield]][python-url]
+[![uv][uv-shield]][uv-url]
+[![Docker][docker-shield]](#sem-uv-docker)
+[![Plataformas][plataformas-shield]](#pré-requisitos)
+
+<!-- CABEÇALHO -->
+<br />
+<div align="center">
+  <h3 align="center">Análise de Desempenho em Concursos</h3>
+
+  <p align="center">
+    Corrige suas provas de concurso e mostra em quais disciplinas e tópicos do edital você perde pontos, por concurso e entre concursos.
+    <br />
+    <a href="docs/modelo.md"><strong>Ler o modelo de domínio »</strong></a>
+    <br />
+    <br />
+    <a href="#uso">Ver exemplo</a>
+    &middot;
+    <a href="https://github.com/LMafra/analise_concursos/issues/new?labels=bug">Reportar bug</a>
+    &middot;
+    <a href="https://github.com/LMafra/analise_concursos/issues/new?labels=enhancement">Sugerir funcionalidade</a>
+  </p>
+</div>
+
+<!-- SUMÁRIO -->
+<details>
+  <summary>Sumário</summary>
+  <ol>
+    <li>
+      <a href="#sobre-o-projeto">Sobre o projeto</a>
+      <ul>
+        <li><a href="#feito-com">Feito com</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#primeiros-passos">Primeiros passos</a>
+      <ul>
+        <li><a href="#pré-requisitos">Pré-requisitos</a></li>
+        <li><a href="#instalação">Instalação</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#uso">Uso</a>
+      <ul>
+        <li><a href="#primeira-execução">Primeira execução</a></li>
+        <li><a href="#comandos">Comandos</a></li>
+        <li><a href="#organizar-as-provas">Organizar as provas</a></li>
+        <li><a href="#saídas">Saídas</a></li>
+        <li><a href="#revisão-de-tópicos">Revisão de tópicos</a></li>
+        <li><a href="#troca-de-gabarito-preliminar-para-definitivo">Troca de gabarito preliminar para definitivo</a></li>
+        <li><a href="#configuração">Configuração</a></li>
+        <li><a href="#edital-como-fonte-de-verdade">Edital como fonte de verdade</a></li>
+        <li><a href="#llm-opcional">LLM opcional</a></li>
+        <li><a href="#análise-evolutiva">Análise evolutiva</a></li>
+        <li><a href="#problemas-comuns">Problemas comuns</a></li>
+        <li><a href="#privacidade">Privacidade</a></li>
+      </ul>
+    </li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#contribuindo">Contribuindo</a></li>
+    <li><a href="#licença">Licença</a></li>
+    <li><a href="#contato">Contato</a></li>
+    <li><a href="#agradecimentos">Agradecimentos</a></li>
+  </ol>
+</details>
+
+<!-- SOBRE O PROJETO -->
+## Sobre o projeto
+
+![Relatório HTML de um projeto sintético com dois concursos][relatorio-screenshot]
 
 Ferramenta local que corrige suas provas de concurso e mostra **em quais disciplinas e tópicos do edital você perde pontos**, por concurso e entre concursos.
 
+* Lê a folha de resposta (PDF ou imagem), um `respostas.txt` ou um `respostas.csv` e corrige pela regra do edital, com desconto por erro e pesos.
+* Classifica cada questão numa disciplina e num tópico do conteúdo programático do edital.
+* Confere edital, prova e gabarito entre si, e cada valor lido do edital vem com trecho, documento e página.
+* Acompanha a evolução entre concursos em notebooks de análise.
+
 Tudo roda na sua máquina: nenhum arquivo é enviado para lugar nenhum. O único acesso à rede é opcional, quando você liga um LLM para ajudar a ler editais (veja [LLM opcional](#llm-opcional)).
 
-## Começo rápido
+Bancas com perfil embutido: Cebraspe (certo/errado, um erro anula um acerto), FGV, FCC, Vunesp, IBFC, Idecan, SELECON e Quadrix. Uma banca sem perfil usa o genérico, e o que o edital não disser fica para você confirmar (veja [Problemas comuns](#problemas-comuns)).
 
-Com o [uv](https://docs.astral.sh/uv/getting-started/installation/) instalado, crie uma pasta `provas/` com uma subpasta por concurso, copie para ela os arquivos que vieram da banca e rode, na pasta que contém `provas/`:
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
-```bash
-uvx --from <caminho deste repositório> concurso-analise
+### Feito com
+
+* [![Python][python-badge]][python-url]
+* [![pandas][pandas-badge]][pandas-url]
+* [![scikit-learn][sklearn-badge]][sklearn-url]
+* [![OpenCV][opencv-badge]][opencv-url]
+* [![Tesseract][tesseract-badge]][tesseract-url]
+* [![Plotly][plotly-badge]][plotly-url]
+* [![Typer][typer-badge]][typer-url]
+* [![Jupyter][jupyter-badge]][jupyter-url]
+* [![uv][uv-badge]][uv-url]
+
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
+<!-- PRIMEIROS PASSOS -->
+## Primeiros passos
+
+### Pré-requisitos
+
+* [uv](https://docs.astral.sh/uv/getting-started/installation/), que traz o Python 3.11 ou 3.12.
+* [Tesseract](https://github.com/tesseract-ocr/tesseract) com o idioma português, só para edital ou folha em imagem (PDF escaneado). O `doctor` mostra o comando para o seu sistema:
+  ```sh
+  sudo apt install tesseract-ocr tesseract-ocr-por   # Ubuntu e WSL
+  brew install tesseract tesseract-lang              # macOS
+  winget install UB-Mannheim.TesseractOCR            # Windows
+  ```
+* Opcional: Docker, no lugar do uv e do Tesseract.
+
+Verificado no Linux/WSL e no container. macOS e Windows nativo ainda não foram verificados.
+
+### Instalação
+
+1. Clone o repositório:
+   ```sh
+   git clone git@github.com:LMafra/analise_concursos.git
+   ```
+2. Crie uma pasta `provas/` com uma subpasta por concurso, copie para ela os arquivos que vieram da banca e rode, na pasta que contém `provas/`:
+   ```sh
+   uvx --from <caminho do repositório> concurso-analise
+   ```
+3. Para ter o comando no PATH, instale-o. Depois, basta `concurso-analise`:
+   ```sh
+   uv tool install <caminho do repositório>
+   ```
+
+O pacote ainda não está no PyPI.
+
+#### Sem uv: Docker
+
+A imagem já traz o Tesseract em português. A pasta montada em `/dados` é o projeto:
+
+```sh
+docker build -t concurso-analise .
+docker run --rm -it --user "$(id -u):$(id -g)" -v "$PWD:/dados" concurso-analise
 ```
 
-Para ter o comando no PATH: `uv tool install <caminho deste repositório>`. Depois, basta `concurso-analise`. O pacote ainda não está no PyPI.
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
+<!-- USO -->
+## Uso
+
+### Primeira execução
 
 Na primeira execução, um assistente faz 6 perguntas. Enter aceita o padrão entre colchetes:
 
@@ -53,22 +188,9 @@ INFO Relatório HTML gravado em analises/ana/index.html
 relatório: ~/meus-concursos/analises/ana/index.html
 ```
 
-No fim, o relatório abre no navegador (no WSL, no navegador do Windows):
+No fim, o relatório abre no navegador (no WSL, no navegador do Windows). Rodar de novo só reprocessa o que mudou. Sem mudanças, nenhum arquivo de `analises/` é tocado.
 
-![Relatório HTML de um projeto sintético com dois concursos](docs/img/relatorio.png)
-
-Rodar de novo só reprocessa o que mudou. Sem mudanças, nenhum arquivo de `analises/` é tocado.
-
-### Sem uv: Docker
-
-A imagem já traz o Tesseract em português. A pasta montada em `/dados` é o projeto:
-
-```bash
-docker build -t concurso-analise .
-docker run --rm -it --user "$(id -u):$(id -g)" -v "$PWD:/dados" concurso-analise
-```
-
-## Comandos
+### Comandos
 
 Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa o que mudou.
 
@@ -92,7 +214,7 @@ Códigos de saída: 0 sucesso, 1 problema nos seus dados ou na configuração, 2
 
 O comando antigo `concursos` continua funcionando, com aviso de obsoleto.
 
-## Organizar as provas
+### Organizar as provas
 
 ```text
 provas/
@@ -111,11 +233,9 @@ provas/
 
 Um projeto pode ter vários candidatos. A análise usa o último candidato analisado; troque com `--candidate <nome>`, ou analise todos com `--all-candidates`, que gera também `analises/comparativo_candidatos.md`.
 
-Bancas com perfil embutido: Cebraspe (certo/errado, um erro anula um acerto), FGV, FCC, Vunesp, IBFC, Idecan, SELECON e Quadrix. Uma banca sem perfil usa o genérico, e o que o edital não disser fica para você confirmar (veja [Problemas comuns](#problemas-comuns)).
-
 O assistente `./scripts/novo_concurso.sh` guia a coleta, o cadastro e a análise de um concurso novo, passo a passo.
 
-### Formato do `respostas.txt`
+#### Formato do `respostas.txt`
 
 Use quando não tiver a folha de resposta. Escreva uma questão por linha:
 
@@ -136,32 +256,7 @@ Um gabarito em texto usa o mesmo formato, com `X` ou `*` para questão anulada.
 
 Um `respostas.csv` tem as colunas `questao` e `alternativa`, com separador `,` ou `;`, como o Excel ou o LibreOffice gravam.
 
-## Problemas comuns
-
-**"pasta de provas não encontrada".** Rode o comando na pasta que contém `provas/`, ou indique outra com `--provas <pasta>`. O assistente oferece criar a pasta, com um `LEIA-ME.txt` que explica o que pôr nela.
-
-**Tesseract ausente.** Só é necessário para edital ou folha em imagem (PDF escaneado). O `doctor` mostra o comando para o seu sistema: `sudo apt install tesseract-ocr tesseract-ocr-por` no Ubuntu e no WSL, `brew install tesseract tesseract-lang` no macOS e `winget install UB-Mannheim.TesseractOCR` no Windows. Sem ele, o edital em imagem cai no modo mínimo, com aviso, e a imagem Docker já o traz.
-
-**A folha de resposta não foi lida, ou foi lida errado.** Em ordem:
-
-1. Abra `analises/<candidato>/<concurso>/respostas_extraidas.csv`. As leituras com `revisar = True` têm confiança baixa.
-2. Corrija a coluna `alternativa_marcada` no Excel ou no LibreOffice e rode `concurso-analise analyze <concurso> --reuse-csv`. A revisão passa a valer no lugar da folha.
-3. Se a sua folha tem um modelo que o app não conhece, calibre a leitura: `concurso-analise init --calibrate-sheet folha.png --calibrate-answers ABCD-`, com as respostas das 5 primeiras questões (`-` para branco).
-4. Sem a folha, digite as respostas num `respostas.csv` ou `respostas.txt` na pasta do candidato.
-
-**"edital_a_confirmar.yaml" apareceu na pasta do concurso.** O edital não trouxe algum campo que muda a nota (número de alternativas, desconto por erro, data da prova). Preencha os valores no arquivo e rode de novo; eles passam a valer com fonte `config`. O relatório marca cada concurso com a confiança da leitura do edital (alta, média, baixa ou mínima).
-
-**Vários candidatos e nenhum escolhido.** A CLI pede `--candidate <nome>` ou `--all-candidates`.
-
-**Mudei um limiar e nada mudou.** A análise só reprocessa o que mudou nos arquivos. Rode `concurso-analise --force`.
-
-**O relatório não abriu.** O caminho do `index.html` aparece no fim da execução, e `concurso-analise report` o reabre. No WSL, o app usa o `wslview` (pacote `wslu`) ou o `explorer.exe`.
-
-**O LLM não foi usado.** O `doctor` diz qual variável de ambiente definir com a chave. `--offline` e `--no-llm` o desligam de propósito.
-
-**Eu usava a versão anterior (`concursos analisar`).** Na primeira execução, o `concurso-analise` migra o projeto para o layout com candidatos, sem reprocessar nada. Antes, copia tudo o que vai mudar para `~/.concurso/backup-<data>/`. `--dry-run` lista o que seria migrado.
-
-## Saídas
+### Saídas
 
 Por concurso, em `analises/<candidato>/<concurso>/`:
 
@@ -185,7 +280,7 @@ Por candidato, em `analises/<candidato>/`:
 
 O percentual é de mérito: anuladas contam como acerto, mas ficam fora do percentual.
 
-## Revisão de tópicos
+### Revisão de tópicos
 
 Com o edital cadastrado, cada questão recebe uma disciplina e um tópico sugeridos. A sugestão compara o texto da questão (na Cebraspe, o bloco "julgue os itens") com os tópicos do edital, por similaridade TF-IDF, e vem com um score.
 
@@ -193,7 +288,7 @@ Na primeira análise é criado `provas/<concurso>/revisao/questoes_revisado.csv`
 
 Se o conteúdo programático não puder ser extraído do edital, forneça um edital manual em YAML (veja [docs/modelo.md](docs/modelo.md#edital-manual)).
 
-## Troca de gabarito preliminar para definitivo
+### Troca de gabarito preliminar para definitivo
 
 Analise com o gabarito preliminar enquanto o definitivo não sai; o relatório mostra o selo **Gabarito preliminar (provisório)**. Quando o definitivo sair, coloque-o na pasta (ou sobrescreva o arquivo do preliminar) e rode de novo.
 
@@ -207,7 +302,7 @@ Se o definitivo casar com a prova configurada (mesma banca, cargo/tipo e faixa d
 
 Em qualquer outro caso (outro cargo, arquivo desconhecido), o concurso fica `desatualizado` até você rodar `add` de novo.
 
-## Configuração
+### Configuração
 
 A configuração do projeto fica em `.concurso/config.toml`, gravada pelo onboarding:
 
@@ -242,7 +337,7 @@ O schema completo, a precedência e as fórmulas estão em [docs/modelo.md](docs
 
 A `.concurso/taxonomia.yaml` mapeia cada nome de disciplina para uma disciplina canônica e um bloco (geral ou específico), para comparar a mesma matéria entre editais. Um concurso com nome de disciplina inédito precisa de uma entrada nela; veja [Taxonomia de disciplinas](docs/modelo.md#taxonomia-de-disciplinas).
 
-## Edital como fonte de verdade
+### Edital como fonte de verdade
 
 A análise lê do edital do cargo, além do conteúdo programático, as regras que mudam a nota e a leitura dela: identificação, pesos, distribuição de questões, cortes (em pontos ou acertos, por bloco, no conjunto e por disciplina), cronograma, desempate e outras descobertas. Cada valor vem com a fonte e com trecho, documento e página, para conferir no PDF. A nota continua saindo do `correcao.json`; o edital é a expectativa contra a qual a prova é conferida.
 
@@ -258,13 +353,13 @@ Arquivo vazio, só com o cabeçalho, quer dizer que edital, prova e gabarito con
 
 **Como ler o catálogo** (`catalogo_edital.md`). Uma linha por informação procurada no edital: valor, trecho de origem, uso no projeto, impacto e status. "Não encontrado" quer dizer que o edital não declara a informação. O template está em [docs/modelo.md](docs/modelo.md).
 
-## LLM opcional
+### LLM opcional
 
 Desligado por padrão. Ligado no onboarding (pergunta 5) ou com `init`, ele só preenche o número de alternativas, o desconto por erro e a data da prova quando o texto do edital não os trouxe. Só o texto do edital e dos anexos é enviado, nunca suas respostas ou seu nome, e o app pede sua concordância antes do primeiro uso. Cada valor precisa citar um trecho que exista no edital; sem isso, é descartado.
 
 Provedores: OpenAI, OpenRouter, Gemini, Ollama (local, sem chave) e Anthropic. A chave vem de uma variável de ambiente; com o extra `llm` (`uv tool install '<repositório>[llm]'`), pode ficar no keyring do sistema. Ela nunca é gravada no `config.toml`.
 
-## Análise evolutiva
+### Análise evolutiva
 
 Notebooks que leem as saídas de todos os concursos e respondem se o desempenho melhora com o tempo. A métrica padrão é o percentual ajustado ao acaso (um chute vale 0 em certo/errado e em múltipla escolha), e a evolução se lê pelo z-score de cada disciplina dentro do concurso. Todo percentual vem com o n: n < 5 é amostra insuficiente, e uma tendência precisa de 3 datas de prova distintas ou mais.
 
@@ -279,7 +374,7 @@ Notebooks que leem as saídas de todos os concursos e respondem se o desempenho 
 
 A partir do clone, instale o grupo de análise e rode todos os notebooks do zero, em ordem (ou só os indicados):
 
-```bash
+```sh
 uv sync --group analise
 ./scripts/rodar_notebooks.sh
 ./scripts/rodar_notebooks.sh notebooks/04_insights.py
@@ -287,17 +382,126 @@ uv sync --group analise
 
 Os notebooks são scripts [jupytext](https://jupytext.readthedocs.io/) em `notebooks/NN_*.py`; o script gera o `.ipynb` ao lado, fora do git. Para editar no Jupyter, abra o `.py` com `uv run --group analise jupyter lab`.
 
-## Privacidade
+### Problemas comuns
+
+**"pasta de provas não encontrada".** Rode o comando na pasta que contém `provas/`, ou indique outra com `--provas <pasta>`. O assistente oferece criar a pasta, com um `LEIA-ME.txt` que explica o que pôr nela.
+
+**Tesseract ausente.** Só é necessário para edital ou folha em imagem (PDF escaneado); veja os [pré-requisitos](#pré-requisitos). Sem ele, o edital em imagem cai no modo mínimo, com aviso, e a imagem Docker já o traz.
+
+**A folha de resposta não foi lida, ou foi lida errado.** Em ordem:
+
+1. Abra `analises/<candidato>/<concurso>/respostas_extraidas.csv`. As leituras com `revisar = True` têm confiança baixa.
+2. Corrija a coluna `alternativa_marcada` no Excel ou no LibreOffice e rode `concurso-analise analyze <concurso> --reuse-csv`. A revisão passa a valer no lugar da folha.
+3. Se a sua folha tem um modelo que o app não conhece, calibre a leitura: `concurso-analise init --calibrate-sheet folha.png --calibrate-answers ABCD-`, com as respostas das 5 primeiras questões (`-` para branco).
+4. Sem a folha, digite as respostas num `respostas.csv` ou `respostas.txt` na pasta do candidato.
+
+**"edital_a_confirmar.yaml" apareceu na pasta do concurso.** O edital não trouxe algum campo que muda a nota (número de alternativas, desconto por erro, data da prova). Preencha os valores no arquivo e rode de novo; eles passam a valer com fonte `config`. O relatório marca cada concurso com a confiança da leitura do edital (alta, média, baixa ou mínima).
+
+**Vários candidatos e nenhum escolhido.** A CLI pede `--candidate <nome>` ou `--all-candidates`.
+
+**Mudei um limiar e nada mudou.** A análise só reprocessa o que mudou nos arquivos. Rode `concurso-analise --force`.
+
+**O relatório não abriu.** O caminho do `index.html` aparece no fim da execução, e `concurso-analise report` o reabre. No WSL, o app usa o `wslview` (pacote `wslu`) ou o `explorer.exe`.
+
+**O LLM não foi usado.** O `doctor` diz qual variável de ambiente definir com a chave. `--offline` e `--no-llm` o desligam de propósito.
+
+**Eu usava a versão anterior (`concursos analisar`).** Na primeira execução, o `concurso-analise` migra o projeto para o layout com candidatos, sem reprocessar nada. Antes, copia tudo o que vai mudar para `~/.concurso/backup-<data>/`. `--dry-run` lista o que seria migrado.
+
+### Privacidade
 
 `provas/`, `analises/` e `.concurso/` ficam fora do git (`.gitignore`) e fora da imagem Docker (`.dockerignore`), por conterem dados pessoais (nome, CPF, notas). Nenhum arquivo é enviado para fora da máquina; o LLM, se ligado, só recebe texto do edital.
 
-## Desenvolvimento
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
-```bash
-uv sync --all-groups
-uv run pytest
-uv run ruff check . && uv run ruff format --check .
-uv run python scripts/smoke.py uvx --from "$PWD" concurso-analise   # ponta a ponta num projeto temporário
-```
+<!-- ROADMAP -->
+## Roadmap
 
-O pre-commit roda ruff e pytest antes de cada commit (`uv run pre-commit install`). O workflow de CI (`.github/workflows/ci.yml`) cobre Ubuntu, macOS e Windows com Python 3.11 e 3.12; o macOS e o Windows nativo ainda não foram verificados. As especificações estão em `docs/spec*.md`, e o modelo de domínio, em [docs/modelo.md](docs/modelo.md).
+- [x] Fase 1: correção da prova e desempenho por disciplina e tópico
+- [x] Fase 2: análise evolutiva entre concursos
+- [x] Fase 3: edital como fonte de verdade
+- [x] Fase 4: generalização e portabilidade (onboarding, CLI, Docker, perfis de banca)
+- [ ] Escopo de cargo nos pesos e nas demais buscas do edital
+- [ ] Precedência completa com o `concurso.yaml` (total de questões e pesos)
+- [ ] Nome oficial e cargo nas discrepâncias e no notebook 05
+- [ ] Verificação no macOS e no Windows nativo
+- [ ] Publicação no PyPI
+
+Veja [docs/pendencias.md](docs/pendencias.md) para o detalhe e a ordem sugerida de cada pendência.
+
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
+<!-- CONTRIBUINDO -->
+## Contribuindo
+
+1. Crie uma branch a partir do `master` (`git checkout -b feature/minha-mudanca`)
+2. Instale as dependências e os hooks:
+   ```sh
+   uv sync --all-groups
+   uv run pre-commit install
+   ```
+3. Rode os testes, o lint e o teste ponta a ponta:
+   ```sh
+   uv run pytest
+   uv run ruff check . && uv run ruff format --check .
+   uv run python scripts/smoke.py uvx --from "$PWD" concurso-analise   # ponta a ponta num projeto temporário
+   ```
+4. Faça o commit (`git commit -m 'feat: minha mudança'`) e o push (`git push origin feature/minha-mudanca`)
+5. Abra um pull request
+
+O pre-commit roda ruff e pytest antes de cada commit. O workflow de CI (`.github/workflows/ci.yml`) cobre Ubuntu, macOS e Windows com Python 3.11 e 3.12. As especificações estão em `docs/spec*.md`, e o modelo de domínio, em [docs/modelo.md](docs/modelo.md). As regras para agentes estão em [AGENTS.md](AGENTS.md).
+
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
+<!-- LICENÇA -->
+## Licença
+
+Sem licença definida: todos os direitos reservados ao autor.
+
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
+<!-- CONTATO -->
+## Contato
+
+LMafra - chagas.lucas.mafra@gmail.com
+
+Link do projeto: [https://github.com/LMafra/analise_concursos](https://github.com/LMafra/analise_concursos)
+
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
+<!-- AGRADECIMENTOS -->
+## Agradecimentos
+
+* [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
+* [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
+* [pypdfium2](https://github.com/pypdfium2-team/pypdfium2) e [pdfplumber](https://github.com/jsvine/pdfplumber)
+* [jupytext](https://jupytext.readthedocs.io/) e [papermill](https://papermill.readthedocs.io/)
+* [Shields.io](https://shields.io)
+
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
+<!-- LINKS E IMAGENS -->
+[versao-shield]: https://img.shields.io/badge/vers%C3%A3o-0.4.0-blue?style=for-the-badge
+[pyproject-url]: pyproject.toml
+[python-shield]: https://img.shields.io/badge/python-3.11%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white
+[uv-shield]: https://img.shields.io/badge/uv-gerenciador-DE5FE9?style=for-the-badge&logo=uv&logoColor=white
+[docker-shield]: https://img.shields.io/badge/docker-dispon%C3%ADvel-2496ED?style=for-the-badge&logo=docker&logoColor=white
+[plataformas-shield]: https://img.shields.io/badge/plataformas-Linux%20%7C%20WSL-555?style=for-the-badge&logo=linux&logoColor=white
+[relatorio-screenshot]: docs/img/relatorio.png
+[python-badge]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
+[python-url]: https://www.python.org/
+[pandas-badge]: https://img.shields.io/badge/pandas-150458?style=for-the-badge&logo=pandas&logoColor=white
+[pandas-url]: https://pandas.pydata.org/
+[sklearn-badge]: https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white
+[sklearn-url]: https://scikit-learn.org/
+[opencv-badge]: https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white
+[opencv-url]: https://opencv.org/
+[tesseract-badge]: https://img.shields.io/badge/Tesseract-OCR-3C8DBC?style=for-the-badge
+[tesseract-url]: https://github.com/tesseract-ocr/tesseract
+[plotly-badge]: https://img.shields.io/badge/Plotly-3F4F75?style=for-the-badge&logo=plotly&logoColor=white
+[plotly-url]: https://plotly.com/python/
+[typer-badge]: https://img.shields.io/badge/Typer-000000?style=for-the-badge&logo=typer&logoColor=white
+[typer-url]: https://typer.tiangolo.com/
+[jupyter-badge]: https://img.shields.io/badge/Jupyter-F37626?style=for-the-badge&logo=jupyter&logoColor=white
+[jupyter-url]: https://jupyter.org/
+[uv-badge]: https://img.shields.io/badge/uv-DE5FE9?style=for-the-badge&logo=uv&logoColor=white
+[uv-url]: https://docs.astral.sh/uv/
