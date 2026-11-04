@@ -84,6 +84,28 @@ class Resultado(StrEnum):
     BRANCO = 'branco'
 
 
+class FonteRecomendacao(StrEnum):
+    """De onde veio uma recomendação de estudo, na ordem em que as camadas são tentadas."""
+
+    LEGISLACAO = 'legislacao'
+    OPEN_NOTEBOOK = 'open_notebook'
+    CATALOGO = 'catalogo'
+
+
+class OrigemErroTec(StrEnum):
+    """Como a extensão do TEC viu o erro: na hora em que ele aconteceu ou numa tela de questão já resolvida."""
+
+    TEMPO_REAL = 'tempo_real'
+    HISTORICO = 'historico'
+
+
+class ModoCaderno(StrEnum):
+    """Se o desempenho de um caderno do TEC conta desde o início (`tudo`) ou desde a primeira importação."""
+
+    TUDO = 'tudo'
+    DAQUI = 'daqui'
+
+
 @dataclass(frozen=True)
 class RespostaMarcada:
     questao: int

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pdfplumber
 
+from concursos.arquivos import lido_uma_vez
 from concursos.texto import juntar_linhas
 
 _ITEM_CEBRASPE = re.compile(r'^(\d{1,3})\s+(\S.*)$')
@@ -19,6 +20,7 @@ class Bloco:
     itens: dict[int, str] = field(default_factory=dict)
 
 
+@lido_uma_vez
 def texto_em_colunas(caminho: Path) -> str:
     """Texto do caderno lendo cada página em duas colunas (esquerda, depois direita)."""
     if caminho.suffix.lower() != '.pdf':

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pdfplumber
 
+from concursos.arquivos import lido_uma_vez
 from concursos.gabarito import detectar_status
 from concursos.linhas import LinhaInvalidaError, ler_linhas
 from concursos.modelo import StatusGabarito
@@ -172,6 +173,7 @@ def arquivo_do_sistema(caminho: Path, pasta: Path) -> bool:
     )
 
 
+@lido_uma_vez
 def _ler_pdf(caminho: Path, paginas_lidas: int = 2) -> tuple[str, int, bool]:
     with pdfplumber.open(caminho) as pdf:
         primeiras = pdf.pages[:paginas_lidas]

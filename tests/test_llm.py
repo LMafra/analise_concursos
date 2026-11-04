@@ -137,6 +137,22 @@ def test_campo_do_llm_aparece_no_indice_e_no_log(projeto, servidor, caplog):
     assert 'alternativas' in caplog.text and 'LLM' in caplog.text
 
 
+def test_com_todos_os_candidatos_o_edital_vai_ao_provedor_uma_vez(projeto, servidor):
+    servidor.resposta = {
+        'alternativas': {'valor': 4, 'trecho_origem': 'cada uma com quatro respostas possiveis'}
+    }
+    bia = projeto / 'provas' / 'ficticia' / 'candidatos' / 'bia'
+    bia.mkdir()
+    (bia / 'respostas.txt').write_text('1 A\n2 A\n3 A\n4 A\n', encoding='utf-8')
+
+    assert main(['analyze', '--no-open', '--all-candidates']) == 0
+
+    assert len(servidor.corpos) == 1
+    for candidato in ('ana', 'bia'):
+        caminho = projeto / 'analises' / candidato / 'ficticia' / 'edital_estruturado.json'
+        assert json.loads(caminho.read_text(encoding='utf-8'))['prova']['alternativas']['fonte'] == 'llm'
+
+
 @pytest.mark.parametrize('flag', ['--offline', '--no-llm'])
 def test_offline_ou_no_llm_nao_fazem_requisicao(projeto, servidor, flag):
     assert main([flag, 'analyze', '--no-open']) == 0

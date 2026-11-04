@@ -1,5 +1,11 @@
+import time
+
+import pytesseract
+from PIL import Image
+
+from concursos import texto
 from concursos.gabarito import Secao, selecionar_secao
-from concursos.texto import abreviar, juntar_linhas, normalizar
+from concursos.texto import abreviar, extrair_paginas, juntar_linhas, normalizar
 
 
 def test_normalizar_tira_acento_espacos_extras_e_unifica_tracos_em_maiusculas():
@@ -30,3 +36,37 @@ def test_juntar_linhas_desfaz_hifenizacao_na_quebra_e_colapsa_espacos():
     linhas = ['Modelagem de da-  ', '  dos relacional   e', 'Lei Anti-', 'Corrupção']
 
     assert juntar_linhas(linhas) == 'Modelagem de dados relacional e Lei Anti- Corrupção'
+
+
+def test_ocr_em_paralelo_devolve_as_paginas_na_ordem_do_pdf(tmp_path, monkeypatch):
+    pdf = tmp_path / 'edital_escaneado.pdf'
+    larguras = [100, 160, 220, 280, 340, 400]
+    primeira, *demais = [Image.new('RGB', (largura, 200), 'white') for largura in larguras]
+    primeira.save(pdf, save_all=True, append_images=demais)
+    monkeypatch.setattr(texto.shutil, 'which', lambda _: '/usr/bin/tesseract')
+
+    def tesseract_que_termina_as_primeiras_por_ultimo(imagem, lang):
+        largura = round(imagem.width / texto.ESCALA_OCR)
+        time.sleep((500 - largura) / 10_000)
+        return f'página de {largura} pt'
+
+    monkeypatch.setattr(pytesseract, 'image_to_string', tesseract_que_termina_as_primeiras_por_ultimo)
+
+    assert extrair_paginas(pdf) == [f'página de {largura} pt' for largura in larguras]
+
+
+def test_leitura_repetida_vem_da_memoria_ate_o_conteudo_mudar(tmp_path, monkeypatch):
+    caminho = tmp_path / 'gabarito.txt'
+    caminho.write_text('1 A\f2 B', encoding='utf-8')
+    leituras = []
+    ler_texto = type(caminho).read_text
+    monkeypatch.setattr(type(caminho), 'read_text', lambda *a, **k: leituras.append(1) or ler_texto(*a, **k))
+
+    primeira = extrair_paginas(caminho)
+    primeira.append('alterada por quem leu')
+    assert extrair_paginas(caminho) == ['1 A', '2 B']
+    assert len(leituras) == 1
+
+    caminho.write_text('1 C', encoding='utf-8')
+    assert extrair_paginas(caminho) == ['1 C']
+    assert len(leituras) == 2

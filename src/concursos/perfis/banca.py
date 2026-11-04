@@ -27,7 +27,6 @@ class PerfilBanca:
     leitor_gabarito: str | None = None
     leitor_secoes: str | None = None
     leitor_cargo: str | None = None
-    leitor_resultado: str = 'padrao'
     segmentacao: str = 'questoes'
     disciplinas_pelo_caderno: bool = False
     chaves_prova: tuple[tuple[str, str], ...] = ()

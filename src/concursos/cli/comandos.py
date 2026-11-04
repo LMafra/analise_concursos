@@ -13,6 +13,15 @@ from concursos import onboarding, relatorio_html
 from concursos.analytics.consolidado import concursos_analisados
 from concursos.analytics.taxonomia import carregar_taxonomia
 from concursos.assistente import InteracaoAutomatica, InteracaoConsole
+from concursos.biblioteca import (
+    BuscaBiblioteca,
+    FontesDeEstudo,
+    gravar_recomendacoes,
+    indexar_biblioteca,
+    ler_fontes_de_estudo,
+    recomendar,
+    topicos_fracos,
+)
 from concursos.cadastro import cadastrar
 from concursos.calibracao import CalibracaoError
 from concursos.candidatos import (
@@ -21,9 +30,11 @@ from concursos.candidatos import (
     completar_perfis,
     gravar_perfil_global,
     gravar_revisao,
+    pasta_do_candidato,
     slug,
 )
 from concursos.cli.erros import CODIGO_AMBIENTE, ErroDoAmbiente, ErroDoUsuario, ajustar_nivel_console
+from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.config.contexto import (
     VARIAVEL_ANALISES,
     VARIAVEL_CANDIDATO,
@@ -33,15 +44,47 @@ from concursos.config.contexto import (
     ler_toml,
     resolver_contexto,
 )
-from concursos.configuracao import configuracao_do_projeto
+from concursos.configuracao import ConfiguracaoGlobal, configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
 from concursos.exportacao import FormatoExportacao, exportar_consolidado
-from concursos.llm import cliente_configurado
+from concursos.integracoes.open_notebook import (
+    DICA_INSTANCIA,
+    ClienteOpenNotebook,
+    ConfiguracaoOpenNotebook,
+    OpenNotebookIndisponivelError,
+    gravar_configuracao,
+    ler_configuracao,
+)
+from concursos.integracoes.sincronizacao_notebook import (
+    ARQUIVO_ESTADO,
+    ARTEFATOS_DO_CONCURSO,
+    ARTEFATOS_DO_CONSOLIDADO,
+    EstadoSincronizacao,
+    RelatorioSincronizacao,
+    Sincronizador,
+    sincronizar_candidato,
+)
+from concursos.llm import ClienteComMemoria, ClienteLlm, cliente_configurado
 from concursos.manifesto import ARQUIVO_MANIFESTO
 from concursos.migracao import MigracaoError, executar_migracao, planejar_migracao
 from concursos.pipeline import ARQUIVO_RESPOSTAS, analisar_todos, planejar
+from concursos.pratica_tec import (
+    ARQUIVO_ESCOLHAS,
+    ConfiguracaoPratica,
+    ExportacaoInvalidaError,
+    ResultadoPratica,
+    importar_pratica,
+    ler_exportacao,
+    ler_pratica,
+    textos_do_caderno,
+    textos_para_normas,
+)
+from concursos.pratica_tec import ARQUIVO_ESTADO as ARQUIVO_ESTADO_CADERNO
+from concursos.pratica_tec import ler_configuracao as ler_configuracao_pratica
 from concursos.respostas import RespostasInvalidasError
 from concursos.status import avaliar, formatar_tabela, listar_concursos
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(
     name='concurso-analise',
@@ -50,6 +93,16 @@ app = typer.Typer(
     pretty_exceptions_enable=False,
     rich_markup_mode=None,
 )
+notebook_app = typer.Typer(
+    help='sincronização opcional com uma instância local do open-notebook',
+    no_args_is_help=True,
+    rich_markup_mode=None,
+)
+app.add_typer(notebook_app, name='notebook')
+pratica_app = typer.Typer(
+    help='prática no TEC: as exportações do tec-erros', no_args_is_help=True, rich_markup_mode=None
+)
+app.add_typer(pratica_app, name='pratica')
 
 
 @dataclass(frozen=True)
@@ -61,6 +114,7 @@ class Opcoes:
     todos: bool = False
     abrir: bool = True
     llm: bool = True
+    rede: bool = True
     fornecidos: frozenset[str] = frozenset()
 
 
@@ -74,7 +128,9 @@ Todos = Annotated[
 ]
 NaoAbrir = Annotated[bool, typer.Option('--no-open', help='não abre o relatório no navegador')]
 SemLlm = Annotated[bool, typer.Option('--no-llm', help='não usa o LLM configurado nesta execução')]
-Offline = Annotated[bool, typer.Option('--offline', help='nenhuma chamada de rede (desliga o LLM)')]
+Offline = Annotated[
+    bool, typer.Option('--offline', help='nenhuma chamada de rede (desliga o LLM e o open-notebook)')
+]
 
 
 @app.callback(invoke_without_command=True)
@@ -123,6 +179,7 @@ def principal(
         todos=todos,
         abrir=not nao_abrir,
         llm=not (sem_llm or offline),
+        rede=not offline,
         fornecidos=fornecidos,
     )
     if ctx.invoked_subcommand is None:
@@ -182,8 +239,7 @@ def analyze(
         todos=ctx.obj.todos or todos,
         abrir=ctx.obj.abrir and not nao_abrir,
     )
-    if candidato:
-        opcoes = replace(opcoes, contexto=replace(opcoes.contexto, candidato=slug(candidato)))
+    opcoes = replace(opcoes, contexto=_com_candidato(opcoes.contexto, candidato))
     return _analisar(opcoes, concurso, reaproveitar)
 
 
@@ -247,7 +303,7 @@ def add(
     _exigir_provas(contexto.provas)
     pasta = _concurso_do_arquivo(contexto.provas, caminho, concurso)
     if opcoes.dry_run:
-        typer.echo(f'copiaria {caminho} para {pasta / "candidatos" / slug(nome)}')
+        typer.echo(f'copiaria {caminho} para {pasta_do_candidato(pasta, slug(nome))}')
         return 0
     destino = adicionar_arquivo(pasta, caminho, nome)
     gravar_perfil_global(contexto.home, nome)
@@ -272,11 +328,7 @@ def status(
 
 @app.command('doctor', help='verifica o ambiente e diz como corrigir o que falta')
 def doctor(ctx: typer.Context) -> int:
-    contexto: Contexto = ctx.obj.contexto
-    itens = diagnostico.diagnosticar(
-        [contexto.provas, contexto.analises, contexto.projeto, contexto.home], contexto.home
-    )
-    typer.echo(diagnostico.formatar(itens))
+    itens = _diagnosticar(ctx.obj.contexto)
     return CODIGO_AMBIENTE if diagnostico.tem_erro(itens) else 0
 
 
@@ -295,6 +347,336 @@ def upgrade(
             'uv não encontrado no PATH', 'instale o uv (https://docs.astral.sh/uv/) e rode de novo'
         )
     return subprocess.run([uv, *comando], check=False).returncode
+
+
+@notebook_app.command(
+    'enable', help='liga a sincronização com o open-notebook, depois de confirmar o que vai'
+)
+def notebook_enable(
+    ctx: typer.Context,
+    url: Annotated[
+        str | None, typer.Option('--url', help='endereço da API (padrão: http://localhost:5055)')
+    ] = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    configuracao = _configuracao_open_notebook(opcoes.contexto)
+    url = url or configuracao.url
+    typer.echo(_aviso_open_notebook(url, configuracao))
+    if opcoes.dry_run:
+        typer.echo(f'ligaria a sincronização com {url}')
+        return 0
+    if not opcoes.sim:
+        if not onboarding.interativo(False):
+            raise ErroDoUsuario(
+                'ligar o open-notebook exige confirmação, e não há terminal para perguntar',
+                'confirme com `concurso-analise --yes notebook enable`',
+            )
+        if not typer.confirm('ligar a sincronização?', default=False):
+            typer.echo('nada foi gravado')
+            return 0
+    gravar_configuracao(opcoes.contexto.config_global, enabled=True, consentimento=True, url=url)
+    typer.echo(f'open-notebook ligado: {url}; rode `concurso-analise notebook sync` para enviar agora')
+    return 0
+
+
+@notebook_app.command('disable', help='desliga a sincronização (a configuração continua gravada)')
+def notebook_disable(ctx: typer.Context) -> int:
+    opcoes: Opcoes = ctx.obj
+    _configuracao_open_notebook(opcoes.contexto)
+    if opcoes.dry_run:
+        typer.echo('desligaria a sincronização com o open-notebook')
+        return 0
+    gravar_configuracao(opcoes.contexto.config_global, enabled=False)
+    typer.echo('open-notebook desligado')
+    return 0
+
+
+@pratica_app.command(
+    'import', help='copia uma exportação do tec-erros para a pasta [pratica] entrada_tec e analisa'
+)
+def pratica_import(
+    ctx: typer.Context,
+    arquivo: Annotated[
+        Path | None, typer.Argument(help='tec-erros-*.json ou caderno-estado.json (sem ele, só analisa)')
+    ] = None,
+    candidato: Candidato = None,
+    nao_abrir: NaoAbrir = False,
+) -> int:
+    opcoes = replace(ctx.obj, abrir=ctx.obj.abrir and not nao_abrir)
+    opcoes = replace(opcoes, contexto=_com_candidato(opcoes.contexto, candidato))
+    configuracao = _configuracao_pratica(opcoes.contexto)
+    if configuracao is None:
+        raise ErroDoUsuario(
+            'o projeto não tem a seção [pratica]',
+            'acrescente `[pratica]` com `entrada_tec = "<pasta das exportações>"` ao .concurso/config.toml',
+        )
+    if arquivo is not None:
+        _copiar_exportacao(opcoes, arquivo, configuracao.entrada)
+    return _analisar(opcoes)
+
+
+def _copiar_exportacao(opcoes: Opcoes, arquivo: Path, entrada: Path) -> None:
+    if not arquivo.is_file():
+        raise ErroDoUsuario(
+            f'{arquivo}: arquivo não encontrado', 'confira o caminho da exportação do tec-erros'
+        )
+    if arquivo.name != ARQUIVO_ESTADO_CADERNO:
+        try:
+            ler_exportacao(arquivo)
+        except ExportacaoInvalidaError as erro:
+            raise ErroDoUsuario(
+                str(erro), 'exporte de novo pela extensão, pelo userscript ou pelo caderno.html'
+            ) from erro
+    destino = entrada / arquivo.name
+    if opcoes.dry_run:
+        typer.echo(f'copiaria {arquivo} para {destino}')
+        return
+    entrada.mkdir(parents=True, exist_ok=True)
+    if arquivo.resolve() != destino.resolve():
+        shutil.copy2(arquivo, destino)
+    typer.echo(f'exportação copiada para {destino}')
+
+
+def _configuracao_pratica(contexto: Contexto) -> ConfiguracaoPratica | None:
+    try:
+        return ler_configuracao_pratica(contexto.config_projeto, contexto.raiz)
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(str(erro), 'corrija a seção [pratica] do .concurso/config.toml') from erro
+
+
+def _praticar(
+    opcoes: Opcoes, candidato: str | None, destino: Path, configuracao_analise: ConfiguracaoGlobal | None
+) -> ResultadoPratica | None:
+    """Importa a prática do TEC para o candidato dono dela: `[pratica] candidato` ou o desta execução."""
+    contexto = opcoes.contexto
+    configuracao = _configuracao_pratica(contexto)
+    if configuracao is None:
+        return None
+    if configuracao.candidato is None and opcoes.todos and candidato is not None:
+        logger.warning('prática: com --all-candidates, diga de quem é a prática em [pratica] candidato')
+        return None
+    if (configuracao.candidato or candidato) != candidato:
+        return None
+    if opcoes.dry_run or configuracao_analise is None:
+        typer.echo(f'prática: importaria {_curto(configuracao.entrada, contexto.raiz)}')
+        return None
+    if not configuracao.entrada.is_dir():
+        logger.warning('prática: a pasta %s não existe; nada a importar', configuracao.entrada)
+    taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else {}
+    limiar = configuracao_analise.limiar_topico_baixo
+    fracos, _ = topicos_fracos(_curto(contexto.provas, contexto.raiz), destino, contexto.taxonomia, limiar)
+    try:
+        return importar_pratica(
+            configuracao.entrada,
+            destino,
+            contexto.projeto / ARQUIVO_ESCOLHAS,
+            taxonomia,
+            configuracao_analise.concurso_alvo,
+            InteracaoConsole() if onboarding.interativo(opcoes.sim) else None,
+            fracos,
+        )
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(str(erro), f'corrija ou apague {contexto.projeto / ARQUIVO_ESCOLHAS}') from erro
+
+
+@notebook_app.command('sync', help='envia as análises para o open-notebook e mostra o resumo')
+def notebook_sync(
+    ctx: typer.Context,
+    concurso: Annotated[str | None, typer.Option('--concurso', help='só este concurso')] = None,
+    candidato: Candidato = None,
+    todos: Todos = False,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    contexto = _com_candidato(opcoes.contexto, candidato)
+    _exigir_provas(contexto.provas)
+    configuracao = _configuracao_open_notebook(contexto)
+    if not configuracao.ativa:
+        raise ErroDoUsuario(
+            'a sincronização com o open-notebook está desligada',
+            'ligue com `concurso-analise notebook enable`',
+        )
+    if not opcoes.rede:
+        raise ErroDoUsuario('notebook sync usa a rede e foi pedido --offline', 'rode de novo sem --offline')
+    candidatos = _candidatos_da_execucao(contexto, todos or opcoes.todos)
+    if opcoes.dry_run:
+        for nome_candidato in candidatos:
+            pasta = contexto.analises / nome_candidato if nome_candidato else contexto.analises
+            prefixo = f'{nome_candidato}/' if nome_candidato else ''
+            for nome in concursos_analisados(contexto.provas, pasta):
+                if concurso in (None, nome):
+                    typer.echo(f'{prefixo}{nome}: sincronizaria com {configuracao.url}')
+        return 0
+    try:
+        relatorio = _sincronizar_notebooks(contexto, configuracao, candidatos, concurso)
+    except OpenNotebookIndisponivelError as erro:
+        if erro.status in (401, 403):
+            raise ErroDoUsuario(erro.causa, erro.dica) from erro
+        raise ErroDoAmbiente(erro.causa, erro.dica or DICA_INSTANCIA) from erro
+    typer.echo(relatorio.formatar())
+    return 0 if relatorio.sucesso else 1
+
+
+def _configuracao_open_notebook(contexto: Contexto) -> ConfiguracaoOpenNotebook:
+    try:
+        return ler_configuracao(contexto.config_global)
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(
+            str(erro), f'corrija a seção [open_notebook] de {contexto.config_global}'
+        ) from erro
+
+
+def _aviso_open_notebook(url: str, configuracao: ConfiguracaoOpenNotebook) -> str:
+    rotulo = (
+        'o nome (slug) do candidato'
+        if configuracao.incluir_nome
+        else 'um pseudônimo (candidato 1, candidato 2…)'
+    )
+    return '\n'.join(
+        [
+            f'O open-notebook em {url} vai receber, a cada análise:',
+            f'- por concurso: {", ".join(ARTEFATOS_DO_CONCURSO)} e uma nota de resumo;',
+            f'- no consolidado: {", ".join(Path(a).name for a in ARTEFATOS_DO_CONSOLIDADO)} e uma nota de resumo.',
+            f'O candidato aparece como {rotulo}; CPF e inscrição não são enviados.',
+            'Se a instância usa um provedor de IA externo, o chat dela manda esse conteúdo para ele.',
+            f'A senha, se houver, vem da variável {configuracao.variavel_chave}, nunca do config.toml.',
+        ]
+    )
+
+
+def _candidatos_da_execucao(contexto: Contexto, todos: bool) -> list[str | None]:
+    if not todos:
+        return [_escolher_candidato(contexto)]
+    candidatos = candidatos_existentes(contexto.provas)
+    if not candidatos:
+        raise ErroDoUsuario(
+            'nenhum candidato encontrado em provas/<concurso>/candidatos/',
+            'acrescente um com `concurso-analise add <arquivo> --candidate <nome> --concurso <pasta>`',
+        )
+    return list(candidatos)
+
+
+def _sincronizar_notebooks(
+    contexto: Contexto,
+    configuracao: ConfiguracaoOpenNotebook,
+    candidatos: list[str | None],
+    concurso: str | None,
+) -> RelatorioSincronizacao:
+    cliente = ClienteOpenNotebook.da_configuracao(configuracao, contexto.home)
+    cliente.saude()
+    cliente.listar_notebooks()
+    sincronizador = Sincronizador(
+        cliente, EstadoSincronizacao.ler(contexto.projeto / ARQUIVO_ESTADO), embed=configuracao.embed
+    )
+    limiar = configuracao_do_projeto(contexto).limiar_topico_baixo
+    fontes = _fontes_de_estudo(contexto)
+    caderno = _caderno_de_erros(contexto, candidatos)
+    try:
+        for candidato in candidatos:
+            sincronizar_candidato(
+                sincronizador,
+                contexto.provas,
+                contexto.analises / candidato if candidato else contexto.analises,
+                candidato,
+                limiar=limiar,
+                arquivo_taxonomia=contexto.taxonomia,
+                incluir_nome=configuracao.incluir_nome,
+                concurso=concurso,
+                fontes=fontes,
+                caderno_de_erros=caderno.get(candidato),
+            )
+    finally:
+        sincronizador.gravar_estado()
+    return sincronizador.relatorio
+
+
+def _caderno_de_erros(contexto: Contexto, candidatos: list[str | None]) -> dict[str | None, dict[str, str]]:
+    """Os erros do TEC só vão ao open-notebook com `[pratica] open_notebook = true`, e para o dono da prática."""
+    configuracao = _configuracao_pratica(contexto)
+    if configuracao is None or not configuracao.open_notebook:
+        return {}
+    dono = configuracao.candidato or (candidatos[0] if len(candidatos) == 1 else None)
+    if dono not in candidatos:
+        return {}
+    taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else {}
+    lido = ler_pratica(configuracao.entrada, contexto.projeto / ARQUIVO_ESCOLHAS, taxonomia)
+    return {dono: textos_do_caderno(lido)} if lido.pratica.erros else {}
+
+
+def _fontes_de_estudo(contexto: Contexto) -> FontesDeEstudo:
+    try:
+        return ler_fontes_de_estudo(
+            contexto.projeto, contexto.raiz, contexto.taxonomia, contexto.config_global
+        )
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(
+            str(erro), 'corrija o .concurso/biblioteca.yaml ou a seção [legislacao] e rode de novo'
+        ) from erro
+
+
+def _recomendar(
+    opcoes: Opcoes,
+    fontes: FontesDeEstudo,
+    provas: Path,
+    destino: Path,
+    limiar: float,
+    textos_pratica: list[str] | None = None,
+) -> bool:
+    """Grava `recomendacoes_estudo.md`; devolve se o arquivo mudou."""
+    if fontes.vazias:
+        return False
+    fracos, avisos = topicos_fracos(provas, destino, opcoes.contexto.taxonomia, limiar)
+    busca = _busca_na_biblioteca(opcoes, fontes) if fontes.mapa is not None else None
+    resultado = recomendar(
+        fracos, limiar, fontes.mapa, fontes.repositorio, busca, avisos, textos_pratica or []
+    )
+    return gravar_recomendacoes(destino, resultado)
+
+
+def _busca_na_biblioteca(opcoes: Opcoes, fontes: FontesDeEstudo) -> BuscaBiblioteca | None:
+    """A camada do open-notebook só entra ligada, com consentimento e rede; senão, fica o catálogo."""
+    if not opcoes.rede or fontes.mapa is None:
+        return None
+    try:
+        configuracao = ler_configuracao(opcoes.contexto.config_global)
+    except ConfiguracaoInvalidaError:
+        return None
+    if not configuracao.ativa:
+        return None
+    try:
+        cliente = ClienteOpenNotebook.da_configuracao(configuracao, opcoes.contexto.home)
+        cliente.saude()
+        return BuscaBiblioteca(cliente, indexar_biblioteca(cliente, fontes.mapa))
+    except OpenNotebookIndisponivelError as erro:
+        logger.warning('open-notebook: %s; recomendações só pelo catálogo', erro.causa)
+        return None
+
+
+def _sincronizar_depois_da_analise(opcoes: Opcoes, candidatos: list[str | None]) -> None:
+    """Uma falha aqui vira aviso: a análise já terminou e o código de saída é dela."""
+    if opcoes.dry_run or not opcoes.rede:
+        return
+    contexto = opcoes.contexto
+    try:
+        configuracao = ler_configuracao(contexto.config_global)
+    except ConfiguracaoInvalidaError as erro:
+        logger.warning('open-notebook: %s; a sincronização foi pulada', erro)
+        return
+    if not configuracao.ativa:
+        return
+    try:
+        relatorio = _sincronizar_notebooks(contexto, configuracao, candidatos, None)
+    except OpenNotebookIndisponivelError as erro:
+        logger.warning(
+            'open-notebook: %s; a sincronização foi pulada (%s)', erro.causa, erro.dica or DICA_INSTANCIA
+        )
+        return
+    except Exception as erro:  # noqa: BLE001 - nenhuma falha da integração derruba a análise
+        logger.warning('open-notebook: falha inesperada na sincronização: %s', erro)
+        logger.debug('open-notebook: detalhe da falha', exc_info=True)
+        return
+    logger.info('open-notebook: %s', relatorio.formatar().replace('\n', '; '))
+    for falha in relatorio.falhas:
+        logger.warning('open-notebook: %s', falha)
 
 
 def _onboarding(opcoes: Opcoes, doctor: bool | None = None, extras: dict[str, str] | None = None) -> int:
@@ -327,10 +709,7 @@ def _onboarding(opcoes: Opcoes, doctor: bool | None = None, extras: dict[str, st
     onboarding.gravar(contexto, respostas)
     contexto = opcoes.contexto
     if respostas.doctor:
-        itens = diagnostico.diagnosticar(
-            [contexto.provas, contexto.analises, contexto.projeto, contexto.home], contexto.home
-        )
-        typer.echo(diagnostico.formatar(itens))
+        _diagnosticar(contexto)
     if contexto.provas.is_dir() and not listar_concursos(contexto.provas):
         typer.echo(
             f'nenhum concurso em {contexto.provas} ainda; siga o {onboarding.ARQUIVO_LEIA_ME} '
@@ -340,6 +719,14 @@ def _onboarding(opcoes: Opcoes, doctor: bool | None = None, extras: dict[str, st
     return _analisar(opcoes)
 
 
+def _diagnosticar(contexto: Contexto) -> list[diagnostico.Item]:
+    itens = diagnostico.diagnosticar(
+        [contexto.provas, contexto.analises, contexto.projeto, contexto.home], contexto.home
+    )
+    typer.echo(diagnostico.formatar(itens))
+    return itens
+
+
 def _analisar(opcoes: Opcoes, concurso: str | None = None, reaproveitar: bool = False) -> int:
     _exigir_provas(opcoes.contexto.provas)
     opcoes = _migrar(opcoes)
@@ -347,20 +734,29 @@ def _analisar(opcoes: Opcoes, concurso: str | None = None, reaproveitar: bool = 
     if reaproveitar:
         _reaproveitar_csv(opcoes, concurso)
     if not opcoes.todos:
-        return 0 if _analisar_candidato(opcoes, _escolher_candidato(contexto), concurso) else 1
-    candidatos = candidatos_existentes(contexto.provas)
-    if not candidatos:
-        raise ErroDoUsuario(
-            'nenhum candidato encontrado em provas/<concurso>/candidatos/',
-            'acrescente um com `concurso-analise add <arquivo> --candidate <nome> --concurso <pasta>`',
-        )
-    sucessos = [_analisar_candidato(opcoes, candidato, concurso) for candidato in candidatos]
+        candidato = _escolher_candidato(contexto)
+        sucesso = _analisar_candidato(opcoes, _cliente_llm(opcoes), candidato, concurso)
+        _sincronizar_depois_da_analise(opcoes, [candidato])
+        return 0 if sucesso else 1
+    candidatos = _candidatos_da_execucao(contexto, todos=True)
+    cliente_llm = _cliente_llm(opcoes)
+    sucessos = [_analisar_candidato(opcoes, cliente_llm, candidato, concurso) for candidato in candidatos]
     if not opcoes.dry_run:
         comparar_candidatos(contexto.analises, candidatos)
+    _sincronizar_depois_da_analise(opcoes, candidatos)
     return 0 if all(sucessos) else 1
 
 
-def _analisar_candidato(opcoes: Opcoes, candidato: str | None, concurso: str | None) -> bool:
+def _cliente_llm(opcoes: Opcoes) -> ClienteLlm | None:
+    if opcoes.dry_run:
+        return None
+    cliente = cliente_configurado(opcoes.contexto.home, opcoes.contexto.config_global, opcoes.llm)
+    return ClienteComMemoria(cliente) if cliente else None
+
+
+def _analisar_candidato(
+    opcoes: Opcoes, cliente_llm: ClienteLlm | None, candidato: str | None, concurso: str | None
+) -> bool:
     contexto = opcoes.contexto
     provas, analises = _curto(contexto.provas, contexto.raiz), _curto(contexto.analises, contexto.raiz)
     destino = analises / candidato if candidato else analises
@@ -368,20 +764,23 @@ def _analisar_candidato(opcoes: Opcoes, candidato: str | None, concurso: str | N
         prefixo = f'{candidato}/' if candidato else ''
         for nome, acao in planejar(provas, destino, opcoes.forcar, concurso, candidato):
             typer.echo(f'{prefixo}{nome}: {acao}')
+        _praticar(opcoes, candidato, destino, None)
         return True
     if candidato:
         completar_perfis(contexto.provas, candidato)
         if not opcoes.todos:
             _lembrar_candidato(contexto, candidato)
-    configuracao = replace(
-        configuracao_do_projeto(contexto),
-        cliente_llm=cliente_configurado(contexto.home, contexto.config_global, opcoes.llm),
-    )
+    configuracao = replace(configuracao_do_projeto(contexto), cliente_llm=cliente_llm)
     taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else None
+    fontes = _fontes_de_estudo(contexto)
     antes = _manifestos(destino)
     sucesso = analisar_todos(provas, destino, opcoes.forcar, concurso, configuracao, taxonomia, candidato)
+    pratica = _praticar(opcoes, candidato, destino, configuracao)
+    textos = textos_para_normas(pratica) if pratica is not None else []
+    recomendacoes = _recomendar(opcoes, fontes, provas, destino, configuracao.limiar_topico_baixo, textos)
     indice = destino / relatorio_html.ARQUIVO_INDICE
-    if _manifestos(destino) != antes or not indice.exists():
+    mudou_pratica = pratica is not None and pratica.mudou
+    if recomendacoes or mudou_pratica or _manifestos(destino) != antes or not indice.exists():
         relatorio_html.gerar_relatorio_html(
             provas, destino, contexto.taxonomia, configuracao.limiar_topico_baixo
         )
@@ -422,7 +821,7 @@ def _reaproveitar_csv(opcoes: Opcoes, concurso: str | None) -> None:
             f'{concurso}: {"; ".join(status.motivos)}', 'corrija o concurso.yaml e rode de novo'
         )
     if opcoes.dry_run:
-        typer.echo(f'copiaria {csv} para {contexto.provas / concurso / "candidatos" / candidato}')
+        typer.echo(f'copiaria {csv} para {pasta_do_candidato(contexto.provas / concurso, candidato)}')
         return
     try:
         destino = gravar_revisao(status.config, candidato, csv)

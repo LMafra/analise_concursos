@@ -43,7 +43,7 @@ from concursos.prova import segmentar, texto_em_colunas
 from concursos.relatorio import ConteudoRelatorio, gerar_relatorio
 from concursos.respostas import ler_respostas_txt
 from concursos.resultado_oficial import gravar_validacao, validar_resultado
-from concursos.status import Situacao, avaliar, listar_concursos
+from concursos.status import Situacao, StatusConcurso, avaliar, listar_concursos
 from concursos.texto import MINIMO_CARACTERES_PAGINA, OcrIndisponivelError, extrair_paginas
 from concursos.topicos import ARQUIVO_REVISAO, gravar_revisao, ler_revisao, sugerir_topicos
 
@@ -97,10 +97,15 @@ def analisar_todos(
     """
     configuracao = configuracao or ConfiguracaoGlobal()
     sucesso = True
+    situacoes = {}
     for pasta in _selecionar(raiz_provas, apenas):
         destino = raiz_analises / pasta.name
-        sucesso &= _analisar_se_necessario(pasta, destino, forcar, configuracao, taxonomia, candidato)
-    consolidar(raiz_provas, raiz_analises, configuracao.limiar_topico_baixo, candidato)
+        situacao, analisado = _analisar_se_necessario(
+            pasta, destino, forcar, configuracao, taxonomia, candidato
+        )
+        situacoes[pasta.name] = situacao
+        sucesso &= analisado
+    consolidar(raiz_provas, raiz_analises, configuracao.limiar_topico_baixo, candidato, situacoes)
     return sucesso
 
 
@@ -142,7 +147,8 @@ def _analisar_se_necessario(
     configuracao: ConfiguracaoGlobal,
     taxonomia: dict[str, DisciplinaCanonica] | None,
     candidato: str | None,
-) -> bool:
+) -> tuple[StatusConcurso, bool]:
+    """A situação do concurso depois da troca de gabarito, se houve, e se a análise não falhou."""
     situacao = avaliar(pasta, candidato)
     if situacao.trocas:
         trocar_gabaritos(situacao.config, situacao.trocas, destino)
@@ -153,18 +159,18 @@ def _analisar_se_necessario(
         and manifesto.atualizado(pasta, destino, candidato)
     ):
         logger.info('%s: sem mudanças desde a última análise', situacao.nome)
-        return True
+        return situacao, True
     if situacao.situacao is not Situacao.COMPLETO:
         logger.warning('%s: %s, pulando: %s', situacao.nome, situacao.situacao, '; '.join(situacao.motivos))
-        return True
+        return situacao, True
     manifesto.invalidar(destino)
     try:
         analisar_concurso(situacao.config, destino, configuracao, taxonomia)
     except (ValueError, FileNotFoundError, RuntimeError) as erro:
         logger.error('%s: falha na análise: %s', situacao.nome, erro)
-        return False
+        return situacao, False
     manifesto.gravar(pasta, destino, candidato)
-    return True
+    return situacao, True
 
 
 def analisar_concurso(

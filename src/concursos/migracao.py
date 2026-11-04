@@ -15,11 +15,12 @@ from concursos import manifesto
 from concursos.candidatos import (
     ARQUIVO_CANDIDATO,
     PASTA_CANDIDATOS,
+    gravar_perfil,
     gravar_perfil_global,
     pasta_do_candidato,
     slug,
 )
-from concursos.concurso_config import ConfiguracaoInvalidaError
+from concursos.concurso_config import ARQUIVO_CONFIG, ConfiguracaoInvalidaError
 from concursos.config.contexto import ARQUIVO_TAXONOMIA, Contexto, gravar_no_config_projeto, ler_toml
 from concursos.configuracao import carregar_configuracao_global
 
@@ -79,7 +80,7 @@ class Migracao:
 
         linhas = [f'migraria {curto(m.origem)} para {curto(m.destino)}' for m in self.movimentos]
         linhas += [
-            f'migraria as respostas de {curto(e.pasta_concurso / "concurso.yaml")} para '
+            f'migraria as respostas de {curto(e.pasta_concurso / ARQUIVO_CONFIG)} para '
             f'{curto(pasta_do_candidato(e.pasta_concurso, self.candidato) / ARQUIVO_CANDIDATO)}'
             for e in self.extracoes
         ]
@@ -168,7 +169,7 @@ def _movimentos(contexto: Contexto, candidato: str) -> list[Movimento]:
             raise MigracaoError(f'{destino} já existe; mova ou apague essa pasta antes de migrar {origem}')
         concurso = contexto.provas / origem.name
         movimentos.append(
-            Movimento(origem, destino, concurso if (concurso / 'concurso.yaml').exists() else None)
+            Movimento(origem, destino, concurso if (concurso / ARQUIVO_CONFIG).exists() else None)
         )
     return movimentos
 
@@ -178,7 +179,7 @@ def _extracoes(raiz_provas: Path) -> list[Extracao]:
         return []
     extracoes = []
     for pasta in sorted(p for p in raiz_provas.iterdir() if p.is_dir()):
-        caminho = pasta / 'concurso.yaml'
+        caminho = pasta / ARQUIVO_CONFIG
         if not caminho.exists() or (pasta / PASTA_CANDIDATOS).is_dir():
             continue
         texto = caminho.read_text(encoding='utf-8')
@@ -239,8 +240,8 @@ def _fazer_backup(migracao: Migracao, contexto: Contexto) -> Path:
         if caminho is not None:
             arquivos[f'{nome}/{caminho.name}'] = caminho
     for extracao in migracao.extracoes:
-        arquivos[f'provas/{extracao.pasta_concurso.name}/concurso.yaml'] = (
-            extracao.pasta_concurso / 'concurso.yaml'
+        arquivos[f'provas/{extracao.pasta_concurso.name}/{ARQUIVO_CONFIG}'] = (
+            extracao.pasta_concurso / ARQUIVO_CONFIG
         )
     for movimento in migracao.movimentos:
         for caminho in sorted(p for p in movimento.origem.rglob('*') if p.is_file()):
@@ -283,9 +284,8 @@ def _aplicar(migracao: Migracao, contexto: Contexto) -> None:
     for extracao in migracao.extracoes:
         perfil = pasta_do_candidato(extracao.pasta_concurso, migracao.candidato)
         perfil.mkdir(parents=True, exist_ok=True)
-        texto = yaml.safe_dump(extracao.perfil, allow_unicode=True, sort_keys=False)
-        (perfil / ARQUIVO_CANDIDATO).write_text(texto, encoding='utf-8')
-        (extracao.pasta_concurso / 'concurso.yaml').write_text(extracao.concurso_yaml, encoding='utf-8')
+        gravar_perfil(perfil, extracao.perfil)
+        (extracao.pasta_concurso / ARQUIVO_CONFIG).write_text(extracao.concurso_yaml, encoding='utf-8')
     for movimento in migracao.movimentos:
         movimento.destino.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(movimento.origem, movimento.destino)

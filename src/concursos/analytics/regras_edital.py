@@ -14,17 +14,19 @@ from concursos.analytics.correcao import (
     CONFIANCA_CONFIG,
     CONFIANCA_PERFIL,
     CONFIANCA_QUADRO_DE_PESOS,
+    ConfiguracaoCorrecao,
     TextoCorrido,
+    data_valida,
     extrair_fator_correcao,
     extrair_quadro_de_pesos,
     penalidade_do_perfil,
 )
 from concursos.analytics.pistas_edital import CANDIDATOS, VERSAO_CANDIDATOS, Candidato
 from concursos.concurso_config import ConcursoConfig, PesoItens, pesos_variam
-from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, mesclar_json, titulo_legivel
+from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, maiusculo, mesclar_json, titulo_legivel
 from concursos.modelo import ALTERNATIVAS_PADRAO, Escolaridade, Formato
 from concursos.perfis import PERFIL_GENERICO, perfil_da_banca
-from concursos.texto import normalizar
+from concursos.texto import NUMERO_DECIMAL, normalizar, numero_decimal
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +35,12 @@ CONFIANCA_LISTA_DE_CARGOS = 0.9
 CONFIANCA_CARGO_UNICO = 0.85
 CONFIANCA_NOME_DO_CARGO = 0.75
 CONFIANCA_CAPA = 0.8
-CONFIANCA_SEM_CASAMENTO = 0.5
 _COBERTURA_MINIMA_CARGO = 0.75
 _JANELA_DE_CARGO = 600
 _JANELA_DE_ITEM = 4000
 _ALCANCE_DA_NOTA_DE_RETIFICACAO = 400
 _NOTA_DE_RETIFICACAO = re.compile(r'\(Retificad[oa]\s+(?:por\s+meio\s+d[oa]|pelo)\s+Edital', re.IGNORECASE)
 _FIM_DE_FRASE = re.compile(r'\.(?=\s|$)')
-_NUMERO = r'\d+(?:,\d+)?'
 _POR_EXTENSO = r'(?:\s*\([^)]*\))?'
 
 
@@ -330,7 +330,8 @@ class _Documentos:
         return [_Achado(m, doc) for doc in self.lista for m in padrao.finditer(doc.texto.texto)]
 
     def primeiro(self, padrao: re.Pattern, escopo: '_Escopo | None' = None) -> _Achado | None:
-        return next((a for a in self.todos(padrao) if escopo is None or escopo.aplica(a)), None)
+        achados = (_Achado(m, doc) for doc in self.lista for m in padrao.finditer(doc.texto.texto))
+        return next((a for a in achados if escopo is None or escopo.aplica(a)), None)
 
 
 # --- Escopo por cargo ----------------------------------------------------------------------------------
@@ -588,7 +589,7 @@ def _orgao(docs: _Documentos) -> Campo:
     for doc in reversed(docs.lista):
         linhas = _linhas(docs.paginas[doc.nome][:1])
         for indice, linha in enumerate(linhas[:4]):
-            if _maiusculo(linha) and not _NAO_E_ORGAO.match(linha) and len(linha.split()) >= 2:
+            if maiusculo(linha) and not _NAO_E_ORGAO.match(linha) and len(linha.split()) >= 2:
                 if indice + 1 < len(linhas) and re.fullmatch(r'\([^)]+\)', linhas[indice + 1]):
                     linha = f'{linha} {linhas[indice + 1]}'
                 match = re.search(_sem_espacos(linha.split()[0]), doc.texto.texto)
@@ -630,16 +631,32 @@ def _linhas(paginas: list[str]) -> list[str]:
     return [linha.strip() for pagina in paginas for linha in pagina.splitlines() if linha.strip()]
 
 
-def _maiusculo(texto: str) -> bool:
-    letras = [c for c in texto if c.isalpha()]
-    return len(letras) >= 4 and sum(c.isupper() for c in letras) >= 0.9 * len(letras)
-
-
 # --- Pesos -------------------------------------------------------------------------------------------
 
 _SOMA_DOS_PESOS = re.compile(
     r'pesos\s+atribuídos[^.]{0,150}?totalizando,?\s+(?:em\s+conjunto,?\s+)?o\s+valor\s+de\s+(?P<n>\d+)', re.I
 )
+
+
+def _regra_de_correcao(
+    config: ConcursoConfig, docs: _Documentos
+) -> tuple[_Documento, ConfiguracaoCorrecao] | None:
+    """A regra de correção do primeiro documento, na ordem de busca, em que ela casa."""
+    for doc in docs.lista:
+        if (regra := extrair_fator_correcao(docs.paginas[doc.nome], config.total_itens)) is not None:
+            return doc, regra
+    return None
+
+
+def _campo_da_regra(valor: Any, doc: _Documento, regra: ConfiguracaoCorrecao) -> Campo:
+    return Campo(
+        valor,
+        _fonte_do_documento(doc.retificacao),
+        regra.trecho_origem,
+        doc.nome,
+        regra.pagina_origem,
+        regra.confianca,
+    )
 
 
 def _extrair_pesos(config: ConcursoConfig, docs: _Documentos) -> tuple[Pesos, list[str]]:
@@ -651,22 +668,15 @@ def _extrair_pesos(config: ConcursoConfig, docs: _Documentos) -> tuple[Pesos, li
         tipo = replace(next(iter(faixas.values())), valor=TipoPeso.POR_FAIXA_DE_ITENS)
         return Pesos(tipo, faixas, soma_dos_eixos), []
     uniforme = None
-    for doc in docs.lista:
-        if (regra := extrair_fator_correcao(docs.paginas[doc.nome], config.total_itens)) is None:
-            continue
-        origem = (
-            _fonte_do_documento(doc.retificacao),
-            regra.trecho_origem,
-            doc.nome,
-            regra.pagina_origem,
-            regra.confianca,
-        )
+    if achada := _regra_de_correcao(config, docs):
+        doc, regra = achada
         if pesos_variam(regra.pesos):
             return Pesos(
-                Campo(TipoPeso.POR_BLOCO, *origem), {'': Campo(regra.pesos, *origem)}, soma_dos_eixos
+                _campo_da_regra(TipoPeso.POR_BLOCO, doc, regra),
+                {'': _campo_da_regra(regra.pesos, doc, regra)},
+                soma_dos_eixos,
             ), []
-        uniforme = Pesos(Campo(TipoPeso.UNIFORME, *origem), {}, soma_dos_eixos)
-        break
+        uniforme = Pesos(_campo_da_regra(TipoPeso.UNIFORME, doc, regra), {}, soma_dos_eixos)
     if por_prova := _pesos_por_prova(config, docs, soma_dos_eixos):
         return por_prova, []
     if uniforme is not None:
@@ -676,8 +686,8 @@ def _extrair_pesos(config: ConcursoConfig, docs: _Documentos) -> tuple[Pesos, li
 
 
 CONFIANCA_PESO_POR_PROVA = 0.8
-_PESO = rf'(?P<gerais>{_NUMERO}){_POR_EXTENSO}'
-_PESO_ESPECIFICO = rf'(?P<especificos>{_NUMERO}){_POR_EXTENSO}'
+_PESO = rf'(?P<gerais>{NUMERO_DECIMAL}){_POR_EXTENSO}'
+_PESO_ESPECIFICO = rf'(?P<especificos>{NUMERO_DECIMAL}){_POR_EXTENSO}'
 _PESOS_POR_PROVA = (
     re.compile(
         rf'{_PESO}\s*pontos?,?\s+caso\s+a\s+resposta[^;]{{0,200}}?concordância[^;]{{0,120}}?'
@@ -701,12 +711,12 @@ _PESOS_POR_PROVA = (
 _PONTOS_POR_PROVA = (
     re.compile(
         r'(?P<n_gerais>\d+)\s+quest[õo]es\s+de\s+conhecimentos\s+gerais,?\s+que\s+valer[ãa]o\s+'
-        rf'(?P<pontos_gerais>{_NUMERO})\s+pontos,?\s+e\s+(?P<n_especificos>\d+)\s+quest[õo]es\s+de\s+'
-        rf'conhecimentos\s+espec[íi]ficos,?\s+que\s+valer[ãa]o\s+(?P<pontos_especificos>{_NUMERO})\s+pontos',
+        rf'(?P<pontos_gerais>{NUMERO_DECIMAL})\s+pontos,?\s+e\s+(?P<n_especificos>\d+)\s+quest[õo]es\s+de\s+'
+        rf'conhecimentos\s+espec[íi]ficos,?\s+que\s+valer[ãa]o\s+(?P<pontos_especificos>{NUMERO_DECIMAL})\s+pontos',
         re.IGNORECASE,
     ),
     re.compile(
-        rf'Conhecimentos\s+(?P<n_gerais>\d+)\s+(?P<gerais>\d+,\d+)\s+{_NUMERO}\s+[\d,\s]*Gerais\s+'
+        rf'Conhecimentos\s+(?P<n_gerais>\d+)\s+(?P<gerais>\d+,\d+)\s+{NUMERO_DECIMAL}\s+[\d,\s]*Gerais\s+'
         rf'Conhecimentos\s+(?P<n_especificos>\d+)\s+(?P<especificos>\d+,\d+)\s',
     ),
 )
@@ -721,16 +731,19 @@ def _pesos_por_prova(config: ConcursoConfig, docs: _Documentos, soma_dos_eixos: 
             m = achado.match
             n_gerais, n_especificos = int(m['n_gerais']), int(m['n_especificos'])
             if 'pontos_gerais' in m.re.groupindex:
-                gerais = _numero(m['pontos_gerais']) / n_gerais
-                especificos = _numero(m['pontos_especificos']) / n_especificos
+                gerais = numero_decimal(m['pontos_gerais']) / n_gerais
+                especificos = numero_decimal(m['pontos_especificos']) / n_especificos
             else:
-                gerais, especificos = _numero(m['gerais']), _numero(m['especificos'])
+                gerais, especificos = numero_decimal(m['gerais']), numero_decimal(m['especificos'])
             return _pesos_por_bloco(
                 config, achado, gerais, especificos, (n_gerais, n_especificos), soma_dos_eixos
             )
     for padrao in _PESOS_POR_PROVA:
         if achado := docs.primeiro(padrao):
-            gerais, especificos = _numero(achado.match['gerais']), _numero(achado.match['especificos'])
+            gerais, especificos = (
+                numero_decimal(achado.match['gerais']),
+                numero_decimal(achado.match['especificos']),
+            )
             return _pesos_por_bloco(config, achado, gerais, especificos, None, soma_dos_eixos)
     return None
 
@@ -751,10 +764,6 @@ def _pesos_por_bloco(
     n_gerais = quantidades[0]
     faixas = (PesoItens(1, n_gerais, gerais), PesoItens(n_gerais + 1, config.total_itens, especificos))
     return Pesos(tipo, {'': replace(tipo, valor=faixas)}, soma_dos_eixos)
-
-
-def _numero(texto: str) -> float:
-    return float(texto.replace(',', '.'))
 
 
 def _quadro_de_eixos(config: ConcursoConfig, docs: _Documentos) -> dict[str, Campo]:
@@ -879,10 +888,11 @@ def _blocos_declarados(docs: _Documentos, escopo: _Escopo) -> tuple[Campo, Campo
             return _soma_do_bloco(linhas, geral=True), _soma_do_bloco(linhas, geral=False)
         objetivas = list(_PROVA_OBJETIVA_NO_QUADRO.finditer(texto, ancora.match.end(), fim))
         if len(objetivas) == 2:
-            return tuple(  # type: ignore[return-value]
+            geral, especifico = (
                 _Achado(m, ancora.documento).campo(int(m['n']), CONFIANCA_QUADRO_POR_POSICAO)
                 for m in objetivas
             )
+            return geral, especifico
     return Campo(), Campo()
 
 
@@ -972,16 +982,16 @@ def _por_tipo(docs: _Documentos, escopo: _Escopo, total: int | None) -> Campo:
 CONFIANCA_CORTE = 0.9
 CONFIANCA_CORTE_DA_DISCURSIVA = 0.8
 _CORTE_EM_PONTOS = re.compile(
-    rf'nota\s+inferior\s+a\s+(?P<valor>{_NUMERO})\s*pontos,?\s+(?P<alvo>[^;.]{{0,120}})', re.IGNORECASE
+    rf'nota\s+inferior\s+a\s+(?P<valor>{NUMERO_DECIMAL})\s*pontos,?\s+(?P<alvo>[^;.]{{0,120}})', re.IGNORECASE
 )
 _CORTE_EM_PONTOS_NA_PROVA = re.compile(
-    rf'acertado,?\s+no\s+m[íi]nimo,?\s+(?P<valor>{_NUMERO}){_POR_EXTENSO}\s+pontos\s+na\s+prova\s+de\s+'
+    rf'acertado,?\s+no\s+m[íi]nimo,?\s+(?P<valor>{NUMERO_DECIMAL}){_POR_EXTENSO}\s+pontos\s+na\s+prova\s+de\s+'
     r'(?P<alvo>conhecimentos\s+\w+)',
     re.IGNORECASE,
 )
 _CORTE_NA_FORMULA = re.compile(
-    rf'\bNP\s*<\s*(?P<valor>{_NUMERO})\s*pontos?\s*;?\s*(?P<prova>[12])\b'
-    rf'|\bNFPO\s*<\s*(?P<valor_final>{_NUMERO})\s*pontos?'
+    rf'\bNP\s*<\s*(?P<valor>{NUMERO_DECIMAL})\s*pontos?\s*;?\s*(?P<prova>[12])\b'
+    rf'|\bNFPO\s*<\s*(?P<valor_final>{NUMERO_DECIMAL})\s*pontos?'
 )
 _CORTE_EM_ACERTOS_NO_BLOCO = re.compile(
     rf'acertar,?\s+no\s+m[íi]nimo,?\s+em\s+(?P<alvo>conhecimentos\s+\w+),?\s+'
@@ -1005,7 +1015,7 @@ _MINIMO_POR_DISCIPLINA = re.compile(
     re.IGNORECASE,
 )
 _NOTA_MINIMA = re.compile(
-    rf'nota\s+m[íi]nima[^.]{{0,160}}?igual\s+ou\s+superior\s+a\s+(?P<valor>{_NUMERO})', re.IGNORECASE
+    rf'nota\s+m[íi]nima[^.]{{0,160}}?igual\s+ou\s+superior\s+a\s+(?P<valor>{NUMERO_DECIMAL})', re.IGNORECASE
 )
 _ESCALA_DE_0_A_10 = re.compile(r'escala\s+de\s+0\s*(?:\(zero\))?\s+a\s+10\b', re.IGNORECASE)
 _CORTE_PERCENTUAL = re.compile(
@@ -1013,7 +1023,7 @@ _CORTE_PERCENTUAL = re.compile(
 )
 _CORTE_POR_ESCORE = re.compile(
     rf'somat[óo]rio\s+das\s+notas\s+padronizadas[^.]{{0,200}}?igual\s+ou\s+superior\s+a\s+'
-    rf'(?P<valor>{_NUMERO})',
+    rf'(?P<valor>{NUMERO_DECIMAL})',
     re.IGNORECASE,
 )
 _CORTE_POR_CLASSIFICADOS = re.compile(
@@ -1023,9 +1033,9 @@ _CORTE_POR_CLASSIFICADOS = re.compile(
 )
 _CORTE_DA_DISCURSIVA = re.compile(
     rf'\baprovad[oa]s?\s+n[ao]s?\s+provas?\s+discursivas?[^.]{{0,250}}?'
-    rf'(?:≥|igual\s+ou\s+superior\s+a)\s*(?P<valor>{_NUMERO}){_POR_EXTENSO}\s*pontos'
+    rf'(?:≥|igual\s+ou\s+superior\s+a)\s*(?P<valor>{NUMERO_DECIMAL}){_POR_EXTENSO}\s*pontos'
     rf'|\breprovad[oa]s?\s+n[ao]s?\s+provas?\s+discursivas?[^.]{{0,250}}?'
-    rf'<\s*(?P<valor_menor>{_NUMERO})\s*pontos',
+    rf'<\s*(?P<valor_menor>{NUMERO_DECIMAL})\s*pontos',
     re.IGNORECASE,
 )
 _PADROES_DE_CORTE = (
@@ -1085,7 +1095,7 @@ def _escopos_do_percentual(alvo: str) -> tuple[EscopoCorte, ...]:
 
 def _corte(achado: _Achado, valor: str | None, escopo: EscopoCorte, unidade: UnidadeCorte, **extra) -> Corte:
     confianca = CONFIANCA_CORTE_DA_DISCURSIVA if escopo is EscopoCorte.DISCURSIVA else CONFIANCA_CORTE
-    campo = achado.campo(None if valor is None else float(valor.replace(',', '.')), confianca)
+    campo = achado.campo(None if valor is None else numero_decimal(valor), confianca)
     return Corte(**vars(campo), escopo=escopo, unidade=unidade, **extra)
 
 
@@ -1232,16 +1242,9 @@ def _alternativas(config: ConcursoConfig, formato: str, achado: _Achado | None) 
 
 
 def _penalidade(config: ConcursoConfig, docs: _Documentos) -> Campo:
-    for doc in docs.lista:
-        if (regra := extrair_fator_correcao(docs.paginas[doc.nome], config.total_itens)) is not None:
-            return Campo(
-                regra.fator_penalidade,
-                _fonte_do_documento(doc.retificacao),
-                regra.trecho_origem,
-                doc.nome,
-                regra.pagina_origem,
-                regra.confianca,
-            )
+    if achada := _regra_de_correcao(config, docs):
+        doc, regra = achada
+        return _campo_da_regra(regra.fator_penalidade, doc, regra)
     if config.correcao is not None and config.correcao.fator_penalidade is not None:
         return Campo(config.correcao.fator_penalidade, FonteRegra.CONFIG, confianca_extracao=CONFIANCA_CONFIG)
     if (fator := penalidade_do_perfil(config)) is not None:
@@ -1318,7 +1321,7 @@ def _extrair_cronograma(config: ConcursoConfig, docs: _Documentos) -> tuple[Cron
     recurso = Campo()
     if (achado := _primeira_data(docs, _RECURSO_CONTRA_O_GABARITO)) is not None:
         m, fim = achado.match, _data(achado.match)
-        inicio = _data_valida(int(m['dia1']), int(m['mes1'] or m['mes']), int(m['ano']))
+        inicio = data_valida(int(m['dia1']), int(m['mes1'] or m['mes']), int(m['ano']))
         if inicio is not None:
             recurso = achado.campo({'inicio': inicio, 'fim': fim}, CONFIANCA_DISTRIBUICAO)
     cronograma = Cronograma(objetiva, discursiva, preliminar, final, recurso, no_mesmo_dia)
@@ -1346,14 +1349,7 @@ def _primeira_data(docs: _Documentos, *padroes: re.Pattern) -> _Achado | None:
 def _data(match: re.Match) -> date | None:
     mes = match['mes']
     numero = int(mes) if mes.isdigit() else _MESES.index(mes.lower()) + 1
-    return _data_valida(int(match['dia']), numero, int(match['ano']))
-
-
-def _data_valida(dia: int, mes: int, ano: int) -> date | None:
-    try:
-        return date(ano, mes, dia)
-    except ValueError:
-        return None
+    return data_valida(int(match['dia']), numero, int(match['ano']))
 
 
 # --- Descoberta dirigida -----------------------------------------------------------------------------

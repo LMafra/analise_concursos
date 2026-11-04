@@ -7,7 +7,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.config.contexto import ARQUIVO_CONFIG_GLOBAL
+from concursos.integracoes import open_notebook
+from concursos.legislacao import DICA_CLONE, URL_CLONE, ler_repositorio
 from concursos.llm import ler_configuracao, obter_chave
 
 ESPACO_MINIMO_MB = 200
@@ -73,10 +76,9 @@ def sistema_atual() -> Sistema:
     return Sistema.LINUX
 
 
-def diagnosticar(pastas: list[Path], home: Path | None = None) -> list[Item]:
+def diagnosticar(pastas: list[Path], home: Path) -> list[Item]:
     """Os itens na ordem em que aparecem; só leitura, sem rede (a chave do LLM não é validada no provedor)."""
     sistema = sistema_atual()
-    llm = [_llm(home, sistema)] if home is not None else []
     return [
         _uv(sistema),
         _python(sistema),
@@ -84,7 +86,9 @@ def diagnosticar(pastas: list[Path], home: Path | None = None) -> list[Item]:
         Item('poppler', Situacao.OK, 'não necessário (os PDFs são lidos com pypdfium2)'),
         *(_escrita(pasta) for pasta in dict.fromkeys(pastas)),
         _espaco(pastas[0]),
-        *llm,
+        _llm(home, sistema),
+        _open_notebook(home),
+        _legislacao(home),
     ]
 
 
@@ -171,6 +175,51 @@ def _llm(home: Path, sistema: Sistema) -> Item:
         )
         return Item('LLM', Situacao.ERRO, f'{configuracao.provedor} sem chave ({variavel})', comando)
     return Item('LLM', Situacao.OK, f'{configuracao.provedor}, chave em {encontrada[1]} (não validada)')
+
+
+def _open_notebook(home: Path) -> Item:
+    """Só a configuração: a instância não é consultada, para o doctor continuar sem rede."""
+    nome = 'open-notebook'
+    try:
+        configuracao = open_notebook.ler_configuracao(home / ARQUIVO_CONFIG_GLOBAL)
+    except ConfiguracaoInvalidaError as erro:
+        return Item(
+            nome, Situacao.ERRO, str(erro), f'corrija [open_notebook] em {home / ARQUIVO_CONFIG_GLOBAL}'
+        )
+    if not configuracao.enabled:
+        return Item(nome, Situacao.OK, 'desligado (nenhuma chamada de rede)')
+    if not configuracao.consentimento:
+        return Item(
+            nome,
+            Situacao.AVISO,
+            'ligado sem consentimento; nada é enviado',
+            'concurso-analise notebook enable',
+        )
+    senha = open_notebook.obter_senha(configuracao, home)
+    detalhe = f'{configuracao.url}, ' + ('senha encontrada' if senha else 'sem senha')
+    return Item(nome, Situacao.OK, f'{detalhe} (instância não consultada)')
+
+
+def _legislacao(home: Path) -> Item:
+    nome = 'legislação'
+    repositorio = ler_repositorio(home / ARQUIVO_CONFIG_GLOBAL)
+    if repositorio is None:
+        return Item(nome, Situacao.OK, 'sem [legislacao] (recomendações sem normas)')
+    if not repositorio.is_dir():
+        return Item(
+            nome,
+            Situacao.AVISO,
+            f'{repositorio} não existe; as recomendações saem sem normas',
+            f'git clone --filter=blob:none --sparse {URL_CLONE} {repositorio}',
+        )
+    if not (repositorio / 'federal' / 'leis-ordinarias').is_dir():
+        return Item(
+            nome,
+            Situacao.AVISO,
+            f'{repositorio} sem federal/leis-ordinarias/',
+            f'cd {repositorio} && git sparse-checkout add federal/leis-ordinarias',
+        )
+    return Item(nome, Situacao.OK, f'{repositorio} ({DICA_CLONE} para atualizar)')
 
 
 def _escrita(pasta: Path) -> Item:

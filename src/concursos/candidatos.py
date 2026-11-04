@@ -189,7 +189,7 @@ def completar_perfis(raiz_provas: Path, candidato: str) -> None:
         if not perfil:
             logger.warning('%s: sem respostas reconhecíveis; crie o %s', pasta, ARQUIVO_CANDIDATO)
             continue
-        caminho.write_text(yaml.safe_dump(perfil, allow_unicode=True, sort_keys=False), encoding='utf-8')
+        gravar_perfil(pasta, perfil)
         logger.warning('%s: candidato sem perfil; %s criado a partir dos arquivos', pasta, ARQUIVO_CANDIDATO)
 
 
@@ -200,10 +200,13 @@ def adicionar_arquivo(pasta_concurso: Path, arquivo: Path, nome: str) -> Path:
     destino.mkdir(parents=True, exist_ok=True)
     shutil.copy2(arquivo, destino / arquivo.name)
     chave = 'folha' if arquivo.suffix.lower() in _EXTENSOES_FOLHA else 'arquivo'
-    perfil = {'nome': nome, 'respostas': {chave: arquivo.name}}
-    texto = yaml.safe_dump(perfil, allow_unicode=True, sort_keys=False)
-    (destino / ARQUIVO_CANDIDATO).write_text(texto, encoding='utf-8')
+    gravar_perfil(destino, {'nome': nome, 'respostas': {chave: arquivo.name}})
     return destino
+
+
+def gravar_perfil(pasta: Path, perfil: dict) -> None:
+    texto = yaml.safe_dump(perfil, allow_unicode=True, sort_keys=False)
+    (pasta / ARQUIVO_CANDIDATO).write_text(texto, encoding='utf-8')
 
 
 def gravar_perfil_global(home: Path, nome: str, atualizar: bool = False) -> Path:

@@ -1,16 +1,24 @@
 import logging
+import os
 import re
 import shutil
+import threading
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pdfplumber
 import pypdfium2 as pdfium
 
+from concursos.arquivos import lido_uma_vez
+
 logger = logging.getLogger(__name__)
 
 MINIMO_CARACTERES_PAGINA = 20
 ESCALA_OCR = 300 / 72
+# cada página é um processo do Tesseract; o pdfium não é thread-safe e renderiza uma página por vez
+TRABALHADORES_OCR = min(4, os.cpu_count() or 1)
+NUMERO_DECIMAL = r'\d+(?:,\d+)?'
 
 
 class OcrIndisponivelError(RuntimeError):
@@ -21,6 +29,11 @@ def normalizar(texto: str) -> str:
     """Forma de comparação: sem acento, em maiúsculas, com um espaço entre palavras e '–'/'—' como '-'."""
     sem_acento = ''.join(c for c in unicodedata.normalize('NFKD', texto) if not unicodedata.combining(c))
     return ' '.join(re.sub(r'[–—]', '-', sem_acento).upper().split())
+
+
+def numero_decimal(texto: str) -> float:
+    """Número com vírgula decimal, como nos editais: '12,5' vale 12.5."""
+    return float(texto.replace(',', '.'))
 
 
 def juntar_linhas(linhas: list[str]) -> str:
@@ -44,19 +57,25 @@ def abreviar(texto: str, limite: int) -> str:
     return corte.rstrip(' ,;:.–-') + '…'
 
 
+@lido_uma_vez
 def extrair_paginas(caminho: Path, ocr: bool = True) -> list[str]:
     """Texto de cada página (PDF ou txt com páginas separadas por form feed); páginas sem camada de
     texto passam por OCR (Tesseract), a menos que ocr=False."""
     if caminho.suffix.lower() != '.pdf':
         return caminho.read_text(encoding='utf-8').split('\f')
-    with pdfplumber.open(caminho) as pdf:
-        paginas = [pagina.extract_text() or '' for pagina in pdf.pages]
+    paginas = _paginas_do_pdf(caminho)
     sem_texto = [i for i, texto in enumerate(paginas) if len(texto.strip()) < MINIMO_CARACTERES_PAGINA]
     if sem_texto and ocr:
         logger.info('%s: %d página(s) sem texto, aplicando OCR', caminho.name, len(sem_texto))
         for indice, texto in zip(sem_texto, _ocr(caminho, sem_texto), strict=True):
             paginas[indice] = texto
     return paginas
+
+
+@lido_uma_vez
+def _paginas_do_pdf(caminho: Path) -> list[str]:
+    with pdfplumber.open(caminho) as pdf:
+        return [pagina.extract_text() or '' for pagina in pdf.pages]
 
 
 def extrair_texto(caminho: Path) -> str:
@@ -72,8 +91,15 @@ def _ocr(caminho: Path, indices: list[int]) -> list[str]:
     import pytesseract
 
     documento = pdfium.PdfDocument(caminho)
+    renderizacao = threading.Lock()
+
+    def ler(indice: int) -> str:
+        with renderizacao:
+            imagem = documento[indice].render(scale=ESCALA_OCR).to_pil()
+        return pytesseract.image_to_string(imagem, lang='por')
+
     try:
-        imagens = [documento[i].render(scale=ESCALA_OCR).to_pil() for i in indices]
+        with ThreadPoolExecutor(max_workers=min(len(indices), TRABALHADORES_OCR)) as executor:
+            return list(executor.map(ler, indices))
     finally:
         documento.close()
-    return [pytesseract.image_to_string(imagem, lang='por') for imagem in imagens]

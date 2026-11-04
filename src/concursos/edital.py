@@ -1,8 +1,10 @@
 import json
 import re
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
+from enum import StrEnum
 from pathlib import Path
+from typing import NamedTuple
 
 import yaml
 
@@ -40,7 +42,7 @@ class Conhecimento:
 class Edital:
     fonte: str
     cargo: str | None
-    conhecimentos: tuple[Conhecimento, ...] = field(default_factory=tuple)
+    conhecimentos: tuple[Conhecimento, ...] = ()
 
     def gravar_json(self, caminho: Path) -> None:
         """Grava o conteúdo programático preservando as demais chaves do arquivo (as regras do edital)."""
@@ -89,19 +91,32 @@ _NUMERO_TOPICO = re.compile(r'(?:^|(?<=\s))(\d{1,2})(?:\.(?!\d)\s*|\s+)(?=[A-ZÀ
 _FRASE = re.compile(r'(?<=[.;])\s+(?=[A-ZÀ-ÖØ-Þ])')
 
 
+class _TipoItem(StrEnum):
+    CONHECIMENTO = 'conhecimento'
+    TITULO = 'titulo'
+    TEXTO = 'texto'
+
+
 @dataclass(frozen=True)
 class _Item:
-    tipo: str
+    tipo: _TipoItem
     texto: str
+
+
+class _Secao(NamedTuple):
+    """Um conhecimento que vale para o cargo: o nome, o título do bloco do cargo e os itens."""
+
+    nome: str
+    titulo: str | None
+    itens: list[_Item]
+    restricao: '_Restricao | None'
 
 
 def estruturar_edital(paginas: list[str], cargo: str | None, fonte: str) -> Edital:
     """Conteúdo programático do cargo como conhecimento → disciplina → tópicos."""
     linhas = _linhas_limpas(paginas)
     inicios = [
-        i
-        for i, linha in enumerate(linhas)
-        if _maiusculo(linha) and _INICIO_CONTEUDO.search(normalizar(linha))
+        i for i, linha in enumerate(linhas) if maiusculo(linha) and _INICIO_CONTEUDO.search(normalizar(linha))
     ]
     for inicio in inicios:
         fim = next(
@@ -128,7 +143,7 @@ def carregar_edital_manual(caminho: Path, cargo: str | None) -> Edital:
 
 def titulo_legivel(texto: str) -> str:
     """'LÍNGUA PORTUGUESA' → 'Língua Portuguesa'; textos que já têm minúsculas ficam como estão."""
-    if not _maiusculo(texto):
+    if not maiusculo(texto):
         return texto
     palavras = []
     for indice, original in enumerate(texto.split()):
@@ -173,7 +188,7 @@ def _linhas_limpas(paginas: list[str]) -> list[str]:
     ]
 
 
-def _maiusculo(texto: str) -> bool:
+def maiusculo(texto: str) -> bool:
     letras = [c for c in texto if c.isalpha()]
     return len(letras) >= 4 and sum(c.isupper() for c in letras) >= 0.9 * len(letras)
 
@@ -184,7 +199,7 @@ def _juntar_titulos_quebrados(linhas: list[str]) -> list[str]:
     for linha in linhas:
         anterior = juntas[-1] if juntas else ''
         quebrado = anterior.endswith(':') or _CONECTOR_FINAL.search(normalizar(anterior))
-        if quebrado and _maiusculo(anterior) and _maiusculo(linha) and ':' not in linha:
+        if quebrado and maiusculo(anterior) and maiusculo(linha) and ':' not in linha:
             juntas[-1] = f'{anterior} {linha}'
         else:
             juntas.append(linha)
@@ -197,11 +212,11 @@ def _classificar(linhas: list[str]) -> list[_Item]:
     for indice, linha in enumerate(linhas):
         seguinte = linhas[indice + 1] if indice + 1 < len(linhas) else ''
         if conhecimento := _conhecimento(linha):
-            itens.append(_Item('conhecimento', conhecimento))
+            itens.append(_Item(_TipoItem.CONHECIMENTO, conhecimento))
         elif _eh_titulo(linha, seguinte):
-            itens.append(_Item('titulo', linha))
+            itens.append(_Item(_TipoItem.TITULO, linha))
         else:
-            itens.append(_Item('texto', linha))
+            itens.append(_Item(_TipoItem.TEXTO, linha))
     return itens
 
 
@@ -215,55 +230,55 @@ def _conhecimento(linha: str) -> str | None:
 def _eh_titulo(linha: str, seguinte: str) -> bool:
     if _TITULO_DE_AREA.match(normalizar(linha)):
         return True
-    if not _maiusculo(linha) or linha.endswith(':') or len(linha.split()) < 2:
+    if not maiusculo(linha) or linha.endswith(':') or len(linha.split()) < 2:
         return False
     continua = _CONECTOR_FINAL.search(normalizar(linha)) and _CONTINUA_COM_DOIS_PONTOS.match(seguinte)
     return not continua
 
 
 def _estruturar(itens: list[_Item], cargo: str | None) -> tuple[Conhecimento, ...]:
-    secoes = _secoes_do_cargo(itens, cargo)
     conhecimentos = []
-    for nome, titulo, itens_secao, restricao in secoes:
-        disciplinas = _disciplinas(itens_secao, titulo or nome, restricao)
+    for secao in _secoes_do_cargo(itens, cargo):
+        disciplinas = _disciplinas(secao.itens, secao.titulo or secao.nome, secao.restricao)
         if disciplinas:
-            conhecimentos.append(Conhecimento(nome, disciplinas))
+            conhecimentos.append(Conhecimento(secao.nome, disciplinas))
     return tuple(conhecimentos)
 
 
-def _secoes_do_cargo(itens: list[_Item], cargo: str | None):
-    """Seções (conhecimento, título do bloco, itens, restrição) que valem para o cargo."""
-    cabecalhos = [i for i, item in enumerate(itens) if item.tipo == 'conhecimento']
+def _secoes_do_cargo(itens: list[_Item], cargo: str | None) -> list[_Secao]:
+    cabecalhos = [i for i, item in enumerate(itens) if item.tipo is _TipoItem.CONHECIMENTO]
     if not cabecalhos:
-        return [('Conhecimentos', None, itens, None)]
-    titulos = [i for i, item in enumerate(itens) if item.tipo == 'titulo']
+        return [_Secao('Conhecimentos', None, itens, None)]
+    titulos = [i for i, item in enumerate(itens) if item.tipo is _TipoItem.TITULO]
     numerados = [itens[i].texto for i in titulos if _CARGO_NUMERADO.match(normalizar(itens[i].texto))]
     escolhido = _titulo_do_cargo(itens, titulos, cargo) if cargo else None
     if escolhido is None:
         if len(numerados) >= 2:
             raise EditalNaoEstruturadoError(_mensagem_cargo(cargo, numerados))
-        return [(itens[c].texto, None, _ate_proximo_cabecalho(itens, c), None) for c in cabecalhos]
+        return [_Secao(itens[c].texto, None, _ate_proximo_cabecalho(itens, c), None) for c in cabecalhos]
 
     restricao = _Restricao(cargo, itens[escolhido].texto)
     secoes = []
     gerais = [c for c in cabecalhos if c < escolhido and itens[c].texto != ESPECIFICOS]
     if gerais:
-        secoes.append((itens[gerais[-1]].texto, None, _ate_proximo_cabecalho(itens, gerais[-1]), restricao))
+        secoes.append(
+            _Secao(itens[gerais[-1]].texto, None, _ate_proximo_cabecalho(itens, gerais[-1]), restricao)
+        )
     assinatura = _assinatura(itens[escolhido].texto)
     inicio = escolhido + 1
-    while inicio < len(itens) and itens[inicio].tipo == 'conhecimento':
+    while inicio < len(itens) and itens[inicio].tipo is _TipoItem.CONHECIMENTO:
         inicio += 1
     fim = next(
         (
             j
             for j in range(inicio, len(itens))
-            if itens[j].tipo == 'conhecimento'
-            or (itens[j].tipo == 'titulo' and _assinatura(itens[j].texto) == assinatura)
+            if itens[j].tipo is _TipoItem.CONHECIMENTO
+            or (itens[j].tipo is _TipoItem.TITULO and _assinatura(itens[j].texto) == assinatura)
         ),
         len(itens),
     )
     bloco = itens[inicio:fim]
-    secoes.append((ESPECIFICOS, titulo_legivel(itens[escolhido].texto), bloco, restricao))
+    secoes.append(_Secao(ESPECIFICOS, titulo_legivel(itens[escolhido].texto), bloco, restricao))
     return secoes
 
 
@@ -310,7 +325,9 @@ def _assinatura(titulo: str) -> str:
 
 
 def _ate_proximo_cabecalho(itens: list[_Item], cabecalho: int) -> list[_Item]:
-    fim = next((j for j in range(cabecalho + 1, len(itens)) if itens[j].tipo == 'conhecimento'), len(itens))
+    fim = next(
+        (j for j in range(cabecalho + 1, len(itens)) if itens[j].tipo is _TipoItem.CONHECIMENTO), len(itens)
+    )
     return itens[cabecalho + 1 : fim]
 
 
@@ -347,7 +364,7 @@ def _disciplinas(
         disciplinas.extend(_disciplinas_do_texto(juntar_linhas(linhas), titulo or nome_padrao, restricao))
 
     for item in itens:
-        if item.tipo == 'titulo':
+        if item.tipo is _TipoItem.TITULO:
             fechar()
             titulo, linhas = titulo_legivel(item.texto), []
         else:
