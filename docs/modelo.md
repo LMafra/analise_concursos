@@ -363,6 +363,7 @@ concurso_alvo = "tcu_25"   # opcional; nome da pasta do concurso
 - **Precedência:** flag, variável de ambiente, `config.toml`, padrão.
 - **`[candidato] ultimo`:** o último candidato analisado; vale quando não há `--candidate` nem `CONCURSO_CANDIDATO`.
 - **`[migracao]`:** o registro da migração das fases 1 a 3 (`versao = 4`, `candidato`, `backup`, `data`).
+- **`[pratica]`:** a prática no TEC (opcional); veja "Prática no TEC (tec-erros)".
 
 ## Onboarding (fase 4)
 
@@ -396,6 +397,132 @@ Desligado por padrão; nenhuma chamada de rede acontece sem `[llm]` com `consent
 - **Camada** (`concursos.edital_llm`): depois das regras do texto, pede só os campos que caíram no perfil da banca ou no padrão, o que poupa a rede quando o edital foi lido: `alternativas` (múltipla escolha), `penalidade` e `data_prova` (a data da objetiva no cronograma). O que vem do texto do edital ou do `concurso.yaml` nunca é trocado. Vão só páginas do edital e dos anexos que tenham palavras dessas regras, com o documento e a página, até 40 mil caracteres.
 - **Citação:** a resposta é um JSON com `{"valor", "trecho_origem"}` por campo. O trecho precisa existir numa página do texto enviado, comparando sem acento, sem caixa e com espaços normalizados; sem isso, ou com valor fora do esperado (alternativas de 2 a 10, penalidade de 0 a 1, data ISO), o valor é descartado e o campo fica como estava. Aceito, o campo sai com fonte e camada `llm`, confiança 0,6, trecho, documento e página.
 - **Só regras do edital:** o valor do LLM é expectativa, como o resto do `edital_estruturado.json`; a correção segue com o `correcao.json`.
+
+## open-notebook opcional
+
+Desligado por padrão; nada sai da máquina sem `[open_notebook]` com `enabled = true` e `consentimento = true` na configuração global, gravados por `concurso-analise notebook enable` depois de mostrar o que vai. `--offline` e `--dry-run` desligam a sincronização numa execução. Detalhes da API em `docs/pesquisa-open-notebook.md`; comandos e decisões em `docs/spec-open-notebook.md`.
+
+```toml
+[open_notebook]
+enabled = true
+consentimento = true
+url = "http://localhost:5055"
+variavel_chave = "OPEN_NOTEBOOK_PASSWORD"  # o nome da variável; a senha nunca vai para o TOML
+timeout = 120                              # segundos por pedido
+incluir_nome = false                       # true: o slug do candidato no nome do notebook e o index.html no consolidado
+embed = false                              # true: a instância gera embeddings com o provedor de IA dela
+```
+
+- **Campos:** desconhecidos ou de tipo errado levantam `ConfiguracaoInvalidaError`; o `doctor` mostra `✗` com a seção a corrigir e nunca consulta a instância.
+- **Senha:** como a chave do LLM: variável, keyring, `~/.concurso/.env`. Vai como `Authorization: Bearer`.
+- **Notebooks:** `<concurso> — <rótulo>` com as sources `concurso-analise: <concurso>/<arquivo>` (`relatorio.md`, `desempenho_por_disciplina.csv`, `desempenho_por_topico.csv`, `questoes.csv`, `edital_estruturado.json`, `catalogo_edital.md`) e `Consolidado — <rótulo>` com `concurso-analise: consolidado/<arquivo>` (`desempenho_geral.csv`, `comparativo_concursos.md`, `relatorio_evolucao.md`; `index.html` só com `incluir_nome`). Cada source é `type=text`, começa por `Arquivo: <nome>; concurso: <concurso>` e traz o conteúdo (JSON formatado, HTML sem tags).
+- **Nota** `concurso-analise: resumo executivo` (tipo `human`, sem LLM): por concurso, acertos, nota líquida, disciplina mais fraca e mais forte e os tópicos abaixo de `limiar_topico_baixo` com n ≥ `N_MINIMO_TOPICO`; no consolidado, as respostas de `insights` e a nota final pela regra do edital, ou o motivo de faltarem.
+- **Rótulo:** `candidato N`, na ordem da primeira sincronização com aquela `url`; com `incluir_nome`, o slug.
+- **Estado** `.concurso/open_notebook.json`, gravado só quando muda:
+
+```json
+{
+  "versao": 1,
+  "instancias": {
+    "<url>": {
+      "pseudonimos": {"<slug>": "candidato 1"},
+      "notebooks": {
+        "<slug>/<concurso>": {
+          "id": "notebook:...", "nome": "<concurso> — candidato 1",
+          "sources": {"relatorio.md": {"id": "source:...", "sha256": "..."}},
+          "notas": {"resumo": {"id": "note:...", "sha256": "..."}},
+          "vinculos": {"source:...": true}
+        }
+      }
+    }
+  }
+}
+```
+
+  O consolidado usa a chave `<slug>/_consolidado`; sem candidato (layout das fases 1 a 3), o slug fica vazio. `vinculos` guarda só as sources de outros notebooks que o app vinculou, e só essas ele desvincula.
+- **Idempotência:** hash igual e id presente no remoto, pula; senão apaga (o id do estado e as sources do notebook com o mesmo título, se começar por `concurso-analise:`) e cria. Notebook pelo id do estado, depois pelo nome exato (o mais antigo), depois cria. Nota pelo id ou pelo título, com `PUT` se o hash mudou.
+- **Saída:** `notebook sync` imprime o resumo e sai com 0, 1 (alguma falha parcial ou senha recusada) ou 2 (instância fora do ar). No fim da análise, uma falha vira aviso no log e não muda o código de saída.
+
+## Fontes de estudo: biblioteca e legislação
+
+Opcionais e independentes; sem `.concurso/biblioteca.yaml` e sem `[legislacao]`, nenhuma saída muda. São sugestões: não trocam o tópico nem a disciplina de nenhuma questão.
+
+`.concurso/biblioteca.yaml` (projeto, fora do git), disciplina canônica → categorias `<main> › <sub>` da estante do projeto `books`:
+
+```yaml
+catalogo: ../books/Bookshelf/README.md   # relativo à raiz do projeto; opcional
+disciplinas:
+  Banco de Dados: ["TI - Banco de Dados › SQL e Teoria", "TI - Banco de Dados › MongoDB"]
+```
+
+- **Validação:** disciplina fora de `.concurso/taxonomia.yaml` (quando ela existe) é `ConfiguracaoInvalidaError` com as opções, e a análise sai com código 1; categoria sem seção no catálogo nem notebook `Biblioteca — <categoria>` é só aviso.
+- **Catálogo:** as seções `## <main> › <sub>` do `Bookshelf/README.md` com a tabela `Título | Autor | Arquivo`; seção sem ` › ` (exceto `Índice`) vira aviso.
+
+`[legislacao]` na configuração global (um caminho desta máquina), apontando para um clone parcial do `ctresb/leis`. O app só lê arquivos; não chama `git` nem a rede:
+
+```toml
+[legislacao]
+repositorio = "~/projects/leis"
+```
+
+- **Citações:** `legislacao.extrair_citacoes` acha, nos tópicos do `edital_estruturado.json`, Lei, Lei Complementar, Decreto (não Decreto-Lei nem Decreto Legislativo), Emenda Constitucional, Súmula Vinculante, Súmula do TCU e Constituição, com o trecho original.
+- **Resolução:** `federal/<pasta>/<ano>/*-<numero>-<ano>-*.md`, `jurisprudencia/stf/sumulas-vinculantes/sumula-vinculante-<N>.md`, `jurisprudencia/outros-tribunais/tcu/sumula-<N>.md` e `constituicao.md`. Norma sem arquivo vira aviso com a dica de `git pull`. Avisos da norma: `versao_texto` não compilada, arquivo menor que `TAMANHO_MINIMO_NORMA` (8 KB, exceto súmulas) e revogada.
+- **Chave da norma:** o `urn` do cabeçalho YAML ou, sem ele, o caminho relativo no clone.
+
+`analises/<candidato>/consolidado/recomendacoes_estudo.md`, gravado com `gravar_se_mudou` no fim da análise e mostrado no `index.html` (seção "Recomendações de estudo"): para cada tópico de `insights.calcular_achados(...).fracos`, disciplina, tópico, n, percentual ajustado, os concursos abaixo do limiar e as linhas `- [<fonte>] <título> (<origem>). <detalhe>`, na ordem das camadas (`FonteRecomendacao`):
+
+| Fonte | Camada | Detalhe |
+|---|---|---|
+| `legislacao` | normas citadas no próprio tópico, do clone | trecho citado, `fonte` oficial, arquivo e avisos da norma |
+| `open_notebook` | `POST /api/search` `type=text` nos notebooks `Biblioteca — <categoria>` mapeados, por trechos do tópico; até `LIVROS_POR_TOPICO` (3) | relevância (a busca não devolve trecho) |
+| `catalogo` | sem rede, com erro ou sem resultado: os livros das categorias mapeadas, primeiro os que dividem palavras com o tópico | — |
+
+A busca só roda com o open-notebook ligado, com consentimento e sem `--offline`; a falha vira aviso e o catálogo assume. Tópico sem nada sai como "Sem livro na estante nem norma citada", e a seção "Disciplinas sem livros mapeados" lista as disciplinas fracas fora do mapa.
+
+No open-notebook (`notebook sync` e a sincronização automática):
+- **Livros:** as sources dos notebooks de biblioteca das disciplinas presentes no `questoes.csv` do concurso são vinculadas ao notebook dele; tirar uma disciplina do mapa (ou o arquivo) desfaz só os vínculos que o app criou.
+- **Legislação:** um notebook `Legislação`, compartilhado entre candidatos (chave `_legislacao` no estado), com uma source por chave de norma (título `<titulo> — <ementa curta>`, os avisos no topo do conteúdo), vinculada a cada concurso que a cita.
+- **Nota:** o consolidado recebe `concurso-analise: recomendações de estudo` com o conteúdo do `recomendacoes_estudo.md`.
+- Se a leitura da biblioteca ou o envio das normas falha, os vínculos daquela execução ficam como estão, para a lista incompleta não desvincular nada.
+- **Normas da prática:** com `[pratica]`, `extrair_citacoes` roda também sobre o enunciado e o comentário dos erros do TEC; as normas do clone citadas ali entram na seção "Normas citadas nos seus erros do TEC", das mais citadas para as menos (`citada em N erros`, arquivo e avisos).
+
+## Prática no TEC (tec-erros)
+
+Opcional; sem `[pratica]` no `config.toml` do projeto, nenhuma saída muda. A captura mora no projeto separado `tec-erros` (extensão do Chrome, userscript para o Firefox do Android e `caderno.html`), cujo `docs/contrato.md` define o arquivo `tec-erros-<aparelho>-<data>.json` (`app = "tec-erros"`, `v = 1`, `erros`, `cads`). O app só lê arquivos; não acessa o TEC nem a rede.
+
+```toml
+[pratica]
+entrada_tec = "tec"     # pasta das exportações, relativa à raiz do projeto
+candidato = "ana"       # opcional; de quem é a prática (obrigatório com --all-candidates)
+open_notebook = false   # true: o caderno de erros vai ao open-notebook (enunciado e comentário do professor)
+```
+
+- **Comando:** `concurso-analise pratica import [arquivo]` valida o arquivo (`app` e `v`; campo desconhecido é aviso), copia para `entrada_tec` e roda a análise; sem arquivo, só analisa. A análise padrão lê a pasta sempre que a seção existe. `--dry-run` não copia nem grava.
+- **Mesclagem** (`pratica_tec`, as mesmas regras de `core/nucleo.js`): por `id` ou pela impressão digital `fp` (enunciado sem acento, minúsculo, espaços simples, 300 caracteres); `ds` é a união dos eventos (data e hora locais) e `v = len(ds)`, ou 1 sem evento; um registro de histórico (`OrigemErroTec.HISTORICO`) nunca soma ao tempo real; campo vazio é preenchido, `com` fica com o texto mais longo, `d` é a menor data. Cadernos: vence o de maior `res` e, no empate, o de maior `t`. Arquivo inválido é aviso e os outros seguem.
+- **`caderno-estado.json`** (exportado pelo `caderno.html`, na mesma pasta): `removidos` saem das tabelas; `aliases`, `materias` e `cadernos` são sugestões que o app aproveita.
+- **Disciplina:** a matéria do TEC casa com um nome da `.concurso/taxonomia.yaml` (sem diferença de acento, caixa e palavras vazias) ou com `materias` das escolhas; sem casamento, a disciplina fica vazia e o aviso pede para acrescentá-la em `nomes:`.
+- **Tópico:** o assunto do TEC vira um tópico do `edital_estruturado.json` do `concurso_alvo`. Nome igual ao do tópico casa sozinho; senão, a sugestão vem do `caderno-estado.json` ou de `topicos.sugerir_topicos`. Com terminal, a pergunta sai uma vez por assunto (sugestão, tópicos da disciplina, "não pertence a nenhum tópico", "decidir depois"); sem terminal, o assunto vai para `pratica/revisao_aliases.csv` (`assunto`, `disciplina`, `sugestao`, `score`, `topico`), e a coluna `topico` preenchida (ou `nenhum`) entra nas escolhas na próxima execução. A escolha vale para todos os erros daquele assunto, inclusive os já importados. Sem `concurso_alvo`, os tópicos ficam `nao_mapeado`, com aviso.
+- **Caderno:** `ModoCaderno.TUDO` (padrão, base zero) ou `DAQUI` (a base é o total da primeira importação); a pergunta sai uma vez por caderno com terminal, e o modo do `caderno-estado.json` vence a pergunta. O desempenho é o total atual menos a base.
+- **Escolhas** `.concurso/pratica_tec.yaml` (fora do git), gravado só quando muda:
+
+```yaml
+aliases: {"Simples Nacional": "Simples Nacional: regime único", "Assunto alheio": null}
+materias: {"Direito Tributário": "Legislação Tributária"}
+cadernos: {"c87654321": {"modo": "daqui", "base": {"res": 2, "ac": 0, "er": 2}}}
+```
+
+Saídas em `analises/<candidato>/pratica/`, com `gravar_se_mudou`; o parquet, o `correcao.json` e os CSVs das fases 1 a 3 não mudam:
+
+| Arquivo | Colunas |
+|---|---|
+| `erros_tec.csv` | `id`, `v`, `primeira_data`, `ultima_data`, `origem`, `materia_tec`, `disciplina`, `assunto`, `topico` (`nao_mapeado` pendente, `fora_do_edital` para `null`), `banca`, `orgao`, `ano`, `caderno`; do mais repetido para o menos |
+| `cadernos_tec.csv` | `id`, `caderno`, `materia_tec`, `disciplina`, `modo`, `total`, `resolvidas`, `acertos`, `erros` (já descontada a base), `percentual`, `amostra_insuficiente` (n < `N_MINIMO_TOPICO`) |
+| `desempenho_pratica_por_disciplina.csv` | `disciplina`, `n`, `acertos`, `erros`, `percentual`, `amostra_insuficiente`, `cadernos`, `erros_registrados`, `repetidos` (v ≥ 2) |
+| `resumo_pratica.md` | a seção "Prática no TEC" do `index.html` |
+
+- **Seção "Prática no TEC":** a prioridade de revisão (tópico fraco de `calcular_achados(...).fracos` com erro repetido no TEC no mesmo tópico, comparando por `chave_de_palavras`, com o percentual ajustado e o n da prova), os até `MAXIMO_REPETIDOS` (20) erros repetidos, os cadernos e o desempenho por disciplina; n < `N_MINIMO_TOPICO` sai como "amostra insuficiente (n = …)".
+- **open-notebook:** só com `[pratica] open_notebook = true` e a sincronização ligada, o notebook `Caderno de erros — <rótulo>` (chave `<slug>/_caderno_de_erros`) recebe uma source por disciplina, `concurso-analise: caderno de erros/<disciplina>`, com assunto, banca, enunciado, alternativas, a resposta marcada, o gabarito e o comentário do professor. Esse conteúdo é do TEC: se a instância usa um provedor de IA na nuvem, o chat dela o envia para lá.
+- **Dono:** a prática é de `[pratica] candidato` ou, sem ele, do candidato da execução; com `--all-candidates` e sem `candidato`, fica de fora, com aviso.
 
 ## Candidatos (fase 4)
 
@@ -445,7 +572,6 @@ penalidade: 1.0              # fator de penalidade por erro no formato padrão
 leitor_gabarito: cebraspe    # gabarito PDF que já traz os itens
 leitor_secoes: null          # gabarito PDF com uma seção por cargo e tipo (fgv, lista)
 leitor_cargo: cebraspe       # cargo no cabeçalho do gabarito
-leitor_resultado: padrao
 segmentacao: itens           # questoes (padrão) ou itens (comando do bloco antes do item)
 disciplinas_pelo_caderno: false  # faixas de disciplina pelos títulos do caderno
 chaves_prova:                # chave da prova pela marca no cabeçalho do gabarito
@@ -471,7 +597,6 @@ A grade da folha de respostas e os limiares de leitura ficam num perfil de OCR, 
 id: grade_abcd               # valor de `template` em respostas
 alternativas: ABCD           # letras das bolhas, da esquerda para a direita (CE no certo/errado)
 itens_por_coluna: null       # opcional; sem ele vale o do concurso.yaml
-modo_marcacao: bolha
 vazio: 0.2                   # preenchimento de uma bolha vazia
 cheio: 0.9                   # preenchimento de uma bolha marcada
 limiar_marcada: 0.5          # acima disto, a bolha conta como marcada
@@ -679,6 +804,7 @@ No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_htm
   - o que o app decidiu sozinho: regra de correção do perfil ou padrão, campos do bloco `prova` do edital vindos do perfil, do padrão ou do LLM, a data da prova vinda do LLM, e as questões com tópico sugerido por similaridade sem revisão;
   - avisos: os do `edital_estruturado.json`, concurso sem data, as linhas `error` e `warn` do `discrepancias_edital.csv` e as leituras da folha com `revisar`;
   - evolução: o `relatorio_evolucao.md` e as figuras, mais a tabela de gap para o corte (`comparar_percentual_e_gap`, uma linha por concurso e variante com corte), ou o aviso de que a evolução precisa de 2 concursos;
+  - recomendações de estudo: o `consolidado/recomendacoes_estudo.md`, só quando ele existe (com `biblioteca.yaml` ou `[legislacao]`), com a fonte de cada linha; uma mudança nele também regera o índice;
   - rodapé com a versão, a data da geração e a pasta de provas.
 - **Sem rede:** CSS embutido, imagens por caminho relativo e nenhum HTML bruto do markdown (o texto vem de PDFs).
 - **Quando é gerado e aberto:** depois de cada análise em que algum manifesto foi regravado (algo reprocessado) ou sem `index.html`; nesse caso abre no navegador padrão (no WSL, com `wslview` ou `explorer.exe`), salvo com `--no-open` ou `CI` definido. Sem mudanças, nada é regravado, e a CLI só imprime o caminho. `report` reabre o índice do candidato escolhido; sem índice, para com uma `dica:`.
@@ -691,7 +817,8 @@ No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_htm
 - Tesseract: ausente do PATH é `✗`; sem o idioma `por` (`tesseract --list-langs`), `!` com o pacote do idioma;
 - poppler: sempre `✓`, "não necessário";
 - escrita nas pastas de provas, análises, do projeto e na home (`CONCURSO_HOME`): a pasta, ou o primeiro ancestral existente, sem permissão é `✗`;
-- espaço em disco: menos de 200 MB é `✗`, menos de 1 GB é `!`.
+- espaço em disco: menos de 200 MB é `✗`, menos de 1 GB é `!`;
+- legislação: sem `[legislacao]` é `✓`; caminho inexistente ou sem `federal/leis-ordinarias/` é `!`, com o `git clone` parcial ou o `git sparse-checkout add`.
 
 Sai com 2 se algum item tem `✗`, senão com 0.
 

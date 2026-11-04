@@ -58,6 +58,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "integration: usa uma instância real do open-notebook em OPEN_NOTEBOOK_URL; pulado sem ela",
+]
 
 [tool.ruff]
 line-length = 110

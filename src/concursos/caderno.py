@@ -2,9 +2,11 @@ import re
 from collections.abc import Iterator
 from itertools import groupby
 from pathlib import Path
+from typing import NamedTuple, TypedDict
 
 import pdfplumber
 
+from concursos.arquivos import lido_uma_vez
 from concursos.concurso_config import FaixaDisciplina
 from concursos.edital import titulo_legivel
 
@@ -14,11 +16,30 @@ MARGEM_VERTICAL = 0.06
 SALTO_MAXIMO = 3
 _NUMERO_QUESTAO = re.compile(r'^(\d{1,3})\.?$')
 
-Palavra = dict
+
+class Palavra(TypedDict):
+    """O que o caderno usa de uma palavra do `extract_words` do pdfplumber."""
+
+    text: str
+    size: float
+    fontname: str
+    top: float
+    x0: float
+
+
+class Titulo(NamedTuple):
+    nome: str
+
+
+class Questao(NamedTuple):
+    numero: int
+
+
 Pagina = tuple[float, float, list[Palavra]]
-Evento = tuple[str, str | int]
+Evento = Titulo | Questao
 
 
+@lido_uma_vez
 def faixas_do_caderno(caminho: Path, inicio: int) -> list[FaixaDisciplina]:
     with pdfplumber.open(caminho) as pdf:
         paginas = [
@@ -35,7 +56,9 @@ def faixas_por_cabecalho(paginas: list[Pagina], inicio: int) -> list[FaixaDiscip
     'Conhecimentos ...' vale como disciplina até aparecer um subtítulo.
     """
     eventos = list(_eventos(paginas))
-    partidas = [i for i, (tipo, valor) in enumerate(eventos) if tipo == 'questao' and valor == inicio]
+    partidas = [
+        i for i, evento in enumerate(eventos) if isinstance(evento, Questao) and evento.numero == inicio
+    ]
     if not partidas:
         return []
     melhor = max(reversed(partidas), key=lambda partida: len(_atribuir(eventos, partida, inicio)))
@@ -49,17 +72,18 @@ def faixas_por_cabecalho(paginas: list[Pagina], inicio: int) -> list[FaixaDiscip
 
 def _atribuir(eventos: list[Evento], partida: int, inicio: int) -> dict[int, str]:
     """Questões em sequência a partir de `partida` (capas e instruções também têm números em negrito)."""
-    titulos = [valor for tipo, valor in eventos[:partida] if tipo == 'titulo']
+    titulos = [evento.nome for evento in eventos[:partida] if isinstance(evento, Titulo)]
     disciplina = titulos[-1] if titulos else None
     atribuidas: dict[int, str] = {}
     ultima = inicio - 1
-    for tipo, valor in eventos[partida:]:
-        if tipo == 'titulo':
-            disciplina = valor
-        elif ultima < valor <= ultima + SALTO_MAXIMO:
-            ultima = valor
-            if disciplina is not None:
-                atribuidas[valor] = disciplina
+    for evento in eventos[partida:]:
+        match evento:
+            case Titulo(nome):
+                disciplina = nome
+            case Questao(numero) if ultima < numero <= ultima + SALTO_MAXIMO:
+                ultima = numero
+                if disciplina is not None:
+                    atribuidas[numero] = disciplina
     return atribuidas
 
 
@@ -86,9 +110,9 @@ def _eventos_da_coluna(palavras: list[Palavra]) -> Iterator[Evento]:
         linha = list(grupo)
         if numero := _numero_da_questao(linha[0]):
             if pendente:
-                yield 'titulo', _titulo(pendente)
+                yield _titulo(pendente)
                 pendente = []
-            yield 'questao', numero
+            yield Questao(numero)
             continue
         palavras_titulo = _palavras_de_titulo(linha)
         if not palavras_titulo:
@@ -101,12 +125,12 @@ def _eventos_da_coluna(palavras: list[Palavra]) -> Iterator[Evento]:
             and not _eh_conhecimento(texto)
         )
         if pendente and not continua:
-            yield 'titulo', _titulo(pendente)
+            yield _titulo(pendente)
             pendente = []
         pendente.append(texto)
         topo_anterior, tamanho_anterior = topo, max(p['size'] for p in palavras_titulo)
     if pendente:
-        yield 'titulo', _titulo(pendente)
+        yield _titulo(pendente)
 
 
 def _numero_da_questao(palavra: Palavra) -> int | None:
@@ -125,5 +149,5 @@ def _eh_conhecimento(texto: str) -> bool:
     return texto.upper().startswith('CONHECIMENTOS')
 
 
-def _titulo(linhas: list[str]) -> str:
-    return titulo_legivel(' '.join(linhas))
+def _titulo(linhas: list[str]) -> Titulo:
+    return Titulo(titulo_legivel(' '.join(linhas)))

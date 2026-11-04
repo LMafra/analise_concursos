@@ -3,6 +3,7 @@
 import math
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from functools import cache
 from itertools import permutations
 
 import numpy as np
@@ -102,9 +103,9 @@ def comparar_com_meta(consolidado: pd.DataFrame, meta: float = META_PADRAO) -> p
     linhas = []
     for nome, concurso in consolidado.groupby('concurso', sort=False):
         pelo_edital = _pontos_pelo_edital(concurso)
+        nota_maxima = float(concurso['nota_maxima'].iloc[0])
         for variante, peso in _variantes(concurso):
             nota = float((peso * pelo_edital).sum())
-            nota_maxima = float(concurso['nota_maxima'].iloc[0])
             normalizada = nota_normalizada(nota, nota_maxima)
             linhas.append(
                 {
@@ -732,12 +733,18 @@ def _p_spearman_exato(valores_em_ordem: np.ndarray) -> float:
     p = 0 para correlação perfeita, mas com 3 pontos uma ordenação perfeita acontece por acaso 1 vez em 3."""
     posicoes = np.arange(len(valores_em_ordem), dtype=float)
     postos = stats.rankdata(valores_em_ordem)
-    todas = np.array(list(permutations(postos)))
+    todas = postos[_permutacoes(len(postos))]
     centradas = todas - todas.mean(axis=1, keepdims=True)
     referencia = posicoes - posicoes.mean()
     rhos = centradas @ referencia / (np.linalg.norm(centradas, axis=1) * np.linalg.norm(referencia))
     observado = abs(rhos[0])
     return float(np.mean(np.abs(rhos) >= observado - 1e-12))
+
+
+@cache
+def _permutacoes(n: int) -> np.ndarray:
+    """Os índices de todas as ordenações de n pontos, na ordem do `itertools.permutations`."""
+    return np.array(list(permutations(range(n))))
 
 
 def _validas(consolidado: pd.DataFrame) -> pd.DataFrame:

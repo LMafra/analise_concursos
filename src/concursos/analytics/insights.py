@@ -264,17 +264,13 @@ def destaque_do_ranking(ranking: pd.DataFrame) -> str:
             continue
         partes = '; '.join(
             f'{rotulo_com_variante(linha["concurso"], linha["variante"])} {"sobe" if linha[f"deslocamento_{metrica}"] > 0 else "cai"} '
-            f'{_em_posicoes(abs(linha[f"deslocamento_{metrica}"]))}'
+            f'{_contagem(abs(linha[f"deslocamento_{metrica}"]), "posição", "posições")}'
             for _, linha in mudancas.iterrows()
         )
         frases.append(f'No {metrica}: {partes}.')
     if not frases:
         return 'O ranking é o mesmo no bruto, no corrigido e no ponderado.'
     return '> **O ranking muda entre as métricas.** ' + ' '.join(frases)
-
-
-def _em_posicoes(n: int) -> str:
-    return f'{n} posição' if n == 1 else f'{n} posições'
 
 
 def peculiaridades_do_edital(regras: Mapping[str, dict], concurso_alvo: str | None = None) -> pd.DataFrame:

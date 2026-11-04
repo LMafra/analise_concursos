@@ -1,6 +1,5 @@
 import argparse
 import logging
-import sys
 from pathlib import Path
 
 from concursos.assistente import InteracaoAutomatica, InteracaoConsole
@@ -8,7 +7,6 @@ from concursos.cadastro import cadastrar
 from concursos.cli.erros import ajustar_nivel_console
 from concursos.configuracao import carregar_configuracao_global
 from concursos.pipeline import analisar_todos
-from concursos.status import avaliar, formatar_tabela, listar_concursos
 
 logger = logging.getLogger('concursos')
 
@@ -27,9 +25,6 @@ def main(argv: list[str]) -> int:
                 Path(args.provas), Path(args.analises), args.forcar, args.concurso, configuracao
             )
             return 0 if sucesso else 1
-        if args.comando == 'status':
-            situacoes = [avaliar(pasta) for pasta in listar_concursos(Path(args.provas))]
-            sys.stdout.write(formatar_tabela(situacoes) + '\n')
     except (ValueError, FileNotFoundError) as erro:
         logger.error('%s', erro)
         return 1
@@ -58,7 +53,4 @@ def _parser() -> argparse.ArgumentParser:
     analisar.add_argument('--forcar', action='store_true', help='reprocessa mesmo sem mudanças')
     analisar.add_argument('--concurso', help='processa apenas o concurso com este nome de pasta')
     analisar.add_argument('--config', default='config.yaml', help='limiares globais (opcional)')
-
-    status = subcomandos.add_parser('status', help='mostra a situação de cada concurso')
-    status.add_argument('--provas', default='provas', help='pasta com um subdiretório por concurso')
     return parser

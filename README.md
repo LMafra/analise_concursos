@@ -203,8 +203,9 @@ Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa 
 | `status` | Situação de cada concurso: `completo`, `incompleto` ou `desatualizado`, e o status do gabarito. |
 | `report` | Reabre o último relatório HTML. |
 | `export --format csv\|parquet\|md` | Grava o consolidado do candidato, uma linha por questão. |
-| `doctor` | Confere uv, Python, Tesseract, permissão de escrita, espaço em disco e a chave do LLM, com o comando de correção para o seu sistema. |
+| `doctor` | Confere uv, Python, Tesseract, permissão de escrita, espaço em disco, a chave do LLM e a configuração do open-notebook, com o comando de correção para o seu sistema. |
 | `upgrade` | Mostra o comando que atualiza a ferramenta. Com `--run`, executa `uv tool upgrade concurso-analise`. |
+| `notebook enable\|disable\|sync` | Liga, desliga ou roda a sincronização com o open-notebook (veja [Integração com open-notebook](#integração-com-open-notebook)). |
 
 Flags globais, antes do subcomando: `--yes` (aceita os padrões sem perguntar), `--quiet`, `--verbose`, `--dry-run` (mostra o que seria feito, sem gravar nada), `--force` (reprocessa tudo), `--candidate`, `--all-candidates`, `--no-open`, `--no-llm`, `--offline`, `--data-dir`, `--provas` e `--analises`.
 
@@ -359,6 +360,75 @@ Desligado por padrão. Ligado no onboarding (pergunta 5) ou com `init`, ele só 
 
 Provedores: OpenAI, OpenRouter, Gemini, Ollama (local, sem chave) e Anthropic. A chave vem de uma variável de ambiente; com o extra `llm` (`uv tool install '<repositório>[llm]'`), pode ficar no keyring do sistema. Ela nunca é gravada no `config.toml`.
 
+### Integração com open-notebook
+
+Opcional e desligada por padrão. Com uma instância local do [open-notebook](https://github.com/lfnovo/open-notebook) (testada com a 1.15), o app cria um notebook por concurso e um consolidado, envia os relatórios e CSVs como fontes e grava uma nota de resumo montada localmente, sem LLM. Assim você conversa com as suas análises no chat do open-notebook.
+
+```sh
+docker compose up -d                                   # na pasta do open-notebook
+concurso-analise notebook enable                       # mostra o que vai e pede confirmação
+concurso-analise notebook sync                         # envia agora; depois, toda análise sincroniza sozinha
+concurso-analise notebook sync --concurso meu_concurso --all-candidates
+concurso-analise notebook disable
+```
+
+- O candidato aparece como pseudônimo (`candidato 1`); para usar o nome, grave `incluir_nome = true` em `[open_notebook]` no `~/.concurso/config.toml`. CPF e inscrição não são enviados.
+- Se a instância tem senha (`OPEN_NOTEBOOK_PASSWORD`), defina a mesma variável no seu ambiente; a senha nunca vai para o TOML.
+- O chat do open-notebook usa o provedor de IA configurado nele. Se esse provedor é externo, o conteúdo das análises vai para ele quando você conversa.
+- Reexecutar sem mudança não envia nada: o estado fica em `.concurso/open_notebook.json`. Um arquivo que mudou tem a fonte apagada e criada de novo. Fontes que você criou à mão no notebook nunca são apagadas.
+- `notebook sync` sai com 0, 1 (falha parcial ou senha recusada) ou 2 (instância fora do ar). Depois de uma análise, uma falha só gera aviso. `--offline` e `--dry-run` não chamam a instância, e o `doctor` mostra a configuração sem consultá-la.
+
+Os campos e o estado estão em [docs/modelo.md](docs/modelo.md); as decisões, em [docs/spec-open-notebook.md](docs/spec-open-notebook.md).
+
+### Recomendações de estudo: livros e legislação
+
+Também opcionais. Com uma das duas fontes abaixo, a análise grava `analises/<candidato>/consolidado/recomendacoes_estudo.md` e a seção "Recomendações de estudo" no `index.html`: para cada tópico fraco persistente, as normas que o próprio tópico cita e até 3 livros. Cada linha diz de onde veio (`legislação`, `open-notebook` ou `catálogo`). São sugestões e não mudam o tópico nem a disciplina das questões.
+
+**Livros.** Mapeie as disciplinas da taxonomia para as categorias da estante do projeto `books` em `.concurso/biblioteca.yaml`:
+
+```yaml
+catalogo: ../books/Bookshelf/README.md
+disciplinas:
+  Banco de Dados: ["TI - Banco de Dados › SQL e Teoria", "TI - Banco de Dados › MongoDB"]
+```
+
+Sem rede, os livros vêm do catálogo. Com o open-notebook ligado e a estante enviada (`python3 scripts/sync_open_notebook.py --apply` no `books`), a busca de texto nos notebooks `Biblioteca — <categoria>` escolhe os livros, e o `notebook sync` vincula os livros das disciplinas de cada concurso ao notebook dele. Só o texto do tópico, que vem do edital, vai na busca.
+
+**Legislação.** Mantenha um clone parcial do [ctresb/leis](https://github.com/ctresb/leis) e aponte para ele no `~/.concurso/config.toml`:
+
+```bash
+git clone --filter=blob:none --sparse https://github.com/ctresb/leis.git ~/projects/leis
+cd ~/projects/leis
+git sparse-checkout set federal/leis-ordinarias federal/leis-complementares federal/decretos \
+  federal/emendas-constitucionais jurisprudencia/stf/sumulas-vinculantes jurisprudencia/outros-tribunais/tcu
+```
+
+```toml
+[legislacao]
+repositorio = "~/projects/leis"
+```
+
+O app só lê os arquivos, sem rede e sem `git`; atualize com `git pull`. Uma norma em versão não compilada (como a Lei 14.133 no repositório hoje) ou muito curta sai com aviso. Com o open-notebook ligado, as normas citadas nos editais vão para um notebook `Legislação`, uma vez cada, vinculadas aos concursos que as citam. O `doctor` confere o caminho.
+
+### Prática no TEC Concursos
+
+Também opcional. O projeto separado `tec-erros` (extensão do Chrome, userscript para o Firefox do Android e um `caderno.html` offline) registra as questões que você erra no TEC e exporta `tec-erros-<aparelho>-<data>.json`. Ligue a importação no `.concurso/config.toml`:
+
+```toml
+[pratica]
+entrada_tec = "tec"       # pasta das exportações
+# candidato = "ana"       # obrigatório se você roda com --all-candidates
+# open_notebook = true    # manda o caderno de erros ao open-notebook
+```
+
+```bash
+concurso-analise pratica import ~/Downloads/tec-erros-d3f9a1c2-2026-11-02.json
+```
+
+O comando copia o arquivo para `tec/` e roda a análise; a análise padrão também lê a pasta. Arquivos de aparelhos diferentes se juntam: errar a mesma questão no computador e no tablet conta duas vezes. A matéria do TEC vira disciplina pela `taxonomia.yaml`, e o assunto vira tópico do edital do `concurso_alvo`: num terminal, a pergunta sai uma vez por assunto; sem terminal, o assunto vai para `analises/<candidato>/pratica/revisao_aliases.csv` para você preencher. A análise grava em `analises/<candidato>/pratica/` os erros, os cadernos e o desempenho por disciplina, e o `index.html` ganha a seção "Prática no TEC", que cruza os tópicos fracos da prova com os erros repetidos no TEC. Normas citadas nos enunciados e comentários entram nas recomendações de estudo.
+
+O enunciado e o comentário do professor são conteúdo do TEC: só vão ao open-notebook com `open_notebook = true`, e, se a instância usa um provedor de IA na nuvem, o chat dela os envia para lá.
+
 ### Análise evolutiva
 
 Notebooks que leem as saídas de todos os concursos e respondem se o desempenho melhora com o tempo. A métrica padrão é o percentual ajustado ao acaso (um chute vale 0 em certo/errado e em múltipla escolha), e a evolução se lê pelo z-score de cada disciplina dentro do concurso. Todo percentual vem com o n: n < 5 é amostra insuficiente, e uma tendência precisa de 3 datas de prova distintas ou mais.
@@ -409,7 +479,7 @@ Os notebooks são scripts [jupytext](https://jupytext.readthedocs.io/) em `noteb
 
 ### Privacidade
 
-`provas/`, `analises/` e `.concurso/` ficam fora do git (`.gitignore`) e fora da imagem Docker (`.dockerignore`), por conterem dados pessoais (nome, CPF, notas). Nenhum arquivo é enviado para fora da máquina; o LLM, se ligado, só recebe texto do edital.
+`provas/`, `analises/` e `.concurso/` ficam fora do git (`.gitignore`) e fora da imagem Docker (`.dockerignore`), por conterem dados pessoais (nome, CPF, notas). Nenhum arquivo é enviado para fora da máquina; o LLM, se ligado, só recebe texto do edital. O open-notebook, se ligado, recebe os relatórios e CSVs da análise, com o candidato como pseudônimo.
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 

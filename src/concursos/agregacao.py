@@ -43,9 +43,7 @@ def agregar(resultados: pd.DataFrame, por: list[str], pontuacao: Pontuacao) -> p
         )
         .reset_index()
     )
-    validas = agregado['total'] - agregado['anuladas']
-    acertos_merito = agregado['acertos'] - agregado['anuladas']
-    agregado['percentual'] = (acertos_merito / validas.where(validas > 0) * 100).fillna(0).round(2)
+    agregado['percentual'] = percentual_de_merito(agregado)
     agregado['nota_liquida'] = (
         agregado['acertos'] - agregado['erros'] if pontuacao.fator_penalidade else agregado['acertos']
     )
@@ -54,6 +52,13 @@ def agregar(resultados: pd.DataFrame, por: list[str], pontuacao: Pontuacao) -> p
             agregado[coluna] = TODOS
     _verificar_fechamento(agregado)
     return agregado[COLUNAS_DESEMPENHO]
+
+
+def percentual_de_merito(tabela: pd.DataFrame) -> pd.Series:
+    """Acertos fora as anuladas sobre as questões válidas; 0 sem nenhuma válida."""
+    validas = tabela['total'] - tabela['anuladas']
+    merito = tabela['acertos'] - tabela['anuladas']
+    return (merito / validas.where(validas > 0) * 100).fillna(0).round(2)
 
 
 def _verificar_fechamento(agregado: pd.DataFrame) -> None:

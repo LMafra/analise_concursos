@@ -1,10 +1,11 @@
 import logging
 from collections import Counter
+from collections.abc import Mapping
 from pathlib import Path
 
 import pandas as pd
 
-from concursos.agregacao import COLUNAS_DESEMPENHO
+from concursos.agregacao import COLUNAS_DESEMPENHO, percentual_de_merito
 from concursos.analytics.correcao import notas_finais_gravadas
 from concursos.arquivos import gravar_se_mudou
 from concursos.correcao import TOPICO_NAO_MAPEADO
@@ -24,10 +25,20 @@ _SOMAS = ['total', 'acertos', 'erros', 'em_branco', 'anuladas', 'nota_liquida']
 
 
 def consolidar(
-    raiz_provas: Path, raiz_analises: Path, limiar_topico_baixo: float, candidato: str | None = None
+    raiz_provas: Path,
+    raiz_analises: Path,
+    limiar_topico_baixo: float,
+    candidato: str | None = None,
+    avaliados: Mapping[str, StatusConcurso] | None = None,
 ) -> None:
-    """Junta os desempenhos por tópico de todos os concursos analisados e gera o comparativo."""
-    situacoes = {pasta.name: avaliar(pasta, candidato) for pasta in listar_concursos(raiz_provas)}
+    """Junta os desempenhos por tópico de todos os concursos analisados e gera o comparativo.
+
+    `avaliados` são as situações que a análise acabou de calcular, por pasta; os outros são avaliados aqui."""
+    avaliados = avaliados or {}
+    situacoes = {
+        pasta.name: avaliados[pasta.name] if pasta.name in avaliados else avaliar(pasta, candidato)
+        for pasta in listar_concursos(raiz_provas)
+    }
     analisados = {
         nome: s
         for nome, s in situacoes.items()
@@ -56,9 +67,9 @@ def comparar_candidatos(raiz_analises: Path, candidatos: list[str]) -> Path:
         geral = pd.concat(gerais, ignore_index=True)
         total = geral.groupby('candidato', sort=True)[_SOMAS].sum().reset_index()
         total['concursos'] = total['candidato'].map(geral.groupby('candidato')['concurso'].nunique())
-        total['percentual'] = _percentual(total)
+        total['percentual'] = percentual_de_merito(total)
         por_concurso = geral.groupby(['concurso', 'candidato'])[_SOMAS].sum()
-        por_concurso = _percentual(por_concurso).unstack('candidato').reset_index()
+        por_concurso = percentual_de_merito(por_concurso).unstack('candidato').reset_index()
         linhas += [
             '## No total',
             '',
@@ -132,7 +143,7 @@ def _por_concurso(
     if geral.empty:
         return ['Nenhum concurso analisado.', '']
     tabela = geral.groupby('concurso', sort=True)[_SOMAS].sum().reset_index()
-    tabela['percentual'] = _percentual(tabela)
+    tabela['percentual'] = percentual_de_merito(tabela)
     gabaritos = {s.config.nome: s.gabarito for s in analisados.values()}
     notas = {
         s.config.nome: '; '.join(
@@ -165,7 +176,7 @@ def _baixos(geral: pd.DataFrame, colunas: list[str], limiar: float, rotulo: str)
         return [f'Nenhum {rotulo} classificado.', '']
     mapeados = mapeados.assign(chave=mapeados[colunas].apply(_chave, axis=1))
     por_concurso = mapeados.groupby(['chave', 'concurso'], sort=False)[_SOMAS].sum().reset_index()
-    por_concurso['percentual'] = _percentual(por_concurso)
+    por_concurso['percentual'] = percentual_de_merito(por_concurso)
     nomes = mapeados.groupby('chave')[colunas].agg(lambda v: Counter(v).most_common(1)[0][0])
 
     linhas = []
@@ -179,7 +190,7 @@ def _baixos(geral: pd.DataFrame, colunas: list[str], limiar: float, rotulo: str)
         )
         linha['concursos com o item'] = grupo['concurso'].nunique()
         linha['questoes'] = int(grupo['total'].sum())
-        linha['percentual geral'] = float(_percentual(grupo[_SOMAS].sum().to_frame().T).iloc[0])
+        linha['percentual geral'] = float(percentual_de_merito(grupo[_SOMAS].sum().to_frame().T).iloc[0])
         linha['_ordem'] = (-baixos['concurso'].nunique(), linha['percentual geral'])
         linhas.append(linha)
     if not linhas:
@@ -197,12 +208,6 @@ def _baixos(geral: pd.DataFrame, colunas: list[str], limiar: float, rotulo: str)
 
 def _chave(nomes: pd.Series) -> str:
     return ' | '.join(chave_de_palavras(nome) for nome in nomes)
-
-
-def _percentual(tabela: pd.DataFrame) -> pd.Series:
-    validas = tabela['total'] - tabela['anuladas']
-    merito = tabela['acertos'] - tabela['anuladas']
-    return (merito / validas.where(validas > 0) * 100).fillna(0).round(2)
 
 
 def _pendentes(situacoes: dict[str, StatusConcurso], analisados: set[str]) -> list[str]:

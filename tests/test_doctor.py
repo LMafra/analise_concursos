@@ -82,6 +82,70 @@ def test_poppler_aparece_como_nao_necessario(ambiente, capsys):
     assert 'poppler: não necessário' in saida
 
 
+def test_open_notebook_desligado_aparece_sem_rede(ambiente, capsys):
+    _, saida = rodar(capsys)
+
+    assert '✓ open-notebook: desligado' in saida
+
+
+def test_open_notebook_ligado_mostra_a_url_sem_consultar_a_instancia(
+    ambiente, capsys, home_isolada, monkeypatch
+):
+    home_isolada.mkdir(parents=True, exist_ok=True)
+    (home_isolada / 'config.toml').write_text(
+        '[open_notebook]\nenabled = true\nconsentimento = true\nurl = "http://127.0.0.1:1"\n',
+        encoding='utf-8',
+    )
+    monkeypatch.setattr('urllib.request.urlopen', lambda *_a, **_k: pytest.fail('o doctor não usa a rede'))
+
+    codigo, saida = rodar(capsys)
+
+    assert codigo == 0
+    assert '✓ open-notebook: http://127.0.0.1:1, sem senha' in saida
+
+
+def test_open_notebook_sem_consentimento_e_aviso(ambiente, capsys, home_isolada):
+    home_isolada.mkdir(parents=True, exist_ok=True)
+    (home_isolada / 'config.toml').write_text('[open_notebook]\nenabled = true\n', encoding='utf-8')
+
+    _, saida = rodar(capsys)
+
+    assert '! open-notebook' in saida
+    assert 'concurso-analise notebook enable' in saida
+
+
+def test_open_notebook_com_configuracao_invalida_e_erro(ambiente, capsys, home_isolada):
+    home_isolada.mkdir(parents=True, exist_ok=True)
+    (home_isolada / 'config.toml').write_text('[open_notebook]\nenabled = "sim"\n', encoding='utf-8')
+
+    codigo, saida = rodar(capsys)
+
+    assert codigo != 0
+    assert '✗ open-notebook' in saida
+
+
+def test_legislacao_sem_secao_e_ok(ambiente, capsys):
+    _, saida = rodar(capsys)
+
+    assert '✓ legislação: sem [legislacao]' in saida
+
+
+def test_legislacao_confere_o_clone_sem_rede(ambiente, capsys, home_isolada, tmp_path):
+    home_isolada.mkdir(parents=True, exist_ok=True)
+    clone = tmp_path / 'leis'
+    (home_isolada / 'config.toml').write_text(f'[legislacao]\nrepositorio = "{clone}"\n', encoding='utf-8')
+
+    _, sem_clone = rodar(capsys)
+    clone.mkdir()
+    _, sem_pasta = rodar(capsys)
+    (clone / 'federal' / 'leis-ordinarias').mkdir(parents=True)
+    codigo, com_clone = rodar(capsys)
+
+    assert f'! legislação: {clone} não existe' in sem_clone and 'git clone --filter=blob:none' in sem_clone
+    assert 'git sparse-checkout add federal/leis-ordinarias' in sem_pasta
+    assert f'✓ legislação: {clone}' in com_clone and codigo == 0
+
+
 def test_pouco_espaco_em_disco_e_erro(ambiente, capsys, monkeypatch):
     monkeypatch.setattr(
         'concursos.doctor.shutil.disk_usage', lambda _: shutil._ntuple_diskusage(10**9, 10**9, 50 * 2**20)

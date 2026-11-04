@@ -12,7 +12,7 @@ from concursos.analytics.regras_edital import (
 )
 from concursos.llm import ClienteLlm, LlmIndisponivelError
 from concursos.modelo import Formato
-from concursos.texto import normalizar
+from concursos.texto import normalizar, numero_decimal
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ def _valor(campo: str, valor: object) -> object | None:
             numero = int(valor)
             return numero if 2 <= numero <= 10 else None
         if campo == 'penalidade':
-            fator = float(str(valor).replace(',', '.'))
+            fator = numero_decimal(str(valor))
             return fator if 0 <= fator <= 1 else None
         return date.fromisoformat(str(valor))
     except (TypeError, ValueError):
@@ -157,15 +157,11 @@ def _valor(campo: str, valor: object) -> object | None:
 
 
 def _localizar(trecho: str, documentos: dict[str, list[str]]) -> tuple[str, int] | None:
-    procurado = _compacto(trecho)
+    procurado = normalizar(trecho)
     if not procurado:
         return None
     for documento, paginas in documentos.items():
         for numero, pagina in enumerate(paginas, start=1):
-            if procurado in _compacto(pagina):
+            if procurado in normalizar(pagina):
                 return documento, numero
     return None
-
-
-def _compacto(texto: str) -> str:
-    return normalizar(texto)

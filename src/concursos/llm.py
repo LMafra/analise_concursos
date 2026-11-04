@@ -5,7 +5,7 @@ import stat
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
@@ -109,9 +109,14 @@ def obter_chave(
     configuracao: ConfiguracaoLlm, home: Path, ambiente: Mapping[str, str] | None = None
 ) -> tuple[str, str] | None:
     """A chave e de onde veio: variável de ambiente, keyring ou o `.env` da pasta global, nessa ordem."""
-    variavel = configuracao.variavel_chave
-    if variavel is None:
+    if configuracao.variavel_chave is None:
         return None
+    return obter_chave_da_variavel(configuracao.variavel_chave, home, ambiente)
+
+
+def obter_chave_da_variavel(
+    variavel: str, home: Path, ambiente: Mapping[str, str] | None = None
+) -> tuple[str, str] | None:
     ambiente = os.environ if ambiente is None else ambiente
     if chave := ambiente.get(variavel):
         return chave, f'variável {variavel}'
@@ -200,6 +205,24 @@ class ClienteAnthropic:
             return ''.join(bloco['text'] for bloco in resposta['content'] if bloco.get('type') == 'text')
         except (KeyError, TypeError) as erro:
             raise LlmIndisponivelError(f'{self.provedor}: resposta sem content de texto') from erro
+
+
+@dataclass
+class ClienteComMemoria:
+    """Repete a resposta do mesmo pedido: com --all-candidates, o mesmo edital vai ao provedor uma vez só e
+    todos os candidatos recebem a mesma resposta."""
+
+    cliente: ClienteLlm
+    respostas: dict[tuple[str, str], str] = field(default_factory=dict)
+
+    @property
+    def provedor(self) -> str:
+        return self.cliente.provedor
+
+    def completar(self, sistema: str, usuario: str) -> str:
+        if (sistema, usuario) not in self.respostas:
+            self.respostas[sistema, usuario] = self.cliente.completar(sistema, usuario)
+        return self.respostas[sistema, usuario]
 
 
 def cliente_configurado(home: Path, config_global: Path, permitido: bool = True) -> ClienteLlm | None:

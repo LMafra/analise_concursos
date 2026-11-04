@@ -1,5 +1,5 @@
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -172,8 +172,8 @@ class ConcursoConfig:
     data_prova: date | None = None
     nivel: Nivel = Nivel.NAO_INFORMADO
     escolaridade: Escolaridade = Escolaridade.NAO_INFORMADO
-    ignorar: tuple[str, ...] = field(default_factory=tuple)
-    historico: tuple[dict, ...] = field(default_factory=tuple)
+    ignorar: tuple[str, ...] = ()
+    historico: tuple[dict, ...] = ()
 
     def caminho(self, arquivo: str) -> Path:
         return self.pasta / arquivo

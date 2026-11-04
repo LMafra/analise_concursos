@@ -407,7 +407,7 @@ def _salvar(figura: Figure, caminho: Path) -> Figure:
 
 def _rotulos_da_comparacao(comparacao: pd.DataFrame) -> list[str]:
     return [
-        f'{concurso} ({variante})' if pd.notna(variante) else concurso
+        rotulo_com_variante(concurso, variante)
         for concurso, variante in zip(comparacao['concurso'], comparacao['variante'], strict=True)
     ]
 

@@ -15,19 +15,25 @@ from pathlib import Path
 import pandas as pd
 from markdown_it import MarkdownIt
 
+from concursos.agregacao import percentual_de_merito
 from concursos.analytics.consolidado import (
     carregar_consolidado,
     cortes_por_concurso,
     pasta_consolidado,
     regras_por_concurso,
 )
-from concursos.analytics.correcao import NotaFinal, notas_pela_regra_gravadas
+from concursos.analytics.correcao import ARQUIVO_CORRECAO, NotaFinal, notas_pela_regra_gravadas
 from concursos.analytics.evolucao import comparar_percentual_e_gap
 from concursos.analytics.insights import gravar_relatorio_evolucao
+from concursos.analytics.validacao_edital import ARQUIVO_DISCREPANCIAS
+from concursos.analytics.visualizacao import rotulo_com_variante
+from concursos.biblioteca import ARQUIVO_RECOMENDACOES
 from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso
 from concursos.consolidado import MINIMO_CONCURSOS, PASTA_CONSOLIDADO
 from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
+from concursos.pipeline import ARQUIVO_RESPOSTAS
+from concursos.pratica_tec import ARQUIVO_RESUMO, PASTA_PRATICA
 from concursos.resultado_oficial import formatar
 
 logger = logging.getLogger(__name__)
@@ -102,6 +108,8 @@ def gerar_relatorio_html(
             _lista([texto for pasta in pastas for texto in _avisos(pasta)], 'Nenhum aviso.'),
             '<h2>Evolução</h2>',
             _evolucao(raiz_provas, raiz_analises, arquivo_taxonomia, limiar_topico_baixo),
+            *_recomendacoes(raiz_analises),
+            *_pratica(raiz_analises),
             f'<footer>Gerado por concurso-analise {_versao()} em {datetime.now():%Y-%m-%d %H:%M} a partir de '
             f'{escape(str(raiz_provas))}.</footer>',
         ]
@@ -140,17 +148,16 @@ def _no_wsl() -> bool:
 
 def _resumo(pasta: Path, pasta_provas: Path) -> ConcursoNoIndice:
     desempenho = pd.read_csv(pasta / 'desempenho_por_disciplina.csv', keep_default_na=False)
-    total, acertos, anuladas = (int(desempenho[c].sum()) for c in ('total', 'acertos', 'anuladas'))
-    validas = total - anuladas
+    somas = desempenho[['total', 'acertos', 'anuladas']].sum().to_frame().T
     correcao = _correcao(pasta)
     notas = ()
     if (pasta_provas / ARQUIVO_CONFIG).exists():
         notas = tuple(notas_pela_regra_gravadas(pasta, carregar_concurso(pasta_provas).formato))
     return ConcursoNoIndice(
         nome=pasta.name,
-        total=total,
-        acertos=acertos,
-        percentual=round(100 * (acertos - anuladas) / validas, 2) if validas > 0 else 0.0,
+        total=int(somas['total'].iloc[0]),
+        acertos=int(somas['acertos'].iloc[0]),
+        percentual=float(percentual_de_merito(somas).iloc[0]),
         fonte=correcao.get('fonte'),
         confianca=correcao.get('confianca'),
         data_prova=correcao.get('data_prova'),
@@ -235,14 +242,14 @@ def _avisos(pasta: Path) -> list[str]:
     ]
     if not _correcao(pasta).get('data_prova'):
         avisos.append('sem data da prova; fica fora das análises de tendência')
-    discrepancias = pasta / 'discrepancias_edital.csv'
+    discrepancias = pasta / ARQUIVO_DISCREPANCIAS
     if discrepancias.exists():
         tabela = pd.read_csv(discrepancias, keep_default_na=False)
         for linha in tabela[tabela['severidade'].isin(_SEVERIDADES_NO_RELATORIO)].itertuples():
             avisos.append(
                 f'{linha.item}: edital {linha.esperado_edital}, prova {linha.observado_prova} ({linha.severidade})'
             )
-    respostas = pasta / 'respostas_extraidas.csv'
+    respostas = pasta / ARQUIVO_RESPOSTAS
     if respostas.exists():
         revisar = int(pd.read_csv(respostas)['revisar'].astype(bool).sum())
         if revisar:
@@ -269,6 +276,22 @@ def _evolucao(raiz_provas: Path, raiz_analises: Path, arquivo_taxonomia: Path, l
     )
 
 
+def _recomendacoes(raiz_analises: Path) -> list[str]:
+    """Só com `biblioteca.yaml` ou `[legislacao]` o arquivo existe; sem ele, o índice fica como era."""
+    arquivo = raiz_analises / PASTA_CONSOLIDADO / ARQUIVO_RECOMENDACOES
+    if not arquivo.exists():
+        return []
+    return [_html(arquivo.read_text(encoding='utf-8'), nivel=1)]
+
+
+def _pratica(raiz_analises: Path) -> list[str]:
+    """Só com `[pratica]` no `config.toml` o resumo existe."""
+    arquivo = raiz_analises / PASTA_PRATICA / ARQUIVO_RESUMO
+    if not arquivo.exists():
+        return []
+    return [_html(arquivo.read_text(encoding='utf-8'), nivel=1)]
+
+
 def _tabela_de_gap(gap: pd.DataFrame) -> str:
     gap = gap.dropna(subset=['menor_gap_percentual'])
     if gap.empty:
@@ -279,7 +302,7 @@ def _tabela_de_gap(gap: pd.DataFrame) -> str:
         '<th>Corte mais distante</th><th>Atingido</th></tr>',
     ]
     for linha in gap.itertuples():
-        nome = linha.concurso if pd.isna(linha.variante) else f'{linha.concurso} ({linha.variante})'
+        nome = rotulo_com_variante(linha.concurso, linha.variante)
         linhas.append(
             f'<tr><td>{escape(str(nome))}</td><td>{_numero(linha.percentual_ponderado, 1)}%</td>'
             f'<td>{_numero(linha.menor_gap_percentual, 1)}</td><td>{escape(str(linha.corte_mais_distante))}</td>'
@@ -320,7 +343,7 @@ def _lista(itens: list[str], vazio: str) -> str:
 
 
 def _correcao(pasta: Path) -> dict:
-    configuracoes = _json(pasta / 'correcao.json')
+    configuracoes = _json(pasta / ARQUIVO_CORRECAO)
     return configuracoes[0] if isinstance(configuracoes, list) and configuracoes else {}
 
 

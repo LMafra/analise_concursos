@@ -23,6 +23,7 @@ from concursos.correcao import ARQUIVO_QUESTOES
 from concursos.modelo import Formato, ModeloCorrecao, Resultado
 from concursos.perfis import PERFIL_GENERICO, perfil_da_banca
 from concursos.resultado_oficial import formatar
+from concursos.texto import NUMERO_DECIMAL, numero_decimal
 
 logger = logging.getLogger(__name__)
 
@@ -170,11 +171,10 @@ def _questoes_gravadas(pasta: Path) -> pd.DataFrame:
     return pd.read_csv(pasta / ARQUIVO_QUESTOES, usecols=['questao', 'resultado', 'anulada'])
 
 
-_NUMERO = r'\d+(?:,\d+)?'
 _POR_EXTENSO = r'(?:\([^)]*\)\s*)?'
 _PENALIDADE = re.compile(
-    rf'(?:(?P<acerto>{_NUMERO})\s*pontos?,?\s+caso\s+a\s+resposta[^;]{{0,200}}?concordância[^;]{{0,200}};\s*)?'
-    rf'(?P<erro>{_NUMERO})\s*pontos?\s+negativos?',
+    rf'(?:(?P<acerto>{NUMERO_DECIMAL})\s*pontos?,?\s+caso\s+a\s+resposta[^;]{{0,200}}?concordância[^;]{{0,200}};\s*)?'
+    rf'(?P<erro>{NUMERO_DECIMAL})\s*pontos?\s+negativos?',
     re.IGNORECASE,
 )
 _PENALIDADE_FRACIONARIA = re.compile(
@@ -184,15 +184,15 @@ _PENALIDADE_FRACIONARIA = re.compile(
 )
 _PONTOS_POR_PARTE = (
     re.compile(
-        rf'(?P<gerais>{_NUMERO})\s*pontos?,?\s+caso\s+a\s+resposta[^;]{{0,200}}?concordância'
+        rf'(?P<gerais>{NUMERO_DECIMAL})\s*pontos?,?\s+caso\s+a\s+resposta[^;]{{0,200}}?concordância'
         rf'[^;]{{0,120}}?conhecimentos\s+(?:básicos|gerais)[^;]*;\s*'
-        rf'(?P<especificos>{_NUMERO})\s*pontos?,?\s+caso\s+a\s+resposta[^;]{{0,200}}?concordância'
+        rf'(?P<especificos>{NUMERO_DECIMAL})\s*pontos?,?\s+caso\s+a\s+resposta[^;]{{0,200}}?concordância'
         r'[^;]{0,120}?específicos',
         re.IGNORECASE,
     ),
     re.compile(
-        rf'valer(?:á|ão)\s+(?P<gerais>{_NUMERO})\s*{_POR_EXTENSO}pontos?\s+no\s+módulo\s+de\s+conhecimentos\s+'
-        rf'(?:básicos|gerais),?\s+e\s+(?P<especificos>{_NUMERO})\s*{_POR_EXTENSO}pontos?\s+no\s+módulo\s+de\s+'
+        rf'valer(?:á|ão)\s+(?P<gerais>{NUMERO_DECIMAL})\s*{_POR_EXTENSO}pontos?\s+no\s+módulo\s+de\s+conhecimentos\s+'
+        rf'(?:básicos|gerais),?\s+e\s+(?P<especificos>{NUMERO_DECIMAL})\s*{_POR_EXTENSO}pontos?\s+no\s+módulo\s+de\s+'
         r'conhecimentos\s+específicos',
         re.IGNORECASE,
     ),
@@ -211,11 +211,12 @@ _MENCAO_PENALIDADE = re.compile(
     re.IGNORECASE,
 )
 _NOTA_MAXIMA = (
-    re.compile(rf'prova\s+objetiva\s+totalizará\s+(?P<valor>{_NUMERO})\s*{_POR_EXTENSO}pontos', re.I),
+    re.compile(rf'prova\s+objetiva\s+totalizará\s+(?P<valor>{NUMERO_DECIMAL})\s*{_POR_EXTENSO}pontos', re.I),
     re.compile(
-        rf'provas\s+objetivas,?[^.]{{0,80}}?valerão\s+(?P<valor>{_NUMERO})\s*{_POR_EXTENSO}pontos', re.I
+        rf'provas\s+objetivas,?[^.]{{0,80}}?valerão\s+(?P<valor>{NUMERO_DECIMAL})\s*{_POR_EXTENSO}pontos',
+        re.I,
     ),
-    re.compile(rf'sendo\s+(?P<valor>{_NUMERO})\s*{_POR_EXTENSO}pontos\s+a\s+pontuação\s+máxima', re.I),
+    re.compile(rf'sendo\s+(?P<valor>{NUMERO_DECIMAL})\s*{_POR_EXTENSO}pontos\s+a\s+pontuação\s+máxima', re.I),
 )
 _QUESTOES_GERAIS = re.compile(rf'(?P<valor>\d+)\s*{_POR_EXTENSO}questões\s+de\s+conhecimentos\s+gerais', re.I)
 _EIXOS_TEMATICOS = re.compile(
@@ -255,10 +256,12 @@ _DATA_POR_EXTENSO = re.compile(
 )
 _NOTA_CORTE = (
     re.compile(
-        rf'nota\s+inferior\s+a\s+(?P<valor>{_NUMERO})\s*pontos\s+no\s+conjunto\s+das\s+provas\s+objetivas',
+        rf'nota\s+inferior\s+a\s+(?P<valor>{NUMERO_DECIMAL})\s*pontos\s+no\s+conjunto\s+das\s+provas\s+objetivas',
         re.I,
     ),
-    re.compile(rf'nota\s+inferior\s+a\s+(?P<valor>{_NUMERO})\s*pontos\s+na\s+prova\s+objetiva\s+P\b', re.I),
+    re.compile(
+        rf'nota\s+inferior\s+a\s+(?P<valor>{NUMERO_DECIMAL})\s*pontos\s+na\s+prova\s+objetiva\s+P\b', re.I
+    ),
 )
 _FIM_DE_FRASE = re.compile(r'\.(?:\s|$)')
 _TAMANHO_MAXIMO_TRECHO = 600
@@ -308,9 +311,9 @@ def extrair_fator_correcao(paginas: list[str], total_itens: int | None = None) -
     nota_maxima = _valor_do_primeiro_padrao(texto, _NOTA_MAXIMA)
     pesos: tuple[PesoItens, ...] = ()
     if match := _PENALIDADE.search(texto.texto):
-        acerto = _numero(match['acerto']) if match['acerto'] else 1.0
+        acerto = numero_decimal(match['acerto']) if match['acerto'] else 1.0
         confianca = CONFIANCA_PENALIDADE_COM_ACERTO if match['acerto'] else CONFIANCA_PENALIDADE_SEM_ACERTO
-        fator = _numero(match['erro']) / acerto
+        fator = numero_decimal(match['erro']) / acerto
     elif match := _PENALIDADE_FRACIONARIA.search(texto.texto):
         fator, confianca = 1 / int(match['erros']), CONFIANCA_PENALIDADE_FRACIONARIA
     elif (match := _primeiro_match(texto, _PONTOS_POR_PARTE)) and (
@@ -348,8 +351,12 @@ def extrair_data_prova(paginas: list[str]) -> date | None:
         mes = _MESES[match['mes'].lower()]
     else:
         return None
+    return data_valida(int(match['dia']), mes, int(match['ano']))
+
+
+def data_valida(dia: int, mes: int, ano: int) -> date | None:
     try:
-        return date(int(match['ano']), mes, int(match['dia']))
+        return date(ano, mes, dia)
     except ValueError:
         return None
 
@@ -590,7 +597,7 @@ def _pesos_por_parte(
 ) -> tuple[PesoItens, ...]:
     """Pesos de conhecimentos gerais e específicos, nessa ordem de itens. Quantos itens tem cada parte sai de
     itens = gerais + específicos e nota máxima = soma dos pesos; sem solução inteira, não há pesos."""
-    gerais, especificos = _numero(match['gerais']), _numero(match['especificos'])
+    gerais, especificos = numero_decimal(match['gerais']), numero_decimal(match['especificos'])
     if total_itens is None or nota_maxima is None or gerais == especificos:
         return ()
     n_especificos = (nota_maxima - gerais * total_itens) / (especificos - gerais)
@@ -651,8 +658,4 @@ def _primeiro_match(texto: TextoCorrido, padroes: tuple[re.Pattern, ...]) -> re.
 
 def _valor_do_primeiro_padrao(texto: TextoCorrido, padroes: tuple[re.Pattern, ...]) -> float | None:
     match = _primeiro_match(texto, padroes)
-    return None if match is None else _numero(match['valor'])
-
-
-def _numero(valor: str) -> float:
-    return float(valor.replace(',', '.'))
+    return None if match is None else numero_decimal(match['valor'])

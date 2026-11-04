@@ -9,11 +9,11 @@ import pdfplumber
 
 from concursos.concurso_config import ConcursoConfig, ResultadoOficialConfig
 from concursos.modelo import Pontuacao, Resultado
-from concursos.texto import normalizar
+from concursos.texto import NUMERO_DECIMAL, normalizar, numero_decimal
 
 _TOLERANCIA = 0.005
 ARQUIVO_VALIDACAO = 'validacao_oficial.json'
-_NUMERO = re.compile(r'^\d+(?:,\d+)?$')
+_NUMERO = re.compile(rf'^{NUMERO_DECIMAL}$')
 _DATA = re.compile(r'^\d{2}/\d{2}/\d{4}$')
 _LINHA_CPNU = re.compile(r'^\d+\s+\([^)]*\)')
 
@@ -34,28 +34,35 @@ class ResultadoOficial:
 
 
 @dataclass(frozen=True)
-class Validacao:
+class ValidacaoIlegivel:
     arquivo: str
-    oficial: ResultadoOficial | None = None
-    calculado: float | None = None
-    erro: str | None = None
-
-    @property
-    def divergente(self) -> bool:
-        return (
-            self.oficial is not None
-            and self.oficial.somente_objetiva
-            and abs(self.oficial.total - self.calculado) > _TOLERANCIA
-        )
+    erro: str
 
     @property
     def alerta(self) -> bool:
-        return self.erro is not None or self.divergente
+        return True
 
     @property
     def descricao(self) -> str:
-        if self.erro is not None:
-            return f'Não foi possível ler o resultado oficial: {self.erro}'
+        return f'Não foi possível ler o resultado oficial: {self.erro}'
+
+
+@dataclass(frozen=True)
+class ValidacaoConferida:
+    arquivo: str
+    oficial: ResultadoOficial
+    calculado: float
+
+    @property
+    def divergente(self) -> bool:
+        return self.oficial.somente_objetiva and abs(self.oficial.total - self.calculado) > _TOLERANCIA
+
+    @property
+    def alerta(self) -> bool:
+        return self.divergente
+
+    @property
+    def descricao(self) -> str:
         oficial = f'{formatar(self.oficial.total)} {self.oficial.medida}'
         calculado = formatar(self.calculado)
         if not self.oficial.somente_objetiva:
@@ -69,6 +76,9 @@ class Validacao:
                 'Confira o tipo da prova, o gabarito e a leitura das respostas.'
             )
         return f'O desempenho calculado confere com o resultado oficial ({oficial}).'
+
+
+Validacao = ValidacaoConferida | ValidacaoIlegivel
 
 
 def gravar_validacao(validacao: Validacao | None, destino: Path) -> None:
@@ -87,7 +97,7 @@ def ler_validacao(destino: Path) -> dict | None:
 
 
 def validar_resultado(config: ConcursoConfig, resultados: pd.DataFrame) -> Validacao | None:
-    """Compara os resultados corrigidos com o resultado oficial configurado; erros de leitura viram Validacao.erro."""
+    """Compara os resultados corrigidos com o resultado oficial configurado; erro de leitura vira ValidacaoIlegivel."""
     configuracao = config.resultado_oficial
     if configuracao is None:
         return None
@@ -95,8 +105,10 @@ def validar_resultado(config: ConcursoConfig, resultados: pd.DataFrame) -> Valid
     try:
         oficial = ler_resultado_oficial(config.caminho(arquivo), configuracao.identificador)
     except (ResultadoOficialError, OSError) as erro:
-        return Validacao(arquivo, erro=str(erro))
-    return Validacao(arquivo, oficial, _calcular(oficial.medida, resultados, configuracao, config.pontuacao))
+        return ValidacaoIlegivel(arquivo, str(erro))
+    return ValidacaoConferida(
+        arquivo, oficial, _calcular(oficial.medida, resultados, configuracao, config.pontuacao)
+    )
 
 
 def _calcular(
@@ -162,7 +174,7 @@ def _linha_da_lista(
 
 
 def _numero(token: str) -> float:
-    valor = float(token.replace(',', '.'))
+    valor = numero_decimal(token)
     return int(valor) if valor.is_integer() else valor
 
 

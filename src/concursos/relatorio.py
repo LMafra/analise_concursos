@@ -8,7 +8,7 @@ from concursos.atualizacao import COLUNAS_DIFF, impacto
 from concursos.concurso_config import ConcursoConfig
 from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.modelo import StatusGabarito
-from concursos.resultado_oficial import Validacao, formatar
+from concursos.resultado_oficial import Validacao, ValidacaoConferida, formatar
 from concursos.texto import abreviar
 from concursos.topicos import ARQUIVO_REVISAO, SCORE_BAIXO
 
@@ -111,7 +111,7 @@ def _secao_validacao(validacao: Validacao | None) -> list[str]:
     if validacao.alerta:
         texto = f'> **Atenção:** {texto}'
     linhas = ['## Validação com o resultado oficial', '', texto, '']
-    if validacao.oficial is not None:
+    if isinstance(validacao, ValidacaoConferida):
         linhas += [f'_Fonte: {validacao.arquivo}, página {validacao.oficial.pagina}._', '']
     return linhas
 
