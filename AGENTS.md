@@ -11,7 +11,7 @@ Ferramenta local de correção e análise de provas de concurso, com um comando 
 
 `provas/`, `analises/` e `.concurso/` têm CPF, nome e notas e ficam fora do git e da imagem Docker, assim como os `notebooks/*.ipynb` gerados. `test_sem_dado_pessoal_no_pacote` procura no pacote nomes, slugs, inscrições, CPF e caminhos de usuário; fixtures usam nomes fictícios.
 
-Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na configuração global e só recebe texto do edital. A chave de API nunca vai para TOML.
+Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na configuração global e só recebe texto do edital; o open-notebook exige `enabled` e `consentimento` em `[open_notebook]` e recebe o candidato como pseudônimo, salvo `incluir_nome`. `--offline` e `--dry-run` desligam os dois. A chave de API e a senha do open-notebook nunca vão para TOML.
 
 ## Onde mora cada lógica
 
@@ -33,9 +33,14 @@ Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na conf
 | Campos que nenhuma camada do edital preencheu (`edital_a_confirmar.yaml`) | `edital_a_confirmar.py` |
 | Cliente LLM (OpenAI-compatível e Anthropic), chave e consentimento | `llm.py` |
 | Camada LLM das regras do edital, com citação literal | `edital_llm.py` |
+| Cliente do open-notebook (urllib, multipart, Bearer) e a seção `[open_notebook]` | `integracoes/open_notebook.py` |
+| O que vai para o open-notebook, nota de resumo, pseudônimos, vínculos de livros e normas, notebooks `Legislação` e `Caderno de erros`, e estado `.concurso/open_notebook.json` | `integracoes/sincronizacao_notebook.py` |
+| Prática no TEC (`[pratica]`): exportações do tec-erros, mesclagem, matéria e assunto → disciplina e tópico, `.concurso/pratica_tec.yaml` e `analises/<candidato>/pratica/` | `pratica_tec.py` |
+| Fontes de estudo: `biblioteca.yaml`, catálogo do `books`, busca nos notebooks de biblioteca e `recomendacoes_estudo.md` | `biblioteca.py` |
+| Citações de normas nos tópicos e leitura do clone do `ctresb/leis` (`[legislacao]`) | `legislacao.py` |
 | Relatório HTML por candidato e abertura no navegador | `relatorio_html.py` |
 | Exportação do consolidado (`export`) | `exportacao.py` |
-| Gravação que preserva o `mtime` quando o conteúdo não muda | `arquivos.py` |
+| Gravação que preserva o `mtime` quando o conteúdo não muda; leitura de PDF/txt guardada em memória pelo hash do conteúdo (`lido_uma_vez`) | `arquivos.py` |
 | Regra de correção: extração do edital, precedência, pontuação por item, nota | `analytics/correcao.py` |
 | Parquet por questão, cache, `validar_schema`, ordem cronológica, regras gravadas por concurso | `analytics/consolidado.py` |
 | Disciplina canônica e bloco | `analytics/taxonomia.py` e `.concurso/taxonomia.yaml` |
