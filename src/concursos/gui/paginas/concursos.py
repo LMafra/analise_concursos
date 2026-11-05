@@ -35,12 +35,14 @@ def pagina() -> None:
 
 def seletor_de_candidato() -> None:
     candidatos = ESTADO.candidatos()
-    if len(candidatos) <= 1:
+    if not candidatos:
         return
     escolhido = ESTADO.candidato or ESTADO.contexto().candidato
     if escolhido not in candidatos:
         escolhido = candidatos[0]
     ESTADO.candidato = escolhido
+    if len(candidatos) == 1:
+        return
     with ui.row().classes('items-center gap-4'):
         rotulo(
             ui.select(

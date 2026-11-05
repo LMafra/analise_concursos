@@ -137,7 +137,9 @@ Para acrescentar uma camada:
 
 - `empacotamento/concurso-analise.spec`, onedir, a partir de `uv sync --no-dev --extra gui --extra llm --extra pci`; o grupo dev quebra o plotly congelado. Dado novo de pacote (YAML, template) precisa entrar pelo `hook-concursos.py`.
 - O Tesseract embutido entra no `PATH` pelo launcher, com `TESSDATA_PREFIX`; a lógica continua usando `shutil.which`.
-- Antes de publicar uma release: `scripts/smoke.py congelado` no CI e o checklist de máquina limpa (sem Python, sem Tesseract) em `README.md`.
+- A árvore do Tesseract é copiada depois do `COLLECT` (`copiar_tesseract` no `.spec`), nunca por `datas`: o PyInstaller trata as bibliotecas de `datas` como binários e põe as dependências delas na raiz do pacote, onde vencem as do sistema.
+- No Linux, o bootloader troca o `LD_LIBRARY_PATH`; o launcher devolve o original antes de abrir processos do sistema (navegador, `xdg-open`).
+- Antes de publicar uma release: o `release.yml` verde (`--smoke` e `scripts/smoke.py congelado` em máquina limpa em cada sistema) e o checklist manual do Windows Sandbox em `.scratch/gui-leigo/issues/07-executavel-windows.md`. A release nasce como rascunho.
 
 ## Código
 

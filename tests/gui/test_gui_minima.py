@@ -60,6 +60,45 @@ def test_browser_forca_o_navegador_mesmo_fora_do_linux(monkeypatch, tmp_path, ao
     assert navegador == ['http://127.0.0.1:8123/']
 
 
+async def test_no_navegador_o_menu_fecha_o_app(user: User, monkeypatch):
+    encerrado: list[bool] = []
+    monkeypatch.setattr(gui_app.app, 'shutdown', lambda: encerrado.append(True))
+    ESTADO.no_navegador = True
+
+    await user.open('/')
+    user.find(marker='fechar-app').click()
+
+    await user.should_see('Pode fechar esta aba')
+    await esperar(lambda: encerrado)
+
+
+async def test_no_navegador_nao_fecha_no_meio_da_analise(user: User, monkeypatch):
+    encerrado: list[bool] = []
+    monkeypatch.setattr(gui_app.app, 'shutdown', lambda: encerrado.append(True))
+    ESTADO.no_navegador = True
+    ESTADO.ocupado = True
+
+    await user.open('/')
+    user.find(marker='fechar-app').click()
+
+    await user.should_see('Espere a análise terminar')
+    await asyncio.sleep(0.8)
+    assert not encerrado
+
+
+async def test_na_janela_o_menu_nao_tem_fechar(user: User):
+    await user.open('/')
+    await user.should_not_see(marker='fechar-app')
+
+
+def test_executar_lembra_se_abriu_no_navegador(monkeypatch, tmp_path, ao_subir, navegador):
+    monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: None)
+
+    gui_app.executar(tmp_path, navegador=True, porta=8123)
+
+    assert ESTADO.no_navegador is True
+
+
 async def test_sem_projeto_pede_a_pasta_e_lembra_dela(user: User, tmp_path, home_isolada):
     await user.open('/')
     await user.should_see('Pasta do projeto')
@@ -85,6 +124,20 @@ async def test_concursos_mostra_situacao_gabarito_e_motivos(user: User, projeto)
     await user.should_see('beta')
     await user.should_see('incompleto')
     await user.should_see('Resolver')
+
+
+async def test_concursos_com_um_candidato_le_as_respostas_da_pasta_dele(user: User, projeto):
+    config = config_simples('alfa')
+    del config['respostas']
+    pasta = criar_concurso(projeto / 'provas', 'alfa', config, {'gabarito.txt': '1 A\n2 B\n'})
+    (pasta / 'candidatos' / 'ana_teste').mkdir(parents=True)
+    (pasta / 'candidatos' / 'ana_teste' / 'respostas.txt').write_text('1 A\n2 C\n', encoding='utf-8')
+
+    await user.open('/')
+
+    await user.should_see('completo')
+    await user.should_not_see('respostas não configuradas')
+    assert ESTADO.candidato == 'ana_teste'
 
 
 async def test_projeto_vazio_explica_o_que_fazer(user: User, projeto):

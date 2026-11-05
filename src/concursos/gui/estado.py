@@ -19,6 +19,7 @@ class Estado:
     todos: bool = False
     ocupado: bool = False
     pedir_analise: bool = False
+    no_navegador: bool = False
 
     def contexto(self) -> Contexto:
         if self.projeto is None:

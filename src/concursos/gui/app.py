@@ -53,14 +53,29 @@ def titulo() -> str:
 
 def raiz() -> None:
     ui.page_title(titulo())
+    ui.add_css('.nicegui-log .q-scrollarea__content { white-space: pre-wrap; overflow-wrap: anywhere; }')
     with ui.header().classes('items-center gap-1 flex-wrap'):
         ui.label('concurso-analise').classes('text-lg font-bold mr-4')
         for caminho, nome, icone in MENU:
             ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props(
                 'flat color=white'
             )
+        if ESTADO.no_navegador:
+            ui.space()
+            ui.button('Fechar o app', icon='power_settings_new', on_click=fechar_app).props(
+                'flat color=white'
+            ).mark('fechar-app')
     with ui.column().classes('w-full p-4'):
         ui.sub_pages(ROTAS).classes('w-full')
+
+
+def fechar_app() -> None:
+    """No navegador, fechar a aba não encerra o servidor: sem este botão, ele ficaria rodando escondido."""
+    if ESTADO.ocupado:
+        ui.notify('Espere a análise terminar para fechar o app.', type='warning')
+        return
+    ui.notify('O concurso-analise foi fechado. Pode fechar esta aba.', type='positive', timeout=0)
+    ui.timer(0.5, app.shutdown, once=True)
 
 
 def webview2_instalado() -> bool:
@@ -99,6 +114,7 @@ def executar(
     if inicial is not None:
         ESTADO.abrir_projeto(inicial)
     nativa = usar_janela_nativa(navegador)
+    ESTADO.no_navegador = not nativa
     porta = porta or native.find_open_port()
     if not nativa and abrir:
         app.on_startup(lambda: abrir_no_navegador(f'http://{HOST}:{porta}/'))

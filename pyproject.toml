@@ -1,6 +1,6 @@
 [project]
 name = "concurso-analise"
-version = "0.4.0"
+version = "0.5.0"
 description = "Análise de desempenho em concursos públicos por disciplina e tópico"
 readme = "README.md"
 authors = [

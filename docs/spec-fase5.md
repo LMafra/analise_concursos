@@ -107,7 +107,8 @@ Cada fatia é um PR com TDD e fecha com `uv run pytest`, `ruff` e `scripts/smoke
 - A análise, o cadastro e as consultas rodam numa thread (`run.io_bound`). `InteracaoGui` é chamada dessa thread e abre o diálogo no loop da interface com `asyncio.run_coroutine_threadsafe`, esperando a resposta.
 - O log da GUI é o mesmo da CLI (`~/.concurso/logs/concurso-analise.log`); um `logging.Handler` próprio alimenta o painel.
 - O relatório é servido por `app.add_static_files` da pasta `analises/<candidato>/`, num `iframe`.
-- Seletor de pasta: `create_file_dialog(FileDialog.FOLDER)` na janela nativa; no modo navegador, um seletor do lado do servidor. Arquivos: o evento `drop` da janela nativa entrega caminhos; no modo navegador, `ui.upload` grava numa pasta temporária.
+- Seletor de pasta: `create_file_dialog(FileDialog.FOLDER)` na janela nativa; no modo navegador, um seletor do lado do servidor. Arquivos: o evento `drop` da janela nativa entrega caminhos; no modo navegador, `ui.upload` grava numa pasta temporária. (Implementado: `ui.upload` nos dois modos; o `drop` nativo ficou de fora.)
+- No modo navegador, fechar a aba não encerra o servidor: o menu tem "Fechar o app" (`app.shutdown`), recusado enquanto uma análise roda. Na janela nativa, fechar a janela encerra o app.
 - Dependência num extra `[gui]` (`nicegui[native]>=4,<5`); script `concurso-analise-gui` e subcomando `concurso-analise gui`. Sem o extra, o subcomando sai com `ErroDoUsuario` e a dica de instalação.
 
 ### Executável

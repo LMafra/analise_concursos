@@ -132,7 +132,7 @@ A história 33 da spec da fase 3 pede a precedência retificação, edital, conf
 
 ## Verificações incompletas
 
-Nada a programar nestes dois itens: ou cabem ao usuário, ou dependem de ambiente que não existe hoje.
+Nada a programar nestes itens: ou cabem ao usuário, ou dependem de ambiente que não existe hoje.
 
 <a id="verificacao-fase2"></a>
 
@@ -151,3 +151,14 @@ Os critérios estão marcados, com ressalvas registradas na própria issue:
 - **CI:** `.github/workflows/ci.yml` está escrito (Ubuntu, macOS e Windows; Python 3.11 e 3.12), mas nunca rodou porque o repositório não tem remoto. Publicar no PyPI e rodar o CI estão fora de escopo enquanto não houver remoto.
 
 Fecha quando houver remoto (o CI cobre macOS e Windows) ou quando o `uv` for instalado no Windows para rodar o comando pelo `powershell.exe`.
+
+<a id="verificacao-fase5"></a>
+
+### Fase 5, issues 07 e 08: executáveis de Windows e macOS sem execução
+
+O executável Linux foi verificado de ponta a ponta: o AppImage montado no `manylinux_2_28` passou no `--smoke` e no `doctor` num Debian 12 sem Python nem Tesseract, e o `scripts/smoke.py congelado` analisou o projeto sintético com o Tesseract embutido.
+
+- **Windows:** os jobs do `release.yml` (PyInstaller, Tesseract do MSYS2, Inno Setup, `smoke_maquina_limpa.ps1`) estão escritos, mas ainda não rodaram. Falta também o checklist manual do Windows Sandbox, em `.scratch/gui-leigo/issues/07-executavel-windows.md`.
+- **macOS arm64:** o job (Tesseract do Homebrew relocado pelo `dylibbundler`, `.app` assinado ad hoc, DMG) ainda não rodou; falta abrir o DMG num Mac depois do "Abrir Mesmo Assim".
+
+Fecha com o primeiro `release.yml` verde (uma tag `v*` ou o disparo manual) e o checklist do Sandbox registrado no ticket 07.
