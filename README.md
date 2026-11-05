@@ -718,7 +718,7 @@ Num build de desenvolvimento sem o Tesseract embutido, `CONCURSO_SMOKE_SEM_OCR=1
 <!-- LICENÇA -->
 ## Licença
 
-Sem licença definida: todos os direitos reservados ao autor.
+MIT. Veja [`LICENSE`](LICENSE). As licenças das bibliotecas e programas embutidos no executável (Tesseract, Leptonica, Python, NiceGUI e outras) vão na pasta `LICENSES/` dele.
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
