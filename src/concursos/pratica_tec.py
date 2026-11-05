@@ -163,6 +163,8 @@ def fundir(a: dict, b: dict) -> dict:
         r['d'] = datas[0]
     if b.get('dev') and (not a.get('dev') or (b.get('d') and a.get('d') and b['d'] < a['d'])):
         r['dev'] = b['dev']
+    if {**r, 't': a.get('t')} == {**a, 't': a.get('t')}:
+        return a
     r['t'] = max(a.get('t') or 0, b.get('t') or 0)
     return r
 

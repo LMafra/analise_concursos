@@ -1,0 +1,56 @@
+{
+  "app": "tec-erros",
+  "v": 1,
+  "em": "2026-11-03T22:00:00-03:00",
+  "dev": "d1111111",
+  "erros": [
+    {
+      "id": "q100",
+      "fp": "texto da questao a",
+      "d": "2026-11-02",
+      "t": 1000,
+      "v": 1,
+      "ds": ["2026-11-02T10:00:00-03:00"],
+      "dev": "d1111111",
+      "origem": "tempo_real",
+      "mat": "Direito Tributário",
+      "ass": "Simples Nacional",
+      "cad": "Caderno 20. Simples Nacional",
+      "banca": "",
+      "enun": "Texto da questão A",
+      "marc": "B",
+      "gab": "C",
+      "com": "curto",
+      "prof": "Professor Um"
+    },
+    {
+      "id": "h1a2b3c4d",
+      "fp": "o contribuinte optante pelo simples nacional",
+      "d": "2026-11-03",
+      "t": 2000,
+      "v": 1,
+      "ds": [],
+      "dev": "d1111111",
+      "origem": "historico",
+      "mat": "Direito Tributário",
+      "enun": "O contribuinte optante pelo Simples Nacional"
+    },
+    {
+      "id": "q300",
+      "fp": "texto da questao c",
+      "d": "2026-11-01",
+      "t": 500,
+      "v": 1,
+      "ds": ["2026-11-01T09:00:00-03:00"],
+      "dev": "d1111111",
+      "origem": "tempo_real",
+      "mat": "Língua Portuguesa",
+      "enun": "Texto da questão C"
+    }
+  ],
+  "cads": [
+    {"id": "c1", "cad": "Caderno 1", "mat": "Direito Tributário", "tot": 50, "res": 2, "ac": 1, "er": 1, "d": "2026-11-02", "t": 1000, "dev": "d1111111"},
+    {"id": "c2", "cad": "Caderno 2", "mat": "Língua Portuguesa", "tot": 40, "res": 5, "ac": 3, "er": 2, "d": "2026-11-02", "t": 1000, "dev": "d1111111"},
+    {"id": "c3", "cad": "Caderno 3", "mat": "Contabilidade", "tot": 30, "res": 10, "ac": 7, "er": 3, "d": "2026-11-01", "t": 1000, "dev": "d1111111"}
+  ]
+}

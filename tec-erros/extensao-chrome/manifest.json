@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "tec-erros",
+  "version": "0.0.0",
+  "description": "Guarda as questões que você erra no TEC Concursos, com gabarito e comentário. Só lê a tela; nada sai do navegador.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.tecconcursos.com.br/*"],
+  "icons": { "48": "icons/48.png", "128": "icons/128.png" },
+  "action": {
+    "default_title": "tec-erros",
+    "default_popup": "popup.html",
+    "default_icon": { "48": "icons/48.png", "128": "icons/128.png" }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.tecconcursos.com.br/*"],
+      "js": ["page.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.tecconcursos.com.br/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

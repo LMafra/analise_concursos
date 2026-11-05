@@ -1,0 +1,13 @@
+// ==UserScript==
+// @name         tec-erros
+// @namespace    tec-erros.local
+// @version      {{VERSAO}}
+// @description  Guarda as questões que você erra no TEC Concursos, com gabarito e comentário. Só lê a tela; nada sai do aparelho.
+// @match        https://www.tecconcursos.com.br/*
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_setClipboard
+// @grant        unsafeWindow
+// @run-at       document-idle
+// @noframes
+// ==/UserScript==
