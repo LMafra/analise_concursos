@@ -33,6 +33,8 @@ from concursos.status import formatar_tabela
 
 logger = logging.getLogger(__name__)
 
+MODULOS_DA_GUI = {'nicegui', 'webview'}
+
 app = typer.Typer(
     name='concurso-analise',
     help='Correção e análise de provas de concurso. Sem subcomando, analisa o que mudou.',
@@ -354,6 +356,28 @@ def doctor(ctx: typer.Context) -> int:
     itens = projeto.diagnosticar(ctx.obj.contexto)
     typer.echo(diagnostico.formatar(itens))
     return CODIGO_AMBIENTE if diagnostico.tem_erro(itens) else 0
+
+
+@app.command('gui', help='abre a interface gráfica (janela no Windows e no macOS, navegador no Linux)')
+def gui(
+    pasta: Annotated[
+        Path | None, typer.Option('--project', help='pasta do projeto (padrão: a atual ou a última usada)')
+    ] = None,
+    navegador: Annotated[
+        bool, typer.Option('--browser', help='abre no navegador em vez da janela do sistema')
+    ] = False,
+) -> int:
+    try:
+        from concursos.gui.app import executar
+    except ModuleNotFoundError as erro:
+        if (erro.name or '').split('.')[0] not in MODULOS_DA_GUI:
+            raise
+        raise ErroDoUsuario(
+            'a interface gráfica não está instalada',
+            'instale com `uv tool install "concurso-analise[gui]"` (ou baixe o instalador da release)',
+        ) from erro
+    executar(pasta, navegador=navegador)
+    return 0
 
 
 @app.command('upgrade', help='mostra (ou, com --run, executa) o comando que atualiza a ferramenta')

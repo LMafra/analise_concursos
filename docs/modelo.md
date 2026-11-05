@@ -871,7 +871,7 @@ Sai com 2 se algum item tem `✗`, senão com 0.
 
 **Distribuição.** `uvx --from <repositório> concurso-analise` ou `uv tool install <repositório>` (o comando principal não depende de grupos de dependência). O `Dockerfile` (`python:3.12-slim-trixie`, `tesseract-ocr-por`, `uv sync --locked --no-dev`) espera o projeto montado em `/dados`, com `CONCURSO_HOME=/dados/.concurso-home`; o `.dockerignore` deixa `provas/`, `analises/` e `.concurso/` fora da imagem. `scripts/smoke.py` é o teste de ponta a ponta: onboarding com `--yes`, análise de dois concursos sintéticos num caminho com espaço e acento e reexecuções sem mudança de `mtime`.
 
-**GUI (fase 5).** `concurso-analise gui` (ou `concurso-analise-gui`) exige o extra `[gui]`. Abre em `127.0.0.1`, numa porta livre: janela nativa no Windows e no macOS, navegador padrão no Linux. O projeto escolhido fica na configuração global; o `app.storage` do NiceGUI fica em `~/.concurso/gui` e não guarda dado pessoal.
+**GUI (fase 5).** `concurso-analise gui` (ou `concurso-analise-gui`) exige o extra `[gui]`. Abre em `127.0.0.1`, numa porta livre: janela nativa no Windows e no macOS, navegador padrão no Linux (`--browser` força o navegador em qualquer sistema). O projeto inicial é o `--project`, a pasta atual (se já tem `provas/` ou `.concurso/`) ou o último usado; o escolhido fica na configuração global; o `app.storage` do NiceGUI fica em `~/.concurso/gui` e não guarda dado pessoal.
 
 ```toml
 # ~/.concurso/config.toml

@@ -4,10 +4,10 @@
 
 **Blocked by:** 01
 
-**Status:** todo
+**Status:** done
 
-- [ ] `executar` sempre passa `host='127.0.0.1'` e `reload=False`.
-- [ ] Sem o extra, `concurso-analise gui` sai com código 1 e a dica de instalação.
-- [ ] Analisar pela GUI chama `aplicacao.analise.analisar`; a barra avança a cada `ao_progresso`; o painel recebe o log.
-- [ ] Sobre mostra a versão e o caminho do log.
-- [ ] Testes com a fixture `user`, com a camada de aplicação falsa.
+- [x] `executar` sempre passa `host='127.0.0.1'` e `reload=False`.
+- [x] Sem o extra, `concurso-analise gui` sai com código 1 e a dica de instalação.
+- [x] Analisar pela GUI chama `aplicacao.analise.analisar`; a barra avança a cada `ao_progresso`; o painel recebe o log.
+- [x] Sobre mostra a versão e o caminho do log.
+- [x] Testes com a fixture `user`, com a camada de aplicação falsa.

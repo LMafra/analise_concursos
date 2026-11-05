@@ -1,5 +1,4 @@
-# Escrito na fase 4, ainda sem remoto. Verificados à mão: Linux/WSL (3.11 e 3.12) e o container.
-# Não verificados: macOS e Windows nativo (sem uv no Windows da máquina de desenvolvimento).
+# Roda no GitHub (LMafra/analise_concursos). Os testes da GUI usam a fixture `user` da NiceGUI, sem navegador.
 name: CI
 
 on:
@@ -29,7 +28,7 @@ jobs:
           enable-cache: true
 
       - name: Dependências
-        run: uv sync --locked
+        run: uv sync --locked --extra gui
 
       - name: Lint
         run: |
