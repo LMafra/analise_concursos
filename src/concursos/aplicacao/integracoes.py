@@ -1,4 +1,5 @@
 import logging
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -399,6 +400,27 @@ def provas_anteriores(
             pasta_do_candidato(contexto) / alvo.pasta.name, alvo.pasta.name, termo, provas
         )
     return ProvasAnteriores(alvo, termo, provas)
+
+
+class ImportacaoCanceladaError(Exception):
+    pass
+
+
+def espera_cancelavel(cancelar: threading.Event) -> Callable[..., dict[str, Path]]:
+    """A espera na pasta de downloads de `importar_simulado`, interrompida assim que `cancelar` é ligado."""
+
+    def dormir(segundos: float) -> None:
+        if cancelar.wait(segundos):
+            raise ImportacaoCanceladaError
+
+    def esperar(pasta: Path, esperados, desde: float, timeout: float) -> dict[str, Path]:
+        if cancelar.is_set():
+            raise ImportacaoCanceladaError
+        return download_assistido.esperar_downloads(
+            pasta, esperados, desde, timeout, dormir=dormir, intervalo=0.5
+        )
+
+    return esperar
 
 
 def importar_simulado(

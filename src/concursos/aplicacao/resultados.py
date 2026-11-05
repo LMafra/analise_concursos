@@ -49,7 +49,7 @@ def resultados(contexto: Contexto) -> Resultados:
     )
 
 
-def abrir_no_navegador(caminho: Path) -> None:
+def abrir_no_navegador(caminho: Path | str) -> None:
     relatorio_html.abrir_no_navegador(caminho)
 
 

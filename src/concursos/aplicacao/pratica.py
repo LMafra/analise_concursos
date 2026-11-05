@@ -15,7 +15,7 @@ from concursos.biblioteca import (
     topicos_fracos,
 )
 from concursos.concurso_config import ConfiguracaoInvalidaError
-from concursos.config.contexto import Contexto
+from concursos.config.contexto import Contexto, gravar_no_config_projeto
 from concursos.configuracao import ConfiguracaoGlobal
 from concursos.erros import ErroDoUsuario
 from concursos.integracoes.open_notebook import (
@@ -34,9 +34,12 @@ from concursos.pratica_tec import (
     textos_do_caderno,
 )
 from concursos.pratica_tec import ARQUIVO_ESTADO as ARQUIVO_ESTADO_CADERNO
+from concursos.pratica_tec import SECAO as SECAO_PRATICA
 from concursos.pratica_tec import ler_configuracao as ler_configuracao_pratica
 
 logger = logging.getLogger(__name__)
+
+ENTRADA_PADRAO = 'tec'
 
 
 def configuracao_pratica(contexto: Contexto) -> ConfiguracaoPratica | None:
@@ -56,7 +59,7 @@ def exigir_configuracao_pratica(contexto: Contexto) -> ConfiguracaoPratica:
     return configuracao
 
 
-def copiar_exportacao(opcoes: Opcoes, arquivo: Path, entrada: Path) -> None:
+def validar_exportacao(arquivo: Path) -> None:
     if not arquivo.is_file():
         raise ErroDoUsuario(
             f'{arquivo}: arquivo não encontrado', 'confira o caminho da exportação do tec-erros'
@@ -68,6 +71,27 @@ def copiar_exportacao(opcoes: Opcoes, arquivo: Path, entrada: Path) -> None:
             raise ErroDoUsuario(
                 str(erro), 'exporte de novo pela extensão, pelo userscript ou pelo caderno.html'
             ) from erro
+
+
+def importar_exportacoes(opcoes: Opcoes, arquivos: list[Path]) -> list[Path]:
+    """Valida todos antes de copiar o primeiro; sem `[pratica]`, a GUI cria a seção com a pasta padrão."""
+    for arquivo in arquivos:
+        validar_exportacao(arquivo)
+    contexto = opcoes.contexto
+    configuracao = configuracao_pratica(contexto)
+    if configuracao is None:
+        if not opcoes.dry_run:
+            gravar_no_config_projeto(contexto, SECAO_PRATICA, {'entrada_tec': ENTRADA_PADRAO})
+        entrada = contexto.raiz / ENTRADA_PADRAO
+    else:
+        entrada = configuracao.entrada
+    for arquivo in arquivos:
+        copiar_exportacao(opcoes, arquivo, entrada)
+    return [entrada / arquivo.name for arquivo in arquivos]
+
+
+def copiar_exportacao(opcoes: Opcoes, arquivo: Path, entrada: Path) -> None:
+    validar_exportacao(arquivo)
     destino = entrada / arquivo.name
     if opcoes.dry_run:
         opcoes.saida(f'copiaria {arquivo} para {destino}')

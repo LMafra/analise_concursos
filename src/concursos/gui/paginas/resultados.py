@@ -21,7 +21,7 @@ SEM_RECOMENDACOES = (
 )
 SEM_PRATICA = (
     'Sem prática no TEC ainda. Instale a captura do TEC (em Integrações), exporte os seus erros e solte o '
-    'arquivo na tela da prática; a análise seguinte junta a prática ao relatório.'
+    'arquivo em Integrações, Prática no TEC; a análise seguinte junta a prática ao relatório.'
 )
 DESCRICAO_DOS_FORMATOS = {
     FormatoExportacao.CSV: 'CSV (Excel, planilhas)',
@@ -97,6 +97,10 @@ def markdown_ou_explicacao(texto: str | None, explicacao: str, marca: str) -> No
 
 def painel_da_pratica(achados: Resultados) -> None:
     markdown_ou_explicacao(achados.pratica, SEM_PRATICA, 'pratica')
+    if achados.pratica is None:
+        ui.button('Ir para a prática no TEC', on_click=lambda: ui.navigate.to('/integracoes?aba=tec')).props(
+            'outline'
+        )
     for titulo, caminho in achados.tabelas_pratica.items():
         with ui.expansion(titulo, icon='table_chart').classes('w-full'):
             tabela = pd.read_csv(caminho, keep_default_na=False)

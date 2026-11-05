@@ -12,6 +12,7 @@ from concursos.gui.paginas import (
     concursos,
     configuracoes,
     inicio,
+    integracoes,
     novo_concurso,
     projeto,
     respostas,
@@ -26,6 +27,7 @@ MENU: list[tuple[str, str, str]] = [
     ('/', 'Concursos', 'list'),
     ('/analise', 'Analisar', 'play_arrow'),
     ('/resultados', 'Resultados', 'insights'),
+    ('/integracoes', 'Integrações', 'hub'),
     ('/configuracoes', 'Configurações', 'settings'),
     ('/sobre', 'Sobre', 'info'),
 ]
@@ -37,6 +39,7 @@ ROTAS: dict[str, Callable[..., None]] = {
     '/respostas': respostas.pagina,
     '/analise': analise.pagina,
     '/resultados': resultados.pagina,
+    '/integracoes': integracoes.pagina,
     '/projeto': projeto.pagina,
     '/configuracoes': configuracoes.pagina,
     '/sobre': sobre.pagina,
