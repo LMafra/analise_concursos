@@ -54,9 +54,49 @@ jobs:
           uv run --no-sync python empacotamento/coletar_licencas.py
           $versao = uv run --no-sync python -c "from importlib.metadata import version; print(version('concurso-analise'))"
           "VERSAO=$versao" >> $env:GITHUB_ENV
+          $numerica = uv run --no-sync python -c "import sys; sys.path.insert(0, 'empacotamento/windows'); from versao import versao_numerica; print('.'.join(map(str, versao_numerica(sys.argv[1]))))" $versao
+          "VERSAO_NUMERICA=$numerica" >> $env:GITHUB_ENV
+
+      # Sem o token e as variáveis da SignPath (fork, ou antes da aprovação), o build segue sem assinatura.
+      - name: Assinatura disponível?
+        id: assinatura
+        env:
+          TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          ORGANIZACAO: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          PROJETO: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+        run: |
+          $ativa = [bool]$env:TOKEN -and [bool]$env:ORGANIZACAO -and [bool]$env:PROJETO
+          "ativa=$($ativa.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          $politica = if ($env:GITHUB_REF.StartsWith('refs/tags/v')) { 'release-signing' } else { 'test-signing' }
+          "politica=$politica" >> $env:GITHUB_OUTPUT
+          if (-not $ativa) { 'Sem SignPath configurada: executáveis e setup sem assinatura.' | Add-Content $env:GITHUB_STEP_SUMMARY }
 
       - name: PyInstaller (onedir)
         run: uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+
+      - name: Executáveis para a SignPath
+        id: executaveis
+        if: steps.assinatura.outputs.ativa == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: executaveis-sem-assinatura
+          path: |
+            dist/concurso-analise/concurso-analise.exe
+            dist/concurso-analise/concurso-analise-cli.exe
+          if-no-files-found: error
+
+      - name: Assinar os executáveis (SignPath)
+        if: steps.assinatura.outputs.ativa == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ steps.assinatura.outputs.politica }}
+          artifact-configuration-slug: executaveis
+          github-artifact-id: ${{ steps.executaveis.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist/concurso-analise
 
       - name: Bootstrapper do WebView2
         run: ./empacotamento/windows/obter_webview2.ps1
@@ -68,13 +108,39 @@ jobs:
           if (-not (Test-Path $iscc)) {
             choco install innosetup --yes --no-progress
           }
-          & $iscc "/DVersao=$env:VERSAO" empacotamento\inno\concurso-analise.iss
+          & $iscc "/DVersao=$env:VERSAO" "/DVersaoNumerica=$env:VERSAO_NUMERICA" empacotamento\inno\concurso-analise.iss
           if ($LASTEXITCODE -ne 0) { throw 'iscc falhou' }
 
+      - name: Setup para a SignPath
+        id: instalador
+        if: steps.assinatura.outputs.ativa == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: instalador-sem-assinatura
+          path: dist/concurso-analise-*-windows-x64-setup.exe
+          if-no-files-found: error
+
+      - name: Assinar o setup (SignPath)
+        if: steps.assinatura.outputs.ativa == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ steps.assinatura.outputs.politica }}
+          artifact-configuration-slug: instalador
+          github-artifact-id: ${{ steps.instalador.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist
+
+      # O certificado da política test-signing não é confiável para o Windows; só a tag exige Authenticode válido.
       - name: Gate de máquina limpa
+        env:
+          ASSINADO: ${{ steps.assinatura.outputs.ativa }}
         run: |
+          $assinatura = @{ ExigirAssinatura = ($env:ASSINADO -eq 'true' -and $env:GITHUB_REF.StartsWith('refs/tags/v')) }
           ./scripts/smoke_maquina_limpa.ps1 -Instalador "dist\concurso-analise-$env:VERSAO-windows-x64-setup.exe" `
-            -LimitePartida 10 -Relatorio dist\smoke-windows.md
+            -LimitePartida 10 -Relatorio dist\smoke-windows.md @assinatura
           Get-Content dist\smoke-windows.md | Add-Content $env:GITHUB_STEP_SUMMARY
 
       - name: Tamanho

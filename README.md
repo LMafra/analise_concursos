@@ -123,12 +123,12 @@ Baixe o instalador do seu sistema na [página da última versão](https://github
 | macOS em Mac com chip Apple (M1 em diante) | `concurso-analise-<versão>-macos-arm64.dmg` |
 | Linux 64 bits, distribuições de 2019 em diante | `concurso-analise-<versão>-linux-x86_64.AppImage` |
 
-O app não tem assinatura digital paga, por isso o Windows e o macOS desconfiam dele na primeira vez. Os passos abaixo mostram como liberar.
+No Windows, o instalador e os executáveis são assinados pela SignPath Foundation (veja [Por que o Windows avisa na primeira execução](#por-que-o-windows-avisa-na-primeira-execução)). No macOS, o app não tem assinatura, e o sistema desconfia dele na primeira vez. Os passos abaixo mostram como seguir.
 
 **Windows**
 
 1. Abra o `concurso-analise-<versão>-windows-x64-setup.exe`.
-2. Se aparecer "O Windows protegeu o computador", clique em **Mais informações** e depois em **Executar assim mesmo**.
+2. Se aparecer "O Windows protegeu o computador", confira se o editor é **SignPath Foundation**, clique em **Mais informações** e depois em **Executar assim mesmo**.
 3. Siga o instalador. Ele instala só para o seu usuário e não pede senha de administrador. Se o computador não tiver o WebView2 (o componente da Microsoft que a janela usa), o instalador o instala sozinho. Se não conseguir (sem internet, por exemplo), o app abre no navegador e avisa, com o link para instalar depois.
 4. Abra o **concurso-analise** pelo menu Iniciar.
 
@@ -152,6 +152,24 @@ Se ele não abrir, rode no terminal `APPIMAGE_EXTRACT_AND_RUN=1 ./concurso-anali
 **Conferir o download (opcional).** A página da versão traz o `SHA256SUMS`, com a impressão digital de cada arquivo. No Windows, compare com a saída de `Get-FileHash .\concurso-analise-<versão>-windows-x64-setup.exe` no PowerShell; no Linux e no macOS, rode `sha256sum -c SHA256SUMS --ignore-missing` (no macOS, `shasum -a 256 -c SHA256SUMS --ignore-missing`) na pasta do download.
 
 Depois de instalar, veja [Usar pela janela](#usar-pela-janela).
+
+#### Por que o Windows avisa na primeira execução
+
+O SmartScreen, o filtro de downloads do Windows, avisa sobre todo programa que ainda foi baixado por poucas pessoas, mesmo quando o arquivo é assinado. A assinatura não tira esse aviso; ela garante duas coisas que você pode conferir:
+
+* **Quem publicou:** no aviso, depois de **Mais informações**, o editor aparece como **SignPath Foundation**. Nas propriedades do `.exe` (botão direito > Propriedades > Assinaturas Digitais), a assinatura aparece como válida.
+* **Que o arquivo não mudou:** se alguém alterar o instalador depois da assinatura, o Windows mostra a assinatura como inválida, ou o editor como "desconhecido".
+
+O aviso some sozinho à medida que mais pessoas baixam a mesma versão; não há como prometer que ele não apareça. Se o editor não for SignPath Foundation, ou se a assinatura estiver inválida, não instale: baixe de novo pela [página de releases](https://github.com/LMafra/analise_concursos/releases) e confira o `SHA256SUMS`.
+
+#### Política de assinatura de código
+
+Assinatura de código gratuita fornecida pela [SignPath.io](https://about.signpath.io/), com certificado da [SignPath Foundation](https://signpath.org/).
+
+* **O que é assinado:** só os binários deste repositório: `concurso-analise.exe`, `concurso-analise-cli.exe` e o setup. As bibliotecas de terceiros que vêm junto (Python, Tesseract, WebView2) mantêm a assinatura de origem, quando têm.
+* **Como:** cada release sai do workflow [`release.yml`](.github/workflows/release.yml), a partir de uma tag deste repositório; nenhum binário é assinado fora do CI.
+* **Quem:** autores e revisores: [LMafra](https://github.com/LMafra). Aprovação de cada assinatura de release: [LMafra](https://github.com/LMafra).
+* **Privacidade:** o programa não envia nada pela rede sem que você ligue a integração na configuração (IA, open-notebook, PCI Concursos ou o aviso de atualização). Veja [Privacidade](#privacidade).
 
 ### Pré-requisitos
 
@@ -691,11 +709,12 @@ APPIMAGE_EXTRACT_AND_RUN=1 python3 scripts/smoke.py congelado dist/concurso-anal
 uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
 uv run --no-sync python empacotamento/coletar_licencas.py
 uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersao=0.5.0 empacotamento\inno\concurso-analise.iss
-.\scripts\smoke_maquina_limpa.ps1 -Instalador dist\concurso-analise-0.5.0-windows-x64-setup.exe
+.\empacotamento\windows\obter_webview2.ps1
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersao=0.6.0 /DVersaoNumerica=0.6.0.0 empacotamento\inno\concurso-analise.iss
+.\scripts\smoke_maquina_limpa.ps1 -Instalador dist\concurso-analise-0.6.0-windows-x64-setup.exe -Relatorio smoke-windows.md
 ```
 
-O último comando instala, confere o executável com o `PATH` sem Python nem Tesseract, roda a análise sintética e desinstala. Antes de publicar uma versão, repita a instalação à mão no Windows Sandbox (veja `.scratch/gui-leigo/issues/07-executavel-windows.md`).
+O último comando instala, confere o WebView2, o executável com o `PATH` sem Python nem Tesseract, o OCR e o tempo de partida, roda a análise sintética e desinstala. O build local sai sem assinatura; só o CI assina, pela SignPath. Antes de publicar uma versão, siga o checklist de máquina limpa de `docs/spec-fase6.md` (Windows Sandbox e VM Windows 10 sem WebView2).
 
 **macOS arm64 (DMG).** Precisa do Homebrew e do uv:
 

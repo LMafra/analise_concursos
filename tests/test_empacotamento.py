@@ -260,6 +260,8 @@ def test_arquivos_do_empacotamento_existem():
         'coletar_licencas.py',
         'tesseract/obter_windows.ps1',
         'inno/concurso-analise.iss',
+        'windows/versao.py',
+        'windows/obter_webview2.ps1',
         'LICENSES/LEIA-ME.md',
     ):
         assert (pasta / relativo).is_file(), relativo
@@ -275,8 +277,52 @@ def test_launcher_chama_freeze_support_antes_de_tudo():
 
 
 def test_instalador_por_usuario_com_versao_no_nome():
-    texto = (RAIZ / 'empacotamento' / 'inno' / 'concurso-analise.iss').read_text(encoding='utf-8')
+    texto = (RAIZ / 'empacotamento' / 'inno' / 'concurso-analise.iss').read_text(encoding='utf-8-sig')
 
     assert 'PrivilegesRequired=lowest' in texto
     assert 'OutputBaseFilename=concurso-analise-{#Versao}-windows-x64-setup' in texto
     assert 'BrazilianPortuguese.isl' in texto
+    assert 'VersionInfoProductName={#Nome}' in texto
+    assert 'VersionInfoVersion={#VersaoNumerica}' in texto
+
+
+def modulo_versao():
+    import importlib.util
+
+    caminho = RAIZ / 'empacotamento' / 'windows' / 'versao.py'
+    especificacao = importlib.util.spec_from_file_location('versao_windows', caminho)
+    modulo = importlib.util.module_from_spec(especificacao)
+    especificacao.loader.exec_module(modulo)
+    return modulo
+
+
+@pytest.mark.parametrize(
+    ('versao', 'numerica'),
+    [
+        ('0.6.0', (0, 6, 0, 0)),
+        ('0.6.0b1', (0, 6, 0, 0)),
+        ('1.2', (1, 2, 0, 0)),
+        ('0.6.0.post1', (0, 6, 0, 1)),
+    ],
+)
+def test_versao_numerica_do_windows_tem_quatro_partes(versao, numerica):
+    assert modulo_versao().versao_numerica(versao) == numerica
+
+
+def test_recurso_de_versao_identifica_o_produto_e_o_editor(tmp_path):
+    versao = modulo_versao()
+
+    texto = versao.recurso_de_versao('0.6.0b1', 'concurso-analise-cli', 'concurso-analise (linha de comando)')
+
+    assert 'filevers=(0, 6, 0, 0)' in texto
+    assert "StringStruct('ProductName', 'concurso-analise')" in texto
+    assert "StringStruct('ProductVersion', '0.6.0b1')" in texto
+    assert "StringStruct('OriginalFilename', 'concurso-analise-cli.exe')" in texto
+    assert "StringStruct('CompanyName', 'LMafra')" in texto
+    assert 'VarStruct' in texto
+
+
+def test_spec_usa_o_recurso_de_versao_nos_dois_executaveis():
+    texto = (RAIZ / 'empacotamento' / 'concurso-analise.spec').read_text(encoding='utf-8')
+
+    assert texto.count('version=recurso(') == 2

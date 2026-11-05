@@ -1,10 +1,13 @@
 ﻿; Instalador do Windows: por usuário (sem pedir administrador), atalho no menu Iniciar e desinstalador.
 ; Compile depois do PyInstaller, a partir da raiz do repositório:
-;   iscc /DVersao=0.5.0 empacotamento\inno\concurso-analise.iss
+;   iscc /DVersao=0.6.0b1 /DVersaoNumerica=0.6.0.0 empacotamento\inno\concurso-analise.iss
 ; Os dados do candidato (a pasta do projeto e ~/.concurso) ficam fora de {app} e sobrevivem à desinstalação.
 
 #ifndef Versao
   #define Versao "0.0.0"
+#endif
+#ifndef VersaoNumerica
+  #define VersaoNumerica "0.0.0.0"
 #endif
 #define Nome "concurso-analise"
 #define Executavel "concurso-analise.exe"
@@ -17,6 +20,13 @@ AppVersion={#Versao}
 AppVerName={#Nome} {#Versao}
 AppPublisher=LMafra
 AppPublisherURL=https://github.com/LMafra/analise_concursos
+VersionInfoVersion={#VersaoNumerica}
+VersionInfoProductName={#Nome}
+VersionInfoProductVersion={#VersaoNumerica}
+VersionInfoProductTextVersion={#Versao}
+VersionInfoCompany=LMafra
+VersionInfoDescription=Instalador do {#Nome}
+VersionInfoCopyright=Copyright (c) 2026 LMafra. Licença MIT.
 DefaultDirName={localappdata}\Programs\{#Nome}
 DefaultGroupName={#Nome}
 DisableProgramGroupPage=yes
