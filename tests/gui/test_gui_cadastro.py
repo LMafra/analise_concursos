@@ -129,6 +129,7 @@ async def test_recusar_no_dialogo_nao_grava_nada(user: User, projeto):
     user.find(marker='nao').click()
 
     await user.should_see('Nada foi gravado.', retries=60)
+    await esperar(lambda: not ESTADO.ocupado)
     assert not (projeto / 'provas' / 'alfa').exists()
 
 
