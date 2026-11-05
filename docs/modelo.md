@@ -361,6 +361,7 @@ incluir_simulados = false  # true: os simulados do PCI entram no consolidado e n
 ```
 
 - **Validação:** os campos de `[analise]` são os mesmos do `config.yaml` antigo. Campo desconhecido ou valor fora de 0 a 1 (nos limiares) gera erro citando o campo e as opções.
+- **Escrita pela GUI:** a tela de configurações grava `limiar_confianca`, `limiar_topico_baixo` e `concurso_alvo` por `aplicacao.preferencias.gravar_analise`, com a mesma validação; as outras chaves e seções ficam como estavam (os comentários do arquivo se perdem, como em toda gravação do `config.toml`).
 - **Precedência:** flag, variável de ambiente, `config.toml`, padrão.
 - **`[candidato] ultimo`:** o último candidato analisado; vale quando não há `--candidate` nem `CONCURSO_CANDIDATO`.
 - **`[migracao]`:** o registro da migração das fases 1 a 3 (`versao = 4`, `candidato`, `backup`, `data`).
@@ -528,7 +529,7 @@ No open-notebook (`notebook sync` e a sincronização automática):
 
 ## Prática no TEC (tec-erros)
 
-Opcional; sem `[pratica]` no `config.toml` do projeto, nenhuma saída muda. A captura mora no projeto separado `tec-erros` (extensão do Chrome, userscript para o Firefox do Android e `caderno.html`), cujo `docs/contrato.md` define o arquivo `tec-erros-<aparelho>-<data>.json` (`app = "tec-erros"`, `v = 1`, `erros`, `cads`). O app só lê arquivos; não acessa o TEC nem a rede.
+Opcional; sem `[pratica]` no `config.toml` do projeto, nenhuma saída muda. A captura mora em `tec-erros/`, neste repositório (extensão do Chrome, userscript para o Firefox do Android e `caderno.html`); as fixtures do contrato ficam em `tests/contrato_tec/` e passam pelo `node --test` e pelo `pytest`. O `tec-erros/docs/contrato.md` define o arquivo `tec-erros-<aparelho>-<data>.json` (`app = "tec-erros"`, `v = 1`, `erros`, `cads`). O app só lê arquivos; não acessa o TEC nem a rede.
 
 ```toml
 [pratica]
@@ -869,3 +870,24 @@ Sai com 2 se algum item tem `✗`, senão com 0.
 **Idempotência.** Uma execução sem mudança nas entradas não altera nenhum `mtime` em `analises/`, nem com `--dry-run`: as saídas por concurso dependem do manifesto, o `index.html` só é regerado quando algo foi reprocessado, e o consolidado (`desempenho_geral.csv`, `comparativo_concursos.md`) só é regravado quando o conteúdo muda.
 
 **Distribuição.** `uvx --from <repositório> concurso-analise` ou `uv tool install <repositório>` (o comando principal não depende de grupos de dependência). O `Dockerfile` (`python:3.12-slim-trixie`, `tesseract-ocr-por`, `uv sync --locked --no-dev`) espera o projeto montado em `/dados`, com `CONCURSO_HOME=/dados/.concurso-home`; o `.dockerignore` deixa `provas/`, `analises/` e `.concurso/` fora da imagem. `scripts/smoke.py` é o teste de ponta a ponta: onboarding com `--yes`, análise de dois concursos sintéticos num caminho com espaço e acento e reexecuções sem mudança de `mtime`.
+
+**GUI (fase 5).** `concurso-analise gui` (ou `concurso-analise-gui`) exige o extra `[gui]`. Abre em `127.0.0.1`, numa porta livre: janela nativa no Windows e no macOS, navegador padrão no Linux. O projeto escolhido fica na configuração global; o `app.storage` do NiceGUI fica em `~/.concurso/gui` e não guarda dado pessoal.
+
+```toml
+# ~/.concurso/config.toml
+[gui]
+ultimo_projeto = "C:/Users/ana/Documents/Concursos"   # pasta com provas/, analises/ e .concurso/
+```
+
+**Executável (fase 5).** Pasta onedir do PyInstaller, gerada por `empacotamento/concurso-analise.spec`:
+
+| Caminho no bundle | Conteúdo |
+|---|---|
+| `concurso-analise(.exe)` | o launcher (`empacotamento/launcher.py`): `freeze_support`, `PATH` e `TESSDATA_PREFIX`, `--smoke`, GUI |
+| `_internal/concursos/` | o pacote, com os perfis YAML (coletados pelo `hook-concursos.py`) |
+| `_internal/concurso_analise-<versão>.dist-info/` | metadados: versão e entry points `concurso.banca` e `concurso.ocr` |
+| `_internal/tesseract/` | o binário do Tesseract (e DLLs ou dylibs) e `tessdata/por.traineddata` (`tessdata_fast`) |
+| `_internal/tec-erros/` | `caderno.html`, `tec-erros-extensao-<versão>.zip` e `tec-erros.user.js` |
+| `_internal/LICENSES/` | as licenças de Tesseract, Leptonica, bibliotecas de imagem, NiceGUI, pywebview e Python |
+
+Artefatos da release: `concurso-analise-<versão>-windows-x64-setup.exe`, `concurso-analise-<versão>-linux-x86_64.AppImage`, `concurso-analise-<versão>-macos-arm64.dmg` e `SHA256SUMS`. `concurso-analise --smoke`, no executável, roda o doctor e a análise de um concurso sintético numa pasta temporária, sem janela, e sai com 0 quando tudo passa.

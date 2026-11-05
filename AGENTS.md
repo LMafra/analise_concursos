@@ -1,8 +1,8 @@
 # AGENTS.md
 
-Ferramenta local de correção e análise de provas de concurso, com um comando só: `concurso-analise` (`src/concursos/cli/`), que gera `analises/<candidato>/<concurso>/`. Fase 1: correção por concurso. Fase 2: a análise evolutiva entre concursos (`src/concursos/analytics/` e `notebooks/`). Fase 3: o edital como fonte de verdade (regras, validação e catálogo de descobertas). Fase 4: um comando, multi-candidato, perfis de banca e de OCR, fallbacks, onboarding, `doctor`, LLM opcional e distribuição.
+Ferramenta local de correção e análise de provas de concurso, com um comando só: `concurso-analise` (`src/concursos/cli/`), que gera `analises/<candidato>/<concurso>/`. Fase 1: correção por concurso. Fase 2: a análise evolutiva entre concursos (`src/concursos/analytics/` e `notebooks/`). Fase 3: o edital como fonte de verdade (regras, validação e catálogo de descobertas). Fase 4: um comando, multi-candidato, perfis de banca e de OCR, fallbacks, onboarding, `doctor`, LLM opcional e distribuição. Fase 5: a GUI em NiceGUI (`concurso-analise gui`, `src/concursos/gui/`) sobre a camada de aplicação (`src/concursos/aplicacao/`), o executável por sistema (`empacotamento/`) e o `tec-erros/` no mesmo repositório.
 
-- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3), `docs/spec-fase4.md` (fase 4) e `docs/spec-pci-mcp.md` (PCI Concursos). Leia a da fase antes de mudar comportamento.
+- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3), `docs/spec-fase4.md` (fase 4), `docs/spec-pci-mcp.md` (PCI Concursos) e `docs/spec-fase5.md` (fase 5, com as decisões em `docs/decisoes-fase5.md`). Leia a da fase antes de mudar comportamento.
 - Paridade: antes de um refactor que toca código das fases 1 a 3, rode `concurso-analise --force` e `scripts/paridade.py retrato analises/<candidato> <arquivo>`; depois, `comparar` não pode mostrar diferença.
 - Ponta a ponta: `scripts/smoke.py` roda onboarding, análise e idempotência num projeto temporário; rode-o pelo `uvx --from "$PWD"` ao mexer em dependências, CLI ou empacotamento.
 - Modelo de domínio, contratos de arquivo e fórmulas: `docs/modelo.md`. É a fonte única dos campos do `concurso.yaml`, do `candidato.yaml`, do `config.toml`, dos perfis, do `correcao.json`, do `edital_estruturado.json`, do template do `catalogo_edital.md` e do schema do parquet; atualize-o na mesma mudança que o código.
@@ -18,6 +18,11 @@ Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na conf
 | Assunto | Módulo |
 |---|---|
 | CLI: comando padrão, subcomandos, flags globais, códigos de saída e erro em duas linhas | `cli/comandos.py`, `cli/erros.py` |
+| `ErroDoUsuario` e `ErroDoAmbiente` (causa, dica, código) | `erros.py` |
+| Orquestração usada pela CLI e pela GUI: `Opcoes` (saída, interação, progresso), escolha de candidato, cadeia da análise, cadastro, onboarding, prática, recomendações, radar, open-notebook, PCI e preferências | `aplicacao/` |
+| GUI: `ui.run` em `127.0.0.1`, estado do projeto, `InteracaoGui`, progresso e log, páginas e componentes | `gui/` |
+| Executável: launcher, spec do PyInstaller, hook, Tesseract embutido, instaladores | `empacotamento/` (fora do pacote) |
+| Captura do TEC (extensão, userscript, `caderno.html`) e contrato v1 | `tec-erros/` (JavaScript, fora do pacote), fixtures em `tests/contrato_tec/` |
 | Comando obsoleto `concursos` | `cli/legado.py` |
 | Pastas de uma execução (global, projeto, provas, análises) e `config.toml` | `config/contexto.py`, `configuracao.py` |
 | `concurso.yaml`: leitura, validação, gravação e `arquivos_referenciados` | `concurso_config.py` |
@@ -114,9 +119,25 @@ Para acrescentar uma camada:
 
 ## CLI
 
-- Erro do usuário: `ErroDoUsuario(causa, dica)`, código 1; do ambiente: `ErroDoAmbiente`, código 2. Na tela, no máximo `erro:` e `dica:`; o traceback vai só para o log em `~/.concurso/logs/`.
+- A CLI só lê flags, monta `Opcoes` (com `saida=typer.echo`) e chama `aplicacao/`; a orquestração não mora em `cli/comandos.py`.
+- Erro do usuário: `ErroDoUsuario(causa, dica)`, código 1; do ambiente: `ErroDoAmbiente`, código 2 (ambos em `erros.py`). Na tela, no máximo `erro:` e `dica:`; o traceback vai só para o log em `~/.concurso/logs/`.
 - Toda pergunta tem padrão e é pulada sem TTY, com `CI` ou com `--yes`. `--dry-run` não grava nada, nem configuração.
 - Reexecutar sem mudança não altera nenhum `mtime` em `analises/`; grave saídas regeneradas a cada execução com `gravar_se_mudou`.
+
+## GUI
+
+- Casca sobre `aplicacao/`: nenhuma regra de negócio, parsing ou cálculo em `gui/`. Uma ação nova da GUI é antes uma função testada de `aplicacao/`. `gui/` e `aplicacao/` não importam `typer` nem `concursos.cli` (teste por AST).
+- Só `127.0.0.1`, nunca `0.0.0.0`. Janela nativa no Windows e no macOS; modo navegador no Linux.
+- Perguntas passam pelo protocolo `Interacao` (`InteracaoGui`); o trabalho pesado roda em thread (`run.io_bound`) e nunca no loop da interface.
+- Ao escolher o projeto, a GUI faz `chdir` para ele: os relatórios gravam caminhos relativos à pasta atual.
+- Integração desligada mostra o texto de consentimento de `aplicacao.integracoes` antes de ligar. A IA começa desmarcada.
+- Testes em `tests/gui/` com a fixture `user` do NiceGUI e a camada de aplicação falsa; pulados sem o extra `[gui]`.
+
+## Executável
+
+- `empacotamento/concurso-analise.spec`, onedir, a partir de `uv sync --no-dev --extra gui --extra llm --extra pci`; o grupo dev quebra o plotly congelado. Dado novo de pacote (YAML, template) precisa entrar pelo `hook-concursos.py`.
+- O Tesseract embutido entra no `PATH` pelo launcher, com `TESSDATA_PREFIX`; a lógica continua usando `shutil.which`.
+- Antes de publicar uma release: `scripts/smoke.py congelado` no CI e o checklist de máquina limpa (sem Python, sem Tesseract) em `README.md`.
 
 ## Código
 
@@ -129,8 +150,8 @@ Para acrescentar uma camada:
 
 ## Fora de escopo
 
-- Interface web, app mobile, servidor multiusuário e sincronização em nuvem.
+- Servidor web acessível pela rede, app mobile, servidor multiusuário e sincronização em nuvem. A GUI local, só em `127.0.0.1`, é da fase 5.
 - OCR treinado próprio, idiomas além do português, e LLM para classificar tópicos, ler a folha ou ler a prova.
 - Telemetria, mesmo opt-in, e atualização automática silenciosa (`upgrade` só roda quando pedido).
 - Calcular corte por escore padronizado ou por quantidade de classificados, e estimar colocação.
-- Marketplace de perfis, pacotes Homebrew ou Chocolatey e, enquanto não houver remoto, publicar no PyPI e rodar o CI.
+- Marketplace de perfis, pacotes Homebrew, Chocolatey ou winget, `.msi`, publicar no PyPI, assinatura de código e a extensão do TEC na Chrome Web Store.
