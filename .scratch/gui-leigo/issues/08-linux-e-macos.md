@@ -4,11 +4,12 @@
 
 **Blocked by:** 07
 
-**Status:** done no Linux; macOS escrito, à espera do primeiro run do `release.yml`
+**Status:** verificado no CI (`v0.5.0-rc2`); falta abrir o DMG num Mac de verdade
 
-- [x] O AppImage roda o `--smoke` num contêiner `debian:12` sem Python e sem Tesseract (versão, 9 perfis de banca, Tesseract embutido com `por`, GUI em 127.0.0.1) e o `doctor` sai com 0.
+- [x] O AppImage roda o `--smoke` num contêiner `debian:12` sem Python e sem Tesseract (versão, 9 perfis de banca, Tesseract embutido com `por`, GUI em 127.0.0.1) e o `doctor` sai com 0. Localmente e no job `linux-smoke`.
 - [x] `scripts/smoke.py congelado` contra o AppImage: onboarding e análise em 4 s, com o Tesseract embutido.
-- [ ] O `.app` roda o `--smoke` no runner; o DMG abre depois do "Abrir Mesmo Assim".
+- [x] O `.app` roda o `--smoke` no runner: copiado do DMG (219 MB), assinatura ad hoc conferida, `PATH=/usr/bin:/bin`, Tesseract embutido em `Contents/Frameworks/tesseract` com `por`, `doctor` e análise sintética (20 s).
+- [ ] O DMG abre depois do "Abrir Mesmo Assim" num Mac de usuário (o runner não passa pelo Gatekeeper de um download).
 
 ## Notas
 

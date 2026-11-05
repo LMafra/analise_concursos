@@ -154,11 +154,13 @@ Fecha quando houver remoto (o CI cobre macOS e Windows) ou quando o `uv` for ins
 
 <a id="verificacao-fase5"></a>
 
-### Fase 5, issues 07 e 08: executáveis de Windows e macOS sem execução
+### Fase 5, issues 07 e 08: janela nativa e Gatekeeper conferidos à mão
 
-O executável Linux foi verificado de ponta a ponta: o AppImage montado no `manylinux_2_28` passou no `--smoke` e no `doctor` num Debian 12 sem Python nem Tesseract, e o `scripts/smoke.py congelado` analisou o projeto sintético com o Tesseract embutido.
+O `release.yml` passou nos três sistemas na tag `v0.5.0-rc2`: em cada um, o executável rodou o `--smoke` (Tesseract embutido com `por`, GUI em `127.0.0.1`), o `doctor` e a análise do projeto sintético sem Python nem Tesseract no `PATH`; no Windows, depois de instalar em silêncio, e com a desinstalação conferida; no Linux, também num `debian:12` limpo; no macOS, com o app copiado do DMG. A release ficou em rascunho com os três artefatos e o `SHA256SUMS`.
 
-- **Windows:** os jobs do `release.yml` (PyInstaller, Tesseract do MSYS2, Inno Setup, `smoke_maquina_limpa.ps1`) estão escritos, mas ainda não rodaram. Falta também o checklist manual do Windows Sandbox, em `.scratch/gui-leigo/issues/07-executavel-windows.md`.
-- **macOS arm64:** o job (Tesseract do Homebrew relocado pelo `dylibbundler`, `.app` assinado ad hoc, DMG) ainda não rodou; falta abrir o DMG num Mac depois do "Abrir Mesmo Assim".
+Falta o que o runner não reproduz:
 
-Fecha com o primeiro `release.yml` verde (uma tag `v*` ou o disparo manual) e o checklist do Sandbox registrado no ticket 07.
+- **Windows:** o checklist do Windows Sandbox (janela nativa com WebView2, SmartScreen, menu Iniciar), em `.scratch/gui-leigo/issues/07-executavel-windows.md`.
+- **macOS arm64:** abrir o DMG baixado num Mac, com o "Abrir Mesmo Assim" do Gatekeeper, e ver a janela nativa.
+
+Fecha com os dois registrados nos tickets; aí a tag `v0.5.0` gera a release final.

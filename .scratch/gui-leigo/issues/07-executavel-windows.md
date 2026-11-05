@@ -4,18 +4,19 @@
 
 **Blocked by:** 03
 
-**Status:** feito no código; falta a primeira execução do `release.yml` no Windows e o checklist no Windows Sandbox
+**Status:** verificado no CI (`v0.5.0-rc2`); falta só o checklist no Windows Sandbox
 
 - [x] O bundle carrega os perfis YAML e resolve os entry points `concurso.banca` e `concurso.ocr` (conferido num build Linux local: `--smoke` lista os 9 perfis, e a análise de `scripts/smoke.py` passa com o executável).
-- [ ] `concurso-analise --smoke` (congelado) passa com o `PATH` sem Python e sem Tesseract: `scripts/smoke_maquina_limpa.ps1` faz isso no runner do Windows.
+- [x] `concurso-analise --smoke` (congelado) passa com o `PATH` sem Python e sem Tesseract: no runner do Windows, o `smoke_maquina_limpa.ps1` instalou em silêncio, conferiu o atalho, rodou o `--smoke` (Tesseract embutido com `por`, GUI em `127.0.0.1`), o `doctor` e a análise sintética (5,4 s), e desinstalou.
 - [ ] O instalador instala, cria o atalho, abre e desinstala no Windows Sandbox.
-- [x] O nome do artefato traz a versão (`OutputBaseFilename` do Inno); o job imprime o tamanho no resumo para conferir com a faixa.
+- [x] O nome do artefato traz a versão (`OutputBaseFilename` do Inno); instalado, 532 MB; instalador, 183 MB.
 
 Notas:
 
 - Dois executáveis no mesmo onedir: `concurso-analise.exe` (janela) e `concurso-analise-cli.exe` (console), porque o executável sem console não escreve a saída da CLI.
 - O smoke da janela usa o modo navegador sem abrir navegador; a janela nativa (WebView2) fica para o checklist manual.
 - O build Linux local deu 694 MB no onedir (com o grupo `dev` no ambiente, que o CI não instala).
+- O primeiro run (`v0.5.0-rc1`) achou um defeito: com a saída redirecionada, o `concurso-analise-cli doctor` quebrava no ✓ (cp1252, sem o `PYTHONUTF8` do desenvolvimento). O launcher agora passa stdout e stderr para UTF-8.
 
 ## Checklist do Windows Sandbox (antes de publicar a release)
 

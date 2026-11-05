@@ -15,6 +15,7 @@ Branch `feat/gui-leigo`, dez fatias (spec, camada de aplicação, tec-erros, GUI
 - **`LD_LIBRARY_PATH` do bootloader.** No Linux, o executável congelado passava as bibliotecas dele para o navegador e o `xdg-open`. O launcher agora devolve o valor original.
 - **Status com um candidato só.** A tela de concursos mostrava "respostas não configuradas" quando o projeto tinha um único candidato, porque o seletor só gravava o candidato quando havia mais de um. Apareceu só ao montar o projeto de demonstração para os screenshots; virou teste.
 - **Modo navegador sem saída.** No Linux, fechar a aba deixava o servidor rodando escondido. Entrou o botão "Fechar o app", só no modo navegador.
+- **cp1252 no Windows.** O primeiro run do `release.yml` (`v0.5.0-rc1`) mostrou que o `concurso-analise-cli doctor` quebrava no ✓ com a saída redirecionada: o executável não tem o `PYTHONUTF8` do ambiente de desenvolvimento. O launcher passa stdout e stderr para UTF-8. O mesmo run achou três testes das fases 3 e 4 que falhavam no Windows também no `main`.
 
 ## Desvios do plano
 
@@ -25,11 +26,11 @@ Branch `feat/gui-leigo`, dez fatias (spec, camada de aplicação, tec-erros, GUI
 
 ## Em aberto
 
-- Primeira execução do `release.yml` no Windows e no macOS, e o checklist do Windows Sandbox (`docs/pendencias.md`, "Fase 5").
+- O checklist do Windows Sandbox e abrir o DMG num Mac (`docs/pendencias.md`, "Fase 5"); o `release.yml` já passou nos três sistemas em `v0.5.0-rc2`.
 - Medir e cortar o tamanho do pacote (pyarrow, codecs do OpenCV) num ticket separado.
 - Assinatura de código, macOS Intel e builds ARM do Windows e do Linux.
 
 ## Para a próxima fase
 
-- Montar o projeto de demonstração e olhar as telas cedo, não só no fim: os quatro problemas acima apareceram ao rodar o produto de verdade (contêiner limpo ou projeto de demonstração), e nenhum nos testes.
+- Montar o projeto de demonstração e olhar as telas cedo, não só no fim: os cinco problemas acima apareceram ao rodar o produto de verdade (contêiner limpo, runner limpo ou projeto de demonstração), e nenhum nos testes.
 - Todo build de executável passa por um contêiner ou VM sem Python antes de ser dado como pronto.

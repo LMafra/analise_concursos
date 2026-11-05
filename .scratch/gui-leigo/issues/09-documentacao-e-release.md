@@ -4,11 +4,11 @@
 
 **Blocked by:** 04, 05, 06, 07, 08
 
-**Status:** documentação pronta; a release `v0.5.0` espera o primeiro `release.yml` verde e o checklist do Windows Sandbox
+**Status:** documentação pronta e `release.yml` verde nos três sistemas (`v0.5.0-rc2`, release em rascunho com os três artefatos e o `SHA256SUMS`); a tag `v0.5.0` espera o checklist do Windows Sandbox
 
 - [x] Um leitor sem terminal instala seguindo só o README: "Instalação para usuários leigos" (download, SmartScreen, Gatekeeper, AppImage, SHA256SUMS) e "Usar pela janela", com sete telas em `docs/img/gui-*.png`, capturadas de um projeto sintético.
 - [x] A seção de desenvolvimento reproduz o build local: o do Linux foi refeito no `manylinux_2_28` e conferido no `debian:12`; os de Windows e macOS repetem os passos do `release.yml`.
-- [ ] O gate de máquina limpa foi feito e registrado antes da publicação: Linux feito; Windows e macOS dependem do `release.yml` e do checklist do ticket 07.
+- [ ] O gate de máquina limpa foi feito e registrado antes da publicação: o automático passou nos três sistemas (tickets 07 e 08); falta o checklist manual do Windows Sandbox (ticket 07) e abrir o DMG num Mac.
 
 Notas:
 
