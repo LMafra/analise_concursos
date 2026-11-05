@@ -45,7 +45,7 @@ consolidado = carregar_consolidado()
 # Se algo estiver errado, a célula abaixo falha listando todos os problemas.
 
 # %%
-validar_schema(consolidado, contar_questoes(contexto.analises_do_candidato))
+validar_schema(consolidado, contar_questoes(contexto.analises_do_candidato, contexto.provas))
 resumir(consolidado, n=5, contar='concurso')
 
 # %% [markdown]

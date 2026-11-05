@@ -154,6 +154,21 @@ class ProvaConfig:
 
 
 @dataclass(frozen=True)
+class SimuladoConfig:
+    """Prova anterior resolvida como treino; o edital, se houver, é o do alvo e serve só para os tópicos."""
+
+    fonte: str
+    id_pci: int | None = None
+    ano_original: int | None = None
+    organizadora: str = ''
+    orgao: str = ''
+    descricao: str = ''
+    link: str = ''
+    concurso_alvo: str | None = None
+    cargo_alvo: str | None = None
+
+
+@dataclass(frozen=True)
 class ConcursoConfig:
     nome: str
     pasta: Path
@@ -174,6 +189,7 @@ class ConcursoConfig:
     escolaridade: Escolaridade = Escolaridade.NAO_INFORMADO
     ignorar: tuple[str, ...] = ()
     historico: tuple[dict, ...] = ()
+    simulado: SimuladoConfig | None = None
 
     def caminho(self, arquivo: str) -> Path:
         return self.pasta / arquivo
@@ -334,6 +350,25 @@ def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
         ),
         ignorar=tuple(dados.get('ignorar') or ()),
         historico=tuple(dados.get('historico') or ()),
+        simulado=_montar_simulado(dados['simulado']) if dados.get('simulado') else None,
+    )
+
+
+def _montar_simulado(simulado: dict) -> SimuladoConfig:
+    if not isinstance(simulado, dict):
+        raise ConfiguracaoInvalidaError('simulado: esperado um mapa (fonte, id_pci, ano_original, ...)')
+    for campo in ('id_pci', 'ano_original'):
+        valor = simulado.get(campo)
+        if valor is not None and (isinstance(valor, bool) or not isinstance(valor, int)):
+            raise ConfiguracaoInvalidaError(f"simulado.{campo}: valor '{valor}' não é inteiro")
+    textos = ('organizadora', 'orgao', 'descricao', 'link')
+    return SimuladoConfig(
+        fonte=str(simulado.get('fonte') or 'manual'),
+        id_pci=simulado.get('id_pci'),
+        ano_original=simulado.get('ano_original'),
+        **{campo: str(simulado.get(campo) or '') for campo in textos},
+        concurso_alvo=simulado.get('concurso_alvo') or None,
+        cargo_alvo=simulado.get('cargo_alvo') or None,
     )
 
 

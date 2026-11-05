@@ -13,6 +13,8 @@ import tomli_w
 import yaml
 
 from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, FolhaConfig
+from concursos.config.contexto import ler_toml
+from concursos.integracoes.pci_mcp import validar_cargos, validar_uf
 from concursos.manifesto import hash_arquivo
 from concursos.modelo import Origem, RespostaMarcada
 from concursos.respostas import ler_respostas_csv
@@ -210,10 +212,21 @@ def gravar_perfil(pasta: Path, perfil: dict) -> None:
 
 
 def gravar_perfil_global(home: Path, nome: str, atualizar: bool = False) -> Path:
-    """Sem `atualizar`, um perfil existente fica como está."""
+    """Sem `atualizar`, um perfil existente fica como está; com ele, as outras seções (ex.: `[pci]`) ficam."""
     candidato = slug(nome)
     caminho = home / PASTA_PERFIS_GLOBAIS / f'{candidato}.toml'
     if atualizar or not caminho.exists():
+        dados = ler_toml(caminho) | {'nome': nome, 'slug': candidato}
         caminho.parent.mkdir(parents=True, exist_ok=True)
-        caminho.write_text(tomli_w.dumps({'nome': nome, 'slug': candidato}), encoding='utf-8')
+        caminho.write_text(tomli_w.dumps(dados), encoding='utf-8')
     return caminho
+
+
+def alvos_pci(home: Path, candidato: str) -> tuple[tuple[str, ...], str]:
+    """Os cargos e a UF de `[pci]` no perfil global do candidato; sem perfil ou sem seção, vazios."""
+    caminho = home / PASTA_PERFIS_GLOBAIS / f'{candidato}.toml'
+    secao = ler_toml(caminho).get('pci', {})
+    onde = f'{caminho}: [pci]'
+    cargos = validar_cargos(secao['cargos'], onde) if 'cargos' in secao else ()
+    uf = validar_uf(secao['uf'], onde) if 'uf' in secao else ''
+    return cargos, uf

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 _IGNORAR = 'ignorar'
 _NENHUM = '(nenhum)'
-_CAMPOS_MANUAIS = ('data_prova', 'nivel', 'escolaridade', 'correcao')
+_CAMPOS_MANUAIS = ('data_prova', 'nivel', 'escolaridade', 'correcao', 'historico', 'simulado', 'pci')
 
 
 @dataclass(frozen=True)
@@ -147,7 +147,10 @@ class _Cadastro:
         pergunta = 'Qual é a banca? (banca não detectada nos arquivos)'
         if contagem:
             pergunta = f'Qual é a banca? (arquivos citam {", ".join(b for b, _ in contagem)})'
-        return self.interacao.escolher(pergunta, list(ids_de_banca()))
+        anterior = self.anterior.get('banca')
+        return self.interacao.escolher(
+            pergunta, list(ids_de_banca()), anterior if anterior in ids_de_banca() else None
+        )
 
     def _montar(self, banca: str, por_papel: dict[Papel, list[ArquivoDetectado]]) -> dict:
         if not por_papel[Papel.GABARITO]:
@@ -190,8 +193,6 @@ class _Cadastro:
         for campo in _CAMPOS_MANUAIS:
             if self.anterior.get(campo):
                 dados[campo] = self.anterior[campo]
-        if historico := self.anterior.get('historico'):
-            dados['historico'] = historico
         return dados
 
     def _ler_gabarito(self, detectado: ArquivoDetectado, banca: str) -> _Gabarito:
@@ -287,6 +288,8 @@ class _Cadastro:
         if not editais:
             if manual:
                 return {'manual': manual}
+            if _fora_da_pasta(anterior):
+                return anterior
             self.interacao.mostrar(
                 'Aviso: nenhum edital; o concurso ficará incompleto. Adicione o PDF do edital à pasta e rode '
                 f'`concurso-analise add {self.pasta}` de novo.'
@@ -379,6 +382,12 @@ class _Cadastro:
         gravar_dados(self.pasta, dados)
         self.interacao.mostrar(f'Gravado {caminho}.')
         return True
+
+
+def _fora_da_pasta(edital: object) -> bool:
+    """O edital emprestado de outro concurso (`../alvo/edital.pdf`), que o `rglob` da pasta não acha."""
+    arquivo = edital.get('arquivo') if isinstance(edital, dict) else edital
+    return isinstance(arquivo, str) and arquivo.startswith('../')
 
 
 def _chave_prova(texto: str, banca: str) -> str:

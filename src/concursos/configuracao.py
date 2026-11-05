@@ -15,6 +15,7 @@ class ConfiguracaoGlobal:
     limiar_confianca: float = 0.75
     limiar_topico_baixo: float = 0.6
     concurso_alvo: str | None = None
+    incluir_simulados: bool = False
     perfil_calibrado: PerfilOcr | None = None
     cliente_llm: ClienteLlm | None = None
 
@@ -27,6 +28,13 @@ def configuracao_do_projeto(contexto: Contexto | None = None) -> ConfiguracaoGlo
     contexto = contexto or resolver_contexto()
     configuracao = _validar(ler_toml(contexto.config_projeto).get('analise', {}), contexto.config_projeto)
     return replace(configuracao, perfil_calibrado=carregar_calibrado(contexto.projeto))
+
+
+def incluir_simulados_do_projeto(contexto: Contexto | None = None) -> bool:
+    """Só `[analise] incluir_simulados`, sem carregar o resto da configuração."""
+    contexto = contexto or resolver_contexto()
+    valor = ler_toml(contexto.config_projeto).get('analise', {}).get('incluir_simulados', False)
+    return valor is True
 
 
 def carregar_configuracao_global(caminho: Path) -> ConfiguracaoGlobal:
@@ -51,6 +59,11 @@ def _validar(dados: dict, caminho: Path) -> ConfiguracaoGlobal:
             if valor is not None and (not isinstance(valor, str) or not valor.strip()):
                 raise ConfiguracaoInvalidaError(
                     f'{caminho}: concurso_alvo deve ser o nome da pasta do concurso, recebido {valor!r}'
+                )
+        elif campo == 'incluir_simulados':
+            if not isinstance(valor, bool):
+                raise ConfiguracaoInvalidaError(
+                    f'{caminho}: incluir_simulados deve ser true ou false, recebido {valor!r}'
                 )
         elif not isinstance(valor, int | float) or not 0 <= valor <= 1:
             raise ConfiguracaoInvalidaError(

@@ -22,6 +22,16 @@ def navegador(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
     return abertos
 
 
+@pytest.fixture(autouse=True)
+def sem_rede_pci(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nenhum teste fala com o servidor real do PCI; quem precisa troca por um transporte falso."""
+
+    def recusar(configuracao):
+        raise AssertionError('teste tentou abrir o transporte real do PCI')
+
+    monkeypatch.setattr('concursos.integracoes.pci_mcp.abrir_transporte', recusar)
+
+
 @pytest.fixture
 def raizes(tmp_path: Path) -> tuple[Path, Path]:
     provas = tmp_path / 'provas'

@@ -105,7 +105,14 @@ def analisar_todos(
         )
         situacoes[pasta.name] = situacao
         sucesso &= analisado
-    consolidar(raiz_provas, raiz_analises, configuracao.limiar_topico_baixo, candidato, situacoes)
+    consolidar(
+        raiz_provas,
+        raiz_analises,
+        configuracao.limiar_topico_baixo,
+        candidato,
+        situacoes,
+        configuracao.incluir_simulados,
+    )
     return sucesso
 
 
@@ -203,10 +210,11 @@ def analisar_concurso(
     geral = agregar(resultados, ['concurso', 'prova'], config.pontuacao)
     por_disciplina.to_csv(destino / 'desempenho_por_disciplina.csv', index=False)
     por_topico.to_csv(destino / 'desempenho_por_topico.csv', index=False)
-    correcoes = resolver_correcao(config, documentos)
+    documentos_da_regra = {} if config.simulado else documentos
+    correcoes = resolver_correcao(config, documentos_da_regra)
     gravar_correcao(correcoes, destino)
     regras = _regras_do_edital(
-        config, documentos, resultados, correcoes, destino, taxonomia, configuracao.cliente_llm
+        config, documentos_da_regra, resultados, correcoes, destino, taxonomia, configuracao.cliente_llm
     )
     diff = _diff_da_troca(destino, resultados)
     gravar_validacao(validacao, destino)
@@ -286,12 +294,13 @@ def _paginas_dos_documentos(config: ConcursoConfig) -> dict[str, list[str]]:
 def _ler_edital(config: ConcursoConfig, documentos: dict[str, list[str]]) -> Edital | None:
     if config.edital is None:
         return None
+    cargo = config.simulado.cargo_alvo if config.simulado and config.simulado.cargo_alvo else config.cargo
     if config.edital.manual:
-        return carregar_edital_manual(config.caminho(config.edital.manual), config.cargo)
+        return carregar_edital_manual(config.caminho(config.edital.manual), cargo)
     erros, sem_ocr = [], []
     for arquivo, paginas in documentos.items():
         try:
-            return _estruturar_documento(config.caminho(arquivo), paginas, config.cargo)
+            return _estruturar_documento(config.caminho(arquivo), paginas, cargo)
         except EditalNaoEstruturadoError as erro:
             erros.append(str(erro))
         except OcrIndisponivelError:

@@ -28,10 +28,11 @@ from concursos.analytics.insights import gravar_relatorio_evolucao
 from concursos.analytics.validacao_edital import ARQUIVO_DISCREPANCIAS
 from concursos.analytics.visualizacao import rotulo_com_variante
 from concursos.biblioteca import ARQUIVO_RECOMENDACOES
-from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso
+from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso, ler_dados
 from concursos.consolidado import MINIMO_CONCURSOS, PASTA_CONSOLIDADO
 from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
+from concursos.integracoes.radar_pci import ARQUIVO_RADAR
 from concursos.pipeline import ARQUIVO_RESPOSTAS
 from concursos.pratica_tec import ARQUIVO_RESUMO, PASTA_PRATICA
 from concursos.resultado_oficial import formatar
@@ -96,12 +97,21 @@ def gerar_relatorio_html(
         markdown = (pasta / 'relatorio.md').read_text(encoding='utf-8')
         corpo = f'<p><a href="../{ARQUIVO_INDICE}">← todos os concursos</a></p>\n{_html(markdown)}'
         (pasta / ARQUIVO_RELATORIO_HTML).write_text(_pagina(pasta.name, corpo), encoding='utf-8')
-    concursos = [_resumo(pasta, raiz_provas / pasta.name) for pasta in pastas]
+    simulados = {pasta.name: _simulado(raiz_provas / pasta.name) for pasta in pastas}
+    concursos = [_resumo(pasta, raiz_provas / pasta.name) for pasta in pastas if not simulados[pasta.name]]
     corpo = '\n'.join(
         [
             f'<h1>Relatório de {escape(raiz_analises.name)}</h1>',
+            *_radar(raiz_analises),
             '<h2>Concursos</h2>',
             _tabela_de_concursos(concursos),
+            *_tabela_de_simulados(
+                [
+                    (_resumo(pasta, raiz_provas / pasta.name), simulados[pasta.name])
+                    for pasta in pastas
+                    if simulados[pasta.name]
+                ]
+            ),
             '<h2>O que o app decidiu sozinho</h2>',
             _lista([texto for pasta in pastas for texto in _decisoes(pasta)], 'Nenhuma decisão automática.'),
             '<h2>Avisos</h2>',
@@ -120,13 +130,17 @@ def gerar_relatorio_html(
     return indice
 
 
-def abrir_no_navegador(caminho: Path) -> None:
-    """No navegador padrão; no WSL, no do Windows. Em CI, não abre."""
+def abrir_no_navegador(caminho: Path | str) -> None:
+    """Um arquivo, ou um endereço (str), no navegador padrão; no WSL, no do Windows. Em CI, não abre."""
     if os.environ.get('CI'):
         return
+    endereco = caminho if isinstance(caminho, str) else None
     if _no_wsl():
         if shutil.which('wslview'):
             subprocess.run(['wslview', str(caminho)], check=False)
+            return
+        if endereco and shutil.which('explorer.exe'):
+            subprocess.run(['explorer.exe', endereco], check=False)
             return
         if shutil.which('explorer.exe') and shutil.which('wslpath'):
             convertido = subprocess.run(
@@ -134,7 +148,7 @@ def abrir_no_navegador(caminho: Path) -> None:
             )
             subprocess.run(['explorer.exe', convertido.stdout.strip()], check=False)
             return
-    webbrowser.open(caminho.resolve().as_uri())
+    webbrowser.open(endereco or Path(caminho).resolve().as_uri())
 
 
 def _no_wsl() -> bool:
@@ -192,6 +206,54 @@ def _tabela_de_concursos(concursos: list[ConcursoNoIndice]) -> str:
         'edital; anulada vale ponto) sobre a nota máxima.</p>'
     )
     return '\n'.join(linhas)
+
+
+def _simulado(pasta_provas: Path) -> dict:
+    simulado = ler_dados(pasta_provas).get('simulado')
+    return simulado if isinstance(simulado, dict) else {}
+
+
+def _tabela_de_simulados(simulados: list[tuple[ConcursoNoIndice, dict]]) -> list[str]:
+    """Fora da tabela de concursos e, por padrão, do consolidado: a prova original é de outra época e banca."""
+    if not simulados:
+        return []
+    linhas = [
+        '<h2>Simulados (provas anteriores do PCI)</h2>',
+        '<table>',
+        '<tr><th>Simulado</th><th>Resolvido em</th><th>Prova original</th><th>Acertos</th>'
+        '<th>Percentual pela regra</th></tr>',
+    ]
+    for concurso, simulado in simulados:
+        original = ' '.join(
+            str(parte) for parte in (simulado.get('orgao'), simulado.get('ano_original')) if parte
+        )
+        banca = f' ({simulado["organizadora"]})' if simulado.get('organizadora') else ''
+        link = simulado.get('link')
+        original_html = escape(f'{original or "?"}{banca}')
+        if link:
+            original_html = f'<a href="{escape(link)}">{original_html}</a>'
+        linhas.append(
+            f'<tr><td><a href="{escape(concurso.nome)}/{ARQUIVO_RELATORIO_HTML}">{escape(concurso.nome)}</a></td>'
+            f'<td>{escape(concurso.data_prova or "sem data")}</td>'
+            f'<td>{original_html}</td>'
+            f'<td>{concurso.acertos} de {concurso.total}</td>'
+            f'<td>{_percentual_pela_regra(concurso)}</td></tr>'
+        )
+    linhas += [
+        '</table>',
+        '<p class="nota">Corrigidos pelo perfil da banca da prova, com os tópicos do edital do concurso-alvo. '
+        'Ficam fora do consolidado e das tendências, a não ser com <code>incluir_simulados = true</code> em '
+        '<code>[analise]</code>.</p>',
+    ]
+    return linhas
+
+
+def _radar(raiz_analises: Path) -> list[str]:
+    """Só com o PCI ligado o radar existe; sem ele, o índice fica como era."""
+    arquivo = raiz_analises / ARQUIVO_RADAR
+    if not arquivo.exists():
+        return []
+    return [_html(arquivo.read_text(encoding='utf-8'), nivel=1)]
 
 
 def _percentual_pela_regra(concurso: ConcursoNoIndice) -> str:

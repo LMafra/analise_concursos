@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="pt-br" itemscope itemtype="https://schema.org/WebPage">
+<head>
+    <meta charset="utf-8">
+    <title>Provas para Download - Auditor - Fiscal da Receita Estadual - AFRE/MG</title>
+            <meta name="description" content="Concursos Públicos com inscrições abertas e previstas, empregos, estágios, provas, simulados, apostilas preparatórias e videoaulas.">
+                    <meta name="keywords" content="concursos, concurso, concursos publicos, empregos, estagios, curriculo, apostila">
+                        <meta name="robots" content="index,follow,noarchive">
+                <meta name="viewport" content="width=device-width">
+                <meta name="theme-color" content="#205c98">
+        <meta name="msapplication-TileColor" content="#205c98">
+        <meta name="msapplication-TileImage" content="https://www.pciconcursos.com.br/logo.png">
+                <meta itemprop="name" content="Provas para Download - Auditor - Fiscal da Receita Estadual - AFRE/MG<">
+        <meta itemprop="description" content="Concursos Públicos com inscrições abertas e previstas, empregos, estágios, provas, simulados, apostilas preparatórias e videoaulas.">
+        <meta itemprop="image" content="https://www.pciconcursos.com.br/logo.png">
+                <meta property="og:type" content="webpage">
+        <meta property="og:title" content="Provas para Download - Auditor - Fiscal da Receita Estadual - AFRE/MG">
+        <meta property="og:site_name" content="PCI Concursos">
+                <meta property="og:description" content="Concursos Públicos com inscrições abertas e previstas, empregos, estágios, provas, simulados, apostilas preparatórias e videoaulas.">
+                    <meta property="fb:app_id" content="211905988988008">
+                <meta property="fb:pages" content="115036158551264">
+        <meta property="og:locale" content="pt_BR">
+        <meta property="og:image" content="https://www.pciconcursos.com.br/logo.png">
+                    <meta property="article:publisher" content="https://www.facebook.com/pciconcursos">
+                <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#205c98">
+    <meta name="apple-mobile-web-app-title" content="PCI Concursos">
+            <link rel="apple-touch-icon" href="https://www.pciconcursos.com.br/logo.png">
+                <link rel="search" type="application/opensearchdescription+xml" title="PCI Concursos"
+              href="https://www.pciconcursos.com.br/pesquisa.xml">
+                <link rel="manifest" href="https://www.pciconcursos.com.br/manifest.json">
+                <link rel="shortcut icon" href="https://www.pciconcursos.com.br/favicon.ico">
+            <base target="_top">
+<link rel="dns-prefetch" href="https://cdn.pci.app.br">
+<link rel="preconnect" href="https://cdn.pci.app.br">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap">
+<link rel="stylesheet" href="https://www.pciconcursos.com.br/css/bootstrap.css?31993201">
+<link rel="stylesheet" href="https://www.pciconcursos.com.br/css/custom.css?31993201?31993201">
+<link rel="stylesheet" href="https://www.pciconcursos.com.br/css/all.min.css?31993201">
+<link rel="stylesheet" href="https://www.pciconcursos.com.br/css/slicknav.min.css?31993201">
+<link rel="stylesheet" href="https://www.pciconcursos.com.br/css/site.css?31993201?31993201">
+<script src="https://www.pciconcursos.com.br/js/jquery.js"></script>
+</head>
+<body>
+<div id="menu_nav"></div>
+
+<div id="center">
+    <div id="g-login">
+    <div class="header-bar">
+                    <i class="fab fa-google google-icon"></i>
+            <span id="btn-login" class="login-btn">Entrar com Google</span>
+            </div>
+</div>
+<script>
+    // Aguarda DOM carregar
+    document.addEventListener('DOMContentLoaded', function () {
+        // Botão de login
+        const btnLogin = document.getElementById('btn-login');
+        if (btnLogin) {
+            btnLogin.addEventListener('click', function () {
+                fazerLogin();
+            });
+        }
+        // Botão de logout
+        const btnLogout = document.getElementById('btn-logout');
+        if (btnLogout) {
+            btnLogout.addEventListener('click', function () {
+                fazerLogout();
+            });
+        }
+    });
+
+    // Função de login
+    function fazerLogin() {
+        fetch('/google-auth-api?action=getAuthUrl')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Abre popup
+                    window.open(data.authUrl, 'googleLogin', 'width=500,height=600');
+                    // Verifica login a cada 3 segundos
+                    const verificar = setInterval(() => {
+                        fetch('/google-auth-api?action=checkLogin')
+                            .then(r => r.json())
+                            .then(resultado => {
+                                if (resultado.success && resultado.logged_in) {
+                                    clearInterval(verificar);
+                                    window.location.reload();
+                                }
+                            });
+                    }, 3000);
+                    // Para verificação após 5 minutos
+                    setTimeout(() => clearInterval(verificar), 300000);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+            });
+    }
+
+    // Função de logout
+    function fazerLogout() {
+        fetch('/google-auth-api?action=logout')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+            });
+    }
+</script>    <div id="header">
+        <h1 id="logo"><a href="https://www.pciconcursos.com.br/"><img src="https://cdn.pci.app.br/img/p/pci_logo.png" alt="PCI Concursos"
+                                                       title="PCI Concursos"></a></h1>
+        <nav id="menu-topo">
+            <ul>
+                <li><a href="https://www.pciconcursos.com.br/concursos/">39.598 vagas em concursos</a></li>
+                <li><a href="https://www.pciconcursos.com.br/apostilas/">apostilas</a></li>
+                <li><a href="https://www.pciconcursos.com.br/noticias/">notícias</a></li>
+                <li><a href="https://www.pciconcursos.com.br/provas/">268.915 provas</a></li>
+                <li><a href="https://www.pciconcursos.com.br/contato/">contato</a></li>
+            </ul>
+        </nav>
+    </div>
+
+
+    <nav id="menu">
+        <ul id="menu_lateral">
+            <li class="pginicial"><a href="https://www.pciconcursos.com.br/" class="m_paginainicial"><i class="menu-i fas fa-home"></i>Página
+                    Inicial</a></li>
+            <li><a href="https://www.pciconcursos.com.br/apostilas/" class="m_apostilas"><i
+                            class="menu-i fas fa-book"></i>Apostilas</a></li>
+            <li><a href="https://www.pciconcursos.com.br/noticias/" class="m_noticias"><i class="menu-i fas fa-newspaper"></i>Notícias</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/concursos/" class="m_concursos"><i class="menu-i fa-kit fa-i-br"></i>Concursos</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/concursos/nacional/" class="m_nacional"><i class="menu-i fas fa-flag"></i>Nacional</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/concursos/sudeste/" class="m_sudeste"><i
+                            class="menu-i fa-kit fa-i-sudeste"></i>Sudeste</a></li>
+            <li><a href="https://www.pciconcursos.com.br/concursos/sul/" class="m_sul"><i class="menu-i fa-kit fa-i-sul"></i>Sul</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/concursos/norte/" class="m_norte"><i class="menu-i fa-kit fa-i-norte"></i>Norte</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/concursos/nordeste/" class="m_nordeste"><i
+                            class="menu-i fa-kit fa-i-nordeste"></i>Nordeste</a></li>
+            <li><a href="https://www.pciconcursos.com.br/concursos/centrooeste/" class="m_centrooeste"><i
+                            class="menu-i fa-kit fa-i-centrooeste"></i>Centro-Oeste</a></li>
+            <li><a href="https://www.pciconcursos.com.br/ultimas/" class="m_ultimas"><i class="menu-i fas fa-clock"></i>Últimas</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/mcp-e-gpt" class="m_mcp"><i class="menu-i fas fa-robot"></i>MCP e GPT</a></li>
+            <li><a href="https://www.pciconcursos.com.br/professores/" class="m_professores"><i
+                            class="menu-i fas fa-chalkboard-teacher"></i>Professores</a></li>
+            <!-- <li><a href="https://www.pciconcursos.com.br/previstos/" class="m_previstos"><i class="menu-i fas fa-eye"></i>Previstos</a></li> -->
+            <li><a href="https://www.pciconcursos.com.br/cargos/" class="m_cargos"><i class="menu-i fas fa-briefcase"></i>Cargos</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/concursos/cidades/" class="m_cidades"><i class="menu-i fas fa-city"></i>Cidades</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/vagas/" class="m_vagas"><i class="menu-i fas fa-user-friends"></i>Vagas</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/mapa" class="m_mapa"><i class="menu-i fas fa-map-marked-alt"></i>Mapa</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/simulados/" class="m_simulados"><i
+                            class="menu-i fas fa-tasks"></i>Simulados</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/provas/" class="m_provas"><i class="menu-i fas fa-file-alt"></i>Provas</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/organizadoras/" class="m_organizadoras"><i class="menu-i fas fa-building"></i>Organizadoras</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/colaborar/" class="m_colaborar"><i class="menu-i fas fa-handshake"></i>Colaborar</a>
+            </li>
+            <li><a href="https://www.pciconcursos.com.br/contato/" class="m_contato"><i class="menu-i fas fa-envelope"></i>Contato</a>
+            </li>
+        </ul>
+    </nav>
+    <div id="conteudo">
+        <style>
+#provas #download .pdf-item {
+    position: relative;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    padding: 5px;
+    margin-bottom: 15px;
+}
+#provas #download .pdf-item:hover {
+    background-color: #f7f8f8;
+}
+#provas #download .pdf-item a.item-link {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    text-indent: -9999px;
+    z-index: 1;
+}
+#provas #download .pdf-icon,
+#provas #download .pdf-text {
+    position: relative;
+    z-index: 0;
+}
+#provas ul.btn-provas {
+    list-style: none;
+    padding: 10px 0;
+    margin: 0;
+    text-align: center;
+}
+#provas ul.btn-provas li {
+    display: inline-block;
+    padding-top: 30px;
+}
+#provas ul.btn-provas li a {
+    border: 1px solid #205c98;
+    border-radius: 15px;
+    margin-right: 10px;
+    margin-top: 10px;
+    padding: 5px 7px;
+    font-size: 14px;
+    color: #205c98;
+}
+#provas ul.btn-provas li a:hover {
+    background-color: #f7f8f8;
+    text-decoration: none;
+}
+</style>
+<div id="provas">
+    <div id="download">
+        <h1>Provas para Download</h1>
+        <div style="position: relative;">
+            <div style="position: absolute; right:0; top:-45px;"><div class="sharelink"><a href="#" onclick="shareLink('Provas para Download - Auditor - Fiscal da Receita Estadual - AFRE/MG', '', 'https://www.pciconcursos.com.br/provas/download/auditor-fiscal-da-receita-estadual-afre-mg-esaf-2005'); return false;" rel="nofollow"><i class="fa-light fa-share-nodes"></i> </a></div></div>
+        </div>
+        <div class="breadcrumbs"><a href="https://www.pciconcursos.com.br" title="Início">Início</a> › <a href="https://www.pciconcursos.com.br/provas/" title="Provas">Provas</a> › <strong>Auditor - Fiscal da Receita Estadual - AFRE/MG</strong></div>
+        <div>
+            <div class="ads_mobi"><div style="width:320px; height:100px; margin:20px auto 0 auto;"><ins class="adsbygoogle" style="display:inline-block;width:320px;height:100px" data-ad-client="ca-pub-2622407619291980" data-ad-slot="1797634041"></ins><script>(adsbygoogle = window.adsbygoogle || []).push({});</script></div></div>
+<div class="ads10"><div class="ads11"><ins class="adsbygoogle" style="display:inline-block;width:300px;height:250px" data-ad-client="ca-pub-2622407619291980" data-ad-slot="9825760010"></ins><script>(adsbygoogle = window.adsbygoogle || []).push({});</script></div><div class="ads12"><ins class="adsbygoogle" style="display:inline-block;width:300px;height:250px" data-ad-client="ca-pub-2622407619291980" data-ad-slot="9825760010"></ins><script>(adsbygoogle = window.adsbygoogle || []).push({});</script></div></div>
+
+            <div class="container text-center my-3">
+                <ul class="nav justify-content-center">
+                    <li class="nav-item mx-2 mt-2">
+                        <a class="btn btn-outline-pci btn-sm" href="https://www.pciconcursos.com.br/provas/top">
+                            <i class="fa-light fa-star"></i> Mais acessadas
+                        </a>
+                    </li>
+                    <li class="nav-item mx-2 mt-2">
+                        <a class="btn btn-outline-pci btn-sm" href="https://www.pciconcursos.com.br/organizadoras/">
+                            <i class="fa-light fa-building"></i> Organizadoras
+                        </a>
+                    </li>
+                    <li class="nav-item mx-2 mt-2">
+                        <a class="btn btn-outline-pci btn-sm" href="https://www.pciconcursos.com.br/colaborar/">
+                            <i class="fa-light fa-plus-circle"></i> Colabore enviando provas
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="container my-5">
+            <form method="post" action="https://www.pciconcursos.com.br/provas/">
+                <div class="row justify-content-center">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" name="prova" class="form-control" placeholder="Digite sua pesquisa" value="">
+                            <div class="input-group-append">
+                                <button type="submit" name="botao" class="btn btn-pci">
+                                    <i class="fas fa-search"></i> Pesquisar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0 text-pci" style="line-height:1.8rem;">
+                    <i class="fas fa-clipboard-list mr-3"></i>Prova Auditor - Fiscal da Receita Estadual - AFRE/MG
+                </h5>
+            </div>
+            <div class="card-body" style="padding-left:18px;">
+                <ul class="list-unstyled mb-0">
+            <li class="mb-2">
+                <div class="d-flex">
+                    <div class="mr-3 text-center text-pci" style="width:20px;"><i class="fas fa-briefcase"></i></div>
+                    <div><strong>Cargo:</strong> <a href="https://www.pciconcursos.com.br/provas/auditor-fiscal-da-receita-estadual-abrangente" class="text-pci">Auditor - Fiscal da Receita Estadual</a></div>
+                </div>
+            </li>
+            <li class="mb-2">
+                <div class="d-flex">
+                    <div class="mr-3 text-center text-pci" style="width:20px;"><i class="fas fa-calendar-alt"></i></div>
+                    <div><strong>Ano:</strong> <span class="text-pci">2005</span></div>
+                </div>
+            </li>
+            <li class="mb-2">
+                <div class="d-flex">
+                    <div class="mr-3 text-center text-pci" style="width:20px;"><i class="fas fa-university"></i></div>
+                    <div><strong>Órgão:</strong> <a href="https://www.pciconcursos.com.br/provas/afre-mg" class="text-pci">AFRE/MG</a></div>
+                </div>
+            </li>
+            <li class="mb-2">
+                <div class="d-flex">
+                    <div class="mr-3 text-center text-pci" style="width:20px;"><i class="fas fa-building"></i></div>
+                    <div><strong>Organizadora:</strong> <a href="https://www.pciconcursos.com.br/provas/esaf" class="text-pci">ESAF</a></div>
+                </div>
+            </li></ul>
+            </div>
+        </div>
+        <div class="card mb-4" id="captcha-provas">
+            <div class="card-header bg-white">
+                <h5 class="mb-0 text-pci"><i class="fas fa-shield-alt mr-3"></i>Verificação de segurança</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">Complete a verificação abaixo para acessar os arquivos desta página.</p>
+                <noscript>
+                    <div class="alert alert-warning mb-0 mt-3">
+                        Para visualizar ou baixar os arquivos desta página é necessário habilitar o JavaScript no seu navegador.
+                    </div>
+                </noscript>
+                <div style="margin:0; margin-top:30px;" class="cf-turnstile" data-sitekey="0x4AAAAAADNbfLtQAd1xDiAm" data-callback="provasCaptchaOk"></div><div id="turnstile-error" style="margin-top:20px; color:red; display:none;"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer onload="window.turnstileScriptOk = true;"></script><script>
+/* chamada pelo Turnstile (data-callback) ao concluir a verificação:
+   limpa a mensagem de erro que ficou de uma tentativa anterior */
+function turnstileCleanError() {
+    var el = document.getElementById('turnstile-error');
+    if (el) { el.innerHTML = ''; el.style.display = 'none'; }
+}
+function validateTurnstile() {
+    var ok = false;
+    try {
+        if (typeof turnstile !== 'undefined') {
+            var resp = turnstile.getResponse();
+            ok = resp && resp.length > 0;
+        }
+    } catch (e) {}
+    var el = document.getElementById('turnstile-error');
+    if (ok) {
+        if (el) { el.innerHTML = ''; el.style.display = 'none'; }
+        return true;
+    }
+    if (el) {
+        el.style.display = 'block';
+        el.innerHTML = 'Por favor, complete a verificação de segurança.';
+    }
+    return false;
+}
+</script>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0 text-pci"><i class="fas fa-file-pdf mr-3"></i>Visualizar os arquivos PDF</h5>
+            </div>
+            <div class="card-body">
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" rel="nofollow" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="prova1_auditor_fiscal.pdf" data-acao="ver">Ver prova1-auditor-fiscal.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">prova1-auditor-fiscal.pdf</span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" rel="nofollow" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="provas_2e3_auditor_fiscal.pdf" data-acao="ver">Ver provas-2e3-auditor-fiscal.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">provas-2e3-auditor-fiscal.pdf</span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" rel="nofollow" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="gabaritos.pdf" data-acao="ver">Ver gabaritos.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">gabaritos.pdf</span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" rel="nofollow" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="gabarito_definitivo_auditor.pdf" data-acao="ver">Ver gabarito-definitivo-auditor.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">gabarito-definitivo-auditor.pdf</span>
+            </div>
+        </div></div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0 text-pci"><i class="fas fa-download mr-3"></i>Download dos arquivos PDF</h5>
+            </div>
+            <div class="card-body">
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" rel="nofollow" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="prova1_auditor_fiscal.pdf" data-acao="baixar">Baixar prova1-auditor-fiscal.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf_download.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">prova1-auditor-fiscal.pdf</span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" rel="nofollow" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="provas_2e3_auditor_fiscal.pdf" data-acao="baixar">Baixar provas-2e3-auditor-fiscal.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf_download.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">provas-2e3-auditor-fiscal.pdf</span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" rel="nofollow" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="gabaritos.pdf" data-acao="baixar">Baixar gabaritos.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf_download.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">gabaritos.pdf</span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" rel="nofollow" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="gabarito_definitivo_auditor.pdf" data-acao="baixar">Baixar gabarito-definitivo-auditor.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf_download.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">gabarito-definitivo-auditor.pdf</span>
+            </div>
+        </div></div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0 text-pci"><i class="fas fa-share-alt mr-3"></i>Compartilhar os arquivos PDF</h5>
+            </div>
+            <div class="card-body">
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="prova1_auditor_fiscal.pdf" data-acao="compartilhar"
+               data-nome="prova1-auditor-fiscal.pdf">Compartilhar prova1-auditor-fiscal.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf_c.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">prova1-auditor-fiscal.pdf</span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="provas_2e3_auditor_fiscal.pdf" data-acao="compartilhar"
+               data-nome="provas-2e3-auditor-fiscal.pdf">Compartilhar provas-2e3-auditor-fiscal.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf_c.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">provas-2e3-auditor-fiscal.pdf</span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="gabaritos.pdf" data-acao="compartilhar"
+               data-nome="gabaritos.pdf">Compartilhar gabaritos.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf_c.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">gabaritos.pdf</span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center pdf-item">
+            <a href="javascript:void(0);" class="item-link prova-pdf-link"
+               data-code="37f58de22cef2298009670b422356ca1" data-arquivo="gabarito_definitivo_auditor.pdf" data-acao="compartilhar"
+               data-nome="gabarito-definitivo-auditor.pdf">Compartilhar gabarito-definitivo-auditor.pdf</a>
+            <div class="pdf-icon mr-0">
+                <img src="https://www.pciconcursos.com.br/img/icon_pdf_c.png" alt="PDF" width="70" height="70">
+            </div>
+            <div class="pdf-text">
+                <span class="text-pci">gabarito-definitivo-auditor.pdf</span>
+            </div>
+        </div></div>
+        </div><script>
+(function() {
+    var processando = false;
+    var liberado = false;
+    function resetCaptcha() {
+        try { if (typeof turnstile !== 'undefined') turnstile.reset(); } catch (e) {}
+    }
+    function mostraErro(msg) {
+        var el = document.getElementById('turnstile-error');
+        if (el) { el.style.display = 'block'; el.innerHTML = msg; }
+    }
+    /* escreve as URLs com hash nos links da página; o captcha continua visível */
+    function aplicaLinks(arquivos) {
+        var mapa = {};
+        arquivos.forEach(function(a) { mapa[a.arquivo] = a; });
+        document.querySelectorAll('.prova-pdf-link').forEach(function(el) {
+            var item = mapa[el.dataset.arquivo];
+            if (!item) return;
+            if (el.dataset.acao === 'ver') {
+                el.href = item.ver;
+                el.target = '_blank';
+            } else if (el.dataset.acao === 'baixar') {
+                /* mesma página: o servidor de provas entrega como anexo */
+                el.href = item.baixar;
+            } else if (el.dataset.acao === 'compartilhar') {
+                el.dataset.url = item.ver;
+            }
+        });
+        liberado = true;
+    }
+    function liberaArquivos(token) {
+        if (liberado || processando) return;
+        try { if (!token && typeof turnstile !== 'undefined') token = turnstile.getResponse() || ''; } catch (e) {}
+        if (!token) return;
+        processando = true;
+        var primeiro = document.querySelector('.prova-pdf-link');
+        var dados = new FormData();
+        dados.append('prova_code', primeiro ? primeiro.dataset.code : '');
+        dados.append('cf-turnstile-response', token);
+        fetch('https://www.pciconcursos.com.br/provas/link', { method: 'POST', body: dados })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                if (!resp.ok || !resp.arquivos) {
+                    resetCaptcha();
+                    mostraErro(resp.erro || 'Falha na verificação de segurança. Tente novamente.');
+                    return;
+                }
+                /* uma verificação libera todos os arquivos da prova */
+                aplicaLinks(resp.arquivos);
+            })
+            .catch(function() {
+                resetCaptcha();
+                mostraErro('Não foi possível concluir a verificação. Tente novamente.');
+            })
+            .finally(function() { processando = false; });
+    }
+    /* chamado pelo Turnstile (data-callback) ao concluir a verificação:
+       libera os links de imediato, antes de qualquer clique */
+    window.provasCaptchaOk = function(token) {
+        if (typeof turnstileCleanError === 'function') turnstileCleanError();
+        liberaArquivos(token);
+    };
+    document.addEventListener('click', function(e) {
+        var link = e.target.closest('.prova-pdf-link');
+        if (!link) return;
+        if (liberado) {
+            /* links liberados: navegação nativa; só o compartilhar usa JS,
+               de forma síncrona dentro do gesto do usuário */
+            if (link.dataset.acao === 'compartilhar') {
+                e.preventDefault();
+                shareLink(link.dataset.nome, 'PCI Concursos :: Provas para Download', link.dataset.url);
+            }
+            return;
+        }
+        e.preventDefault();
+        if (processando) {
+            mostraErro('Aguarde, liberando os arquivos...');
+            return;
+        }
+        if (typeof validateTurnstile === 'function' && validateTurnstile()) {
+            /* captcha resolvido mas links ainda não liberados
+               (ex.: falha de rede anterior): tenta liberar de novo */
+            liberaArquivos('');
+            return;
+        }
+        /* captcha ainda não resolvido: a mensagem já foi mostrada; leva até o card */
+        var box = document.getElementById('captcha-provas');
+        if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+})();
+</script>
+        <div class="pb-4">
+            
+        <div class="compartilhe">
+        <div style="padding-bottom:10px; font-size:13px;">Compartilhe:</div>
+        <a href="#" onclick="shareOnWhatsApp('Prova: Auditor - Fiscal da Receita Estadual - AFRE/MG https://www.pciconcursos.com.br/provas/download/auditor-fiscal-da-receita-estadual-afre-mg-esaf-2005'); return false;" rel="nofollow" style="background-color:#25D366;" title="Compartilhar no WhatsApp">
+        <i class="fab fa-whatsapp" style="font-size:36px; padding-left:2px;"></i>
+        </a><a href="https://t.me/share/url?url=https://www.pciconcursos.com.br/provas/download/auditor-fiscal-da-receita-estadual-afre-mg-esaf-2005&text=Prova%3A+Auditor+-+Fiscal+da+Receita+Estadual+-+AFRE%2FMG" target="_blank" style="background-color:#0088cc;" title="Compartilhar no Telegram">
+        <i class="fas fa-paper-plane" style="font-size:22px;"></i>
+        </a><a href="https://www.linkedin.com/shareArticle?mini=true&url=https://www.pciconcursos.com.br/provas/download/auditor-fiscal-da-receita-estadual-afre-mg-esaf-2005&title=Prova%3A+Auditor+-+Fiscal+da+Receita+Estadual+-+AFRE%2FMG&summary=PCI+Concursos+%3A%3A+Provas+para+Download&source=PCIConcursos" rel="nofollow" target="_blank" style="background-color:#0077B5;" title="Compartilhar no Linkedin">
+        <i class="fab fa-linkedin-in" style="font-size:28px;"></i>
+        </a><a href="https://www.facebook.com/sharer/sharer.php?u=https://www.pciconcursos.com.br/provas/download/auditor-fiscal-da-receita-estadual-afre-mg-esaf-2005" rel="nofollow" target="_blank" style="background-color:#3b5998;" title="Compartilhar no Facebook">
+        <i class="fab fa-facebook-f" style="font-size:28px;"></i>
+        </a><a href="https://x.com/intent/tweet?url=https://www.pciconcursos.com.br/provas/download/auditor-fiscal-da-receita-estadual-afre-mg-esaf-2005&text=Prova%3A+Auditor+-+Fiscal+da+Receita+Estadual+-+AFRE%2FMG" rel="nofollow" target="_blank" style="background-color:#000000;" title="Compartilhar no X">
+        <i class="fab fa-x-twitter" style="font-size:28px;"></i>
+        </a><a href="#" onclick="shareLink('Prova: Auditor - Fiscal da Receita Estadual - AFRE/MG','Prova: Auditor - Fiscal da Receita Estadual - AFRE/MG','https://www.pciconcursos.com.br/provas/download/auditor-fiscal-da-receita-estadual-afre-mg-esaf-2005'); return false;" rel="nofollow" style="background-color:#205c98;" title="Compartilhar">
+        <i class="fa-thin fa-share" style="font-size:28px;"></i>
+        </a>
+        </div>
+        </div>
+        <div class="pt-2 pb-5">
+            <a href="javascript:window.history.go(-1);" class="btn btn-lg btn-outline-pci">
+                <i class="fas fa-arrow-left mr-2"></i>Voltar
+            </a>
+        </div>
+        <div style="padding:10px; margin:0 auto;"><ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-2622407619291980" data-ad-slot="4406933812" data-ad-format="auto" data-full-width-responsive="true"></ins><script>(adsbygoogle = window.adsbygoogle || []).push({});</script></div>
+
+        
+        
+    </div>
+</div>    </div>
+    <div id="lateral">
+        <div id="lateralnoticias">
+            <ul id="lista_lateral_noticias" class="lateral_social">
+                <li><a href="https://www.pciconcursos.com.br/noticias/inb-abre-concurso-publico-para-cadastro-de-reserva-em-diversas-areas-de-atuacao"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/ad87d9849a327e7341729f14547baa20.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>INB abre concurso público para cadastro de reserva em diversas áreas de atuação</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/camara-dos-deputados-retifica-concurso-publico-para-analistas-legislativos"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/34b53b78b299df3380c95ab103751fa1.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Câmara dos Deputados retifica concurso público para analistas legislativos</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/tjsp-abre-concursos-para-oficial-de-justica-e-escrevente-tecnico-judiciario"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/eda04dace7a00dc91f73ab602ab07ae1.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>TJSP abre concursos para Oficial de Justiça e Escrevente Técnico Judiciário</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/prefeitura-de-matao-sp-abre-concurso-publico-com-salarios-de-ate-9717"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/c6897a9560abdf447ea970a8668077f0.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Prefeitura de Matão - SP abre concurso público com salários de até R$ 9.717,96</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/camara-de-boituva-sp-abre-concursos-com-salarios-de-ate-8595"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/6c5fb490a9a2c6a8533fae94b1056260.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Câmara de Boituva - SP abre concursos com salários de até R$ 8.595,15</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/setec-campinas-sp-abre-concurso-publico-com-salarios-de-ate-10428"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/0015824285815959b92a34607c2ba88c.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>SETEC Campinas - SP abre concurso público com salários de até R$ 10.428,05</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/prefeitura-de-sao-goncalo-rj-abre-concursos-para-guardas-municipais"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/dbb2a87eae8da19d1d1fa13f4821e4ba.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Prefeitura de São Gonçalo - RJ abre concursos para Guardas Municipais</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/prefeitura-de-paraguacu-mg-abre-concurso-publico-com-salarios-de-ate-20128"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/13827fa35802c6059f23529f9d6562aa.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Prefeitura de Paraguaçu - MG abre concurso público com salários de até R$ 20.128,27</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/prefeitura-de-santa-luzia-mg-abre-concurso-publico-com-salarios-de-ate-8628"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/235304f35049dd093385cd614f9c28c0.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Prefeitura de Santa Luzia - MG abre concurso público com salários de até R$ 8.628,87</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/hospital-municipal-dr-gil-alves-mg-abre-concurso-com-salarios-de-ate-7950"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/beca403b62bc376e3831605ce9b53744.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Hospital Municipal Dr. Gil Alves - MG abre concurso com salários de até R$ 7.950,00</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/pmmg-abre-concurso-com-90-vagas-para-o-curso-de-formacao-de-oficiais"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/481ff05e934b984bc49e944876cfa2fb.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>PMMG abre concurso com 90 vagas para o Curso de Formação de Oficiais</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/prefeitura-de-contagem-mg-retifica-edital-de-concurso-publico"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/7de2c0dbeff437f4cd0052b4d16f8acf.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Prefeitura de Contagem - MG retifica edital de concurso público</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/banestes-e-banestes-seguros-es-retificam-concursos-para-cadastro-de-reserva"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/6a7d895cfca7b96c5e851719d02aef45.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Banestes e Banestes Seguros - ES retificam concursos para cadastro de reserva</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/creci-es-abre-concurso-publico-com-salarios-de-ate-8250"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/68a70f2c4fb3328044faea3cdbc2bdd4.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>CRECI - ES abre concurso público com salários de até R$ 8.250,00</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/prefeitura-de-curitiba-pr-retifica-concursos-publicos-com-vagas-imediatas-e-cadastro-de-reserva"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/7e43baaf8a6451ce7f314f14cb58092f.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Prefeitura de Curitiba - PR retifica concursos públicos com vagas imediatas e cadastro de reserva</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/trt4-rs-abre-concurso-publico-para-analistas-e-tecnicos-judiciarios"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/100c95848cde5327f4f736fe7c84841f.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>TRT4 - RS abre concurso público para analistas e técnicos judiciários</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/prefeitura-de-porto-alegre-rs-publica-concurso-publico-com-salarios-de-ate-9135"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/104f63a60127f6c96708c6667ade9cc5.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Prefeitura de Porto Alegre - RS publica concurso público com salários de até R$ 9.135,44</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/prefeitura-de-aparecida-de-goiania-go-abre-concurso-publico-com-vagas-na-area-da-educacao"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/5f668bcb089e211beb1b13d900dedf68.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Prefeitura de Aparecida de Goiânia - GO abre concurso público com vagas na área da educação</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/prefeitura-de-caldas-novas-go-divulga-retificacao-do-concurso-publico-para-guardas-civis-municipais"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/930a3c671a0af82a2ac1996be81dc3b5.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Prefeitura de Caldas Novas - GO divulga retificação do concurso público para guardas civis municipais</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/tce-go-retifica-concurso-publico-para-tecnicos-de-controle-externo"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/49d0f07f837fcc4f15672d89520c62f4.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>TCE - GO retifica concurso público para técnicos de controle externo</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/trt-8-pa-ap-publica-edital-de-concurso-para-tecnicos-e-analistas-judiciarios"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/1b097dfab8022f6008c84f88135fc133.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>TRT 8 - PA/AP publica edital de concurso para técnicos e analistas judiciários</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/prefeitura-de-porto-velho-ro-retifica-concurso-com-vagas-imediatas-e-cadastro-de-reserva"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/d8c77ce59b47897c0fa2e1bf1d81166a.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Prefeitura de Porto Velho - RO retifica concurso com vagas imediatas e cadastro de reserva</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/dpe-pb-abre-concurso-publico-com-salarios-de-ate-5197"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/cf2d489a1f98765ab1743a4e020ac5dd.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>DPE - PB abre concurso público com salários de até R$ 5.197,50</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/secretaria-de-defesa-social-e-de-administracao-pe-abrem-concurso-com-1315-vagas-para-a-policia-civil"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/36ff12caca1930152743d7eea8292080.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Secretaria de Defesa Social e de Administração - PE abrem concurso com 1.315 vagas para a Polícia Civil</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/secretaria-de-defesa-social-pe-retifica-concurso-com-570-vagas-para-bombeiros"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/0c28e0a34e0063d114b5f2dfc14c3705.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Secretaria de Defesa Social - PE retifica concurso com 570 vagas para Bombeiros</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/pmpe-altera-periodo-de-inscricao-para-concurso-publico-de-soldados-e-oficiais"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/0c28e0a34e0063d114b5f2dfc14c3705.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>PMPE altera período de inscrição para concurso público de soldados e oficiais</a></li>
+<li><a href="https://www.pciconcursos.com.br/noticias/camara-de-mossoro-rn-abre-concurso-publico-com-salarios-de-ate-8810"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADUlEQVQImWP4//8/AwAI/AL+hc2rNAAAAABJRU5ErkJggg=="  data-src="https://cdn.pci.app.br/img/c/be6cca3358e792510686ebbbd4409574.png" style="height:35px; width:auto; max-width:60px;" class="lazyload"><br>Câmara de Mossoró - RN abre concurso público com salários de até R$ 8.810,69</a></li>
+            </ul>
+        </div>
+    </div>
+    <div id="footer">
+        <div>
+            <div class="footer-politica-de-privacidade"><a href="https://www.pciconcursos.com.br/politica-de-privacidade">Política de
+                    Privacidade e Cancelamento</a></div>
+            <div class="footer-copyright">2000-2026 PCI Concursos ®</div>
+            <div class="footer-redes-sociais">
+                <a target="_blank" href="https://t.me/pciconcursos" style="background-color:#0088cc;"
+                   title="Telegram"><i class="fas fa-paper-plane" style="font-size:12px;"></i></a>
+                <a target="_blank" href="https://www.facebook.com/pciconcursos" style="background-color:#3b5998;"
+                   title="Facebook"><i class="fab fa-facebook-f" style="font-size:18px;"></i></a>
+                <a target="_blank" href="https://www.linkedin.com/company/pciconcursos/posts/"
+                   style="background-color:#0077B5;" title="Linkedin"><i class="fab fa-linkedin-in"
+                                                                         style="font-size:18px;"></i></a>
+                <a target="_blank" href="https://x.com/pciconcursos" style="background-color:#000000;" title="X"><i
+                            class="fab fa-x-twitter" style="font-size:16px;"></i></a>
+                <a target="_blank" href="https://www.instagram.com/pciconcursos_oficial"
+                   style="background-color:#C13584;" title="Instagram"><i class="fab fa-instagram"
+                                                                          style="font-size:18px; margin-top:1px;"></i></a>
+            </div>
+            <!-- <div class="footer-tel"><a href="https://www.pciconcursos.com.br/contato/">Atendimento /contato</a></div> -->
+            <div id="lgpd" style="display:none;"></div>
+        </div>
+    </div>
+</div>
+<script src="https://www.pciconcursos.com.br/js/jquery.slicknav.min.js"></script>
+<script src="https://www.pciconcursos.com.br/js/js.cookie.min.js"></script>
+<script src="https://www.pciconcursos.com.br/js/site.js?31993201"></script>
+<script src="https://www.pciconcursos.com.br/js/popper.min.js"></script>
+<script src="https://www.pciconcursos.com.br/js/bootstrap.js"></script>
+
+<script>if ('serviceWorker' in navigator && location.hostname === 'www.pciconcursos.com.br') { navigator.serviceWorker.register('/sw.js').catch(() => {}); }</script>
+<script src="https://www.pciconcursos.com.br/js/lazy.js" defer></script>
+<script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2622407619291980" crossorigin="anonymous" defer></script>
+<script src="https://www.googletagmanager.com/gtag/js?id=G-ELMBY7KMP0" defer></script>
+<script>window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-ELMBY7KMP0');
+</script></body>
+</html>

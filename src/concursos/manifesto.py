@@ -2,6 +2,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import yaml
+
 ARQUIVO_MANIFESTO = '.manifesto.json'
 VERSAO_ANALISE = 9
 _IGNORADOS = (':Zone.Identifier',)
@@ -18,7 +20,25 @@ def calcular(pasta: Path, candidato: str | None = None) -> dict:
         and not caminho.name.endswith(_IGNORADOS)
         and _do_par(caminho.relative_to(pasta).parts, candidato)
     }
+    for nome in _edital_de_fora(pasta):
+        if (pasta / nome).is_file():
+            arquivos[nome] = hash_arquivo(pasta / nome)
     return {'versao': VERSAO_ANALISE, 'arquivos': arquivos}
+
+
+def _edital_de_fora(pasta: Path) -> list[str]:
+    """O edital emprestado de outro concurso (`../alvo/edital.pdf`, no simulado), que o `rglob` não vê."""
+    caminho = pasta / 'concurso.yaml'
+    try:
+        dados = yaml.safe_load(caminho.read_text(encoding='utf-8')) if caminho.exists() else None
+    except yaml.YAMLError:
+        return []
+    edital = dados.get('edital') if isinstance(dados, dict) else None
+    if isinstance(edital, dict):
+        nomes = [edital.get('arquivo'), edital.get('manual'), *(edital.get('anexos') or [])]
+    else:
+        nomes = [edital]
+    return sorted(n for n in nomes if isinstance(n, str) and n.startswith('../'))
 
 
 def _do_par(partes: tuple[str, ...], candidato: str | None) -> bool:

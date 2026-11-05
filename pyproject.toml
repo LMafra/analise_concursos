@@ -28,6 +28,9 @@ dependencies = [
 
 [project.optional-dependencies]
 llm = ["keyring>=25"]
+pci = [
+    "mcp>=2.3",
+]
 
 [project.scripts]
 concurso-analise = "concursos.cli:executar"
@@ -60,6 +63,7 @@ testpaths = ["tests"]
 addopts = "-q"
 markers = [
     "integration: usa uma instância real do open-notebook em OPEN_NOTEBOOK_URL; pulado sem ela",
+    "pci_mcp: usa o servidor MCP real da PCI Concursos; pulado sem PCI_MCP_INTEGRACAO=1",
 ]
 
 [tool.ruff]

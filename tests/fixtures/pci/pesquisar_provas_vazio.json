@@ -1,0 +1,8 @@
+{
+  "ferramenta": "pesquisar_provas",
+  "argumentos": {
+    "termo": "xyzw inexistente 1901"
+  },
+  "is_error": false,
+  "texto": "{\"meta\":{\"total\":0,\"total_encontrado\":0,\"timestamp\":1793881555,\"data_atual\":\"2026-11-05\",\"endpoint\":\"provas\",\"parametros\":{\"termo\":\"xyzw inexistente 1901\",\"termos_busca\":\"+xyzw +inexistente +1901\"}},\"data\":[],\"errors\":[],\"message\":\"Nenhuma prova encontrada para \\\"xyzw inexistente 1901\\\". Todas as palavras precisam aparecer na prova: tente com menos termos (ex: só o cargo e o órgão).\"}"
+}

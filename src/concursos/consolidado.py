@@ -8,6 +8,7 @@ import pandas as pd
 from concursos.agregacao import COLUNAS_DESEMPENHO, percentual_de_merito
 from concursos.analytics.correcao import notas_finais_gravadas
 from concursos.arquivos import gravar_se_mudou
+from concursos.concurso_config import ler_dados
 from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.manifesto import ARQUIVO_MANIFESTO
 from concursos.modelo import StatusGabarito
@@ -30,14 +31,17 @@ def consolidar(
     limiar_topico_baixo: float,
     candidato: str | None = None,
     avaliados: Mapping[str, StatusConcurso] | None = None,
+    incluir_simulados: bool = False,
 ) -> None:
     """Junta os desempenhos por tópico de todos os concursos analisados e gera o comparativo.
 
-    `avaliados` são as situações que a análise acabou de calcular, por pasta; os outros são avaliados aqui."""
+    `avaliados` são as situações que a análise acabou de calcular, por pasta; os outros são avaliados aqui.
+    Os simulados (bloco `simulado:`) ficam de fora, a não ser com `incluir_simulados`."""
     avaliados = avaliados or {}
     situacoes = {
         pasta.name: avaliados[pasta.name] if pasta.name in avaliados else avaliar(pasta, candidato)
         for pasta in listar_concursos(raiz_provas)
+        if incluir_simulados or not ler_dados(pasta).get('simulado')
     }
     analisados = {
         nome: s
