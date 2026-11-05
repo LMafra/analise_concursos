@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
@@ -90,15 +91,20 @@ def analisar_todos(
     configuracao: ConfiguracaoGlobal | None = None,
     taxonomia: dict[str, DisciplinaCanonica] | None = None,
     candidato: str | None = None,
+    ao_progresso: Callable[[str, int, int], None] | None = None,
 ) -> bool:
     """Analisa os concursos completos que mudaram; retorna False se algum falhou durante a análise.
 
     Com candidato, `raiz_analises` é a pasta dele e só entram os concursos com `candidatos/<candidato>/`.
+    `ao_progresso(concurso, indice, total)` é chamado antes de cada concurso, a partir de 1.
     """
     configuracao = configuracao or ConfiguracaoGlobal()
     sucesso = True
     situacoes = {}
-    for pasta in _selecionar(raiz_provas, apenas):
+    pastas = _selecionar(raiz_provas, apenas)
+    for indice, pasta in enumerate(pastas, start=1):
+        if ao_progresso is not None:
+            ao_progresso(pasta.name, indice, len(pastas))
         destino = raiz_analises / pasta.name
         situacao, analisado = _analisar_se_necessario(
             pasta, destino, forcar, configuracao, taxonomia, candidato

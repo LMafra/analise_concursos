@@ -1,6 +1,6 @@
 [project]
 name = "concurso-analise"
-version = "0.4.0"
+version = "0.5.0"
 description = "Análise de desempenho em concursos públicos por disciplina e tópico"
 readme = "README.md"
 authors = [
@@ -31,9 +31,13 @@ llm = ["keyring>=25"]
 pci = [
     "mcp>=2.3",
 ]
+gui = [
+    "nicegui[native]>=4,<5",
+]
 
 [project.scripts]
 concurso-analise = "concursos.cli:executar"
+concurso-analise-gui = "concursos.cli:executar_gui"
 concursos = "concursos.cli:executar_legado"
 
 [build-system]
@@ -55,12 +59,18 @@ dev = [
     "ipython>=8",
     "pre-commit>=4.7.0",
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.0",
     "ruff>=0.17.1",
+]
+empacotamento = [
+    "pyinstaller>=6.11",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "integration: usa uma instância real do open-notebook em OPEN_NOTEBOOK_URL; pulado sem ela",
     "pci_mcp: usa o servidor MCP real da PCI Concursos; pulado sem PCI_MCP_INTEGRACAO=1",

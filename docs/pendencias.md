@@ -132,7 +132,7 @@ A história 33 da spec da fase 3 pede a precedência retificação, edital, conf
 
 ## Verificações incompletas
 
-Nada a programar nestes dois itens: ou cabem ao usuário, ou dependem de ambiente que não existe hoje.
+Nada a programar nestes itens: ou cabem ao usuário, ou dependem de ambiente que não existe hoje.
 
 <a id="verificacao-fase2"></a>
 
@@ -151,3 +151,16 @@ Os critérios estão marcados, com ressalvas registradas na própria issue:
 - **CI:** `.github/workflows/ci.yml` está escrito (Ubuntu, macOS e Windows; Python 3.11 e 3.12), mas nunca rodou porque o repositório não tem remoto. Publicar no PyPI e rodar o CI estão fora de escopo enquanto não houver remoto.
 
 Fecha quando houver remoto (o CI cobre macOS e Windows) ou quando o `uv` for instalado no Windows para rodar o comando pelo `powershell.exe`.
+
+<a id="verificacao-fase5"></a>
+
+### Fase 5, issues 07 e 08: janela nativa e Gatekeeper conferidos à mão
+
+O `release.yml` passou nos três sistemas na tag `v0.5.0-rc2`: em cada um, o executável rodou o `--smoke` (Tesseract embutido com `por`, GUI em `127.0.0.1`), o `doctor` e a análise do projeto sintético sem Python nem Tesseract no `PATH`; no Windows, depois de instalar em silêncio, e com a desinstalação conferida; no Linux, também num `debian:12` limpo; no macOS, com o app copiado do DMG. A release ficou em rascunho com os três artefatos e o `SHA256SUMS`.
+
+Falta o que o runner não reproduz:
+
+- **Windows:** o checklist do Windows Sandbox (janela nativa com WebView2, SmartScreen, menu Iniciar), em `.scratch/gui-leigo/issues/07-executavel-windows.md`.
+- **macOS arm64:** abrir o DMG baixado num Mac, com o "Abrir Mesmo Assim" do Gatekeeper, e ver a janela nativa.
+
+Fecha com os dois registrados nos tickets; aí a tag `v0.5.0` gera a release final.

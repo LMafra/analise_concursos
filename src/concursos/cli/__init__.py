@@ -55,6 +55,10 @@ def executar() -> None:
     sys.exit(main())
 
 
+def executar_gui() -> None:
+    sys.exit(main(['gui', *sys.argv[1:]]))
+
+
 def executar_legado() -> None:
     argv = sys.argv[1:]
     if not (argv and argv[0] in COMANDOS_LEGADOS):

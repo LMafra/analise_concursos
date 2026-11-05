@@ -1,0 +1,219 @@
+# Executáveis para o usuário leigo (fase 5). Numa tag `v*`, ou à mão, gera os instaladores com o Python e o
+# Tesseract embutidos, roda o gate de máquina limpa em cada sistema e publica a release com o SHA256SUMS.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: '1'
+  NO_COLOR: '1'
+  UV_VERSION: '0.13.0'
+  PYTHON_BUILD: '3.12'
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_BUILD }}
+          enable-cache: true
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-tesseract-ocr pacman-contrib
+
+      - name: Captura do TEC
+        run: node tec-erros/scripts/build.mjs
+
+      - name: Tesseract (MSYS2) e por.traineddata
+        run: ./empacotamento/tesseract/obter_windows.ps1 -Msys '${{ steps.msys2.outputs.msys2-location }}'
+
+      - name: Ambiente de build
+        run: |
+          uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
+          uv run --no-sync python empacotamento/coletar_licencas.py
+          $versao = uv run --no-sync python -c "from importlib.metadata import version; print(version('concurso-analise'))"
+          "VERSAO=$versao" >> $env:GITHUB_ENV
+
+      - name: PyInstaller (onedir)
+        run: uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+
+      - name: Instalador (Inno Setup)
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --yes --no-progress
+          }
+          & $iscc "/DVersao=$env:VERSAO" empacotamento\inno\concurso-analise.iss
+          if ($LASTEXITCODE -ne 0) { throw 'iscc falhou' }
+
+      - name: Gate de máquina limpa
+        run: ./scripts/smoke_maquina_limpa.ps1 -Instalador "dist\concurso-analise-$env:VERSAO-windows-x64-setup.exe"
+
+      - name: Tamanho
+        run: |
+          $instalado = (Get-ChildItem -Recurse dist\concurso-analise | Measure-Object -Sum Length).Sum / 1MB
+          $instalador = (Get-Item "dist\concurso-analise-$env:VERSAO-windows-x64-setup.exe").Length / 1MB
+          "Instalado: {0:N0} MB; instalador: {1:N0} MB" -f $instalado, $instalador | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/concurso-analise-*-windows-x64-setup.exe
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    env:
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Captura do TEC
+        run: node tec-erros/scripts/build.mjs
+
+      - name: AppImage
+        run: bash empacotamento/linux/construir.sh
+
+      - name: Tamanho
+        run: du -h dist/concurso-analise-*-linux-x86_64.AppImage | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/concurso-analise-*-linux-x86_64.AppImage
+          if-no-files-found: error
+
+  linux-smoke:
+    needs: linux
+    runs-on: ubuntu-latest
+    env:
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: dist
+
+      - name: Gate de máquina limpa (debian:12, sem Python e sem Tesseract)
+        run: |
+          chmod +x dist/*.AppImage
+          docker run --rm -v "$PWD/dist:/dist:ro" -e APPIMAGE_EXTRACT_AND_RUN=1 debian:12 sh -euc '
+            if command -v python3 || command -v tesseract; then exit 1; fi
+            cd /tmp
+            /dist/concurso-analise-*.AppImage --smoke
+            /dist/concurso-analise-*.AppImage doctor
+          '
+
+      - name: Onboarding e análise pelo executável
+        run: python3 scripts/smoke.py congelado dist/concurso-analise-*-linux-x86_64.AppImage
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_BUILD }}
+          enable-cache: true
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Captura do TEC
+        run: node tec-erros/scripts/build.mjs
+
+      - name: Tesseract (Homebrew relocado) e por.traineddata
+        run: bash empacotamento/tesseract/obter_macos.sh
+
+      - name: Ambiente de build
+        run: |
+          uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
+          uv run --no-sync python empacotamento/coletar_licencas.py
+          echo "VERSAO=$(uv run --no-sync python -c "from importlib.metadata import version; print(version('concurso-analise'))")" >> "$GITHUB_ENV"
+
+      - name: PyInstaller (.app)
+        run: uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+
+      - name: DMG
+        run: bash empacotamento/macos/criar_dmg.sh "$VERSAO"
+
+      - name: Gate de máquina limpa (app copiado do DMG, PATH sem Homebrew)
+        run: |
+          hdiutil attach -nobrowse -mountpoint /tmp/dmg "dist/concurso-analise-$VERSAO-macos-arm64.dmg"
+          rm -rf /tmp/instalado && mkdir /tmp/instalado
+          cp -R /tmp/dmg/concurso-analise.app /tmp/instalado/
+          hdiutil detach /tmp/dmg
+          codesign --verify --deep --strict /tmp/instalado/concurso-analise.app
+          CLI=/tmp/instalado/concurso-analise.app/Contents/MacOS/concurso-analise-cli
+          env -i HOME="$HOME" PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/python3 scripts/smoke.py congelado "$CLI"
+
+      - name: Tamanho
+        run: du -h "dist/concurso-analise-$VERSAO-macos-arm64.dmg" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/concurso-analise-*-macos-arm64.dmg
+          if-no-files-found: error
+
+  publicar:
+    # Rascunho: a release só é publicada depois do checklist manual no Windows Sandbox
+    # (.scratch/gui-leigo/issues/07-instalador-windows.md).
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux-smoke, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: SHA256SUMS
+        working-directory: dist
+        run: |
+          sha256sum concurso-analise-* > SHA256SUMS
+          cat SHA256SUMS | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Release (rascunho)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notas="docs/release-$GITHUB_REF_NAME.md"
+          if [ -f "$notas" ]; then origem=(--notes-file "$notas"); else origem=(--generate-notes); fi
+          gh release create "$GITHUB_REF_NAME" --draft "${origem[@]}" \
+            --title "concurso-analise ${GITHUB_REF_NAME#v}" dist/*

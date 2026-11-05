@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=concurso-analise
+Comment=Correção e análise de provas de concurso
+Exec=concurso-analise
+Icon=concurso-analise
+Categories=Education;Office;
+Terminal=false

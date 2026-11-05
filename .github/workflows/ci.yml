@@ -1,5 +1,4 @@
-# Escrito na fase 4, ainda sem remoto. Verificados à mão: Linux/WSL (3.11 e 3.12) e o container.
-# Não verificados: macOS e Windows nativo (sem uv no Windows da máquina de desenvolvimento).
+# Roda no GitHub (LMafra/analise_concursos). Os testes da GUI usam a fixture `user` da NiceGUI, sem navegador.
 name: CI
 
 on:
@@ -29,7 +28,7 @@ jobs:
           enable-cache: true
 
       - name: Dependências
-        run: uv sync --locked
+        run: uv sync --locked --extra gui
 
       - name: Lint
         run: |
@@ -41,6 +40,21 @@ jobs:
 
       - name: Smoke de ponta a ponta (uvx num projeto temporário)
         run: uv run --no-project python scripts/smoke.py uvx --python ${{ matrix.python }} --from "${{ github.workspace }}" concurso-analise
+
+  tec-erros:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tec-erros
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Testes (inclui o contrato em tests/contrato_tec)
+        run: node --test
+      - name: Build
+        run: node scripts/build.mjs
 
   docker:
     runs-on: ubuntu-latest

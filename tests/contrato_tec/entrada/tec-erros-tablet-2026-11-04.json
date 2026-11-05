@@ -1,0 +1,63 @@
+{
+  "app": "tec-erros",
+  "v": 1,
+  "em": "2026-11-04T21:00:00-03:00",
+  "dev": "d2222222",
+  "extra": true,
+  "erros": [
+    {
+      "id": "q100",
+      "fp": "texto da questao a",
+      "d": "2026-11-02",
+      "t": 3000,
+      "v": 2,
+      "ds": ["2026-11-02T10:00:00-03:00", "2026-11-02T20:00:00-03:00"],
+      "dev": "d2222222",
+      "origem": "tempo_real",
+      "banca": "CEBRASPE",
+      "enun": "Texto da questão A",
+      "com": "comentário mais longo do professor",
+      "prof": "Professor Dois"
+    },
+    {
+      "id": "q200",
+      "d": "2026-11-01",
+      "t": 2500,
+      "v": 1,
+      "ds": ["2026-11-01T08:00:00-03:00"],
+      "dev": "d2222222",
+      "origem": "tempo_real",
+      "orgao": "SEFAZ-DF",
+      "enun": "O  CONTRIBUINTE optante pelo Simples Nacional"
+    },
+    {
+      "id": "q300",
+      "fp": "texto da questao c",
+      "d": "2026-11-01",
+      "t": 900,
+      "v": 1,
+      "ds": ["2026-11-01T09:00:00-03:00"],
+      "dev": "d1111111",
+      "origem": "tempo_real",
+      "mat": "Língua Portuguesa",
+      "enun": "Texto da questão C"
+    },
+    {
+      "id": "q400",
+      "fp": "texto da questao d",
+      "d": "2026-11-04",
+      "t": 4000,
+      "ds": [],
+      "dev": "d2222222",
+      "origem": "historico",
+      "mat": "Contabilidade",
+      "enun": "Texto da questão D"
+    }
+  ],
+  "cads": [
+    {"id": "c1", "cad": "Caderno 1", "mat": "Direito Tributário", "tot": 50, "res": 4, "ac": 2, "er": 2, "d": "2026-11-02", "t": 900, "dev": "d2222222"},
+    {"id": "c2", "cad": "Caderno 2", "mat": "Língua Portuguesa", "tot": 40, "res": 5, "ac": 4, "er": 1, "d": "2026-11-02", "t": 2000, "dev": "d2222222"},
+    {"id": "c3", "cad": "Caderno 3", "mat": "Contabilidade", "tot": 30, "res": 8, "ac": 5, "er": 3, "d": "2026-11-01", "t": 3000, "dev": "d2222222"},
+    {"id": "c4", "cad": "Caderno 4", "mat": "Contabilidade", "tot": 20, "res": 1, "ac": 0, "er": 1, "d": "2026-11-04", "t": 4000, "dev": "d2222222"}
+  ]
+}

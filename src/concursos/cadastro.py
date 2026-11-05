@@ -3,6 +3,7 @@ import hashlib
 import logging
 import re
 from collections import Counter, defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from concursos.deteccao import (
     Papel,
     arquivo_do_sistema,
     classificar_arquivo,
+    detectar_tipo_caderno,
     eh_anexo,
 )
 from concursos.gabarito import Secao, cargo_do_gabarito, detectar_status, ler_gabarito_texto, secoes_do_pdf
@@ -37,20 +39,22 @@ class _Gabarito:
     secoes: list[Secao]
 
 
-def cadastrar(pasta: Path, interacao: Interacao) -> bool:
+def cadastrar(pasta: Path, interacao: Interacao, papeis: Mapping[str, Papel] | None = None) -> bool:
     """Detecta os arquivos da pasta, resolve ambiguidades com o usuário e grava o concurso.yaml.
 
+    `papeis` (nome relativo à pasta → papel) é o que o usuário já confirmou e vence a detecção.
     Retorna False se o usuário recusar a gravação.
     """
     if not pasta.is_dir():
         raise FileNotFoundError(f'{pasta}: pasta do concurso não encontrada')
-    return _Cadastro(pasta, interacao).executar()
+    return _Cadastro(pasta, interacao, papeis or {}).executar()
 
 
 class _Cadastro:
-    def __init__(self, pasta: Path, interacao: Interacao):
+    def __init__(self, pasta: Path, interacao: Interacao, papeis: Mapping[str, Papel]):
         self.pasta = pasta
         self.interacao = interacao
+        self.papeis = papeis
         self.anterior = ler_dados(pasta)
 
     def executar(self) -> bool:
@@ -73,7 +77,7 @@ class _Cadastro:
         )
 
     def _detectar(self) -> list[ArquivoDetectado]:
-        detectados = [classificar_arquivo(caminho, self.pasta) for caminho in self._arquivos()]
+        detectados = [self._papel_confirmado(classificar_arquivo(c, self.pasta)) for c in self._arquivos()]
         relevantes = [d for d in detectados if d.papel is not Papel.IGNORADO]
         self.interacao.mostrar('Arquivos detectados:')
         for detectado in relevantes:
@@ -89,6 +93,18 @@ class _Cadastro:
             sufixo = f' ({", ".join(detalhes)})' if detalhes else ''
             self.interacao.mostrar(f'  {self._nome(detectado)}: {detectado.papel}{sufixo}')
         return relevantes
+
+    def _papel_confirmado(self, detectado: ArquivoDetectado) -> ArquivoDetectado:
+        papel = self.papeis.get(self._nome(detectado))
+        if papel is None or (papel is detectado.papel and not detectado.ambiguo):
+            return detectado
+        return replace(
+            detectado,
+            papel=papel,
+            status_gabarito=detectar_status(detectado.texto) if papel is Papel.GABARITO else None,
+            tipo_caderno=detectar_tipo_caderno(detectado.texto) if papel is Papel.PROVA else None,
+            ambiguo=False,
+        )
 
     def _descartar_duplicados(self, detectados: list[ArquivoDetectado]) -> list[ArquivoDetectado]:
         grupos: dict[str, list[ArquivoDetectado]] = defaultdict(list)

@@ -74,7 +74,8 @@ def test_contexto_nao_confunde_a_pasta_global_com_a_do_projeto(tmp_path):
 
 
 def test_pastas_do_config_toml_com_flag_e_variavel_por_cima(tmp_path):
-    raiz = projeto_com(tmp_path, '[pastas]\nprovas = "minhas_provas"\nanalises = "/fora/saida"\n')
+    fora = tmp_path / 'fora' / 'saida'
+    raiz = projeto_com(tmp_path, f'[pastas]\nprovas = "minhas_provas"\nanalises = "{fora.as_posix()}"\n')
     ambiente = {'CONCURSO_HOME': str(tmp_path / 'home')}
 
     padrao = resolver_contexto(cwd=raiz, ambiente=ambiente)
@@ -83,7 +84,7 @@ def test_pastas_do_config_toml_com_flag_e_variavel_por_cima(tmp_path):
         cwd=raiz, ambiente={**ambiente, 'CONCURSO_PROVAS': 'outra'}, provas=Path('da_flag')
     )
 
-    assert (padrao.provas, padrao.analises) == (raiz / 'minhas_provas', Path('/fora/saida'))
+    assert (padrao.provas, padrao.analises) == (raiz / 'minhas_provas', fora)
     assert por_variavel.provas == raiz / 'outra'
     assert por_flag.provas == raiz / 'da_flag'
 
@@ -100,7 +101,12 @@ CAMINHO_DE_USUARIO = re.compile(r'/home/\w+|/Users/\w+|[A-Za-z]:\\\\?Users\\\\?\
 
 
 def arquivos_do_pacote() -> list[Path]:
-    return [p for p in PACOTE.rglob('*') if p.suffix in {'.py', '.yaml', '.yml', '.toml'}]
+    do_pacote = [p for p in PACOTE.rglob('*') if p.suffix in {'.py', '.yaml', '.yml', '.toml'}]
+    empacotamento = RAIZ_DO_REPOSITORIO / 'empacotamento'
+    extensoes = {'.py', '.spec', '.iss', '.ps1', '.sh', '.md'}
+    return do_pacote + [
+        p for p in empacotamento.rglob('*') if p.suffix in extensoes and 'construcao' not in p.parts
+    ]
 
 
 def test_sem_dado_pessoal_no_pacote():

@@ -133,7 +133,9 @@ def test_legislacao_sem_secao_e_ok(ambiente, capsys):
 def test_legislacao_confere_o_clone_sem_rede(ambiente, capsys, home_isolada, tmp_path):
     home_isolada.mkdir(parents=True, exist_ok=True)
     clone = tmp_path / 'leis'
-    (home_isolada / 'config.toml').write_text(f'[legislacao]\nrepositorio = "{clone}"\n', encoding='utf-8')
+    (home_isolada / 'config.toml').write_text(
+        f'[legislacao]\nrepositorio = "{clone.as_posix()}"\n', encoding='utf-8'
+    )
 
     _, sem_clone = rodar(capsys)
     clone.mkdir()

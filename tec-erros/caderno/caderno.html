@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caderno de erros</title>
+<style>
+  :root { --borda: #d5dae1; --fundo: #f7f8fa; --texto: #1f2933; --suave: #616e7c; --erro: #b42318; --ok: #067647; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, sans-serif; color: var(--texto); background: var(--fundo); }
+  header { position: sticky; top: 0; z-index: 2; background: #fff; border-bottom: 1px solid var(--borda); padding: 8px 12px; }
+  header h1 { font-size: 18px; margin: 0 0 6px; }
+  nav button { margin-right: 4px; }
+  nav button.ativo { background: var(--texto); color: #fff; }
+  main { max-width: 60rem; margin: 0 auto; padding: 12px; }
+  button, select, input, textarea { font: inherit; }
+  button { padding: 6px 10px; border: 1px solid var(--borda); border-radius: 6px; background: #fff; cursor: pointer; }
+  select, input[type=text], textarea { padding: 5px; border: 1px solid var(--borda); border-radius: 6px; max-width: 100%; }
+  textarea { width: 100%; }
+  .linha { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+  .cartao { background: #fff; border: 1px solid var(--borda); border-radius: 8px; padding: 10px; margin: 8px 0; }
+  .cartao.repetida { border-left: 5px solid var(--erro); }
+  .selo { display: inline-block; padding: 1px 8px; border-radius: 10px; background: #eef1f5; font-size: 13px; }
+  .selo.rep { background: #fde2e1; color: var(--erro); font-weight: 600; }
+  .meta { color: var(--suave); font-size: 13px; }
+  .alts { margin: 6px 0; padding-left: 0; list-style: none; }
+  .alts li { padding: 2px 4px; border-radius: 4px; }
+  .alts .marcada { background: #fde2e1; }
+  .alts .gabarito { background: #d8f3dc; }
+  table { border-collapse: collapse; width: 100%; background: #fff; }
+  th, td { border: 1px solid var(--borda); padding: 4px 6px; text-align: left; font-size: 14px; }
+  .aviso { background: #fef3c7; border-radius: 6px; padding: 8px; }
+  .oculto { display: none; }
+  #mensagem { min-height: 1.2em; color: var(--suave); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Caderno de erros</h1>
+  <div class="linha">
+    <label><input type="file" id="arquivo" accept=".json,application/json" multiple hidden><span class="selo" role="button" tabindex="0" id="escolher">📂 Importar arquivos</span></label>
+    <button id="colar">Colar JSON</button>
+    <button id="exportarErros">Baixar erros mesclados</button>
+    <button id="exportarEstado">Baixar caderno-estado.json</button>
+  </div>
+  <div id="areaColar" class="oculto">
+    <textarea id="textoColado" rows="4" placeholder="Cole aqui o JSON copiado pela extensão ou pelo userscript"></textarea>
+    <button id="importarColado">Importar o texto colado</button>
+  </div>
+  <nav class="linha">
+    <button data-aba="erros" class="ativo">Erros</button>
+    <button data-aba="cadernos">Cadernos</button>
+    <button data-aba="ajustes">Matérias e tópicos</button>
+    <button data-aba="removidos">Removidos</button>
+  </nav>
+  <div id="mensagem"></div>
+</header>
+<main>
+  <section id="aba-erros">
+    <div id="pendentes"></div>
+    <div class="linha">
+      <select id="fMateria"></select>
+      <select id="fAssunto"></select>
+      <select id="fBanca"></select>
+      <select id="fStatus">
+        <option value="">todos os status</option>
+        <option value="novo">novo</option>
+        <option value="revisado">revisado</option>
+        <option value="card">virou card</option>
+      </select>
+      <label><input type="checkbox" id="fRepetidas"> só repetidas</label>
+      <input type="text" id="fBusca" placeholder="buscar no enunciado">
+    </div>
+    <p class="meta" id="contagem"></p>
+    <div id="lista"></div>
+  </section>
+
+  <section id="aba-cadernos" class="oculto">
+    <p class="aviso">Se você também registra questões à mão em outro lugar, deixe esses campos vazios quando a prática foi feita no TEC: os totais abaixo já contam tudo.</p>
+    <div id="cadernosNovos"></div>
+    <table>
+      <thead><tr><th>Caderno</th><th>Total</th><th>Resolvidas</th><th>Acertos</th><th>Erros</th><th>Desde o último registro</th><th>Modo</th><th></th></tr></thead>
+      <tbody id="tabelaCadernos"></tbody>
+    </table>
+    <h3>Registros</h3>
+    <table>
+      <thead><tr><th>Data</th><th>Caderno</th><th>Resolvidas</th><th>Acertos</th><th>Erros</th></tr></thead>
+      <tbody id="tabelaRegistros"></tbody>
+    </table>
+  </section>
+
+  <section id="aba-ajustes" class="oculto">
+    <h3>Matérias do edital por palavra-chave</h3>
+    <p class="meta">Uma regra por linha: <code>palavra = Matéria do edital</code>. A primeira palavra contida no nome da matéria do TEC (sem acento, minúsculas) decide.</p>
+    <textarea id="regras" rows="6"></textarea>
+    <h3>Correção manual por matéria do TEC</h3>
+    <div id="materiasManuais"></div>
+    <h3>Tópicos do edital</h3>
+    <p class="meta">Um por linha. O assunto do TEC que não bate com nenhum é perguntado uma vez, na aba Erros.</p>
+    <textarea id="topicos" rows="8"></textarea>
+    <h3>Assunto do TEC → tópico</h3>
+    <div id="aliases"></div>
+    <button id="salvarAjustes">Salvar</button>
+  </section>
+
+  <section id="aba-removidos" class="oculto">
+    <p class="meta">Questões removidas de propósito não voltam numa nova importação.</p>
+    <div id="listaRemovidos"></div>
+  </section>
+</main>
+<!--NUCLEO-->
+<script>
+'use strict';
+const T = window.TecErros;
+const CHAVE = 'tec-erros-caderno';
+const NENHUM = '__nenhum__';
+const REGRAS_PADRAO = [
+  ['tribut', 'Legislação Tributária'],
+  ['constitucional', 'Direito Constitucional'],
+  ['administrativ', 'Direito Administrativo'],
+  ['portugu', 'Língua Portuguesa'],
+  ['contab', 'Contabilidade'],
+];
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+function estadoInicial() {
+  return { erros: [], cads: [], status: {}, removidos: [], regras: REGRAS_PADRAO, materias: {}, topicos: [], aliases: {}, cadernos: {}, registros: [] };
+}
+let E = Object.assign(estadoInicial(), JSON.parse(localStorage.getItem(CHAVE) || '{}'));
+function salvar() { localStorage.setItem(CHAVE, JSON.stringify(E)); }
+function mensagem(t) { $('mensagem').textContent = t; }
+function hoje() { return T.dataLocalIso(new Date()).slice(0, 10); }
+
+function removido(r) { return E.removidos.includes(r.id) || (r.fp && E.removidos.includes('fp:' + r.fp)); }
+
+function materiaDe(matTec) {
+  if (!matTec) return '';
+  if (E.materias[matTec]) return E.materias[matTec];
+  const n = T.normalizar(matTec);
+  const regra = E.regras.find(([palavra]) => palavra && n.includes(T.normalizar(palavra)));
+  return regra ? regra[1] : '';
+}
+
+function topicoDe(assunto) {
+  if (!assunto) return '';
+  if (assunto in E.aliases) return E.aliases[assunto] === null ? NENHUM : E.aliases[assunto];
+  const n = T.normalizar(assunto);
+  return E.topicos.find((t) => T.normalizar(t) === n) || '';
+}
+
+// Cadernos em modo automático registram a diferença a cada importação.
+function registrarDiferenca(c) {
+  const conf = E.cadernos[c.id];
+  if (!conf) return false;
+  const reg = conf.registrado || conf.base;
+  const d = { res: c.res - reg.res, ac: c.ac - reg.ac, er: c.er - reg.er };
+  if (d.res <= 0 && d.ac <= 0 && d.er <= 0) return false;
+  E.registros.push({ id: c.id, cad: c.cad, d: hoje(), res: d.res, ac: d.ac, er: d.er });
+  conf.registrado = { res: c.res, ac: c.ac, er: c.er };
+  return true;
+}
+
+function importar(texto, silencioso) {
+  let dados = typeof texto === 'string' ? JSON.parse(texto) : texto;
+  if (dados && dados.app === 'tec-erros-caderno') return importarEstado(dados);
+  const lido = T.lerExportacao(dados);
+  const novos = lido.dados.erros.filter((r) => !removido(Object.assign({ fp: T.impressaoDigital(r.enun) }, r)));
+  const e = T.mesclarErros(E.erros, novos);
+  const c = T.mesclarCadernos(E.cads, lido.dados.cads);
+  E.erros = e.erros;
+  E.cads = c.cads;
+  let registrados = 0;
+  for (const cad of E.cads) if (E.cadernos[cad.id] && E.cadernos[cad.id].auto !== false && registrarDiferenca(cad)) registrados++;
+  salvar();
+  render();
+  if (!silencioso) {
+    const avisos = lido.avisos.length ? ' Avisos: ' + lido.avisos.join('; ') : '';
+    mensagem((e.mudou || c.mudou ? 'Importado: ' : 'Nada novo: ') + E.erros.length + ' erros, ' + E.cads.length + ' cadernos' + (registrados ? ', ' + registrados + ' registros automáticos' : '') + '.' + avisos);
+  }
+}
+
+function importarEstado(d) {
+  for (const campo of ['status', 'aliases', 'materias', 'cadernos']) if (d[campo]) E[campo] = Object.assign({}, E[campo], d[campo]);
+  if (Array.isArray(d.removidos)) E.removidos = Array.from(new Set(E.removidos.concat(d.removidos)));
+  if (Array.isArray(d.regras)) E.regras = d.regras;
+  if (Array.isArray(d.topicos)) E.topicos = d.topicos;
+  if (Array.isArray(d.registros)) E.registros = d.registros;
+  salvar();
+  render();
+  mensagem('Estado do caderno restaurado.');
+}
+
+function baixar(nome, objeto) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(objeto, null, 1)], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nome;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function opcoes(select, valores, rotulo) {
+  const atual = select.value;
+  select.innerHTML = '<option value="">' + esc(rotulo) + '</option>' + valores.map((v) => '<option>' + esc(v) + '</option>').join('');
+  if (valores.includes(atual)) select.value = atual;
+}
+
+function unicos(lista) { return Array.from(new Set(lista.filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt')); }
+
+function renderPendentes() {
+  const assuntos = unicos(E.erros.map((r) => r.ass)).filter((a) => !topicoDe(a));
+  if (!E.topicos.length || !assuntos.length) {
+    $('pendentes').innerHTML = '';
+    return;
+  }
+  const opcoesTopico = '<option value="">escolha o tópico…</option><option value="' + NENHUM + '">não pertence a nenhum tópico</option>' +
+    E.topicos.map((t) => '<option>' + esc(t) + '</option>').join('');
+  $('pendentes').innerHTML = '<div class="cartao aviso"><b>Assuntos do TEC sem tópico do edital</b> (escolha uma vez; vale para todas as questões):' +
+    assuntos.map((a, i) => '<div class="linha"><span>' + esc(a) + '</span><select data-alias="' + i + '">' + opcoesTopico + '</select></div>').join('') + '</div>';
+  $('pendentes').querySelectorAll('select[data-alias]').forEach((s) => s.addEventListener('change', () => {
+    if (!s.value) return;
+    E.aliases[assuntos[+s.dataset.alias]] = s.value === NENHUM ? null : s.value;
+    salvar();
+    render();
+  }));
+}
+
+function renderErros() {
+  const visiveis = E.erros.filter((r) => !removido(r));
+  opcoes($('fMateria'), unicos(visiveis.map((r) => materiaDe(r.mat) || r.mat)), 'todas as matérias');
+  opcoes($('fAssunto'), unicos(visiveis.map((r) => r.ass)), 'todos os assuntos');
+  opcoes($('fBanca'), unicos(visiveis.map((r) => r.banca)), 'todas as bancas');
+  const f = { mat: $('fMateria').value, ass: $('fAssunto').value, banca: $('fBanca').value, status: $('fStatus').value, rep: $('fRepetidas').checked, busca: T.normalizar($('fBusca').value) };
+  const lista = visiveis
+    .filter((r) => (!f.mat || (materiaDe(r.mat) || r.mat) === f.mat) && (!f.ass || r.ass === f.ass) && (!f.banca || r.banca === f.banca))
+    .filter((r) => (!f.status || (E.status[r.id] || 'novo') === f.status) && (!f.rep || r.v >= 2))
+    .filter((r) => !f.busca || T.normalizar(r.enun).includes(f.busca))
+    .sort((a, b) => b.v - a.v || String(b.d).localeCompare(String(a.d)));
+  const repetidas = visiveis.filter((r) => r.v >= 2).length;
+  $('contagem').textContent = lista.length + ' de ' + visiveis.length + ' questões (' + repetidas + ' repetidas).';
+  $('lista').innerHTML = lista.map(cartao).join('');
+  $('lista').querySelectorAll('[data-status]').forEach((s) => s.addEventListener('change', () => {
+    E.status[s.dataset.status] = s.value;
+    salvar();
+  }));
+  $('lista').querySelectorAll('[data-remover]').forEach((b) => b.addEventListener('click', () => {
+    const r = E.erros.find((x) => x.id === b.dataset.remover);
+    E.removidos.push(r.id);
+    if (r.fp) E.removidos.push('fp:' + r.fp);
+    salvar();
+    render();
+    mensagem('Removida; ela não volta numa nova importação (veja a aba Removidos).');
+  }));
+}
+
+function cartao(r) {
+  const topico = topicoDe(r.ass);
+  const materia = materiaDe(r.mat);
+  const status = E.status[r.id] || 'novo';
+  const alts = (r.alts || []).map((a) => {
+    const classe = a.l && a.l === r.gab ? 'gabarito' : a.l && a.l === r.marc ? 'marcada' : '';
+    return '<li class="' + classe + '"><b>' + esc(a.l) + '</b> ' + esc(a.t) + '</li>';
+  }).join('');
+  const datas = (r.ds || []).map((d) => d.slice(0, 16).replace('T', ' ')).join(', ') || (r.origem === 'historico' ? 'histórico, sem data' : r.d);
+  return '<div class="cartao' + (r.v >= 2 ? ' repetida' : '') + '">' +
+    '<div class="linha"><span class="selo' + (r.v >= 2 ? ' rep' : '') + '">errei ' + r.v + 'x</span>' +
+    '<b>' + esc(materia || r.mat || 'sem matéria') + '</b>' + (materia && r.mat !== materia ? '<span class="meta">(TEC: ' + esc(r.mat) + ')</span>' : '') + '</div>' +
+    '<div class="meta">' + esc(r.ass) + (topico && topico !== NENHUM ? ' → ' + esc(topico) : topico === NENHUM ? ' → fora do edital' : '') + '</div>' +
+    '<div class="meta">' + esc([r.banca, r.ano, r.orgao].filter(Boolean).join(' · ')) + ' · ' + esc(datas) + ' · ' + esc(r.id) + '</div>' +
+    '<details><summary>' + esc(String(r.enun || '').slice(0, 160)) + (String(r.enun || '').length > 160 ? '…' : '') + '</summary><p>' + esc(r.enun) + '</p><ul class="alts">' + alts + '</ul></details>' +
+    '<div>Minha resposta: <b>' + esc(r.marc || '?') + '</b> · Gabarito: <b>' + esc(r.gab || '?') + '</b></div>' +
+    (r.com ? '<details><summary>Comentário' + (r.prof ? ' de ' + esc(r.prof) : '') + '</summary><p>' + esc(r.com) + '</p></details>' : '<div class="meta">sem comentário guardado</div>') +
+    '<div class="linha"><select data-status="' + esc(r.id) + '">' +
+    ['novo', 'revisado', 'card'].map((s) => '<option value="' + s + '"' + (s === status ? ' selected' : '') + '>' + (s === 'card' ? 'virou card' : s) + '</option>').join('') +
+    '</select>' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener">abrir no TEC</a>' : '') +
+    '<button data-remover="' + esc(r.id) + '">remover</button></div></div>';
+}
+
+function renderCadernos() {
+  const novos = E.cads.filter((c) => !E.cadernos[c.id]);
+  $('cadernosNovos').innerHTML = novos.map((c) => '<div class="cartao aviso"><b>' + esc(c.cad || c.id) + '</b>: ' + c.res + ' resolvidas, ' + c.ac + ' acertos, ' + c.er +
+    ' erros. <button data-novo="' + esc(c.id) + '" data-modo="tudo">registrar tudo</button> <button data-novo="' + esc(c.id) + '" data-modo="daqui">só acompanhar daqui</button></div>').join('');
+  $('cadernosNovos').querySelectorAll('[data-novo]').forEach((b) => b.addEventListener('click', () => {
+    const c = E.cads.find((x) => x.id === b.dataset.novo);
+    const base = b.dataset.modo === 'tudo' ? { res: 0, ac: 0, er: 0 } : { res: c.res, ac: c.ac, er: c.er };
+    E.cadernos[c.id] = { modo: b.dataset.modo, base: base, registrado: base, auto: true };
+    registrarDiferenca(c);
+    salvar();
+    render();
+  }));
+  $('tabelaCadernos').innerHTML = E.cads.filter((c) => E.cadernos[c.id]).map((c) => {
+    const conf = E.cadernos[c.id];
+    const reg = conf.registrado || conf.base;
+    return '<tr><td>' + esc(c.cad || c.id) + '</td><td>' + c.tot + '</td><td>' + c.res + '</td><td>' + c.ac + '</td><td>' + c.er + '</td><td>' +
+      (c.res - reg.res) + ' res., ' + (c.ac - reg.ac) + ' ac., ' + (c.er - reg.er) + ' er.</td><td>' + esc(conf.modo) +
+      ' <label><input type="checkbox" data-auto="' + esc(c.id) + '"' + (conf.auto !== false ? ' checked' : '') + '> automático</label></td>' +
+      '<td><button data-registrar="' + esc(c.id) + '">registrar diferença</button></td></tr>';
+  }).join('');
+  $('tabelaCadernos').querySelectorAll('[data-auto]').forEach((i) => i.addEventListener('change', () => {
+    E.cadernos[i.dataset.auto].auto = i.checked;
+    salvar();
+  }));
+  $('tabelaCadernos').querySelectorAll('[data-registrar]').forEach((b) => b.addEventListener('click', () => {
+    const c = E.cads.find((x) => x.id === b.dataset.registrar);
+    mensagem(registrarDiferenca(c) ? 'Diferença registrada.' : 'Nada novo desde o último registro.');
+    salvar();
+    render();
+  }));
+  $('tabelaRegistros').innerHTML = E.registros.slice().reverse().map((r) => '<tr><td>' + esc(r.d) + '</td><td>' + esc(r.cad || r.id) + '</td><td>' + r.res + '</td><td>' + r.ac + '</td><td>' + r.er + '</td></tr>').join('');
+}
+
+function renderAjustes() {
+  $('regras').value = E.regras.map(([p, m]) => p + ' = ' + m).join('\n');
+  $('topicos').value = E.topicos.join('\n');
+  const mats = unicos(E.erros.map((r) => r.mat));
+  $('materiasManuais').innerHTML = mats.map((m, i) => '<div class="linha"><span>' + esc(m) + '</span> → <input type="text" data-materia="' + i + '" value="' + esc(E.materias[m] || '') +
+    '" placeholder="' + esc(materiaDe(m) || 'sem regra') + '"></div>').join('') || '<p class="meta">Nenhuma matéria ainda.</p>';
+  $('materiasManuais').dataset.lista = JSON.stringify(mats);
+  const assuntos = Object.keys(E.aliases).sort();
+  $('aliases').innerHTML = assuntos.map((a, i) => '<div class="linha"><span>' + esc(a) + '</span> → <b>' + esc(E.aliases[a] === null ? 'não pertence' : E.aliases[a]) +
+    '</b> <button data-desfazer="' + i + '">perguntar de novo</button></div>').join('') || '<p class="meta">Nenhum alias ainda.</p>';
+  $('aliases').querySelectorAll('[data-desfazer]').forEach((b) => b.addEventListener('click', () => {
+    delete E.aliases[assuntos[+b.dataset.desfazer]];
+    salvar();
+    render();
+  }));
+}
+
+function renderRemovidos() {
+  const ids = E.removidos.filter((r) => !r.startsWith('fp:'));
+  $('listaRemovidos').innerHTML = ids.map((id) => {
+    const r = E.erros.find((x) => x.id === id) || { id: id };
+    return '<div class="linha"><span>' + esc(id) + '</span><span class="meta">' + esc(String(r.enun || '').slice(0, 100)) + '</span><button data-restaurar="' + esc(id) + '">restaurar</button></div>';
+  }).join('') || '<p class="meta">Nada removido.</p>';
+  $('listaRemovidos').querySelectorAll('[data-restaurar]').forEach((b) => b.addEventListener('click', () => {
+    const r = E.erros.find((x) => x.id === b.dataset.restaurar);
+    E.removidos = E.removidos.filter((x) => x !== b.dataset.restaurar && !(r && r.fp && x === 'fp:' + r.fp));
+    salvar();
+    render();
+  }));
+}
+
+function render() {
+  renderPendentes();
+  renderErros();
+  renderCadernos();
+  renderAjustes();
+  renderRemovidos();
+}
+
+$('escolher').addEventListener('click', () => $('arquivo').click());
+$('escolher').addEventListener('keydown', (ev) => ev.key === 'Enter' && $('arquivo').click());
+$('arquivo').addEventListener('change', async (ev) => {
+  for (const arquivo of ev.target.files) {
+    try {
+      importar(await arquivo.text());
+    } catch (erro) {
+      mensagem(arquivo.name + ': ' + erro.message);
+    }
+  }
+  ev.target.value = '';
+});
+$('colar').addEventListener('click', () => $('areaColar').classList.toggle('oculto'));
+$('importarColado').addEventListener('click', () => {
+  try {
+    importar($('textoColado').value);
+    $('textoColado').value = '';
+  } catch (erro) {
+    mensagem('Não deu para importar: ' + erro.message);
+  }
+});
+$('exportarErros').addEventListener('click', () => {
+  baixar('tec-erros-mesclado-' + hoje() + '.json', T.exportar(E.erros.filter((r) => !removido(r)), E.cads, 'caderno', new Date()));
+});
+$('exportarEstado').addEventListener('click', () => {
+  const cadernos = {};
+  for (const [id, c] of Object.entries(E.cadernos)) cadernos[id] = { modo: c.modo, base: c.base };
+  baixar('caderno-estado.json', { app: 'tec-erros-caderno', v: 1, status: E.status, removidos: E.removidos, aliases: E.aliases, materias: E.materias, cadernos: cadernos, regras: E.regras, topicos: E.topicos, registros: E.registros });
+});
+$('salvarAjustes').addEventListener('click', () => {
+  E.regras = $('regras').value.split('\n').map((l) => l.split('=').map((p) => p.trim())).filter((p) => p.length === 2 && p[0] && p[1]);
+  E.topicos = $('topicos').value.split('\n').map((l) => l.trim()).filter(Boolean);
+  const mats = JSON.parse($('materiasManuais').dataset.lista || '[]');
+  $('materiasManuais').querySelectorAll('[data-materia]').forEach((i) => {
+    const m = mats[+i.dataset.materia];
+    if (i.value.trim()) E.materias[m] = i.value.trim();
+    else delete E.materias[m];
+  });
+  salvar();
+  render();
+  mensagem('Ajustes salvos; valem para todas as questões, inclusive as antigas.');
+});
+for (const id of ['fMateria', 'fAssunto', 'fBanca', 'fStatus', 'fRepetidas']) $(id).addEventListener('change', renderErros);
+$('fBusca').addEventListener('input', renderErros);
+document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('ativo', x === b));
+  document.querySelectorAll('main > section').forEach((s) => s.classList.toggle('oculto', s.id !== 'aba-' + b.dataset.aba));
+}));
+
+// Ponte opcional da extensão do Chrome: responde ao ping e importa em silêncio.
+const SID = Math.random().toString(36).slice(2);
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (ev.source !== window || !d || d.src !== 'tec-bridge') return;
+  if (d.t === 'ping') window.postMessage({ src: 'tec-panel', t: 'pong', sid: SID }, '*');
+  if (d.t === 'data' && d.json) {
+    try { importar(d.json, true); } catch (erro) { console.warn('tec-erros:', erro); }
+  }
+});
+
+render();
+</script>
+</body>
+</html>

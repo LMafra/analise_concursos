@@ -417,7 +417,7 @@ Casos:
 
 ## Out of Scope
 
-- Interface web, app mobile, servidor multiusuário com autenticação e sincronização em nuvem.
+- Interface web, app mobile, servidor multiusuário com autenticação e sincronização em nuvem. (Revisto na fase 5: a GUI local em `127.0.0.1` entrou; veja `docs/spec-fase5.md`.)
 - OCR treinado próprio e idiomas além do português.
 - Marketplace público de plugins: o entry point existe, mas não há catálogo.
 - Telemetria, mesmo opt-in, e atualização automática silenciosa.

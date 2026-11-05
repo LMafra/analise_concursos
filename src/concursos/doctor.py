@@ -10,6 +10,7 @@ from pathlib import Path
 
 from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.config.contexto import ARQUIVO_CONFIG_GLOBAL
+from concursos.empacotado import embutido, pasta_embutida
 from concursos.integracoes import open_notebook, pci_mcp
 from concursos.integracoes.radar_pci import ler_radar, resumo_radar
 from concursos.legislacao import DICA_CLONE, URL_CLONE, ler_repositorio
@@ -109,6 +110,8 @@ def tem_erro(itens: list[Item]) -> bool:
 
 
 def _uv(sistema: Sistema) -> Item:
+    if pasta_embutida() is not None:
+        return Item('uv', Situacao.OK, 'não necessário (executável com o Python embutido)')
     if caminho := shutil.which('uv'):
         return Item('uv', Situacao.OK, caminho)
     return Item(
@@ -122,6 +125,8 @@ def _uv(sistema: Sistema) -> Item:
 def _python(sistema: Sistema) -> Item:
     versao = sys.version_info[:2]
     texto = '.'.join(map(str, sys.version_info[:3]))
+    if pasta_embutida() is not None:
+        return Item('Python', Situacao.OK, f'{texto} (embutido)')
     if versao in PYTHON_SUPORTADO:
         return Item('Python', Situacao.OK, texto)
     suportadas = ' ou '.join('.'.join(map(str, v)) for v in PYTHON_SUPORTADO)
@@ -144,7 +149,8 @@ def _tesseract(sistema: Sistema) -> Item:
             f'{caminho}, sem o idioma português (por)',
             _CORRECOES['por'][sistema],
         )
-    return Item('Tesseract', Situacao.OK, f'{caminho}, com português')
+    origem = 'embutido em ' if embutido(caminho) else ''
+    return Item('Tesseract', Situacao.OK, f'{origem}{caminho}, com português')
 
 
 def _idiomas_do_tesseract(caminho: str) -> list[str]:

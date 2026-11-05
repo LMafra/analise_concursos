@@ -154,7 +154,7 @@ def test_dry_run_lista_a_migracao_e_nao_grava_nada(legado, home_isolada, capsys)
 
     saida = capsys.readouterr().out
     assert 'migraria' in saida
-    assert 'analises/alfa' in saida and 'config.yaml' in saida
+    assert str(Path('analises', 'alfa')) in saida and 'config.yaml' in saida
     assert hashes(legado) == antes
     assert not (legado / '.concurso').exists()
     assert backups(home_isolada) == []

@@ -361,6 +361,7 @@ incluir_simulados = false  # true: os simulados do PCI entram no consolidado e n
 ```
 
 - **Validação:** os campos de `[analise]` são os mesmos do `config.yaml` antigo. Campo desconhecido ou valor fora de 0 a 1 (nos limiares) gera erro citando o campo e as opções.
+- **Escrita pela GUI:** a tela de configurações grava `limiar_confianca`, `limiar_topico_baixo` e `concurso_alvo` por `aplicacao.preferencias.gravar_analise`, com a mesma validação; as outras chaves e seções ficam como estavam (os comentários do arquivo se perdem, como em toda gravação do `config.toml`).
 - **Precedência:** flag, variável de ambiente, `config.toml`, padrão.
 - **`[candidato] ultimo`:** o último candidato analisado; vale quando não há `--candidate` nem `CONCURSO_CANDIDATO`.
 - **`[migracao]`:** o registro da migração das fases 1 a 3 (`versao = 4`, `candidato`, `backup`, `data`).
@@ -528,7 +529,7 @@ No open-notebook (`notebook sync` e a sincronização automática):
 
 ## Prática no TEC (tec-erros)
 
-Opcional; sem `[pratica]` no `config.toml` do projeto, nenhuma saída muda. A captura mora no projeto separado `tec-erros` (extensão do Chrome, userscript para o Firefox do Android e `caderno.html`), cujo `docs/contrato.md` define o arquivo `tec-erros-<aparelho>-<data>.json` (`app = "tec-erros"`, `v = 1`, `erros`, `cads`). O app só lê arquivos; não acessa o TEC nem a rede.
+Opcional; sem `[pratica]` no `config.toml` do projeto, nenhuma saída muda. A captura mora em `tec-erros/`, neste repositório (extensão do Chrome, userscript para o Firefox do Android e `caderno.html`); as fixtures do contrato ficam em `tests/contrato_tec/` e passam pelo `node --test` e pelo `pytest`. O `tec-erros/docs/contrato.md` define o arquivo `tec-erros-<aparelho>-<data>.json` (`app = "tec-erros"`, `v = 1`, `erros`, `cads`). O app só lê arquivos; não acessa o TEC nem a rede.
 
 ```toml
 [pratica]
@@ -538,7 +539,7 @@ open_notebook = false   # true: o caderno de erros vai ao open-notebook (enuncia
 ```
 
 - **Comando:** `concurso-analise pratica import [arquivo]` valida o arquivo (`app` e `v`; campo desconhecido é aviso), copia para `entrada_tec` e roda a análise; sem arquivo, só analisa. A análise padrão lê a pasta sempre que a seção existe. `--dry-run` não copia nem grava.
-- **Mesclagem** (`pratica_tec`, as mesmas regras de `core/nucleo.js`): por `id` ou pela impressão digital `fp` (enunciado sem acento, minúsculo, espaços simples, 300 caracteres); `ds` é a união dos eventos (data e hora locais) e `v = len(ds)`, ou 1 sem evento; um registro de histórico (`OrigemErroTec.HISTORICO`) nunca soma ao tempo real; campo vazio é preenchido, `com` fica com o texto mais longo, `d` é a menor data. Cadernos: vence o de maior `res` e, no empate, o de maior `t`. Arquivo inválido é aviso e os outros seguem.
+- **Mesclagem** (`pratica_tec`, as mesmas regras de `core/nucleo.js`): por `id` ou pela impressão digital `fp` (enunciado sem acento, minúsculo, espaços simples, 300 caracteres); `ds` é a união dos eventos (data e hora locais) e `v = len(ds)`, ou 1 sem evento; um registro de histórico (`OrigemErroTec.HISTORICO`) nunca soma ao tempo real; campo vazio é preenchido, `com` fica com o texto mais longo, `d` é a menor data; sem mudança, o registro (e o `t`) fica como estava. Cadernos: vence o de maior `res` e, no empate, o de maior `t`. Arquivo inválido é aviso e os outros seguem.
 - **`caderno-estado.json`** (exportado pelo `caderno.html`, na mesma pasta): `removidos` saem das tabelas; `aliases`, `materias` e `cadernos` são sugestões que o app aproveita.
 - **Disciplina:** a matéria do TEC casa com um nome da `.concurso/taxonomia.yaml` (sem diferença de acento, caixa e palavras vazias) ou com `materias` das escolhas; sem casamento, a disciplina fica vazia e o aviso pede para acrescentá-la em `nomes:`.
 - **Tópico:** o assunto do TEC vira um tópico do `edital_estruturado.json` do `concurso_alvo`. Nome igual ao do tópico casa sozinho; senão, a sugestão vem do `caderno-estado.json` ou de `topicos.sugerir_topicos`. Com terminal, a pergunta sai uma vez por assunto (sugestão, tópicos da disciplina, "não pertence a nenhum tópico", "decidir depois"); sem terminal, o assunto vai para `pratica/revisao_aliases.csv` (`assunto`, `disciplina`, `sugestao`, `score`, `topico`), e a coluna `topico` preenchida (ou `nenhum`) entra nas escolhas na próxima execução. A escolha vale para todos os erros daquele assunto, inclusive os já importados. Sem `concurso_alvo`, os tópicos ficam `nao_mapeado`, com aviso.
@@ -869,3 +870,32 @@ Sai com 2 se algum item tem `✗`, senão com 0.
 **Idempotência.** Uma execução sem mudança nas entradas não altera nenhum `mtime` em `analises/`, nem com `--dry-run`: as saídas por concurso dependem do manifesto, o `index.html` só é regerado quando algo foi reprocessado, e o consolidado (`desempenho_geral.csv`, `comparativo_concursos.md`) só é regravado quando o conteúdo muda.
 
 **Distribuição.** `uvx --from <repositório> concurso-analise` ou `uv tool install <repositório>` (o comando principal não depende de grupos de dependência). O `Dockerfile` (`python:3.12-slim-trixie`, `tesseract-ocr-por`, `uv sync --locked --no-dev`) espera o projeto montado em `/dados`, com `CONCURSO_HOME=/dados/.concurso-home`; o `.dockerignore` deixa `provas/`, `analises/` e `.concurso/` fora da imagem. `scripts/smoke.py` é o teste de ponta a ponta: onboarding com `--yes`, análise de dois concursos sintéticos num caminho com espaço e acento e reexecuções sem mudança de `mtime`.
+
+**GUI (fase 5).** `concurso-analise gui` (ou `concurso-analise-gui`) exige o extra `[gui]`. Abre em `127.0.0.1`, numa porta livre: janela nativa no Windows e no macOS, navegador padrão no Linux (`--browser` força o navegador em qualquer sistema). O projeto inicial é o `--project`, a pasta atual (se já tem `provas/` ou `.concurso/`) ou o último usado; o escolhido fica na configuração global; o `app.storage` do NiceGUI fica em `~/.concurso/gui` e não guarda dado pessoal.
+
+```toml
+# ~/.concurso/config.toml
+[gui]
+ultimo_projeto = "C:/Users/ana/Documents/Concursos"   # pasta com provas/, analises/ e .concurso/
+```
+
+**Resultados e configurações pela GUI.** O relatório aparece num `iframe`: a pasta `analises/<candidato>/` é servida em `/_analises/<hash do caminho>/`, só em `127.0.0.1` e sem cache, e "Abrir no navegador" usa o mesmo `abrir_no_navegador` da CLI (no WSL, o navegador do Windows). As abas de recomendações e de prática mostram `consolidado/recomendacoes_estudo.md` e `pratica/resumo_pratica.md` (com as tabelas da prática), ou explicam por que ainda não existem. A tela de configurações grava `[analise]` pelo `gravar_analise`; a IA começa desmarcada, ligar grava `[llm]` com `consentimento = true` e a chave vai para `llm.guardar_chave` (keyring ou `~/.concurso/.env` com permissão 600), e desmarcar grava `provedor = "nenhum"`.
+
+**Integrações pela GUI.** A tela Integrações tem quatro abas. Desligada, cada integração mostra só o texto de `aplicacao.integracoes.aviso_*` e o botão "Concordo e ligar", e nenhuma consulta é feita. Descobrir concursos e Provas anteriores chamam o PCI por `descobrir` e `provas_anteriores`; "Acompanhar no radar" grava em `.concurso/interesses_pci.yaml` pelo `registrar_interesse`. "Importar como simulado" roda `importar_simulado` numa thread, com a espera na pasta de downloads interrompida pelo botão Cancelar (`espera_cancelavel`); o app continua sem pedir o link do PDF ao PCI. A aba open-notebook grava `[open_notebook]` com `enabled` e `consentimento` e sincroniza com um botão. A aba Prática no TEC valida todas as exportações soltas antes de copiar a primeira; sem `[pratica]`, ela grava `entrada_tec = "tec"`. A instalação da captura usa o `dist/` do `tec-erros/` (no executável, a pasta `tec-erros/` do `_MEIPASS`); sem ele, a aba aponta para as instruções do repositório.
+
+**Executável.** O build do PyInstaller (`empacotamento/concurso-analise.spec`, onedir) gera dois executáveis na mesma pasta: `concurso-analise` (janela, sem console no Windows) e `concurso-analise-cli` (console). Os dois rodam `concursos.empacotado.principal`: sem argumentos, a GUI; com argumentos, a CLI; com `--smoke`, a conferência do pacote (versão, perfis, Tesseract com `por` e a GUI respondendo em `127.0.0.1`), que sai com 0 ou 1. Dentro de `_internal/` ficam `tesseract/bin` e `tesseract/tessdata` (o executável põe o primeiro no `PATH` e o segundo em `TESSDATA_PREFIX`), `tec-erros/` (o `dist/` da captura) e `LICENSES/`. O `doctor` e a tela Sobre mostram o Tesseract como embutido. `CONCURSO_SMOKE_SEM_OCR=1` dispensa o Tesseract no `--smoke`, só para builds de desenvolvimento. No Windows sem WebView2, a GUI abre no navegador. No Linux, `tesseract/bin/tesseract` é um wrapper que roda o binário com o carregador e as bibliotecas que vieram com ele (`tesseract/lib`), e o executável devolve o `LD_LIBRARY_PATH` original aos processos que abre; no macOS, a árvore do Tesseract fica em `concurso-analise.app/Contents/Frameworks/tesseract`, com as dylibs relocadas para `@executable_path/../lib`.
+
+**Cadastro pela GUI.** O onboarding em formulário grava pelas mesmas `onboarding.aplicar` e `onboarding.gravar` do `init` e cria a pasta de provas com o `LEIA-ME.txt`, se faltar. Os arquivos soltos na tela "Novo concurso" esperam em `.concurso/envios/<aleatório>/` (apagados depois do cadastro, ou depois de um dia se abandonados) até o usuário confirmar o papel de cada um. Na confirmação, edital, prova, gabarito e resultado vão para `provas/<concurso>/` (o nome passa por `slug`) e o papel escolhido vence a detecção no `cadastrar` (`papeis`); folha e respostas vão para `candidatos/<slug>/` pelo `adicionar_respostas`; o que foi marcado para ignorar não é copiado. Se o usuário recusa ou o cadastro falha, a pasta volta a ser como era. Um arquivo com o nome de outro, diferente, já na pasta é erro, e nada é sobrescrito. As respostas digitadas viram `candidatos/<slug>/respostas.csv` (`questao,alternativa`, só as marcadas; as omitidas contam como branco), validado por `ler_respostas_csv` antes da cópia.
+
+**Executável (fase 5).** Pasta onedir do PyInstaller, gerada por `empacotamento/concurso-analise.spec`:
+
+| Caminho no bundle | Conteúdo |
+|---|---|
+| `concurso-analise(.exe)` | o launcher (`empacotamento/launcher.py`): `freeze_support`, `PATH` e `TESSDATA_PREFIX`, `--smoke`, GUI |
+| `_internal/concursos/` | o pacote, com os perfis YAML (coletados pelo `hook-concursos.py`) |
+| `_internal/concurso_analise-<versão>.dist-info/` | metadados: versão e entry points `concurso.banca` e `concurso.ocr` |
+| `_internal/tesseract/` | o binário do Tesseract (e DLLs ou dylibs) e `tessdata/por.traineddata` (`tessdata_fast`) |
+| `_internal/tec-erros/` | `caderno.html`, `tec-erros-extensao-<versão>.zip` e `tec-erros.user.js` |
+| `_internal/LICENSES/` | as licenças de Tesseract, Leptonica, bibliotecas de imagem, NiceGUI, pywebview e Python |
+
+Artefatos da release: `concurso-analise-<versão>-windows-x64-setup.exe`, `concurso-analise-<versão>-linux-x86_64.AppImage`, `concurso-analise-<versão>-macos-arm64.dmg` e `SHA256SUMS`. `concurso-analise --smoke`, no executável, confere o pacote e sai com 0 quando tudo passa; `scripts/smoke.py congelado <executável>` roda, numa pasta temporária, o `--smoke`, o doctor, o onboarding e a análise de um concurso sintético.

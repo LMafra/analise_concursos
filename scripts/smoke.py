@@ -3,11 +3,15 @@
 Uso:
     python scripts/smoke.py                                   # usa o concurso-analise do PATH
     python scripts/smoke.py uvx --from . concurso-analise     # o que o candidato roda
+    python scripts/smoke.py congelado <concurso-analise-cli>  # o executável do PyInstaller
 
 Confere, num projeto temporário com espaço e acento no caminho:
 - `--dry-run --yes` num projeto novo não grava nada;
 - `--yes` faz o onboarding e gera o index.html em até LIMITE_SEGUNDOS;
 - duas execuções seguidas, e duas com `--dry-run`, não alteram nenhum mtime em analises/.
+
+No modo `congelado`, antes: `--smoke` do executável (versão, perfis, Tesseract com português e a GUI em
+127.0.0.1) e `doctor` sem erro.
 """
 
 import os
@@ -99,5 +103,23 @@ def main(comando: list[str]) -> None:
         shutil.rmtree(base, ignore_errors=True)
 
 
+def congelado(executavel: str) -> None:
+    if Path(executavel).exists():
+        executavel = str(Path(executavel).resolve())
+    base = Path(tempfile.mkdtemp())
+    raiz = base / 'pré-checagem'
+    raiz.mkdir()
+    try:
+        rodar([executavel], raiz, '--smoke')
+        rodar([executavel], raiz, 'doctor')
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+    main([executavel])
+
+
 if __name__ == '__main__':
-    main(sys.argv[1:] or ['concurso-analise'])
+    argumentos = sys.argv[1:]
+    if argumentos[:1] == ['congelado'] and len(argumentos) == 2:
+        congelado(argumentos[1])
+    else:
+        main(argumentos or ['concurso-analise'])

@@ -5,7 +5,7 @@
 [![Python][python-shield]][python-url]
 [![uv][uv-shield]][uv-url]
 [![Docker][docker-shield]](#sem-uv-docker)
-[![Plataformas][plataformas-shield]](#pré-requisitos)
+[![Plataformas][plataformas-shield]](#instalação-para-usuários-leigos)
 
 <!-- CABEÇALHO -->
 <br />
@@ -39,6 +39,7 @@
     <li>
       <a href="#primeiros-passos">Primeiros passos</a>
       <ul>
+        <li><a href="#instalação-para-usuários-leigos">Instalação para usuários leigos</a></li>
         <li><a href="#pré-requisitos">Pré-requisitos</a></li>
         <li><a href="#instalação">Instalação</a></li>
       </ul>
@@ -46,6 +47,7 @@
     <li>
       <a href="#uso">Uso</a>
       <ul>
+        <li><a href="#usar-pela-janela">Usar pela janela</a></li>
         <li><a href="#primeira-execução">Primeira execução</a></li>
         <li><a href="#comandos">Comandos</a></li>
         <li><a href="#organizar-as-provas">Organizar as provas</a></li>
@@ -61,7 +63,12 @@
       </ul>
     </li>
     <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contribuindo">Contribuindo</a></li>
+    <li>
+      <a href="#contribuindo">Contribuindo</a>
+      <ul>
+        <li><a href="#desenvolvimento-build-local-do-executável">Desenvolvimento: build local do executável</a></li>
+      </ul>
+    </li>
     <li><a href="#licença">Licença</a></li>
     <li><a href="#contato">Contato</a></li>
     <li><a href="#agradecimentos">Agradecimentos</a></li>
@@ -79,6 +86,7 @@ Ferramenta local que corrige suas provas de concurso e mostra **em quais discipl
 * Classifica cada questão numa disciplina e num tópico do conteúdo programático do edital.
 * Confere edital, prova e gabarito entre si, e cada valor lido do edital vem com trecho, documento e página.
 * Acompanha a evolução entre concursos em notebooks de análise.
+* Tem uma janela para quem não usa terminal, com instalador para Windows, macOS e Linux que já traz tudo de que precisa (veja [Instalação para usuários leigos](#instalação-para-usuários-leigos)).
 
 Tudo roda na sua máquina: nenhum arquivo é enviado para lugar nenhum. O único acesso à rede é opcional, quando você liga um LLM para ajudar a ler editais (veja [LLM opcional](#llm-opcional)), o open-notebook ou o PCI Concursos, que só recebe termos de busca (veja [Integração com o PCI Concursos](#integração-com-o-pci-concursos)).
 
@@ -95,6 +103,8 @@ Bancas com perfil embutido: Cebraspe (certo/errado, um erro anula um acerto), FG
 * [![Tesseract][tesseract-badge]][tesseract-url]
 * [![Plotly][plotly-badge]][plotly-url]
 * [![Typer][typer-badge]][typer-url]
+* [![NiceGUI][nicegui-badge]][nicegui-url]
+* [![PyInstaller][pyinstaller-badge]][pyinstaller-url]
 * [![Jupyter][jupyter-badge]][jupyter-url]
 * [![uv][uv-badge]][uv-url]
 
@@ -103,7 +113,49 @@ Bancas com perfil embutido: Cebraspe (certo/errado, um erro anula um acerto), FG
 <!-- PRIMEIROS PASSOS -->
 ## Primeiros passos
 
+### Instalação para usuários leigos
+
+Baixe o instalador do seu sistema na [página da última versão](https://github.com/LMafra/analise_concursos/releases/latest), em "Assets". Ele já traz o Python e o Tesseract: não é preciso instalar mais nada nem abrir o terminal.
+
+| Sistema | Arquivo |
+|---|---|
+| Windows 10 ou 11, 64 bits | `concurso-analise-<versão>-windows-x64-setup.exe` |
+| macOS em Mac com chip Apple (M1 em diante) | `concurso-analise-<versão>-macos-arm64.dmg` |
+| Linux 64 bits, distribuições de 2019 em diante | `concurso-analise-<versão>-linux-x86_64.AppImage` |
+
+O app não tem assinatura digital paga, por isso o Windows e o macOS desconfiam dele na primeira vez. Os passos abaixo mostram como liberar.
+
+**Windows**
+
+1. Abra o `concurso-analise-<versão>-windows-x64-setup.exe`.
+2. Se aparecer "O Windows protegeu o computador", clique em **Mais informações** e depois em **Executar assim mesmo**.
+3. Siga o instalador. Ele instala só para o seu usuário e não pede senha de administrador. Se o computador não tiver o WebView2 (que a janela usa), o instalador oferece a página para baixá-lo; sem ele, o app abre no navegador.
+4. Abra o **concurso-analise** pelo menu Iniciar.
+
+Para desinstalar, use Configurações > Aplicativos.
+
+**macOS**
+
+1. Abra o `.dmg` e arraste o **concurso-analise** para a pasta Aplicativos.
+2. Abra o app. Na primeira vez, o macOS avisa que não pode verificar o desenvolvedor: feche o aviso.
+3. Vá a **Ajustes do Sistema > Privacidade e Segurança**, role até o aviso do concurso-analise e clique em **Abrir Mesmo Assim**. Confirme com a sua senha.
+
+Das próximas vezes, o app abre direto.
+
+**Linux**
+
+1. Torne o arquivo executável: no gerenciador de arquivos, abra Propriedades > Permissões e marque "Permitir executar como programa".
+2. Abra o arquivo com dois cliques. A tela abre no navegador padrão, num endereço que só o seu computador acessa (`127.0.0.1`).
+
+Se ele não abrir, rode no terminal `APPIMAGE_EXTRACT_AND_RUN=1 ./concurso-analise-*.AppImage`, que dispensa o FUSE.
+
+**Conferir o download (opcional).** A página da versão traz o `SHA256SUMS`, com a impressão digital de cada arquivo. No Windows, compare com a saída de `Get-FileHash .\concurso-analise-<versão>-windows-x64-setup.exe` no PowerShell; no Linux e no macOS, rode `sha256sum -c SHA256SUMS --ignore-missing` (no macOS, `shasum -a 256 -c SHA256SUMS --ignore-missing`) na pasta do download.
+
+Depois de instalar, veja [Usar pela janela](#usar-pela-janela).
+
 ### Pré-requisitos
+
+Para usar pelo terminal, em vez do instalador:
 
 * [uv](https://docs.astral.sh/uv/getting-started/installation/), que traz o Python 3.11 ou 3.12.
 * [Tesseract](https://github.com/tesseract-ocr/tesseract) com o idioma português, só para edital ou folha em imagem (PDF escaneado). O `doctor` mostra o comando para o seu sistema:
@@ -114,7 +166,7 @@ Bancas com perfil embutido: Cebraspe (certo/errado, um erro anula um acerto), FG
   ```
 * Opcional: Docker, no lugar do uv e do Tesseract.
 
-Verificado no Linux/WSL e no container. macOS e Windows nativo ainda não foram verificados.
+A CLI foi verificada no Linux/WSL e no container, e o executável Linux, num Debian 12 sem Python nem Tesseract. Os executáveis de Windows e macOS são gerados pelo workflow de release, que roda neles o mesmo teste de máquina limpa.
 
 ### Instalação
 
@@ -129,6 +181,11 @@ Verificado no Linux/WSL e no container. macOS e Windows nativo ainda não foram 
 3. Para ter o comando no PATH, instale-o. Depois, basta `concurso-analise`:
    ```sh
    uv tool install <caminho do repositório>
+   ```
+
+4. Para a janela também pelo terminal, instale com o extra `gui` e abra com `concurso-analise gui`:
+   ```sh
+   uv tool install '<caminho do repositório>[gui]'
    ```
 
 O pacote ainda não está no PyPI.
@@ -146,6 +203,44 @@ docker run --rm -it --user "$(id -u):$(id -g)" -v "$PWD:/dados" concurso-analise
 
 <!-- USO -->
 ## Uso
+
+### Usar pela janela
+
+No Windows e no macOS, o app abre numa janela própria; no Linux, no navegador. Nos dois casos, a tela só é acessível no seu computador.
+
+**1. Pasta do projeto.** Na primeira vez, o app pergunta onde guardar suas provas e análises. O padrão é `Documentos/Concursos`, e o app lembra a pasta nas próximas vezes. Em seguida, ele faz três perguntas (seu nome e os nomes das pastas, com padrões que você pode aceitar) e, se você quiser, confere o ambiente.
+
+![Tela de boas-vindas com o nome do candidato e as pastas do projeto](docs/img/gui-inicio.png)
+
+**2. Novo concurso.** Dê um nome ao concurso e solte na área azul os arquivos que vieram da banca: edital, gabarito, caderno de prova e as suas respostas (a foto ou o PDF da folha, ou um arquivo de texto). O app detecta o papel de cada arquivo e pede só a sua confirmação; se ele errou, escolha o papel certo na lista.
+
+![Tela de novo concurso com o gabarito e as respostas detectados](docs/img/gui-novo-concurso.png)
+
+Se a folha não puder ser lida, use **Digitar respostas** e marque a alternativa de cada questão.
+
+**3. Concursos.** A lista mostra a situação de cada concurso (`completo`, `incompleto` ou `desatualizado`) e se o gabarito é preliminar ou definitivo. Num concurso incompleto, **Resolver** diz o que falta e oferece acrescentar arquivos ou digitar as respostas.
+
+![Lista de concursos com a situação e o gabarito](docs/img/gui-concursos.png)
+
+**4. Analisar.** A barra avança por concurso. O **Log detalhado** mostra o que o app decidiu sozinho, por exemplo quando o edital não traz a regra de correção e ele usa a da banca.
+
+![Análise em andamento, com o log detalhado aberto](docs/img/gui-analise.png)
+
+**5. Resultados.** O relatório aparece na própria tela, e **Abrir no navegador** o abre em tamanho cheio. As outras abas trazem as recomendações de estudo, a prática no TEC e a exportação do consolidado.
+
+![Relatório do candidato dentro do app](docs/img/gui-resultados.png)
+
+**6. Configurações.** Os dois limiares da análise, o concurso que você vai prestar (`concurso-alvo`) e a pasta do projeto. A leitura de editais por IA começa desligada; se você a ligar, a chave fica no cofre de senhas do sistema, nunca num arquivo.
+
+![Configurações com os limiares e o concurso-alvo](docs/img/gui-configuracoes.png)
+
+**7. Integrações.** Descobrir concursos e provas anteriores no PCI Concursos, sincronizar com o open-notebook e importar a prática no TEC. Cada integração fica desligada até você concordar, e a tela mostra antes o que sai do computador.
+
+![Integração com o PCI Concursos desligada, com o aviso do que é enviado](docs/img/gui-integracoes.png)
+
+Com mais de um candidato no projeto, a tela de concursos mostra o seletor de candidato e a opção **todos**, que gera o comparativo. A tela **Sobre** mostra a versão e onde fica o log, para anexar a um relato de problema.
+
+No Linux, o menu tem **Fechar o app**: fechar só a aba do navegador deixa o app rodando.
 
 ### Primeira execução
 
@@ -196,6 +291,7 @@ Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa 
 
 | Comando | O que faz |
 |---|---|
+| `gui` | Abre a janela (no Linux, o navegador); `--project` escolhe a pasta e `--browser` força o navegador. Precisa do extra `gui`. |
 | `init` | Refaz as perguntas do onboarding, com as respostas atuais como padrão. `--calibrate-sheet` e `--calibrate-answers` calibram a leitura da folha. |
 | `add <pasta>` | Cadastra a pasta de um concurso: detecta o papel de cada arquivo, a banca e o status do gabarito, e pergunta só o que for ambíguo. |
 | `add <arquivo> --candidate <nome>` | Copia uma folha ou um arquivo de respostas para o candidato. |
@@ -524,6 +620,8 @@ Os notebooks são scripts [jupytext](https://jupytext.readthedocs.io/) em `noteb
 
 `provas/`, `analises/` e `.concurso/` ficam fora do git (`.gitignore`) e fora da imagem Docker (`.dockerignore`), por conterem dados pessoais (nome, CPF, notas). Nenhum arquivo é enviado para fora da máquina; o LLM, se ligado, só recebe texto do edital. O open-notebook, se ligado, recebe os relatórios e CSVs da análise, com o candidato como pseudônimo. O PCI Concursos, se ligado, só recebe termos de busca.
 
+A janela do app é servida só em `127.0.0.1`: nenhum outro computador da rede a acessa. O executável não manda telemetria nem se atualiza sozinho.
+
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
 <!-- ROADMAP -->
@@ -533,10 +631,12 @@ Os notebooks são scripts [jupytext](https://jupytext.readthedocs.io/) em `noteb
 - [x] Fase 2: análise evolutiva entre concursos
 - [x] Fase 3: edital como fonte de verdade
 - [x] Fase 4: generalização e portabilidade (onboarding, CLI, Docker, perfis de banca)
+- [x] Fase 5: janela (NiceGUI) e instaladores para Windows, macOS arm64 e Linux, com o Tesseract embutido
 - [ ] Escopo de cargo nos pesos e nas demais buscas do edital
 - [ ] Precedência completa com o `concurso.yaml` (total de questões e pesos)
 - [ ] Nome oficial e cargo nas discrepâncias e no notebook 05
-- [ ] Verificação no macOS e no Windows nativo
+- [ ] Verificação da CLI no macOS e no Windows nativo
+- [ ] Assinatura de código no Windows e no macOS
 - [ ] Publicação no PyPI
 
 Veja [docs/pendencias.md](docs/pendencias.md) para o detalhe e a ordem sugerida de cada pendência.
@@ -562,6 +662,56 @@ Veja [docs/pendencias.md](docs/pendencias.md) para o detalhe e a ordem sugerida 
 5. Abra um pull request
 
 O pre-commit roda ruff e pytest antes de cada commit. O workflow de CI (`.github/workflows/ci.yml`) cobre Ubuntu, macOS e Windows com Python 3.11 e 3.12. As especificações estão em `docs/spec*.md`, e o modelo de domínio, em [docs/modelo.md](docs/modelo.md). As regras para agentes estão em [AGENTS.md](AGENTS.md).
+
+### Desenvolvimento: build local do executável
+
+O executável é uma pasta do PyInstaller (`empacotamento/concurso-analise.spec`) com o Python, o Tesseract e o modelo `por` do `tessdata_fast`. Os scripts de `empacotamento/` são os mesmos do workflow de release (`.github/workflows/release.yml`); a saída vai para `dist/`, e o Tesseract baixado, para `empacotamento/construcao/`, ambos fora do git. A captura do TEC entra no pacote se você a gerar antes com `node tec-erros/scripts/build.mjs` (Node 22).
+
+**Linux (AppImage).** O build roda no contêiner `manylinux_2_28`, para o executável valer em distribuições de 2019 em diante. Use um clone limpo, porque o contêiner recria o `.venv`:
+
+```sh
+git clone https://github.com/LMafra/analise_concursos.git /tmp/build-ca && cd /tmp/build-ca
+docker run --rm -e APPIMAGE_EXTRACT_AND_RUN=1 -v "$PWD:/src" -w /src \
+    quay.io/pypa/manylinux_2_28_x86_64 bash empacotamento/linux/construir.sh
+sudo chown -R "$(id -u):$(id -g)" .
+```
+
+Confira num Debian 12 sem Python nem Tesseract, e depois com o onboarding e a análise de um projeto sintético:
+
+```sh
+docker run --rm -e APPIMAGE_EXTRACT_AND_RUN=1 -v "$PWD/dist:/dist:ro" debian:12 \
+    sh -c '/dist/concurso-analise-*.AppImage --smoke && /dist/concurso-analise-*.AppImage doctor'
+APPIMAGE_EXTRACT_AND_RUN=1 python3 scripts/smoke.py congelado dist/concurso-analise-*-linux-x86_64.AppImage
+```
+
+**Windows (instalador).** Precisa do [MSYS2](https://www.msys2.org/) em `C:\msys64`, do [Inno Setup 6](https://jrsoftware.org/isinfo.php) e do uv. No PowerShell, na raiz do repositório:
+
+```powershell
+.\empacotamento\tesseract\obter_windows.ps1 -Msys C:\msys64
+uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
+uv run --no-sync python empacotamento/coletar_licencas.py
+uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersao=0.5.0 empacotamento\inno\concurso-analise.iss
+.\scripts\smoke_maquina_limpa.ps1 -Instalador dist\concurso-analise-0.5.0-windows-x64-setup.exe
+```
+
+O último comando instala, confere o executável com o `PATH` sem Python nem Tesseract, roda a análise sintética e desinstala. Antes de publicar uma versão, repita a instalação à mão no Windows Sandbox (veja `.scratch/gui-leigo/issues/07-executavel-windows.md`).
+
+**macOS arm64 (DMG).** Precisa do Homebrew e do uv:
+
+```sh
+bash empacotamento/tesseract/obter_macos.sh
+uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
+uv run --no-sync python empacotamento/coletar_licencas.py
+uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+bash empacotamento/macos/criar_dmg.sh 0.5.0
+env -i HOME="$HOME" PATH=/usr/bin:/bin /usr/bin/python3 scripts/smoke.py congelado \
+    dist/concurso-analise.app/Contents/MacOS/concurso-analise-cli
+```
+
+Num build de desenvolvimento sem o Tesseract embutido, `CONCURSO_SMOKE_SEM_OCR=1` dispensa a conferência do OCR no `--smoke`.
+
+**Release.** Uma tag `v*` dispara o `release.yml`: ele gera os três instaladores, roda o teste de máquina limpa em cada sistema e cria a release como rascunho, com o `SHA256SUMS`. A release só é publicada depois da conferência manual no Windows Sandbox.
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
@@ -593,12 +743,12 @@ Link do projeto: [https://github.com/LMafra/analise_concursos](https://github.co
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
 <!-- LINKS E IMAGENS -->
-[versao-shield]: https://img.shields.io/badge/vers%C3%A3o-0.4.0-blue?style=for-the-badge
+[versao-shield]: https://img.shields.io/badge/vers%C3%A3o-0.5.0-blue?style=for-the-badge
 [pyproject-url]: pyproject.toml
 [python-shield]: https://img.shields.io/badge/python-3.11%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white
 [uv-shield]: https://img.shields.io/badge/uv-gerenciador-DE5FE9?style=for-the-badge&logo=uv&logoColor=white
 [docker-shield]: https://img.shields.io/badge/docker-dispon%C3%ADvel-2496ED?style=for-the-badge&logo=docker&logoColor=white
-[plataformas-shield]: https://img.shields.io/badge/plataformas-Linux%20%7C%20WSL-555?style=for-the-badge&logo=linux&logoColor=white
+[plataformas-shield]: https://img.shields.io/badge/plataformas-Windows%20%7C%20macOS%20%7C%20Linux-555?style=for-the-badge
 [relatorio-screenshot]: docs/img/relatorio.png
 [python-badge]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
 [python-url]: https://www.python.org/
@@ -614,6 +764,10 @@ Link do projeto: [https://github.com/LMafra/analise_concursos](https://github.co
 [plotly-url]: https://plotly.com/python/
 [typer-badge]: https://img.shields.io/badge/Typer-000000?style=for-the-badge&logo=typer&logoColor=white
 [typer-url]: https://typer.tiangolo.com/
+[nicegui-badge]: https://img.shields.io/badge/NiceGUI-5898D4?style=for-the-badge
+[nicegui-url]: https://nicegui.io/
+[pyinstaller-badge]: https://img.shields.io/badge/PyInstaller-1F4D7A?style=for-the-badge
+[pyinstaller-url]: https://pyinstaller.org/
 [jupyter-badge]: https://img.shields.io/badge/Jupyter-F37626?style=for-the-badge&logo=jupyter&logoColor=white
 [jupyter-url]: https://jupyter.org/
 [uv-badge]: https://img.shields.io/badge/uv-DE5FE9?style=for-the-badge&logo=uv&logoColor=white

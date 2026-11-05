@@ -1,0 +1,11 @@
+{
+  "name": "tec-erros",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Guarda as questões que você erra no TEC Concursos (extensão do Chrome e userscript) e o caderno de erros offline.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build.mjs"
+  }
+}

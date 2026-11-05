@@ -5,6 +5,8 @@ analises/
 .paridade/
 .scratch/
 notebooks/
+tec-erros/
+empacotamento/
 .git/
 .venv/
 .cursor/

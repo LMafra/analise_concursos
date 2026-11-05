@@ -1,0 +1,9 @@
+{
+  "app": "tec-erros-caderno",
+  "v": 1,
+  "status": {"q100": "revisado"},
+  "removidos": ["q400"],
+  "aliases": {"Simples Nacional": "Simples Nacional: regime e tributos", "Outro assunto": null},
+  "materias": {"Direito Tributário": "Legislação Tributária"},
+  "cadernos": {"c1": {"modo": "daqui", "base": {"res": 2, "ac": 1, "er": 1}}}
+}

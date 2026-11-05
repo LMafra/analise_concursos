@@ -10,8 +10,8 @@ from test_analytics_correcao import CEBRASPE
 from test_edital import PAGINAS
 from transporte_pci import TransporteFalso, payload
 
-from concursos import cli
 from concursos.analytics.consolidado import concursos_analisados, contar_questoes
+from concursos.aplicacao import integracoes as aplicacao_integracoes
 from concursos.assistente import InteracaoAutomatica
 from concursos.cadastro import cadastrar
 from concursos.cli import main
@@ -304,9 +304,11 @@ def test_pci_provas_download_abre_a_pagina_e_importa_o_baixado(
         assert 'prova1_auditor_fiscal.pdf' in esperados
         return {'prova1_auditor_fiscal.pdf': prova}
 
-    monkeypatch.setattr(cli.comandos, 'baixar_pagina', ler_pagina)
+    monkeypatch.setattr(aplicacao_integracoes, 'baixar_pagina', ler_pagina)
     monkeypatch.setattr(download_assistido, 'esperar_downloads', esperar)
-    monkeypatch.setattr(cli.comandos, 'cadastrar', lambda pasta, interacao: cadastradas.append(pasta) or True)
+    monkeypatch.setattr(
+        aplicacao_integracoes, 'cadastrar', lambda pasta, interacao: cadastradas.append(pasta) or True
+    )
     config = projeto_pci.parent / 'home_concurso' / 'config.toml'
     pci_mcp.gravar_configuracao(config, pasta_downloads=str(baixados))
 

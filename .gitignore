@@ -33,3 +33,6 @@ notebooks/*.ipynb
 # Configuração local do projeto (último candidato, caminho do backup)
 .concurso/
 .analises/
+
+# Saídas do empacotamento (Tesseract baixado, licenças coletadas)
+empacotamento/construcao/
