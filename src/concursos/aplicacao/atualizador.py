@@ -140,6 +140,11 @@ def gravar_preferencias(config_global: Path, preferencias: Preferencias) -> None
     )
 
 
+def gravar_aviso(config_global: Path, ligado: bool) -> None:
+    preferencias = ler_preferencias(config_global)
+    gravar_preferencias(config_global, Preferencias(preferencias.canal, ligado))
+
+
 def _manifesto_e_assinatura(canal: CanalAtualizacao, transporte: Transporte) -> tuple[bytes, bytes] | None:
     if canal is CanalAtualizacao.STABLE:
         return (

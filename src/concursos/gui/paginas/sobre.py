@@ -5,10 +5,15 @@ from pathlib import Path
 
 from nicegui import app, run, ui
 
+from concursos import doctor as diagnostico
 from concursos.aplicacao import atualizador as atualizacao
+from concursos.aplicacao import projeto
 from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.config.contexto import resolver_home
 from concursos.empacotado import embutido
+from concursos.gui import tema
+from concursos.gui.componentes.cartao import cartao
+from concursos.gui.componentes.dialogo import Dialogo
 from concursos.gui.estado import ESTADO
 from concursos.gui.progresso import arquivo_de_log
 from concursos.gui.textos import mostrar_erro
@@ -28,11 +33,11 @@ def versao() -> str:
 
 
 def pagina() -> None:
-    with ui.column().classes('w-full max-w-2xl gap-3'):
+    with ui.column().classes('w-full max-w-2xl').style(tema.gap('md')):
         ui.label(f'concurso-analise {versao()}').classes('text-2xl font-bold').mark('versao')
         ui.label(f'{platform.system()} {platform.machine()}, Python {platform.python_version()}')
         log = arquivo_de_log()
-        with ui.row().classes('items-center gap-2'):
+        with ui.row().classes('items-center').style(tema.gap('sm')):
             ui.label(f'Log: {log}' if log else 'Log: desligado nesta execução').mark('log')
             if log:
                 ui.button(
@@ -46,7 +51,27 @@ def pagina() -> None:
             'podem ser digitadas se a folha não for lida'
         ).mark('tesseract')
         SecaoDeAtualizacao()
-        ui.label(PRIVACIDADE).classes('text-grey-8')
+        if ESTADO.projeto is not None:
+            secao_do_ambiente()
+        ui.label(PRIVACIDADE).classes('ca-texto-suave')
+
+
+def secao_do_ambiente() -> None:
+    """O `doctor`: só leitura e sem rede."""
+    with cartao('Ambiente', icone='health_and_safety'):
+        saida = ui.label().classes('whitespace-pre-line font-mono text-sm').mark('diagnostico')
+
+        async def conferir() -> None:
+            try:
+                itens = await run.io_bound(projeto.diagnosticar, ESTADO.contexto())
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+                return
+            saida.set_text(diagnostico.formatar(itens))
+
+        ui.button('Conferir o ambiente', icon='fact_check', on_click=conferir).props('outline').mark(
+            'conferir-ambiente'
+        )
 
 
 class SecaoDeAtualizacao:
@@ -54,20 +79,19 @@ class SecaoDeAtualizacao:
 
     def __init__(self) -> None:
         self.fracao = 0.0
-        with ui.card().classes('w-full'):
-            ui.label('Atualizações').classes('text-lg font-bold')
+        with cartao('Atualizações', icone='update'):
             if not atualizacao.no_executavel():
                 ui.label(FORA_DO_EXECUTAVEL).classes('font-mono text-sm').mark('atualizar-pelo-uv')
                 return
             self.canal = atualizacao.ler_preferencias(resolver_home() / 'config.toml').canal
-            with ui.row().classes('items-center gap-2'):
+            with ui.row().classes('items-center').style(tema.gap('sm')):
                 self.botao = ui.button('Verificar atualizações', icon='update', on_click=self.verificar).mark(
                     'verificar-atualizacoes'
                 )
-                ui.label(f'canal {self.canal.value}').classes('text-sm text-grey-8')
-            ui.label(CONSULTA).classes('text-sm text-grey-8')
+                ui.label(f'canal {self.canal.value}').classes('text-sm ca-texto-suave')
+            ui.label(CONSULTA).classes('text-sm ca-texto-suave')
             self.situacao = ui.label().mark('situacao-atualizacao')
-            self.area = ui.column().classes('w-full gap-2')
+            self.area = ui.column().classes('w-full').style(tema.gap('sm'))
             if ESTADO.novidade is not None:
                 self.mostrar(ESTADO.novidade)
 
@@ -102,20 +126,21 @@ class SecaoDeAtualizacao:
 
     def confirmar(self, novidade: atualizacao.Novidade) -> None:
         megas = novidade.artefato.tamanho // 1_000_000
-        with ui.dialog() as dialogo, ui.card():
-            ui.label(f'Baixar e instalar a {novidade.versao}?').classes('text-lg font-bold')
+        with self.area:
+            dialogo = Dialogo(f'Baixar e instalar a {novidade.versao}?')
+        with dialogo.corpo:
             ui.label(
                 f'São {megas} MB do GitHub. O arquivo só é usado se a assinatura do manifesto e o SHA-256 '
                 'conferirem. Os seus projetos e análises não mudam.'
             )
-            with ui.row():
-                ui.button('Cancelar', on_click=dialogo.close).props('flat')
+        with dialogo.acoes:
+            ui.button('Cancelar', on_click=dialogo.close).props('flat')
 
-                async def seguir() -> None:
-                    dialogo.close()
-                    await self.instalar(novidade)
+            async def seguir() -> None:
+                dialogo.close()
+                await self.instalar(novidade)
 
-                ui.button('Baixar e instalar', on_click=seguir).mark('confirmar-atualizacao')
+            ui.button('Baixar e instalar', on_click=seguir).mark('confirmar-atualizacao')
         dialogo.open()
 
     def progredir(self, baixado: int, total: int) -> None:
@@ -143,14 +168,14 @@ class SecaoDeAtualizacao:
     def reabrir(self, instalacao: atualizacao.Instalacao) -> None:
         """O diálogo nasce na área da seção: o de confirmação, de onde veio o clique, já fechou."""
         self.situacao.set_text(f'Atualizado para {instalacao.versao}.')
-        with self.area, ui.dialog() as dialogo, ui.card():
-            ui.label(f'Atualizado para {instalacao.versao}. Reabrir agora?').classes('text-lg font-bold')
-            with ui.row():
-                ui.button('Depois', on_click=dialogo.close).props('flat')
+        with self.area:
+            dialogo = Dialogo(f'Atualizado para {instalacao.versao}. Reabrir agora?')
+        with dialogo.acoes:
+            ui.button('Depois', on_click=dialogo.close).props('flat')
 
-                def agora() -> None:
-                    atualizacao.reabrir(instalacao)
-                    app.shutdown()
+            def agora() -> None:
+                atualizacao.reabrir(instalacao)
+                app.shutdown()
 
-                ui.button('Reabrir agora', on_click=agora).mark('reabrir-agora')
+            ui.button('Reabrir agora', on_click=agora).mark('reabrir-agora')
         dialogo.open()

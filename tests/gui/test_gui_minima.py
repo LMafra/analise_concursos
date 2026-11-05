@@ -1,20 +1,24 @@
 import asyncio
 import shutil
+import threading
 import tomllib
 from pathlib import Path
 
 import pytest
 from concurso_sintetico import ARQUIVOS_SIMPLES, config_simples, criar_concurso
+from nicegui import ui
 from nicegui.testing.user import User
 
+from concursos import doctor as diagnostico
 from concursos import janela
 from concursos.aplicacao import analise
+from concursos.aplicacao import projeto as projeto_aplicacao
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.cli import main
 from concursos.erros import ErroDoUsuario
 from concursos.gui import app as gui_app
 from concursos.gui.estado import ESTADO
-from concursos.modelo import DecisaoJanela
+from concursos.modelo import DecisaoJanela, Etapa
 
 
 async def esperar(condicao, segundos: float = 3.0) -> None:
@@ -275,6 +279,25 @@ async def test_analisar_avanca_a_barra_por_concurso_e_preenche_o_log(user: User,
     assert recebidas[0].ao_progresso is not None
 
 
+async def test_analisar_mostra_a_etapa_atual_do_concurso(user: User, projeto, monkeypatch):
+    liberar = threading.Event()
+
+    def analisar_falso(opcoes: Opcoes) -> int:
+        opcoes.ao_progresso('alfa', 1, 2)
+        opcoes.ao_etapa('alfa', Etapa.LENDO_FOLHA)
+        liberar.wait(5)
+        return 0
+
+    monkeypatch.setattr(analise, 'analisar', analisar_falso)
+
+    await user.open('/analise')
+    user.find(marker='iniciar').click()
+
+    await user.should_see('Analisando alfa (1 de 2): Lendo a folha…', retries=60)
+    liberar.set()
+    await user.should_see('Análise concluída.', retries=60)
+
+
 async def test_analisar_mostra_erro_e_dica_como_a_cli(user: User, projeto, monkeypatch):
     def analisar_falso(opcoes: Opcoes) -> int:
         raise ErroDoUsuario('pasta de provas não encontrada', 'crie uma subpasta por concurso')
@@ -289,6 +312,7 @@ async def test_analisar_mostra_erro_e_dica_como_a_cli(user: User, projeto, monke
 
 
 async def test_botao_analisar_da_lista_ja_inicia_a_analise(user: User, projeto, monkeypatch):
+    criar_concurso(projeto / 'provas', 'alfa', config_simples('alfa'), ARQUIVOS_SIMPLES)
     chamadas: list[Opcoes] = []
     monkeypatch.setattr(analise, 'analisar', lambda opcoes: chamadas.append(opcoes) or 0)
 
@@ -333,3 +357,30 @@ async def test_sobre_mostra_versao_e_caminho_do_log(user: User):
     await user.should_see('concurso-analise')
     await user.should_see('Log:')
     await user.should_see('127.0.0.1')
+
+
+async def test_projeto_vazio_oferece_criar_o_primeiro_concurso(user: User, projeto):
+    await user.open('/')
+
+    user.find(marker='sem-concursos-acao').click()
+
+    await user.should_see(marker='nome-concurso')
+
+
+async def test_situacao_do_concurso_tem_icone_e_texto(user: User, projeto):
+    criar_concurso(projeto / 'provas', 'alfa', config_simples('alfa'), ARQUIVOS_SIMPLES)
+
+    await user.open('/')
+
+    await user.should_see('completo')
+    await user.should_see(kind=ui.icon, content='check_circle')
+
+
+async def test_sobre_confere_o_ambiente_sem_sair_da_tela(user: User, projeto, monkeypatch):
+    monkeypatch.setattr(projeto_aplicacao, 'diagnosticar', lambda contexto: [])
+    monkeypatch.setattr(diagnostico, 'formatar', lambda itens: 'tudo certo no ambiente')
+    await user.open('/sobre')
+
+    user.find(marker='conferir-ambiente').click()
+
+    await user.should_see('tudo certo no ambiente')

@@ -7,7 +7,10 @@ from nicegui import events, run, ui
 from concursos.aplicacao import cadastro, captura_tec, pratica
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.resultados import abrir_no_navegador
+from concursos.gui import tema
+from concursos.gui.componentes.aviso import aviso
 from concursos.gui.estado import ESTADO
+from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro
 
 logger = logging.getLogger('concursos')
@@ -68,8 +71,12 @@ class PainelTec:
             shutil.rmtree(envio, ignore_errors=True)
             self.upload.reset()
         self.resultado.clear()
-        with self.resultado, ui.card().classes('bg-green-1 w-full').mark('tec-importado'):
-            ui.label(f'{len(copiados)} arquivo(s) copiados para {copiados[0].parent}.').classes('font-bold')
+        with (
+            self.resultado,
+            aviso(f'{len(copiados)} arquivo(s) copiados para {copiados[0].parent}.', tom=Tom.SUCESSO).mark(
+                'tec-importado'
+            ),
+        ):
             for copiado in copiados:
                 ui.label(copiado.name).classes('font-mono text-sm')
             ui.button('Analisar agora', icon='play_arrow', on_click=analisar)
@@ -96,7 +103,7 @@ def instrucoes_da_captura() -> None:
             ui.label('Os arquivos da captura não vêm com esta instalação. Veja como obtê-los e instalar:')
             ui.link(captura_tec.INSTRUCOES, captura_tec.INSTRUCOES, new_tab=True)
         return
-    with ui.column().classes('w-full gap-3').mark('captura-tec'):
+    with ui.column().classes('w-full').style(tema.gap('md')).mark('captura-tec'):
         passos('No Chrome (computador)', PASSOS_CHROME)
         with ui.row():
             ui.button(

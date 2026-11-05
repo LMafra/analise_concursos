@@ -1,10 +1,13 @@
+import asyncio
 import sys
 import tomllib
 
 import pytest
 from concurso_sintetico import ARQUIVOS_SIMPLES, config_simples, criar_concurso
+from nicegui import ui
 from nicegui.testing.user import User
 
+from concursos.aplicacao import inicio
 from concursos.aplicacao.preferencias import ler_analise
 from concursos.gui.estado import ESTADO
 
@@ -68,3 +71,41 @@ async def test_desmarcar_desliga_a_ia(user: User, projeto, home_isolada):
     await user.should_see('Desligada: a leitura do edital é só local.')
     llm = tomllib.loads((home_isolada / 'config.toml').read_text(encoding='utf-8'))['llm']
     assert llm['provedor'] == 'nenhum'
+
+
+async def test_tema_comeca_no_do_sistema_e_grava_a_escolha(user: User, projeto, home_isolada):
+    await user.open('/configuracoes')
+    assert elemento(user, 'tema-gui').value == 'sistema'
+
+    elemento(user, 'tema-gui').value = 'escuro'
+
+    config = tomllib.loads((home_isolada / 'config.toml').read_text(encoding='utf-8'))
+    assert config['gui']['tema'] == 'escuro'
+
+
+async def test_calibrar_grava_e_forca_a_proxima_analise(user: User, projeto, home_isolada, monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(
+        inicio,
+        'salvar_calibracao',
+        lambda contexto, folha, digitadas: chamadas.append((folha.name, digitadas)),
+    )
+    await user.open('/configuracoes')
+    upload = next(iter(user.find(marker='folha-calibracao').elements))
+    await upload.handle_uploads([ui.upload.SmallFileUpload('folha.png', 'image/png', b'png')])
+    await asyncio.sleep(0.2)
+    user.find(marker='calibracao').type('ABCD-')
+
+    user.find(marker='calibrar').click()
+
+    await user.should_see('Calibração gravada; a próxima análise relê as folhas.')
+    assert chamadas == [('folha.png', 'ABCD-')]
+    assert ESTADO.forcar_proxima_analise is True
+
+
+async def test_calibrar_sem_folha_pede_a_folha(user: User, projeto, home_isolada):
+    await user.open('/configuracoes')
+
+    user.find(marker='calibrar').click()
+
+    await user.should_see('Envie a folha e digite as respostas dela antes de calibrar.')

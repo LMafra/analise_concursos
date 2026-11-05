@@ -1,5 +1,4 @@
 import asyncio
-import tomllib
 
 import yaml
 from concurso_sintetico import ARQUIVOS_SIMPLES, config_simples, criar_concurso
@@ -13,7 +12,6 @@ from concursos.deteccao import Papel
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas import novo_concurso
 from concursos.modelo import Formato
-from concursos.onboarding import ARQUIVO_LEIA_ME
 from concursos.respostas import ler_respostas_csv
 
 GABARITO_FGV = '# FGV - Gabarito definitivo\n1 A\n2 B\n'
@@ -49,28 +47,6 @@ async def test_concursos_convida_ao_onboarding_quando_falta_configurar(user: Use
     await user.open('/')
 
     await user.should_see(marker='fazer-onboarding')
-
-
-async def test_onboarding_grava_pelo_servico_e_volta_para_os_concursos(user: User, projeto):
-    await user.open('/inicio')
-    user.find(marker='nome').clear().type('Ana Teste')
-    next(iter(user.find(marker='doctor').elements)).value = False
-    user.find(marker='concluir').click()
-
-    await esperar(lambda: (projeto / '.concurso' / 'config.toml').exists())
-    config = tomllib.loads((projeto / '.concurso' / 'config.toml').read_text(encoding='utf-8'))
-    assert config['candidato'] == {'ultimo': 'ana_teste'}
-    assert (projeto / 'provas' / ARQUIVO_LEIA_ME).is_file()
-    await esperar(lambda: ESTADO.candidato == 'ana_teste')
-
-
-async def test_onboarding_sem_nome_mostra_erro_e_dica(user: User, projeto):
-    await user.open('/inicio')
-    user.find(marker='nome').clear()
-    user.find(marker='concluir').click()
-
-    await user.should_see('erro: falta o seu nome')
-    assert not (projeto / '.concurso' / 'config.toml').exists()
 
 
 async def test_soltar_arquivos_mostra_o_papel_detectado_e_trocar_muda_o_cadastro(

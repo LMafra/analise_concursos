@@ -38,7 +38,7 @@ from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.graficos import gerar_graficos
 from concursos.llm import ClienteLlm
-from concursos.modelo import ItemGabarito, RespostaMarcada
+from concursos.modelo import Etapa, ItemGabarito, RespostaMarcada
 from concursos.perfis import PerfilOcr, perfil_da_banca
 from concursos.prova import segmentar, texto_em_colunas
 from concursos.relatorio import ConteudoRelatorio, gerar_relatorio
@@ -92,11 +92,13 @@ def analisar_todos(
     taxonomia: dict[str, DisciplinaCanonica] | None = None,
     candidato: str | None = None,
     ao_progresso: Callable[[str, int, int], None] | None = None,
+    ao_etapa: Callable[[str, Etapa], None] | None = None,
 ) -> bool:
     """Analisa os concursos completos que mudaram; retorna False se algum falhou durante a análise.
 
     Com candidato, `raiz_analises` é a pasta dele e só entram os concursos com `candidatos/<candidato>/`.
-    `ao_progresso(concurso, indice, total)` é chamado antes de cada concurso, a partir de 1.
+    `ao_progresso(concurso, indice, total)` é chamado antes de cada concurso, a partir de 1;
+    `ao_etapa(concurso, etapa)`, em cada etapa de um concurso analisado e com `''` antes do consolidado.
     """
     configuracao = configuracao or ConfiguracaoGlobal()
     sucesso = True
@@ -106,11 +108,14 @@ def analisar_todos(
         if ao_progresso is not None:
             ao_progresso(pasta.name, indice, len(pastas))
         destino = raiz_analises / pasta.name
+        etapa = (lambda e, nome=pasta.name: ao_etapa(nome, e)) if ao_etapa is not None else None
         situacao, analisado = _analisar_se_necessario(
-            pasta, destino, forcar, configuracao, taxonomia, candidato
+            pasta, destino, forcar, configuracao, taxonomia, candidato, etapa
         )
         situacoes[pasta.name] = situacao
         sucesso &= analisado
+    if ao_etapa is not None:
+        ao_etapa('', Etapa.CONSOLIDANDO)
     consolidar(
         raiz_provas,
         raiz_analises,
@@ -160,6 +165,7 @@ def _analisar_se_necessario(
     configuracao: ConfiguracaoGlobal,
     taxonomia: dict[str, DisciplinaCanonica] | None,
     candidato: str | None,
+    etapa: Callable[[Etapa], None] | None = None,
 ) -> tuple[StatusConcurso, bool]:
     """A situação do concurso depois da troca de gabarito, se houve, e se a análise não falhou."""
     situacao = avaliar(pasta, candidato)
@@ -178,7 +184,7 @@ def _analisar_se_necessario(
         return situacao, True
     manifesto.invalidar(destino)
     try:
-        analisar_concurso(situacao.config, destino, configuracao, taxonomia)
+        analisar_concurso(situacao.config, destino, configuracao, taxonomia, etapa)
     except (ValueError, FileNotFoundError, RuntimeError) as erro:
         logger.error('%s: falha na análise: %s', situacao.nome, erro)
         return situacao, False
@@ -191,20 +197,30 @@ def analisar_concurso(
     destino: Path,
     configuracao: ConfiguracaoGlobal,
     taxonomia: dict[str, DisciplinaCanonica] | None = None,
+    etapa: Callable[[Etapa], None] | None = None,
 ) -> None:
+    def avisar(atual: Etapa) -> None:
+        if etapa is not None:
+            etapa(atual)
+
     logger.info('Analisando %s', config.nome)
     if taxonomia is None:
         taxonomia = _taxonomia_do_contexto()
+    avisar(Etapa.LENDO_ARQUIVOS)
     documentos = _paginas_dos_documentos(config)
     edital = _ler_edital(config, documentos)
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
+    avisar(Etapa.LENDO_FOLHA)
     respostas = _ler_respostas(config, destino, configuracao.limiar_confianca, configuracao.perfil_calibrado)
+    avisar(Etapa.CORRIGINDO)
     resultados = corrigir(config, gabaritos, respostas, _disciplinas_por_questao(config))
+    avisar(Etapa.CLASSIFICANDO)
     resultados = _classificar_topicos(config, edital, resultados)
     validacao = validar_resultado(config, resultados)
     if validacao is not None and validacao.alerta:
         logger.warning('%s: %s', config.nome, validacao.descricao)
 
+    avisar(Etapa.GERANDO_RELATORIOS)
     destino.mkdir(parents=True, exist_ok=True)
     tabela = _tabela_respostas(config, respostas, configuracao.limiar_confianca)
     tabela.to_csv(destino / ARQUIVO_RESPOSTAS, index=False)

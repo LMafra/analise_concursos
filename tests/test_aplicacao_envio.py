@@ -242,3 +242,22 @@ def test_respostas_atuais_do_onboarding_sao_os_padroes_do_init(tmp_path):
     assert respostas.provas == tmp_path / 'provas'
     assert respostas.analises == tmp_path / 'analises'
     assert respostas.doctor is True
+
+
+def test_validar_nome_recusa_vazio_e_tira_os_espacos():
+    with pytest.raises(ErroDoUsuario, match='falta o seu nome'):
+        inicio.validar_nome('  ')
+    assert inicio.validar_nome(' Ana Teste ') == 'Ana Teste'
+
+
+def test_salvar_calibracao_grava_o_perfil_no_projeto(tmp_path, monkeypatch):
+    contexto = resolver_contexto(cwd=tmp_path)
+    gravadas = []
+    monkeypatch.setattr(inicio, 'calibrar_folha', lambda folha, digitadas: ('calibracao', folha, digitadas))
+    monkeypatch.setattr(
+        inicio, 'gravar_calibracao', lambda projeto, calibracao: gravadas.append((projeto, calibracao))
+    )
+
+    inicio.salvar_calibracao(contexto, tmp_path / 'folha.png', 'ABCD-')
+
+    assert gravadas == [(contexto.projeto, ('calibracao', tmp_path / 'folha.png', 'ABCD-'))]

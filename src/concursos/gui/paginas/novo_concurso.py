@@ -8,10 +8,13 @@ from concursos.aplicacao import cadastro
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.projeto import ocr_disponivel
 from concursos.deteccao import ArquivoDetectado, Papel
+from concursos.gui import tema
+from concursos.gui.componentes.aviso import aviso
 from concursos.gui.estado import ESTADO
 from concursos.gui.interacao import InteracaoCanceladaError, InteracaoGui
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.progresso import Andamento
+from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
 
 logger = logging.getLogger('concursos')
@@ -46,7 +49,7 @@ class TelaDeEnvio:
         self.envio: Path | None = None
         self.papeis: dict[Path, Papel] = {}
         self.andamento = Andamento()
-        with ui.column().classes('w-full max-w-3xl gap-4') as self.recipiente:
+        with ui.column().classes('w-full max-w-3xl').style(tema.gap('md')) as self.recipiente:
             ui.label(f'Acrescentar arquivos a {concurso}' if concurso else 'Novo concurso').classes(
                 'text-2xl font-bold'
             )
@@ -74,7 +77,7 @@ class TelaDeEnvio:
                 .classes('w-full')
                 .mark('soltar')
             )
-            self.tabela = ui.column().classes('w-full gap-1')
+            self.tabela = ui.column().classes('w-full').style(tema.gap('xs'))
             self.candidato = (
                 rotulo(
                     ui.input(
@@ -88,7 +91,9 @@ class TelaDeEnvio:
                 .mark('candidato-envio')
             )
             if not ocr_disponivel():
-                ui.label(AVISO_SEM_OCR).classes('text-sm bg-amber-1 p-2 rounded').mark('sem-tesseract')
+                aviso('Leitura de PDF escaneado indisponível', AVISO_SEM_OCR, tom=Tom.ALERTA).mark(
+                    'sem-tesseract'
+                )
             with ui.expansion('Mensagens do cadastro', icon='list').classes('w-full'):
                 self.mensagens = ui.log(max_lines=500).classes('h-40 w-full').mark('mensagens')
             with ui.row():
@@ -117,7 +122,7 @@ class TelaDeEnvio:
         with self.tabela:
             for detectado in detectados:
                 caminho = detectado.caminho
-                with ui.row().classes('items-center gap-3 w-full'):
+                with ui.row().classes('items-center w-full').style(tema.gap('md')):
                     ui.label(caminho.name).classes('font-mono min-w-48')
                     ui.label(f'Detectamos: {NOME_DO_PAPEL[detectado.papel]}. Confirma?').classes('text-sm')
                     rotulo(
@@ -172,13 +177,15 @@ class TelaDeEnvio:
 
     def mostrar_cadastrado(self, pasta: Path) -> None:
         self.tabela.clear()
-        with self.resultado, ui.card().classes('bg-green-1 w-full').mark('cadastrado'):
-            ui.label(f'Concurso {pasta.name} cadastrado.').classes('font-bold')
-            with ui.row():
-                ui.button('Ver concursos', on_click=lambda: ui.navigate.to('/'))
-                ui.button(
-                    'Digitar respostas', on_click=lambda: ui.navigate.to(f'/respostas?concurso={pasta.name}')
-                ).props('outline')
+        with (
+            self.resultado,
+            aviso(f'Concurso {pasta.name} cadastrado.', tom=Tom.SUCESSO).mark('cadastrado'),
+            ui.row().style(tema.gap('sm')),
+        ):
+            ui.button('Ver concursos', on_click=lambda: ui.navigate.to('/'))
+            ui.button(
+                'Digitar respostas', on_click=lambda: ui.navigate.to(f'/respostas?concurso={pasta.name}')
+            ).props('outline')
 
     def descartar_envio(self) -> None:
         if self.envio is not None:

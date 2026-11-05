@@ -6,10 +6,13 @@ from nicegui import run, ui
 from concursos.aplicacao import integracoes
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.resultados import abrir_no_navegador
+from concursos.gui import tema
+from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.consentimento import consentimento
 from concursos.gui.estado import ESTADO
 from concursos.gui.interacao import InteracaoCanceladaError, InteracaoGui
 from concursos.gui.progresso import Andamento
+from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
 from concursos.integracoes.pci_mcp import REGIOES, DatasInscricao
 from concursos.status import listar_concursos
@@ -78,8 +81,8 @@ class PainelDescobrir:
             return
         ui.label(
             'Sem filtro, a busca usa os cargos e a UF do seu perfil. Separe vários cargos por vírgula.'
-        ).classes('text-sm text-grey-8')
-        with ui.row().classes('w-full items-end gap-2'):
+        ).classes('text-sm ca-texto-suave')
+        with ui.row().classes('w-full items-end').style(tema.gap('sm')):
             self.cargo = rotulo(ui.input('Cargo'), 'cargo').classes('min-w-64').mark('filtro-cargo')
             self.uf = rotulo(ui.input('UF', placeholder='ex.: DF'), 'UF').classes('w-24').mark('filtro-uf')
             self.cidade = rotulo(ui.input('Cidade'), 'cidade').classes('min-w-48').mark('filtro-cidade')
@@ -89,7 +92,7 @@ class PainelDescobrir:
                 .mark('filtro-regiao')
             )
             self.botao = ui.button('Buscar', icon='search', on_click=self.buscar).mark('buscar-pci')
-        self.resultado = ui.column().classes('w-full gap-2')
+        self.resultado = ui.column().classes('w-full').style(tema.gap('sm'))
         ui.separator()
         ui.label('Acompanhando no radar de prazos').classes('text-lg font-bold')
         self.acompanhados()
@@ -165,10 +168,10 @@ class PainelDescobrir:
             ui.label('Nenhum ainda. Use "Acompanhar no radar" num resultado da busca.').classes('text-sm')
             return
         for item in itens:
-            with ui.row().classes('items-center gap-2').mark(f'interesse-{item["id"]}'):
+            with ui.row().classes('items-center').style(tema.gap('sm')).mark(f'interesse-{item["id"]}'):
                 ui.label(item['titulo'])
                 if item.get('fim'):
-                    ui.label(f'inscrições até {item["fim"]}').classes('text-sm text-grey-8')
+                    ui.label(f'inscrições até {item["fim"]}').classes('text-sm ca-texto-suave')
                 ui.button('Deixar de acompanhar', on_click=lambda i=item['id']: self.esquecer(i)).props(
                     'flat dense'
                 ).mark(f'esquecer-{item["id"]}')
@@ -192,9 +195,9 @@ class PainelProvasAnteriores:
         nomes = [p.name for p in listar_concursos(contexto.provas)] if contexto.provas.is_dir() else []
         ui.label(
             'Busque pelo concurso-alvo (o cargo e o órgão do concurso.yaml dele) ou por um termo livre.'
-        ).classes('text-sm text-grey-8')
-        with ui.column().classes('w-full gap-2') as self.recipiente:
-            with ui.row().classes('w-full items-end gap-2'):
+        ).classes('text-sm ca-texto-suave')
+        with ui.column().classes('w-full').style(tema.gap('sm')) as self.recipiente:
+            with ui.row().classes('w-full items-end').style(tema.gap('sm')):
                 self.alvo = (
                     rotulo(
                         ui.select([SEM_ALVO, *nomes], label='Concurso-alvo', value=SEM_ALVO), 'concurso-alvo'
@@ -209,7 +212,7 @@ class PainelProvasAnteriores:
                 )
                 self.botao = ui.button('Buscar', icon='search', on_click=self.buscar).mark('buscar-provas')
             ui.label(COMO_IMPORTAR).classes('text-sm')
-            self.resultado = ui.column().classes('w-full gap-2')
+            self.resultado = ui.column().classes('w-full').style(tema.gap('sm'))
             self.importacao = ui.column().classes('w-full')
             with ui.expansion('Mensagens da importação', icon='list').classes('w-full'):
                 self.mensagens = ui.log(max_lines=500).classes('h-40 w-full').mark('mensagens-importacao')
@@ -242,7 +245,7 @@ class PainelProvasAnteriores:
         if self.achados is None:
             return
         with self.resultado:
-            ui.label(f'Busca: {self.achados.termo}').classes('text-sm text-grey-8')
+            ui.label(f'Busca: {self.achados.termo}').classes('text-sm ca-texto-suave')
             if not self.achados.provas:
                 ui.label('Nenhuma prova anterior encontrada; tente outro termo.')
                 return
@@ -301,6 +304,10 @@ class PainelProvasAnteriores:
         if codigo != 0:
             ui.notify('O simulado não foi cadastrado; veja as mensagens da importação.', type='warning')
             return
-        with self.importacao, ui.card().classes('bg-green-1 w-full').mark('simulado-importado'):
-            ui.label('Importação terminada; confira as mensagens da importação.').classes('font-bold')
+        with (
+            self.importacao,
+            aviso('Importação terminada; confira as mensagens da importação.', tom=Tom.SUCESSO).mark(
+                'simulado-importado'
+            ),
+        ):
             ui.button('Ver concursos', on_click=lambda: ui.navigate.to('/'))

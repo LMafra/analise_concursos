@@ -384,3 +384,12 @@ def test_transporte_corta_resposta_maior_que_o_limite(monkeypatch, tmp_path):
     with pytest.raises(ErroDoAmbiente, match='passou'):
         transporte.baixar_para('https://github.com/x', tmp_path / 'x', 10)
     assert transporte.baixar('https://github.com/x', 100) == b'x' * 100
+
+
+def test_gravar_aviso_liga_so_o_aviso_e_mantem_o_canal(tmp_path):
+    config_global = tmp_path / 'config.toml'
+    aplicacao.gravar_preferencias(config_global, aplicacao.Preferencias(CanalAtualizacao.BETA, False))
+
+    aplicacao.gravar_aviso(config_global, True)
+
+    assert aplicacao.ler_preferencias(config_global) == aplicacao.Preferencias(CanalAtualizacao.BETA, True)

@@ -10,9 +10,11 @@ from nicegui import app, native, run, ui
 
 from concursos import janela
 from concursos.aplicacao import atualizador as atualizacao
-from concursos.aplicacao.preferencias import aviso_webview2_dispensado, dispensar_aviso_webview2
+from concursos.aplicacao.preferencias import aviso_webview2_dispensado, dispensar_aviso_webview2, tema_da_gui
 from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.config.contexto import resolver_home
+from concursos.gui import tema
+from concursos.gui.componentes.aviso import aviso
 from concursos.gui.estado import ESTADO, projeto_inicial
 from concursos.gui.paginas import (
     analise,
@@ -26,6 +28,7 @@ from concursos.gui.paginas import (
     resultados,
     sobre,
 )
+from concursos.gui.tema import Tom
 from concursos.modelo import DecisaoJanela
 
 HOST = '127.0.0.1'
@@ -62,24 +65,22 @@ def titulo() -> str:
 
 def raiz() -> None:
     ui.page_title(titulo())
-    ui.add_css('.nicegui-log .q-scrollarea__content { white-space: pre-wrap; overflow-wrap: anywhere; }')
-    with ui.header().classes('items-center gap-1 flex-wrap'):
+    tema.aplicar_tema(tema_da_gui(resolver_home() / 'config.toml'))
+    with ui.header().classes('items-center flex-wrap').style(tema.gap('xs')):
         ui.label('concurso-analise').classes('text-lg font-bold mr-4')
         for caminho, nome, icone in MENU:
-            ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props(
-                'flat color=white'
-            )
+            ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props('flat')
         ui.space()
         ui.button(icon='new_releases', on_click=lambda: ui.navigate.to('/sobre')).props(
-            'flat dense no-caps color=white'
+            'flat dense no-caps'
         ).bind_text_from(
             ESTADO, 'novidade', lambda n: f'Versão {n.versao} disponível' if n else ''
         ).bind_visibility_from(ESTADO, 'novidade', backward=bool).mark('chip-atualizacao')
         if ESTADO.no_navegador:
-            ui.button('Fechar o app', icon='power_settings_new', on_click=fechar_app).props(
-                'flat color=white'
-            ).mark('fechar-app')
-    with ui.column().classes('w-full p-4'):
+            ui.button('Fechar o app', icon='power_settings_new', on_click=fechar_app).props('flat').mark(
+                'fechar-app'
+            )
+    with ui.column().classes('w-full p-4').style(tema.gap('md')):
         aviso_de_janela()
         ui.sub_pages(ROTAS).classes('w-full')
 
@@ -95,19 +96,19 @@ def aviso_de_janela() -> None:
         janela_falhou=ESTADO.janela_falhou,
     ):
         return
-    with ui.card().classes('w-full').props('role=alert').mark('aviso-janela') as cartao:
-        with ui.row().classes('items-center no-wrap'):
-            ui.icon('web_asset_off', size='md').props('aria-hidden=true')
-            ui.label(janela.TITULO_AVISO).classes('text-bold')
-        ui.label(janela.TEXTO_AVISO)
-        with ui.row().classes('items-center'):
-            ui.link('Baixar o WebView2 (Microsoft)', janela.URL_WEBVIEW2, new_tab=True).mark('link-webview2')
+    with (
+        aviso(janela.TITULO_AVISO, janela.TEXTO_AVISO, tom=Tom.ALERTA, icone='web_asset_off').mark(
+            'aviso-janela'
+        ) as cartao,
+        ui.row().classes('items-center').style(tema.gap('sm')),
+    ):
+        ui.link('Baixar o WebView2 (Microsoft)', janela.URL_WEBVIEW2, new_tab=True).mark('link-webview2')
 
-            def entendi() -> None:
-                dispensar_aviso_webview2(config_global)
-                cartao.set_visibility(False)
+        def entendi() -> None:
+            dispensar_aviso_webview2(config_global)
+            cartao.set_visibility(False)
 
-            ui.button('Entendi', on_click=entendi).props('flat').mark('dispensar-aviso-janela')
+        ui.button('Entendi', on_click=entendi).props('flat').mark('dispensar-aviso-janela')
 
 
 def fechar_app() -> None:

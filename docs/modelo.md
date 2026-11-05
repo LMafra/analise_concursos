@@ -942,15 +942,16 @@ Artefatos da release: `concurso-analise-<versão>-windows-x64-setup.exe`, `concu
 
 | Token | Claro | Escuro |
 |---|---|---|
-| primária | `#1976D2` (escala 100 `#E3F2FD` a 900 `#051E42`) | `#64B5F6` |
-| sucesso: fundo, ícone, texto | `#E8F5E9`, `#66BB6A`, `#2E7D32` | `#14301B`, `#66BB6A`, `#86EFAC` |
+| primária, texto sobre ela, primária como texto | `#1976D2`, `#FFFFFF`, `#1565C0` | `#64B5F6`, `#0F172A`, `#64B5F6` |
+| info: fundo, ícone, texto | `#E3F2FD`, `#1976D2`, `#0D47A1` | `#0C2A4A`, `#64B5F6`, `#BFDBFE` |
+| sucesso: fundo, ícone, texto | `#E8F5E9`, `#2E7D32`, `#2E7D32` | `#14301B`, `#66BB6A`, `#86EFAC` |
 | erro: fundo, ícone, texto | `#FFEBEE`, `#D32F2F`, `#C62828` | `#3B1518`, `#EF5350`, `#FCA5A5` |
 | alerta: fundo, ícone, texto | `#FFF8E1`, `#E65100`, `#B45309` | `#3A2A0A`, `#FFB74D`, `#FCD34D` |
 | fundo, superfície | `#FAFAFA`, `#FFFFFF` | `#0F172A`, `#1E293B` |
 | texto, texto suave, borda | `#1E293B`, `#475569`, `#CBD5E1` | `#F1F5F9`, `#CBD5E1`, `#334155` |
 
-Espaço `xs` 4 px, `sm` 8, `md` 16, `lg` 24, `xl` 32; raio 8 px (cartão) e 12 px (diálogo); elevação 1 `0 1px 2px rgb(0 0 0 / .08)` e 2 `0 8px 24px rgb(0 0 0 / .16)`; fonte do sistema (`"Segoe UI", Roboto, "Noto Sans", Ubuntu, sans-serif`). Texto sobre fundo e sobre superfície tem contraste de pelo menos 4,5:1; o teste calcula cada par.
+Espaço `xs` 4 px, `sm` 8, `md` 16, `lg` 24, `xl` 32; raio 8 px (cartão) e 12 px (diálogo); elevação 1 `0 1px 2px rgb(0 0 0 / .08)` e 2 `0 8px 24px rgb(0 0 0 / .16)`; fonte do sistema (`"Segoe UI", Roboto, "Noto Sans", Ubuntu, sans-serif`). Texto sobre fundo e sobre superfície tem contraste de pelo menos 4,5:1, e ícone e foco, de 3:1; o teste calcula cada par. O Quasar recebe a primária como `var(--ca-primaria)`, para o modo escuro trocá-la pelo CSS. O modo (`[gui] tema`, enum `TemaGui`: `sistema`, `claro`, `escuro`) é escolhido em Configurações > Aparência; `sistema` segue o sistema operacional. Status nunca depende só da cor: `gui/componentes/` (`cartao`, `Dialogo`, `aviso`, `situacao`, `estado_vazio`, `etapas`, `Assistente`) põe ícone e texto em cada tom (`info`, `sucesso`, `alerta`, `erro`), e o passo atual do assistente leva `aria-current="step"`.
 
-**Onboarding (fase 6).** A tela `/inicio` é um assistente de 4 passos (nome; pasta, com as pastas de provas e análises em "Avançado"; opcionais desmarcados: IA para editais e aviso de versão nova; primeiro resultado: exemplo ou cadastro). Grava pelas mesmas `onboarding.aplicar` e `onboarding.gravar`; o aviso de versão nova grava `[atualizacao] verificar_ao_abrir`. A calibração da folha fica em Configurações.
+**Onboarding (fase 6).** A tela `/inicio` é um assistente de 4 passos (nome; pasta, com as pastas de provas e análises em "Avançado"; opcionais desmarcados: IA para editais e aviso de versão nova; primeiro resultado: exemplo ou cadastro). Grava pelas mesmas `onboarding.aplicar` e `onboarding.gravar`; o aviso de versão nova grava `[atualizacao] verificar_ao_abrir`, e "Pular" no passo 3 não grava nenhum dos dois. A calibração da folha fica em Configurações (`aplicacao.inicio.salvar_calibracao`, que grava o mesmo `./.concurso/folha_calibrada.yaml`; a análise seguinte pela GUI é forçada, para reler as folhas), e o `doctor` fica no Sobre ("Conferir o ambiente"). Projeto sem concursos, sem relatório, sem recomendações ou sem prática mostra um estado vazio com a próxima ação.
 
 Artefatos da release a partir da fase 6: os da fase 5, mais `atualizacao.json`, `atualizacao.json.sig` e `RELATORIO-SMOKE.md` (o resultado dos gates de cada sistema). O `--smoke` também imprime `partida: <s>` (falha acima de `CONCURSO_SMOKE_LIMITE_PARTIDA`, se definida) e confere o OCR numa imagem gerada.

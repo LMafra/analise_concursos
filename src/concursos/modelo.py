@@ -145,3 +145,9 @@ class Etapa(StrEnum):
 class CanalAtualizacao(StrEnum):
     STABLE = 'stable'
     BETA = 'beta'
+
+
+class TemaGui(StrEnum):
+    SISTEMA = 'sistema'
+    CLARO = 'claro'
+    ESCURO = 'escuro'

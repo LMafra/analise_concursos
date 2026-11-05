@@ -21,6 +21,7 @@ class Estado:
     todos: bool = False
     ocupado: bool = False
     pedir_analise: bool = False
+    forcar_proxima_analise: bool = False
     no_navegador: bool = False
     decisao_janela: DecisaoJanela | None = None
     janela_falhou: bool = False

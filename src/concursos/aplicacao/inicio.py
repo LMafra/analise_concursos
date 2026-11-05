@@ -7,7 +7,7 @@ from concursos import onboarding
 from concursos.aplicacao.analise import analisar
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.projeto import diagnosticar, exigir_provas, migrar
-from concursos.calibracao import Calibracao, CalibracaoError, calibrar
+from concursos.calibracao import Calibracao, CalibracaoError, calibrar, gravar_calibracao
 from concursos.config.contexto import Contexto
 from concursos.erros import ErroDoUsuario
 from concursos.status import listar_concursos
@@ -78,8 +78,7 @@ def respostas_do_formulario(
     calibracao: Calibracao | None = None,
 ) -> onboarding.Respostas:
     """As respostas do formulário; pastas relativas são relativas à pasta do projeto."""
-    if not nome.strip():
-        raise ErroDoUsuario('falta o seu nome', 'escreva o nome que vai aparecer nos relatórios')
+    nome = validar_nome(nome)
 
     def na_raiz(texto: str, padrao: Path) -> Path:
         if not texto.strip():
@@ -88,12 +87,18 @@ def respostas_do_formulario(
         return caminho if caminho.is_absolute() else contexto.raiz / caminho
 
     return onboarding.Respostas(
-        nome=nome.strip(),
+        nome=nome,
         provas=na_raiz(provas, contexto.provas),
         analises=na_raiz(analises, contexto.analises),
         doctor=doctor,
         calibracao=calibracao,
     )
+
+
+def validar_nome(nome: str) -> str:
+    if not nome.strip():
+        raise ErroDoUsuario('falta o seu nome', 'escreva o nome que vai aparecer nos relatórios')
+    return nome.strip()
 
 
 def calibrar_folha(folha: Path, digitadas: str) -> Calibracao:
@@ -108,3 +113,8 @@ def concluir_onboarding(opcoes: Opcoes, respostas: onboarding.Respostas) -> Opco
     if not respostas.provas.is_dir():
         onboarding.criar_pasta_de_provas(respostas.provas)
     return configurar(opcoes, respostas)
+
+
+def salvar_calibracao(contexto: Contexto, folha: Path, digitadas: str) -> Path:
+    """Calibra pela folha e grava o perfil no projeto; as folhas já lidas só mudam se forem relidas."""
+    return gravar_calibracao(contexto.projeto, calibrar_folha(folha, digitadas))

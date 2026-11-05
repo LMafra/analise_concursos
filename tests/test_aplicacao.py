@@ -11,13 +11,16 @@ from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.preferencias import (
     PreferenciasAnalise,
     gravar_analise,
+    gravar_tema_da_gui,
     lembrar_projeto,
     ler_analise,
+    tema_da_gui,
     ultimo_projeto,
 )
 from concursos.candidatos import adicionar_arquivo
 from concursos.config.contexto import resolver_contexto
 from concursos.erros import ErroDoUsuario
+from concursos.modelo import Etapa, TemaGui
 
 PACOTE = Path(__file__).resolve().parents[1] / 'src' / 'concursos'
 
@@ -47,6 +50,38 @@ def test_analisar_avisa_o_progresso_antes_de_cada_concurso_em_ordem(raiz):
 
     assert avisos == [('alfa', 1, 2), ('beta', 2, 2)]
     assert any(linha.startswith('relatório: ') for linha in saida)
+
+
+def test_analisar_avisa_cada_etapa_de_cada_concurso_e_o_consolidado(raiz):
+    for nome in ('alfa', 'beta'):
+        criar_concurso(raiz / 'provas', nome, config(nome), ARQUIVOS)
+    etapas: list[tuple[str, Etapa]] = []
+    opcoes = Opcoes(
+        resolver_contexto(cwd=raiz),
+        sim=True,
+        abrir=False,
+        ao_etapa=lambda concurso, etapa: etapas.append((concurso, etapa)),
+    )
+
+    assert analise.analisar(opcoes) == 0
+
+    por_concurso = [
+        Etapa.LENDO_ARQUIVOS,
+        Etapa.LENDO_FOLHA,
+        Etapa.CORRIGINDO,
+        Etapa.CLASSIFICANDO,
+        Etapa.GERANDO_RELATORIOS,
+    ]
+    assert etapas == [
+        *[('alfa', e) for e in por_concurso],
+        *[('beta', e) for e in por_concurso],
+        ('', Etapa.CONSOLIDANDO),
+    ]
+
+
+def test_toda_etapa_tem_texto_para_a_tela():
+    assert set(analise.TEXTO_DA_ETAPA) == set(Etapa)
+    assert analise.TEXTO_DA_ETAPA[Etapa.LENDO_FOLHA] == 'Lendo a folha…'
 
 
 def test_analisar_sem_ao_progresso_funciona_como_antes(raiz):
@@ -123,3 +158,19 @@ def test_aplicacao_e_gui_nao_dependem_da_cli_nem_do_terminal(pasta):
                 assert not modulo.startswith(('typer', 'concursos.cli')), f'{arquivo.name} importa {modulo}'
             if isinstance(no, ast.Call) and isinstance(no.func, ast.Name):
                 assert no.func.id not in {'print', 'input'}, f'{arquivo.name} chama {no.func.id}'
+
+
+def test_tema_da_gui_padrao_e_o_do_sistema_e_grava_a_escolha(tmp_path):
+    config_global = tmp_path / 'config.toml'
+    assert tema_da_gui(config_global) is TemaGui.SISTEMA
+
+    gravar_tema_da_gui(config_global, TemaGui.ESCURO)
+
+    assert tema_da_gui(config_global) is TemaGui.ESCURO
+    assert tomllib.loads(config_global.read_text(encoding='utf-8'))['gui']['tema'] == 'escuro'
+
+
+def test_tema_da_gui_invalido_volta_ao_do_sistema(tmp_path):
+    config_global = tmp_path / 'config.toml'
+    config_global.write_text('[gui]\ntema = "roxo"\n', encoding='utf-8')
+    assert tema_da_gui(config_global) is TemaGui.SISTEMA
