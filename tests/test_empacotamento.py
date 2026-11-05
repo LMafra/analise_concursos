@@ -20,7 +20,8 @@ def executavel(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(sys, 'frozen', True, raising=False)
     monkeypatch.setattr(sys, '_MEIPASS', str(base), raising=False)
     monkeypatch.setenv('PATH', '/usr/bin')
-    monkeypatch.delenv('TESSDATA_PREFIX', raising=False)
+    for variavel in ('TESSDATA_PREFIX', 'LD_LIBRARY_PATH', 'LD_LIBRARY_PATH_ORIG'):
+        monkeypatch.delenv(variavel, raising=False)
     return base
 
 
@@ -33,12 +34,47 @@ def test_preparar_ambiente_poe_o_tesseract_embutido_na_frente(executavel):
 
 def test_preparar_ambiente_sem_tesseract_nao_mexe_no_path(tmp_path, monkeypatch):
     monkeypatch.setenv('PATH', '/usr/bin')
-    monkeypatch.delenv('TESSDATA_PREFIX', raising=False)
+    for variavel in ('TESSDATA_PREFIX', 'LD_LIBRARY_PATH', 'LD_LIBRARY_PATH_ORIG'):
+        monkeypatch.delenv(variavel, raising=False)
 
     empacotado.preparar_ambiente(tmp_path)
 
     assert os.environ['PATH'] == '/usr/bin'
     assert 'TESSDATA_PREFIX' not in os.environ
+
+
+def test_no_linux_os_programas_do_sistema_voltam_as_bibliotecas_originais(executavel, monkeypatch):
+    monkeypatch.setattr(sys, 'platform', 'linux')
+    monkeypatch.setenv('LD_LIBRARY_PATH', str(executavel))
+    monkeypatch.setenv('LD_LIBRARY_PATH_ORIG', '/opt/sistema/lib')
+
+    empacotado.preparar_ambiente(executavel)
+
+    assert os.environ['LD_LIBRARY_PATH'] == '/opt/sistema/lib'
+    assert 'LD_LIBRARY_PATH_ORIG' not in os.environ
+
+
+def test_no_linux_sem_original_o_ld_library_path_sai(executavel, monkeypatch):
+    monkeypatch.setattr(sys, 'platform', 'linux')
+    monkeypatch.setenv('LD_LIBRARY_PATH', str(executavel))
+    monkeypatch.delenv('LD_LIBRARY_PATH_ORIG', raising=False)
+
+    empacotado.preparar_ambiente(executavel)
+
+    assert 'LD_LIBRARY_PATH' not in os.environ
+
+
+def test_smoke_recusa_o_tesseract_do_sistema_quando_o_pacote_traz_o_seu(executavel, tmp_path, monkeypatch):
+    do_sistema = tmp_path / 'sistema' / 'tesseract'
+    monkeypatch.setattr(empacotado.shutil, 'which', lambda nome: str(do_sistema))
+
+    class Saida:
+        stdout = 'List of available languages (2):\neng\npor\n'
+
+    monkeypatch.setattr(empacotado.subprocess, 'run', lambda *a, **k: Saida())
+
+    with pytest.raises(empacotado.SmokeError, match='veio na frente'):
+        empacotado.conferir_tesseract()
 
 
 def test_janela_sem_console_ganha_saidas_vazias(monkeypatch):

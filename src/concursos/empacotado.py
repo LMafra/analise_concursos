@@ -41,6 +41,19 @@ def preparar_ambiente(base: Path) -> None:
         os.environ['PATH'] = str(binarios) + os.pathsep + os.environ.get('PATH', '')
     if (tesseract / 'tessdata').is_dir():
         os.environ['TESSDATA_PREFIX'] = str(tesseract / 'tessdata')
+    if sys.platform.startswith('linux'):
+        restaurar_bibliotecas_do_sistema()
+
+
+def restaurar_bibliotecas_do_sistema() -> None:
+    """O bootloader do PyInstaller põe as bibliotecas do pacote no `LD_LIBRARY_PATH`, e os programas do
+    sistema abertos pelo app (navegador, `xdg-open`) quebrariam com elas. O processo atual não é afetado: o
+    carregador lê a variável só na partida."""
+    original = os.environ.pop('LD_LIBRARY_PATH_ORIG', None)
+    if original is None:
+        os.environ.pop('LD_LIBRARY_PATH', None)
+    else:
+        os.environ['LD_LIBRARY_PATH'] = original
 
 
 def garantir_saidas() -> None:
@@ -84,6 +97,9 @@ def conferir_tesseract() -> str:
     ).stdout
     if 'por' not in saida.split():
         raise SmokeError(f'Tesseract em {caminho} sem o idioma português (por)')
+    base = pasta_embutida()
+    if base is not None and (base / 'tesseract').is_dir() and not embutido(caminho):
+        raise SmokeError(f'o executável traz o Tesseract, mas o do PATH ({caminho}) veio na frente')
     return f'Tesseract {"embutido" if embutido(caminho) else "do sistema"} em {caminho}, com português'
 
 

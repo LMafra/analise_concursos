@@ -2,8 +2,9 @@
 # `uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento`.
 #
 # Dois executáveis no mesmo diretório: `concurso-analise` (janela, sem console no Windows) e
-# `concurso-analise-cli` (console, para a CLI e o smoke). O Tesseract e a captura do TEC entram quando os
-# scripts de `empacotamento/tesseract/` e o `node tec-erros/scripts/build.mjs` já rodaram.
+# `concurso-analise-cli` (console, para a CLI e o smoke). O Tesseract (em `_internal/tesseract`) e a captura do
+# TEC entram quando os scripts de `empacotamento/tesseract/` e o `node tec-erros/scripts/build.mjs` já rodaram.
+import shutil
 import sys
 from importlib.metadata import version
 from pathlib import Path
@@ -22,7 +23,6 @@ def opcional(origem: Path, destino: str) -> list[tuple[str, str]]:
 
 
 datas = [
-    *opcional(CONSTRUCAO / 'tesseract', 'tesseract'),
     *opcional(CONSTRUCAO / 'LICENSES', 'LICENSES'),
     (str(PASTA / 'LICENSES' / 'LEIA-ME.md'), 'LICENSES'),
     *collect_data_files('nicegui'),
@@ -61,6 +61,16 @@ cli = EXE(
 )
 coll = COLLECT(janela, cli, a.binaries, a.datas, name=NOME)
 
+
+def copiar_tesseract(destino: Path) -> None:
+    """Fora do Analysis: o PyInstaller analisaria as bibliotecas do Tesseract e poria na raiz do pacote as
+    dependências delas (no Linux, a libstdc++ do AppImage, feita para uma glibc mais nova que a do build)."""
+    if (CONSTRUCAO / 'tesseract').is_dir():
+        shutil.copytree(CONSTRUCAO / 'tesseract', destino / 'tesseract', symlinks=True, dirs_exist_ok=True)
+
+
+copiar_tesseract(Path(DISTPATH) / NOME / '_internal')
+
 if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
@@ -70,3 +80,4 @@ if sys.platform == 'darwin':
         version=VERSAO,
         info_plist={'NSHighResolutionCapable': True, 'CFBundleShortVersionString': VERSAO},
     )
+    copiar_tesseract(Path(DISTPATH) / f'{NOME}.app' / 'Contents' / 'Frameworks')
