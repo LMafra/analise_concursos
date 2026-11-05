@@ -59,7 +59,7 @@ def test_excecao_inesperada_mostra_o_caminho_do_log(projeto, home_isolada, capsy
     def quebrar(*_args, **_kwargs):
         raise KeyError('inesperado')
 
-    monkeypatch.setattr('concursos.cli.comandos.analisar_todos', quebrar)
+    monkeypatch.setattr('concursos.aplicacao.analise.analisar_todos', quebrar)
 
     assert main([]) != 0
 

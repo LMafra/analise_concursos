@@ -3,27 +3,24 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from concursos.erros import CODIGO_AMBIENTE, CODIGO_USUARIO, ErroDoAmbiente, ErroDoUsuario
+
+__all__ = [
+    'ARQUIVO_LOG',
+    'CODIGO_AMBIENTE',
+    'CODIGO_USUARIO',
+    'ErroDoAmbiente',
+    'ErroDoUsuario',
+    'ajustar_nivel_console',
+    'configurar_log',
+    'mostrar_erro',
+    'mostrar_inesperado',
+]
+
 ARQUIVO_LOG = 'concurso-analise.log'
-CODIGO_USUARIO = 1
-CODIGO_AMBIENTE = 2
 _MARCA_HANDLER = '_concurso_analise'
 
 logger = logging.getLogger('concursos')
-
-
-class ErroDoUsuario(Exception):
-    """Falha que o usuário resolve sozinho: a mensagem diz a causa e a dica diz o comando."""
-
-    codigo = CODIGO_USUARIO
-
-    def __init__(self, causa: str, dica: str | None = None) -> None:
-        super().__init__(causa)
-        self.causa = causa
-        self.dica = dica
-
-
-class ErroDoAmbiente(ErroDoUsuario):
-    codigo = CODIGO_AMBIENTE
 
 
 def configurar_log(pasta_logs: Path, nivel: int = logging.INFO) -> Path | None:

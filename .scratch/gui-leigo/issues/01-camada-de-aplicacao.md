@@ -4,10 +4,10 @@
 
 **Blocked by:** —
 
-**Status:** todo
+**Status:** done
 
-- [ ] Paridade: `concurso-analise --force` e `scripts/paridade.py retrato` antes e `comparar` depois, sem diferença.
-- [ ] Nenhum `tests/test_cli_*.py` muda; `scripts/smoke.py` verde.
-- [ ] `aplicacao/` não importa `typer` nem `concursos.cli`, e não chama `print` nem `input` (teste por AST).
-- [ ] `ao_progresso` recebe `(concurso, indice, total)` na ordem; com `None`, a saída é a mesma.
-- [ ] `preferencias.gravar_analise` recusa limiar fora de 0 a 1 e preserva as outras seções.
+- [x] Paridade: `concurso-analise --force` e `scripts/paridade.py retrato` antes e `comparar` depois, sem diferença.
+- [x] Nenhum `tests/test_cli_*.py` muda de asserção (só o alvo do monkeypatch de `analisar_todos`, que mudou de módulo); `scripts/smoke.py` verde.
+- [x] `aplicacao/` não importa `typer` nem `concursos.cli`, e não chama `print` nem `input` (teste por AST).
+- [x] `ao_progresso` recebe `(concurso, indice, total)` na ordem; com `None`, a saída é a mesma.
+- [x] `preferencias.gravar_analise` recusa limiar fora de 0 a 1 e preserva as outras seções.

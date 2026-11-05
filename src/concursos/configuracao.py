@@ -48,6 +48,11 @@ def carregar_configuracao_global(caminho: Path) -> ConfiguracaoGlobal:
     return _validar(dados, caminho)
 
 
+def validar_analise(dados: dict, caminho: Path) -> ConfiguracaoGlobal:
+    """Valida a seção `[analise]` como a leitura faz, para quem grava."""
+    return _validar(dados, caminho)
+
+
 def _validar(dados: dict, caminho: Path) -> ConfiguracaoGlobal:
     conhecidos = {campo.name for campo in fields(ConfiguracaoGlobal)} - _FORA_DO_ARQUIVO
     if desconhecidos := sorted(set(dados) - conhecidos):
