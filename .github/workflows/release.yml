@@ -68,7 +68,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'iscc falhou' }
 
       - name: Gate de máquina limpa
-        run: ./scripts/smoke_maquina_limpa.ps1 -Instalador "dist\concurso-analise-$env:VERSAO-windows-x64-setup.exe"
+        run: |
+          ./scripts/smoke_maquina_limpa.ps1 -Instalador "dist\concurso-analise-$env:VERSAO-windows-x64-setup.exe" `
+            -LimitePartida 10 -Relatorio dist\smoke-windows.md
+          Get-Content dist\smoke-windows.md | Add-Content $env:GITHUB_STEP_SUMMARY
 
       - name: Tamanho
         run: |
@@ -125,7 +128,8 @@ jobs:
       - name: Gate de máquina limpa (debian:12, sem Python e sem Tesseract)
         run: |
           chmod +x dist/*.AppImage
-          docker run --rm -v "$PWD/dist:/dist:ro" -e APPIMAGE_EXTRACT_AND_RUN=1 debian:12 sh -euc '
+          docker run --rm -v "$PWD/dist:/dist:ro" -e APPIMAGE_EXTRACT_AND_RUN=1 \
+            -e CONCURSO_SMOKE_LIMITE_PARTIDA=10 debian:12 sh -euc '
             if command -v python3 || command -v tesseract; then exit 1; fi
             cd /tmp
             /dist/concurso-analise-*.AppImage --smoke

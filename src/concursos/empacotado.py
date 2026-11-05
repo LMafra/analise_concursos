@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -16,7 +17,10 @@ from pathlib import Path
 
 ARGUMENTO_SMOKE = '--smoke'
 VARIAVEL_SEM_OCR = 'CONCURSO_SMOKE_SEM_OCR'
+VARIAVEL_LIMITE_PARTIDA = 'CONCURSO_SMOKE_LIMITE_PARTIDA'
 TIMEOUT_SERVIDOR = 120
+TEXTO_OCR = 'CONCURSO 2026'
+_IMPORTADO_EM = time.monotonic()
 
 
 class SmokeError(Exception):
@@ -107,7 +111,94 @@ def conferir_tesseract() -> str:
     base = pasta_embutida()
     if base is not None and (base / 'tesseract').is_dir() and not embutido(caminho):
         raise SmokeError(f'o executável traz o Tesseract, mas o do PATH ({caminho}) veio na frente')
-    return f'Tesseract {"embutido" if embutido(caminho) else "do sistema"} em {caminho}, com português'
+    origem = 'embutido' if embutido(caminho) else 'do sistema'
+    return f'Tesseract {origem} em {caminho}, com português; {conferir_ocr(caminho)}'
+
+
+def conferir_ocr(tesseract: str) -> str:
+    """Lê uma imagem gerada na hora: `--list-langs` passa mesmo com uma biblioteca de imagem faltando."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    with tempfile.TemporaryDirectory() as pasta:
+        imagem = Path(pasta) / 'ocr.png'
+        tela = Image.new('L', (900, 160), 255)
+        ImageDraw.Draw(tela).text((30, 40), TEXTO_OCR, fill=0, font=ImageFont.load_default(size=64))
+        tela.save(imagem)
+        resultado = subprocess.run(
+            [tesseract, str(imagem), 'stdout', '-l', 'por'],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    if resultado.returncode != 0:
+        raise SmokeError(
+            f'o Tesseract saiu com código {resultado.returncode}: {resultado.stderr.strip()[-200:]}'
+        )
+    if 'CONCURSO' not in resultado.stdout.upper():
+        raise SmokeError(
+            f'o Tesseract não leu "{TEXTO_OCR}" na imagem de teste (leu {resultado.stdout.strip()!r})'
+        )
+    return f'OCR leu "{TEXTO_OCR}"'
+
+
+def segundos_desde_o_inicio() -> float:
+    """Desde a criação do processo, quando o sistema informa; senão, desde a importação deste módulo."""
+    try:
+        if sys.platform.startswith('linux'):
+            return _segundos_linux()
+        if sys.platform == 'win32':
+            return _segundos_windows()
+    except (OSError, ValueError, AttributeError):
+        pass
+    return max(time.monotonic() - _IMPORTADO_EM, 1e-6)
+
+
+def _segundos_linux() -> float:
+    campos = Path('/proc/self/stat').read_text().rsplit(')', 1)[1].split()
+    inicio = int(campos[19]) / os.sysconf('SC_CLK_TCK')
+    ligado = float(Path('/proc/uptime').read_text().split()[0])
+    return max(ligado - inicio, 1e-6)
+
+
+def _segundos_windows() -> float:
+    import ctypes
+    from ctypes import wintypes
+
+    criacao, saida, kernel, usuario, agora = (wintypes.FILETIME() for _ in range(5))
+    k32 = ctypes.windll.kernel32
+    if not k32.GetProcessTimes(
+        k32.GetCurrentProcess(),
+        ctypes.byref(criacao),
+        ctypes.byref(saida),
+        ctypes.byref(kernel),
+        ctypes.byref(usuario),
+    ):
+        raise OSError('GetProcessTimes falhou')
+    k32.GetSystemTimeAsFileTime(ctypes.byref(agora))
+
+    def valor(tempo: wintypes.FILETIME) -> int:
+        return (tempo.dwHighDateTime << 32) | tempo.dwLowDateTime
+
+    return max((valor(agora) - valor(criacao)) / 10_000_000, 1e-6)
+
+
+def _decimal(segundos: float) -> str:
+    return f'{segundos:.1f}'.replace('.', ',')
+
+
+def conferir_partida(segundos: float) -> str:
+    bruto = os.environ.get(VARIAVEL_LIMITE_PARTIDA)
+    if not bruto:
+        return f'partida: {_decimal(segundos)} s'
+    try:
+        limite = float(bruto.replace(',', '.'))
+    except ValueError as erro:
+        raise SmokeError(f'{VARIAVEL_LIMITE_PARTIDA}={bruto!r} não é um número de segundos') from erro
+    texto_limite = f'{limite:g}'.replace('.', ',')
+    if segundos > limite:
+        raise SmokeError(f'partida de {_decimal(segundos)} s passou do limite de {texto_limite} s')
+    return f'partida: {_decimal(segundos)} s (limite {texto_limite} s)'
 
 
 def responde(url: str, timeout: float, intervalo: float = 0.5) -> bool:
@@ -131,25 +222,26 @@ def conferir_servidor() -> str:
 
     porta = native.find_open_port()
     url = f'http://{HOST}:{porta}/'
-    resultado: dict[str, bool] = {}
+    resultado: dict[str, float] = {}
 
     def conferir() -> None:
-        resultado['ok'] = responde(url, TIMEOUT_SERVIDOR)
+        if responde(url, TIMEOUT_SERVIDOR):
+            resultado['partida'] = segundos_desde_o_inicio()
         app.shutdown()
 
     app.on_startup(lambda: threading.Thread(target=conferir, daemon=True).start())
     executar(navegador=True, abrir=False, porta=porta)
-    if not resultado.get('ok'):
+    if 'partida' not in resultado:
         raise SmokeError(f'a GUI não respondeu em {url}')
-    return f'GUI respondeu em {url}'
+    return f'GUI respondeu em {url}; {conferir_partida(resultado["partida"])}'
 
 
 def conferir_pacote() -> int:
     etapas = [
         lambda: f'versão {conferir_versao()}',
+        conferir_servidor,
         lambda: f'perfis de banca: {", ".join(conferir_perfis())}',
         conferir_tesseract,
-        conferir_servidor,
     ]
     for etapa in etapas:
         try:

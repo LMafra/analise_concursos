@@ -144,6 +144,79 @@ def test_smoke_pode_dispensar_o_tesseract_num_build_de_desenvolvimento(monkeypat
     assert 'dispensado' in empacotado.conferir_tesseract()
 
 
+TESSERACT_LOCAL = RAIZ / 'empacotamento' / 'construcao' / 'tesseract'
+
+
+def test_segundos_desde_o_inicio_do_processo_e_positivo_e_cresce():
+    primeiro = empacotado.segundos_desde_o_inicio()
+    segundo = empacotado.segundos_desde_o_inicio()
+
+    assert 0 < primeiro <= segundo < 3600
+
+
+def test_partida_acima_do_limite_falha(monkeypatch):
+    monkeypatch.setenv(empacotado.VARIAVEL_LIMITE_PARTIDA, '3')
+
+    with pytest.raises(empacotado.SmokeError, match='partida de 4,2 s passou do limite de 3 s'):
+        empacotado.conferir_partida(4.2)
+
+
+def test_partida_dentro_do_limite_ou_sem_limite_passa(monkeypatch):
+    monkeypatch.setenv(empacotado.VARIAVEL_LIMITE_PARTIDA, '10')
+    assert empacotado.conferir_partida(2.6) == 'partida: 2,6 s (limite 10 s)'
+
+    monkeypatch.delenv(empacotado.VARIAVEL_LIMITE_PARTIDA)
+    assert empacotado.conferir_partida(2.6) == 'partida: 2,6 s'
+
+
+def test_limite_de_partida_invalido_e_erro(monkeypatch):
+    monkeypatch.setenv(empacotado.VARIAVEL_LIMITE_PARTIDA, 'rapido')
+
+    with pytest.raises(empacotado.SmokeError, match=empacotado.VARIAVEL_LIMITE_PARTIDA):
+        empacotado.conferir_partida(1.0)
+
+
+def test_ocr_recusa_tesseract_que_nao_le_a_imagem(monkeypatch, tmp_path):
+    class Saida:
+        returncode = 0
+        stdout = 'texto qualquer\n'
+        stderr = ''
+
+    monkeypatch.setattr(empacotado.subprocess, 'run', lambda *a, **k: Saida())
+
+    with pytest.raises(empacotado.SmokeError, match='não leu'):
+        empacotado.conferir_ocr(str(tmp_path / 'tesseract'))
+
+
+def test_ocr_aceita_quando_o_texto_aparece(monkeypatch, tmp_path):
+    comandos: list[list[str]] = []
+
+    class Saida:
+        returncode = 0
+        stdout = 'CONCURSO 2026\n'
+        stderr = ''
+
+    def rodar(comando, **_):
+        comandos.append(comando)
+        assert Path(comando[1]).is_file()
+        return Saida()
+
+    monkeypatch.setattr(empacotado.subprocess, 'run', rodar)
+
+    assert 'OCR' in empacotado.conferir_ocr(str(tmp_path / 'tesseract'))
+    assert comandos[0][2:] == ['stdout', '-l', 'por']
+
+
+@pytest.mark.skipif(
+    not (TESSERACT_LOCAL / 'bin' / 'tesseract').is_file() or sys.platform != 'linux',
+    reason='sem o Tesseract extraído por empacotamento/tesseract/obter_linux.sh',
+)
+def test_ocr_de_verdade_com_o_tesseract_do_empacotamento(monkeypatch):
+    monkeypatch.setenv('TESSDATA_PREFIX', str(TESSERACT_LOCAL / 'tessdata'))
+
+    assert 'OCR' in empacotado.conferir_ocr(str(TESSERACT_LOCAL / 'bin' / 'tesseract'))
+
+
 def test_responde_espera_o_servidor_subir():
     servidor = http.server.HTTPServer(('127.0.0.1', 0), http.server.SimpleHTTPRequestHandler)
     threading.Thread(target=servidor.serve_forever, daemon=True).start()
