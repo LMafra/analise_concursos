@@ -74,7 +74,8 @@ def test_contexto_nao_confunde_a_pasta_global_com_a_do_projeto(tmp_path):
 
 
 def test_pastas_do_config_toml_com_flag_e_variavel_por_cima(tmp_path):
-    raiz = projeto_com(tmp_path, '[pastas]\nprovas = "minhas_provas"\nanalises = "/fora/saida"\n')
+    fora = tmp_path / 'fora' / 'saida'
+    raiz = projeto_com(tmp_path, f'[pastas]\nprovas = "minhas_provas"\nanalises = "{fora.as_posix()}"\n')
     ambiente = {'CONCURSO_HOME': str(tmp_path / 'home')}
 
     padrao = resolver_contexto(cwd=raiz, ambiente=ambiente)
@@ -83,7 +84,7 @@ def test_pastas_do_config_toml_com_flag_e_variavel_por_cima(tmp_path):
         cwd=raiz, ambiente={**ambiente, 'CONCURSO_PROVAS': 'outra'}, provas=Path('da_flag')
     )
 
-    assert (padrao.provas, padrao.analises) == (raiz / 'minhas_provas', Path('/fora/saida'))
+    assert (padrao.provas, padrao.analises) == (raiz / 'minhas_provas', fora)
     assert por_variavel.provas == raiz / 'outra'
     assert por_flag.provas == raiz / 'da_flag'
 

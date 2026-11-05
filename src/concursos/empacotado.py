@@ -3,6 +3,7 @@
 Sem argumentos, abre a GUI; com argumentos, é a CLI; `--smoke` confere o pacote e sai.
 """
 
+import codecs
 import os
 import shutil
 import subprocess
@@ -57,10 +58,16 @@ def restaurar_bibliotecas_do_sistema() -> None:
 
 
 def garantir_saidas() -> None:
-    """Na janela sem console do Windows, `sys.stdout` e `sys.stderr` são None, e quem escreve neles quebra."""
+    """Na janela sem console do Windows, `sys.stdout` e `sys.stderr` são None, e quem escreve neles quebra.
+
+    Com a saída redirecionada, o Windows dá a codificação do sistema (cp1252), que não tem o ✓ do doctor;
+    o executável não tem o `PYTHONUTF8` do ambiente de desenvolvimento."""
     for nome in ('stdout', 'stderr'):
-        if getattr(sys, nome) is None:
+        fluxo = getattr(sys, nome)
+        if fluxo is None:
             setattr(sys, nome, open(os.devnull, 'w', encoding='utf-8'))  # noqa: SIM115
+        elif codecs.lookup(fluxo.encoding or 'ascii').name != 'utf-8' and hasattr(fluxo, 'reconfigure'):
+            fluxo.reconfigure(encoding='utf-8', errors='replace')
 
 
 def principal(argv: list[str]) -> int:

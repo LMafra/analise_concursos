@@ -104,6 +104,8 @@ def main(comando: list[str]) -> None:
 
 
 def congelado(executavel: str) -> None:
+    if Path(executavel).exists():
+        executavel = str(Path(executavel).resolve())
     base = Path(tempfile.mkdtemp())
     raiz = base / 'pré-checagem'
     raiz.mkdir()

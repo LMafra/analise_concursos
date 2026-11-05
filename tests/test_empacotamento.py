@@ -1,4 +1,5 @@
 import http.server
+import io
 import os
 import sys
 import threading
@@ -85,6 +86,17 @@ def test_janela_sem_console_ganha_saidas_vazias(monkeypatch):
 
     sys.stdout.write('nada')
     sys.stderr.write('nada')
+
+
+def test_saida_redirecionada_no_windows_escreve_utf8(monkeypatch):
+    saida = io.BytesIO()
+    monkeypatch.setattr(sys, 'stdout', io.TextIOWrapper(saida, encoding='cp1252'))
+
+    empacotado.garantir_saidas()
+    sys.stdout.write('✓ legislação')
+    sys.stdout.flush()
+
+    assert saida.getvalue().decode('utf-8') == '✓ legislação'
 
 
 @pytest.fixture
