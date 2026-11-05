@@ -36,6 +36,7 @@ def test_executar_so_escuta_no_proprio_computador(monkeypatch, tmp_path, ao_subi
     chamadas: list[dict] = []
     monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: chamadas.append(kwargs))
     monkeypatch.setattr(gui_app.sys, 'platform', plataforma)
+    monkeypatch.setattr(gui_app, 'webview2_instalado', lambda: True)
 
     gui_app.executar(tmp_path / 'projeto')
 

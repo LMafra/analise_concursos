@@ -22,6 +22,7 @@ from concursos.gui.paginas import (
 
 HOST = '127.0.0.1'
 TAMANHO_JANELA = (1200, 820)
+WEBVIEW2 = r'Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
 
 MENU: list[tuple[str, str, str]] = [
     ('/', 'Concursos', 'list'),
@@ -62,20 +63,44 @@ def raiz() -> None:
         ui.sub_pages(ROTAS).classes('w-full')
 
 
+def webview2_instalado() -> bool:
+    """O runtime do WebView2 registra a versão em `pv`, na máquina ou no usuário."""
+    import winreg
+
+    for raiz, chave in (
+        (winreg.HKEY_LOCAL_MACHINE, rf'SOFTWARE\WOW6432Node\{WEBVIEW2}'),
+        (winreg.HKEY_LOCAL_MACHINE, rf'SOFTWARE\{WEBVIEW2}'),
+        (winreg.HKEY_CURRENT_USER, rf'Software\{WEBVIEW2}'),
+    ):
+        try:
+            with winreg.OpenKey(raiz, chave) as aberta:
+                versao, _ = winreg.QueryValueEx(aberta, 'pv')
+        except OSError:
+            continue
+        if versao and versao != '0.0.0.0':
+            return True
+    return False
+
+
 def usar_janela_nativa(navegador: bool = False) -> bool:
-    """Janela nativa no Windows e no macOS; no Linux, o navegador (WebKitGTK e Qt variam demais).
+    """Janela nativa no Windows (com o WebView2) e no macOS; no Linux, o navegador (WebKitGTK e Qt variam
+    demais).
 
     O navegador é aberto pelo `abrir_no_navegador` da CLI, que acha o do Windows no WSL."""
-    return not navegador and sys.platform != 'linux'
+    if navegador or sys.platform == 'linux':
+        return False
+    return sys.platform != 'win32' or webview2_instalado()
 
 
-def executar(pasta: Path | None = None, *, navegador: bool = False, porta: int | None = None) -> None:
+def executar(
+    pasta: Path | None = None, *, navegador: bool = False, porta: int | None = None, abrir: bool = True
+) -> None:
     inicial = pasta or projeto_inicial(Path.cwd(), resolver_home() / 'config.toml')
     if inicial is not None:
         ESTADO.abrir_projeto(inicial)
     nativa = usar_janela_nativa(navegador)
     porta = porta or native.find_open_port()
-    if not nativa:
+    if not nativa and abrir:
         app.on_startup(lambda: abrir_no_navegador(f'http://{HOST}:{porta}/'))
     ui.run(
         raiz,

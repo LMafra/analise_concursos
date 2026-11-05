@@ -100,7 +100,12 @@ CAMINHO_DE_USUARIO = re.compile(r'/home/\w+|/Users/\w+|[A-Za-z]:\\\\?Users\\\\?\
 
 
 def arquivos_do_pacote() -> list[Path]:
-    return [p for p in PACOTE.rglob('*') if p.suffix in {'.py', '.yaml', '.yml', '.toml'}]
+    do_pacote = [p for p in PACOTE.rglob('*') if p.suffix in {'.py', '.yaml', '.yml', '.toml'}]
+    empacotamento = RAIZ_DO_REPOSITORIO / 'empacotamento'
+    extensoes = {'.py', '.spec', '.iss', '.ps1', '.sh', '.md'}
+    return do_pacote + [
+        p for p in empacotamento.rglob('*') if p.suffix in extensoes and 'construcao' not in p.parts
+    ]
 
 
 def test_sem_dado_pessoal_no_pacote():

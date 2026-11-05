@@ -6,6 +6,7 @@ from pathlib import Path
 from nicegui import ui
 
 from concursos.aplicacao.resultados import abrir_no_navegador
+from concursos.empacotado import embutido
 from concursos.gui.progresso import arquivo_de_log
 
 PRIVACIDADE = (
@@ -32,7 +33,7 @@ def pagina() -> None:
                 ).props('flat dense')
         tesseract = shutil.which('tesseract')
         ui.label(
-            f'Tesseract: {tesseract}'
+            f'Tesseract: {"embutido" if embutido(tesseract) else tesseract}'
             if tesseract
             else 'Tesseract: não encontrado; PDFs escaneados (sem texto) não são lidos, e as respostas '
             'podem ser digitadas se a folha não for lida'

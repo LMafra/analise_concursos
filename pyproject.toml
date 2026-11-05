@@ -62,6 +62,9 @@ dev = [
     "pytest-asyncio>=1.0",
     "ruff>=0.17.1",
 ]
+empacotamento = [
+    "pyinstaller>=6.11",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
