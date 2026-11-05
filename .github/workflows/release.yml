@@ -58,8 +58,12 @@ jobs:
       - name: PyInstaller (onedir)
         run: uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
 
+      - name: Bootstrapper do WebView2
+        run: ./empacotamento/windows/obter_webview2.ps1
+
       - name: Instalador (Inno Setup)
         run: |
+          if (-not (Test-Path empacotamento\construcao\MicrosoftEdgeWebview2Setup.exe)) { throw 'falta o bootstrapper do WebView2' }
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) {
             choco install innosetup --yes --no-progress

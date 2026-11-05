@@ -80,8 +80,8 @@ Betas `v0.6.0bN` saem depois de B, E e F. Tags PEP 440 com `a`, `b` ou `rc` vira
 ### WebView2
 
 - O instalador embute o bootstrapper (`MicrosoftEdgeWebview2Setup.exe`, baixado no build por `empacotamento/windows/obter_webview2.ps1`) e o roda com `/silent /install` quando `pv` falta ou é `0.0.0.0` em HKLM (WOW6432Node e nativo) e HKCU. Sem administrador, ele instala por usuário.
-- `concursos.janela.decidir_janela(sistema, navegador, ler_registro, carregar_loader)` devolve a `DecisaoJanela`; `gui/app.py` só a consome. No Windows, além do registro, tenta carregar o `WebView2Loader.dll` embutido no pywebview.
-- Se `ui.run(native=True)` falhar, o app reabre no navegador com `CONCURSO_JANELA_FALHOU=1`, o que mostra o aviso mesmo que o usuário o tenha dispensado.
+- `concursos.janela.decidir_janela(sistema, navegador, ler_registro, versao_pelo_loader)` devolve a `DecisaoJanela`; `gui/app.py` só a consome. No Windows, além do registro, pergunta a versão ao `WebView2Loader.dll` embutido no pywebview (`GetAvailableCoreWebView2BrowserVersionString`).
+- Se `ui.run(native=True)` falhar, ou se a janela fechar sem nenhuma página ter conectado, o app reabre no navegador com `CONCURSO_JANELA_FALHOU=1`, o que mostra o aviso mesmo que o usuário o tenha dispensado.
 - O aviso some com "Entendi" (`[gui] aviso_webview2_dispensado = true` no `config.toml` global).
 
 ### Partida

@@ -129,7 +129,7 @@ O app não tem assinatura digital paga, por isso o Windows e o macOS desconfiam 
 
 1. Abra o `concurso-analise-<versão>-windows-x64-setup.exe`.
 2. Se aparecer "O Windows protegeu o computador", clique em **Mais informações** e depois em **Executar assim mesmo**.
-3. Siga o instalador. Ele instala só para o seu usuário e não pede senha de administrador. Se o computador não tiver o WebView2 (que a janela usa), o instalador oferece a página para baixá-lo; sem ele, o app abre no navegador.
+3. Siga o instalador. Ele instala só para o seu usuário e não pede senha de administrador. Se o computador não tiver o WebView2 (o componente da Microsoft que a janela usa), o instalador o instala sozinho. Se não conseguir (sem internet, por exemplo), o app abre no navegador e avisa, com o link para instalar depois.
 4. Abra o **concurso-analise** pelo menu Iniciar.
 
 Para desinstalar, use Configurações > Aplicativos.

@@ -122,3 +122,26 @@ class ItemGabarito:
     questao: int
     resposta: str | None
     anulada: bool = False
+
+
+class DecisaoJanela(StrEnum):
+    """Como a GUI abre; só `NAVEGADOR_SEM_WEBVIEW2` é uma queda que o usuário precisa entender."""
+
+    NATIVA = 'nativa'
+    NAVEGADOR_PEDIDO = 'navegador_pedido'
+    NAVEGADOR_LINUX = 'navegador_linux'
+    NAVEGADOR_SEM_WEBVIEW2 = 'navegador_sem_webview2'
+
+
+class Etapa(StrEnum):
+    LENDO_ARQUIVOS = 'lendo_arquivos'
+    LENDO_FOLHA = 'lendo_folha'
+    CORRIGINDO = 'corrigindo'
+    CLASSIFICANDO = 'classificando'
+    GERANDO_RELATORIOS = 'gerando_relatorios'
+    CONSOLIDANDO = 'consolidando'
+
+
+class CanalAtualizacao(StrEnum):
+    STABLE = 'stable'
+    BETA = 'beta'

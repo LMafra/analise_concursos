@@ -1,4 +1,4 @@
-; Instalador do Windows: por usuário (sem pedir administrador), atalho no menu Iniciar e desinstalador.
+﻿; Instalador do Windows: por usuário (sem pedir administrador), atalho no menu Iniciar e desinstalador.
 ; Compile depois do PyInstaller, a partir da raiz do repositório:
 ;   iscc /DVersao=0.5.0 empacotamento\inno\concurso-analise.iss
 ; Os dados do candidato (a pasta do projeto e ~/.concurso) ficam fora de {app} e sobrevivem à desinstalação.
@@ -43,6 +43,10 @@ Name: "atalho"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:Ad
 
 [Files]
 Source: "..\..\dist\{#Nome}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+#ifexist "..\construcao\MicrosoftEdgeWebview2Setup.exe"
+  #define ComBootstrapper
+Source: "..\construcao\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
+#endif
 
 [Icons]
 Name: "{autoprograms}\{#Nome}"; Filename: "{app}\{#Executavel}"
@@ -66,13 +70,34 @@ begin
     or VersaoValida(HKCU, 'Software\{#WebView2}');
 end;
 
+function InstalarWebView2(): Boolean;
+var
+  Codigo: Integer;
+begin
+  Result := False;
+#ifdef ComBootstrapper
+  WizardForm.StatusLabel.Caption := 'Instalando o Microsoft Edge WebView2 (componente de janela)...';
+  ExtractTemporaryFile('MicrosoftEdgeWebview2Setup.exe');
+  if Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '',
+          SW_HIDE, ewWaitUntilTerminated, Codigo) then
+    Log(Format('WebView2: bootstrapper terminou com %d', [Codigo]))
+  else
+    Log(Format('WebView2: bootstrapper não rodou: %s', [SysErrorMessage(Codigo)]));
+  Result := WebView2Instalado();
+#endif
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Codigo: Integer;
 begin
-  if (CurStep = ssPostInstall) and not WebView2Instalado() and not WizardSilent() then
-    if MsgBox('O concurso-analise abre numa janela própria com o Microsoft Edge WebView2, que não está ' +
-              'instalado neste computador. Sem ele, o programa abre no seu navegador.' + #13#10#13#10 +
+  if (CurStep <> ssPostInstall) or WebView2Instalado() or InstalarWebView2() then
+    Exit;
+  Log('WebView2 ausente depois do setup: o app abre no navegador, com aviso');
+  if not WizardSilent() then
+    if MsgBox('Componente de janela indisponível; o app abre no navegador.' + #13#10#13#10 +
+              'O concurso-analise abre numa janela própria com o Microsoft Edge WebView2, que não pôde ser ' +
+              'instalado agora (sem internet?). Tudo funciona igual no navegador.' + #13#10#13#10 +
               'Abrir a página de download do WebView2 (gratuito, da Microsoft)?',
               mbConfirmation, MB_YESNO) = IDYES then
       ShellExec('open', 'https://developer.microsoft.com/microsoft-edge/webview2/', '', '',

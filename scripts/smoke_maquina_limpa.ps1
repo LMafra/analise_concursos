@@ -50,6 +50,15 @@ foreach ($Arquivo in @($Janela, $Cli, (Join-Path $Destino 'unins000.exe'))) {
 $Atalho = Join-Path ([Environment]::GetFolderPath('Programs')) 'concurso-analise.lnk'
 if (-not (Test-Path $Atalho)) { throw "o atalho do menu Iniciar não foi criado em $Atalho" }
 Registrar '- instalação silenciosa por usuário, com atalho no menu Iniciar'
+$WebView2 = 'Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+$VersaoWebView2 = foreach ($Chave in @(
+        "HKLM:\SOFTWARE\WOW6432Node\$WebView2", "HKLM:\SOFTWARE\$WebView2", "HKCU:\Software\$WebView2"
+    )) {
+    $Pv = (Get-ItemProperty -Path $Chave -Name pv -ErrorAction SilentlyContinue).pv
+    if ($Pv -and $Pv -ne '0.0.0.0') { $Pv; break }
+}
+if (-not $VersaoWebView2) { throw 'o WebView2 não está instalado depois do setup' }
+Registrar "- WebView2 $VersaoWebView2 presente depois do setup"
 if ($ExigirAssinatura) {
     ConferirAssinatura $Janela
     ConferirAssinatura $Cli

@@ -251,17 +251,6 @@ def test_fora_do_executavel_nada_e_embutido(monkeypatch):
     assert not empacotado.embutido('/qualquer/tesseract')
 
 
-def test_windows_sem_webview2_abre_no_navegador(monkeypatch):
-    pytest.importorskip('nicegui')
-    from concursos.gui import app
-
-    monkeypatch.setattr(app.sys, 'platform', 'win32')
-    monkeypatch.setattr(app, 'webview2_instalado', lambda: False)
-    assert app.usar_janela_nativa() is False
-    monkeypatch.setattr(app, 'webview2_instalado', lambda: True)
-    assert app.usar_janela_nativa() is True
-
-
 def test_arquivos_do_empacotamento_existem():
     pasta = RAIZ / 'empacotamento'
     for relativo in (
