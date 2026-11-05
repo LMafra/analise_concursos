@@ -340,10 +340,15 @@ jobs:
           uv run --no-sync python scripts/assinar_manifesto.py conferir dist \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: RELATORIO-SMOKE.md
+        run: |
+          python3 scripts/relatorio_smoke.py "$VERSAO" "$GITHUB_SHA" relatorios dist/RELATORIO-SMOKE.md
+          cat dist/RELATORIO-SMOKE.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: SHA256SUMS
         working-directory: dist
         run: |
-          sha256sum concurso-analise-* atualizacao.json atualizacao.json.sig > SHA256SUMS
+          sha256sum concurso-analise-* atualizacao.json atualizacao.json.sig RELATORIO-SMOKE.md > SHA256SUMS
           cat SHA256SUMS | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Pré-release (b, rc) nasce como prerelease; nenhuma vira "latest" sozinha: a promoção é manual,

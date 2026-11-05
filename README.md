@@ -740,7 +740,7 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin /usr/bin/python3 scripts/smoke.py congela
 
 Num build de desenvolvimento sem o Tesseract embutido, `CONCURSO_SMOKE_SEM_OCR=1` dispensa a conferência do OCR no `--smoke`.
 
-**Release.** Uma tag `v*` dispara o `release.yml`: ele gera os três instaladores, roda o teste de máquina limpa em cada sistema e cria a release como rascunho, com o `SHA256SUMS`. A release só é publicada depois da conferência manual no Windows Sandbox.
+**Release.** Uma tag `v*` dispara o `release.yml`: ele gera os instaladores, roda o teste de máquina limpa em cada sistema e cria a release como rascunho, com o `SHA256SUMS`, o manifesto de atualização assinado e o `RELATORIO-SMOKE.md` (o resultado do teste de cada sistema, montado por `scripts/relatorio_smoke.py`). A release só é publicada depois do checklist manual de `docs/spec-fase6.md` (Windows Sandbox, VM Win10 sem WebView2 e Linux), registrado em `.scratch/fase6/checklist.md`.
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
