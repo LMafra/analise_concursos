@@ -546,7 +546,7 @@ Veja [docs/pendencias.md](docs/pendencias.md) para o detalhe e a ordem sugerida 
 <!-- CONTRIBUINDO -->
 ## Contribuindo
 
-1. Crie uma branch a partir do `master` (`git checkout -b feature/minha-mudanca`)
+1. Crie uma branch a partir do `main` (`git checkout -b feature/minha-mudanca`)
 2. Instale as dependências e os hooks:
    ```sh
    uv sync --all-groups
