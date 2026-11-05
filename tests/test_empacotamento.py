@@ -262,6 +262,9 @@ def test_arquivos_do_empacotamento_existem():
         'inno/concurso-analise.iss',
         'windows/versao.py',
         'windows/obter_webview2.ps1',
+        'linux/verificar_bibliotecas.sh',
+        'linux/bibliotecas_do_sistema.txt',
+        'icones/concurso-analise-256.png',
         'LICENSES/LEIA-ME.md',
     ):
         assert (pasta / relativo).is_file(), relativo
@@ -326,3 +329,29 @@ def test_spec_usa_o_recurso_de_versao_nos_dois_executaveis():
     texto = (RAIZ / 'empacotamento' / 'concurso-analise.spec').read_text(encoding='utf-8')
 
     assert texto.count('version=recurso(') == 2
+
+
+def test_lista_de_bibliotecas_do_sistema_e_so_a_glibc():
+    linhas = (
+        (RAIZ / 'empacotamento' / 'linux' / 'bibliotecas_do_sistema.txt')
+        .read_text(encoding='utf-8')
+        .splitlines()
+    )
+    permitidas = {linha for linha in linhas if linha and not linha.startswith('#')}
+
+    assert {'libc.so.6', 'ld-linux-x86-64.so.2', 'libm.so.6'} <= permitidas
+    assert not {
+        nome for nome in permitidas if nome.startswith(('libstdc++', 'libgcc_s', 'libz.', 'libtesseract'))
+    }
+
+
+def test_appdir_tem_desktop_valido_icone_e_versao():
+    montar = (RAIZ / 'empacotamento' / 'linux' / 'montar_appimage.sh').read_text(encoding='utf-8')
+    desktop = (RAIZ / 'empacotamento' / 'linux' / 'concurso-analise.desktop').read_text(encoding='utf-8')
+
+    assert 'verificar_bibliotecas.sh' in montar
+    assert '.DirIcon' in montar
+    assert 'hicolor/256x256/apps' in montar
+    assert 'X-AppImage-Version=$VERSAO' in montar
+    assert 'Icon=concurso-analise' in desktop
+    assert 'Categories=Education;' in desktop

@@ -155,6 +155,12 @@ jobs:
           path: dist/concurso-analise-*-windows-x64-setup.exe
           if-no-files-found: error
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-windows
+          path: dist/smoke-windows.md
+          if-no-files-found: error
+
   linux:
     runs-on: ubuntu-latest
     container: quay.io/pypa/manylinux_2_28_x86_64
@@ -185,6 +191,10 @@ jobs:
   linux-smoke:
     needs: linux
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        imagem: ['debian:12', 'ubuntu:22.04']
     env:
       APPIMAGE_EXTRACT_AND_RUN: '1'
     steps:
@@ -195,19 +205,37 @@ jobs:
           name: linux
           path: dist
 
-      - name: Gate de máquina limpa (debian:12, sem Python e sem Tesseract)
+      - name: Gate de máquina limpa (${{ matrix.imagem }}, sem Python e sem Tesseract)
         run: |
           chmod +x dist/*.AppImage
+          relatorio="smoke-linux-$(echo '${{ matrix.imagem }}' | tr ':.' '--').md"
           docker run --rm -v "$PWD/dist:/dist:ro" -e APPIMAGE_EXTRACT_AND_RUN=1 \
-            -e CONCURSO_SMOKE_LIMITE_PARTIDA=10 debian:12 sh -euc '
+            -e CONCURSO_SMOKE_LIMITE_PARTIDA=10 '${{ matrix.imagem }}' sh -euc '
             if command -v python3 || command -v tesseract; then exit 1; fi
             cd /tmp
             /dist/concurso-analise-*.AppImage --smoke
             /dist/concurso-analise-*.AppImage doctor
-          '
+          ' | tee saida.txt
+          {
+            echo "## Linux (${{ matrix.imagem }}, AppImage)"
+            echo
+            grep '^smoke:' saida.txt | sed 's/^smoke: /- /'
+            echo '- doctor sem erros, sem Python nem Tesseract no contêiner'
+          } > "$relatorio"
+          echo "RELATORIO=$relatorio" >> "$GITHUB_ENV"
 
       - name: Onboarding e análise pelo executável
-        run: python3 scripts/smoke.py congelado dist/concurso-analise-*-linux-x86_64.AppImage
+        run: |
+          python3 scripts/smoke.py congelado dist/concurso-analise-*-linux-x86_64.AppImage
+          echo '- scripts/smoke.py congelado: onboarding, análise e idempotência ok' >> "$RELATORIO"
+          echo >> "$RELATORIO"
+          cat "$RELATORIO" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-${{ strategy.job-index }}
+          path: smoke-linux-*.md
+          if-no-files-found: error
 
   macos:
     runs-on: macos-latest
@@ -274,7 +302,14 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          pattern: '{windows,linux,macos}'
           path: dist
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: relatorio-*
+          path: relatorios
           merge-multiple: true
 
       - name: SHA256SUMS

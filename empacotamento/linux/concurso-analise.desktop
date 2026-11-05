@@ -1,8 +1,11 @@
 [Desktop Entry]
 Type=Application
 Name=concurso-analise
+GenericName=Análise de provas de concurso
 Comment=Correção e análise de provas de concurso
 Exec=concurso-analise
 Icon=concurso-analise
-Categories=Education;Office;
+Categories=Education;
+Keywords=concurso;prova;gabarito;edital;
 Terminal=false
+StartupNotify=false

@@ -144,10 +144,14 @@ Das próximas vezes, o app abre direto.
 
 **Linux**
 
-1. Torne o arquivo executável: no gerenciador de arquivos, abra Propriedades > Permissões e marque "Permitir executar como programa".
+1. Torne o arquivo executável: no gerenciador de arquivos, abra Propriedades > Permissões e marque "Permitir executar como programa". No terminal, é o mesmo que `chmod +x concurso-analise-*.AppImage`.
 2. Abra o arquivo com dois cliques. A tela abre no navegador padrão, num endereço que só o seu computador acessa (`127.0.0.1`).
 
+O AppImage já traz o Python e o Tesseract com o português; a leitura de folhas escaneadas funciona sem instalar nada. Ele foi testado em Debian 12 e Ubuntu 22.04 sem Python nem Tesseract.
+
 Se ele não abrir, rode no terminal `APPIMAGE_EXTRACT_AND_RUN=1 ./concurso-analise-*.AppImage`, que dispensa o FUSE.
+
+Para o app aparecer no menu de aplicativos, com ícone, use o [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) ou o [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) (no Flathub): ao abrir o AppImage, eles oferecem integrá-lo ao sistema. Guarde o arquivo numa pasta onde você tenha permissão de escrita (por exemplo, `~/Aplicativos`), para que a atualização pelo app consiga substituí-lo.
 
 **Conferir o download (opcional).** A página da versão traz o `SHA256SUMS`, com a impressão digital de cada arquivo. No Windows, compare com a saída de `Get-FileHash .\concurso-analise-<versão>-windows-x64-setup.exe` no PowerShell; no Linux e no macOS, rode `sha256sum -c SHA256SUMS --ignore-missing` (no macOS, `shasum -a 256 -c SHA256SUMS --ignore-missing`) na pasta do download.
 
