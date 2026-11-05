@@ -1,0 +1,9 @@
+{
+  "ferramenta": "pesquisar_concursos",
+  "argumentos": {
+    "termo": "receita",
+    "uf": "sp"
+  },
+  "is_error": false,
+  "texto": "{\"meta\":{\"total\":0,\"timestamp\":1793881554,\"data_atual\":\"2026-11-05\",\"endpoint\":\"pesquisa\",\"parametros\":{\"termo\":\"receita\",\"uf\":\"sp\",\"termo_busca\":\"receita\"}},\"data\":[],\"errors\":[],\"message\":\"Nenhum concurso com inscrições abertas ou prestes a abrir encontrado para o termo \\\"receita\\\" em SP (incluindo concursos nacionais).\"}"
+}

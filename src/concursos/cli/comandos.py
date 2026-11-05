@@ -1,8 +1,10 @@
+import json
 import logging
 import os
 import shutil
 import subprocess
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -26,6 +28,7 @@ from concursos.cadastro import cadastrar
 from concursos.calibracao import CalibracaoError
 from concursos.candidatos import (
     adicionar_arquivo,
+    alvos_pci,
     candidatos_existentes,
     completar_perfis,
     gravar_perfil_global,
@@ -34,7 +37,13 @@ from concursos.candidatos import (
     slug,
 )
 from concursos.cli.erros import CODIGO_AMBIENTE, ErroDoAmbiente, ErroDoUsuario, ajustar_nivel_console
-from concursos.concurso_config import ConfiguracaoInvalidaError
+from concursos.concurso_config import (
+    ConcursoConfig,
+    ConfiguracaoInvalidaError,
+    carregar_concurso,
+    gravar_dados,
+    ler_dados,
+)
 from concursos.config.contexto import (
     VARIAVEL_ANALISES,
     VARIAVEL_CANDIDATO,
@@ -47,6 +56,7 @@ from concursos.config.contexto import (
 from concursos.configuracao import ConfiguracaoGlobal, configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
 from concursos.exportacao import FormatoExportacao, exportar_consolidado
+from concursos.integracoes import download_assistido, pci_mcp
 from concursos.integracoes.open_notebook import (
     DICA_INSTANCIA,
     ClienteOpenNotebook,
@@ -54,6 +64,24 @@ from concursos.integracoes.open_notebook import (
     OpenNotebookIndisponivelError,
     gravar_configuracao,
     ler_configuracao,
+)
+from concursos.integracoes.pagina_pci import baixar_pagina, ler_arquivos, validar_link
+from concursos.integracoes.pci_mcp import (
+    REGIOES,
+    ClientePciMcp,
+    ConfiguracaoPciMcp,
+    PciMcpErro,
+    PciMcpParametroError,
+    ProvaAnteriorPci,
+    validar_uf,
+)
+from concursos.integracoes.radar_pci import gravar_radar, ler_radar, montar_radar, resumo_radar
+from concursos.integracoes.simulado_pci import (
+    formatar_provas,
+    gravar_provas_anteriores,
+    nome_da_pasta,
+    preparar_pasta,
+    termos_automaticos,
 )
 from concursos.integracoes.sincronizacao_notebook import (
     ARQUIVO_ESTADO,
@@ -64,6 +92,8 @@ from concursos.integracoes.sincronizacao_notebook import (
     Sincronizador,
     sincronizar_candidato,
 )
+from concursos.integracoes.sincronizacao_pci import Interesses, como_json, sessao_pci
+from concursos.integracoes.sincronizacao_pci import formatar_tabela as tabela_pci
 from concursos.llm import ClienteComMemoria, ClienteLlm, cliente_configurado
 from concursos.manifesto import ARQUIVO_MANIFESTO
 from concursos.migracao import MigracaoError, executar_migracao, planejar_migracao
@@ -103,6 +133,12 @@ pratica_app = typer.Typer(
     help='prática no TEC: as exportações do tec-erros', no_args_is_help=True, rich_markup_mode=None
 )
 app.add_typer(pratica_app, name='pratica')
+pci_app = typer.Typer(
+    help='integração opcional com o PCI Concursos: provas anteriores e liga/desliga',
+    no_args_is_help=True,
+    rich_markup_mode=None,
+)
+app.add_typer(pci_app, name='pci')
 
 
 @dataclass(frozen=True)
@@ -129,8 +165,11 @@ Todos = Annotated[
 NaoAbrir = Annotated[bool, typer.Option('--no-open', help='não abre o relatório no navegador')]
 SemLlm = Annotated[bool, typer.Option('--no-llm', help='não usa o LLM configurado nesta execução')]
 Offline = Annotated[
-    bool, typer.Option('--offline', help='nenhuma chamada de rede (desliga o LLM e o open-notebook)')
+    bool,
+    typer.Option('--offline', help='nenhuma chamada de rede (desliga o LLM, o open-notebook e o PCI)'),
 ]
+Refresh = Annotated[bool, typer.Option('--refresh', help='consulta o PCI de novo, ignorando o cache')]
+ComoJson = Annotated[bool, typer.Option('--json', help='imprime o resultado em JSON')]
 
 
 @app.callback(invoke_without_command=True)
@@ -284,15 +323,34 @@ def add(
     caminho: Annotated[Path, typer.Argument(help='pasta do concurso, ou arquivo de respostas ou folha')],
     candidato: Candidato = None,
     concurso: Annotated[str | None, typer.Option('--concurso', help='pasta do concurso em provas/')] = None,
+    pci: Annotated[
+        int | None,
+        typer.Option('--pci', help='id de um concurso registrado com `discover --register`, para vincular'),
+    ] = None,
 ) -> int:
     opcoes: Opcoes = ctx.obj
     contexto = opcoes.contexto
+    if pci is not None and not caminho.is_dir():
+        raise ErroDoUsuario(
+            '--pci vale para a pasta de um concurso', f'rode `concurso-analise add <pasta> --pci {pci}`'
+        )
     if caminho.is_dir():
+        interesses = Interesses.do_projeto(contexto.projeto) if pci is not None else None
+        if interesses is not None and interesses.obter(pci) is None:
+            raise ErroDoUsuario(
+                f'o concurso {pci} do PCI não está nos interesses',
+                f'registre antes com `concurso-analise discover --register {pci}`',
+            )
         if opcoes.dry_run:
-            typer.echo(f'cadastraria {caminho} (concurso.yaml)')
+            vinculo = f' e vincularia ao concurso {pci} do PCI' if pci is not None else ''
+            typer.echo(f'cadastraria {caminho} (concurso.yaml){vinculo}')
             return 0
         interacao = InteracaoConsole() if onboarding.interativo(opcoes.sim) else InteracaoAutomatica()
-        return 0 if cadastrar(caminho, interacao) else 1
+        if not cadastrar(caminho, interacao):
+            return 1
+        if interesses is not None and pci is not None:
+            _vincular_ao_pci(caminho, interesses, pci)
+        return 0
     if not caminho.is_file():
         raise ErroDoUsuario(f'arquivo não encontrado: {caminho}', 'confira o caminho do arquivo de respostas')
     nome = candidato or contexto.candidato
@@ -308,7 +366,371 @@ def add(
     destino = adicionar_arquivo(pasta, caminho, nome)
     gravar_perfil_global(contexto.home, nome)
     typer.echo(f'{caminho.name} copiado para {destino}')
+    _datar_simulado(opcoes, pasta)
     return 0
+
+
+def _datar_simulado(opcoes: Opcoes, pasta: Path) -> None:
+    """No simulado, `data_prova` é o dia em que o candidato o resolveu, não o ano da prova original."""
+    dados = ler_dados(pasta)
+    if not dados.get('simulado') or dados.get('data_prova'):
+        return
+    hoje = date.today().isoformat()
+    data = hoje
+    if onboarding.interativo(opcoes.sim):
+        data = InteracaoConsole().perguntar('Em que dia você resolveu o simulado? (aaaa-mm-dd)', hoje) or hoje
+    try:
+        date.fromisoformat(data)
+    except ValueError as erro:
+        raise ErroDoUsuario(f'data inválida: {data}', 'use aaaa-mm-dd, ex.: 2026-11-05') from erro
+    gravar_dados(pasta, {**dados, 'data_prova': data})
+    typer.echo(f'{pasta.name}: simulado datado de {data}')
+
+
+def _vincular_ao_pci(pasta: Path, interesses: Interesses, identificador: int) -> None:
+    item = interesses.vincular(identificador, pasta.resolve().name)
+    interesses.gravar()
+    dados = ler_dados(pasta)
+    vinculo = {'id': identificador, 'titulo': item.get('titulo', ''), 'link': item.get('link', '')}
+    if dados.get('pci') != vinculo:
+        gravar_dados(pasta, {**dados, 'pci': vinculo})
+    typer.echo(f'{pasta.name} vinculado ao concurso {identificador} do PCI ({item.get("titulo", "")})')
+
+
+@app.command('discover', help='busca no PCI Concursos os concursos com inscrições abertas ou prestes a abrir')
+def discover(
+    ctx: typer.Context,
+    cargos: Annotated[
+        list[str] | None,
+        typer.Option('--cargo', help='cargo (repita para mais de um); padrão: os do candidato'),
+    ] = None,
+    uf: Annotated[str | None, typer.Option('--uf', help='sigla do estado, ex.: sp')] = None,
+    cidade: Annotated[str | None, typer.Option('--cidade', help='cidade (exige --uf)')] = None,
+    regiao: Annotated[str | None, typer.Option('--regiao', help=f'região: {", ".join(REGIOES)}')] = None,
+    termo: Annotated[str | None, typer.Option('--termo', help='título, órgão ou cargo')] = None,
+    professores: Annotated[bool, typer.Option('--professores', help='só concursos para professores')] = False,
+    refresh: Refresh = False,
+    json_: ComoJson = False,
+    registrar: Annotated[
+        int | None, typer.Option('--register', help='acompanha o concurso (pelo id) no radar de prazos')
+    ] = None,
+    esquecer: Annotated[
+        int | None, typer.Option('--forget', help='deixa de acompanhar o concurso (pelo id)')
+    ] = None,
+    candidato: Candidato = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    contexto = _com_candidato(opcoes.contexto, candidato)
+    configuracao = _configuracao_pci(contexto)
+    if esquecer is not None:
+        return _esquecer_interesse(opcoes, esquecer)
+    _exigir_pci_ligado(configuracao)
+    filtros = _filtros_pci(contexto, configuracao, cargos or [], uf, cidade, regiao, termo)
+    concursos = _consultar_pci(
+        opcoes,
+        configuracao,
+        refresh,
+        lambda cliente: cliente.buscar_concursos(**filtros, professores=professores),
+    )
+    typer.echo(como_json(concursos) if json_ else tabela_pci(concursos))
+    if registrar is not None:
+        _registrar_interesse(opcoes, concursos, registrar)
+    return 0
+
+
+def _configuracao_pci(contexto: Contexto) -> ConfiguracaoPciMcp:
+    try:
+        return pci_mcp.ler_configuracao(contexto.config_global)
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(str(erro), f'corrija a seção [pci_mcp] de {contexto.config_global}') from erro
+
+
+def _exigir_pci_ligado(configuracao: ConfiguracaoPciMcp) -> None:
+    if not configuracao.enabled:
+        raise ErroDoUsuario(
+            'a integração com o PCI Concursos está desligada', 'ligue com `concurso-analise pci enable`'
+        )
+
+
+def _alvos_do_candidato(contexto: Contexto) -> tuple[tuple[str, ...], str]:
+    try:
+        candidato = _escolher_candidato(contexto)
+    except ErroDoUsuario:
+        return (), ''
+    if candidato is None:
+        return (), ''
+    try:
+        return alvos_pci(contexto.home, candidato)
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(str(erro), 'corrija a seção [pci] do perfil do candidato') from erro
+
+
+def _filtros_pci(
+    contexto: Contexto,
+    configuracao: ConfiguracaoPciMcp,
+    cargos: list[str],
+    uf: str | None,
+    cidade: str | None,
+    regiao: str | None,
+    termo: str | None,
+) -> dict:
+    """Sem nenhum filtro, os cargos e a UF do candidato; sem eles, os de [pci_mcp]."""
+    alvos, uf_alvo = _alvos_do_candidato(contexto)
+    try:
+        uf = validar_uf(uf if uf is not None else (uf_alvo or configuracao.uf), '--uf')
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(str(erro), 'use a sigla do estado, ex.: --uf sp') from erro
+    if regiao is not None and regiao not in REGIOES:
+        raise ErroDoUsuario(f'--regiao {regiao} é inválida', f'use uma de: {", ".join(REGIOES)}')
+    if not (cargos or cidade or termo or regiao):
+        cargos = list(alvos or configuracao.cargos)
+        regiao = configuracao.regiao
+    return {'cargos': cargos, 'uf': uf, 'cidade': cidade or '', 'regiao': regiao or '', 'termo': termo or ''}
+
+
+def _consultar_pci(opcoes: Opcoes, configuracao: ConfiguracaoPciMcp, refresh: bool, consulta):
+    """Num comando explícito, a falha do PCI é erro: de parâmetro, do usuário; do servidor, do ambiente."""
+    rede = opcoes.rede and not opcoes.dry_run
+    try:
+        with sessao_pci(
+            opcoes.contexto.projeto, configuracao, rede=rede, refresh=refresh, gravar=not opcoes.dry_run
+        ) as cliente:
+            return consulta(cliente)
+    except PciMcpParametroError as erro:
+        raise ErroDoUsuario(erro.causa, erro.dica) from erro
+    except PciMcpErro as erro:
+        raise ErroDoAmbiente(erro.causa, erro.dica) from erro
+
+
+def _registrar_interesse(opcoes: Opcoes, concursos: list, identificador: int) -> None:
+    escolhido = next((c for c in concursos if c.id == identificador), None)
+    if escolhido is None:
+        raise ErroDoUsuario(
+            f'o concurso {identificador} não está no resultado desta busca',
+            'rode o discover com os filtros que o mostram e use um id da lista',
+        )
+    if opcoes.dry_run:
+        typer.echo(f'registraria o interesse em {identificador} ({escolhido.titulo})')
+        return
+    interesses = _interesses(opcoes.contexto)
+    novo = interesses.registrar(escolhido)
+    interesses.gravar()
+    acao = 'registrado' if novo else 'atualizado'
+    typer.echo(f'interesse {acao}: {identificador} ({escolhido.titulo}); ele entra no radar de prazos')
+
+
+def _esquecer_interesse(opcoes: Opcoes, identificador: int) -> int:
+    interesses = _interesses(opcoes.contexto)
+    if interesses.obter(identificador) is None:
+        raise ErroDoUsuario(
+            f'o concurso {identificador} não está nos interesses', f'confira {interesses.caminho}'
+        )
+    if opcoes.dry_run:
+        typer.echo(f'deixaria de acompanhar {identificador}')
+        return 0
+    interesses.esquecer(identificador)
+    interesses.gravar()
+    typer.echo(f'interesse removido: {identificador}')
+    return 0
+
+
+def _interesses(contexto: Contexto) -> Interesses:
+    try:
+        return Interesses.do_projeto(contexto.projeto)
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(str(erro), 'corrija ou apague o arquivo de interesses') from erro
+
+
+@pci_app.command('enable', help='liga a integração com o PCI Concursos, depois de mostrar o que é enviado')
+def pci_enable(
+    ctx: typer.Context,
+    url: Annotated[
+        str | None, typer.Option('--url', help=f'endereço do MCP (padrão: {pci_mcp.URL_PADRAO})')
+    ] = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    configuracao = _configuracao_pci(opcoes.contexto)
+    url = url or configuracao.url
+    typer.echo(_aviso_pci(url, configuracao))
+    if opcoes.dry_run:
+        typer.echo(f'ligaria a integração com {url}')
+        return 0
+    if not opcoes.sim:
+        if not onboarding.interativo(False):
+            raise ErroDoUsuario(
+                'ligar o PCI exige confirmação, e não há terminal para perguntar',
+                'confirme com `concurso-analise --yes pci enable`',
+            )
+        if not typer.confirm('ligar a integração com o PCI?', default=False):
+            typer.echo('nada foi gravado')
+            return 0
+    pci_mcp.gravar_configuracao(opcoes.contexto.config_global, enabled=True, url=url)
+    typer.echo(f'PCI ligado: {url}; experimente `concurso-analise discover --cargo <cargo> --uf <uf>`')
+    return 0
+
+
+@pci_app.command('disable', help='desliga a integração (a configuração continua gravada)')
+def pci_disable(ctx: typer.Context) -> int:
+    opcoes: Opcoes = ctx.obj
+    _configuracao_pci(opcoes.contexto)
+    if opcoes.dry_run:
+        typer.echo('desligaria a integração com o PCI')
+        return 0
+    pci_mcp.gravar_configuracao(opcoes.contexto.config_global, enabled=False)
+    typer.echo('PCI desligado')
+    return 0
+
+
+@pci_app.command('provas', help='provas anteriores no PCI; com --download, importa uma como simulado')
+def pci_provas(
+    ctx: typer.Context,
+    concurso: Annotated[
+        str | None, typer.Argument(help='concurso-alvo (pasta em provas/): dá o cargo, a banca e o edital')
+    ] = None,
+    termos: Annotated[
+        list[str] | None, typer.Option('--termo', help='palavras da busca, ex.: "auditor receita" (repita)')
+    ] = None,
+    baixar: Annotated[
+        int | None, typer.Option('--download', help='id da prova: abre a página e importa o que você baixar')
+    ] = None,
+    refresh: Refresh = False,
+    json_: ComoJson = False,
+    candidato: Candidato = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    contexto = _com_candidato(opcoes.contexto, candidato)
+    opcoes = replace(opcoes, contexto=contexto)
+    configuracao = _configuracao_pci(contexto)
+    _exigir_pci_ligado(configuracao)
+    alvo = _concurso_alvo(contexto, concurso) if concurso else None
+    explicitos = list(termos or [])
+    automaticos = termos_automaticos(alvo) if alvo is not None and not explicitos else []
+    if not (explicitos or automaticos):
+        raise ErroDoUsuario(
+            'falta o que buscar nas provas anteriores',
+            'passe o concurso-alvo (com `cargo` no concurso.yaml) ou --termo "<cargo> <órgão>"',
+        )
+
+    def consulta(cliente: ClientePciMcp) -> tuple[str, list[ProvaAnteriorPci]]:
+        if explicitos:
+            juntas: dict[int, ProvaAnteriorPci] = {}
+            for termo in explicitos:
+                for prova in cliente.pesquisar_provas_anteriores(termo):
+                    juntas.setdefault(prova.id, prova)
+            return ' / '.join(explicitos), list(juntas.values())
+        for termo in automaticos:
+            if provas := cliente.pesquisar_provas_anteriores(termo):
+                return termo, provas
+        return automaticos[-1], []
+
+    termo, provas = _consultar_pci(opcoes, configuracao, refresh, consulta)
+    if json_:
+        typer.echo(json.dumps([asdict(p) for p in provas], ensure_ascii=False, indent=2))
+    else:
+        typer.echo(formatar_provas(provas))
+    if alvo is not None and not opcoes.dry_run:
+        gravar_provas_anteriores(
+            _pasta_do_candidato(contexto) / alvo.pasta.name, alvo.pasta.name, termo, provas
+        )
+    if baixar is not None:
+        return _importar_simulado(opcoes, configuracao, provas, baixar, alvo)
+    return 0
+
+
+def _concurso_alvo(contexto: Contexto, nome: str) -> ConcursoConfig:
+    pasta = contexto.provas / nome
+    if not pasta.is_dir():
+        raise ErroDoUsuario(f'concurso não encontrado: {pasta}', 'use o nome de uma pasta em provas/')
+    try:
+        return carregar_concurso(pasta)
+    except (ConfiguracaoInvalidaError, FileNotFoundError) as erro:
+        raise ErroDoUsuario(str(erro), f'cadastre o concurso com `concurso-analise add {pasta}`') from erro
+
+
+def _importar_simulado(
+    opcoes: Opcoes,
+    configuracao: ConfiguracaoPciMcp,
+    provas: list[ProvaAnteriorPci],
+    identificador: int,
+    alvo: ConcursoConfig | None,
+) -> int:
+    """O clique no PDF é do usuário, no navegador dele: o app nunca pede o link do arquivo ao PCI."""
+    prova = next((p for p in provas if p.id == identificador), None)
+    if prova is None:
+        raise ErroDoUsuario(
+            f'a prova {identificador} não está no resultado desta busca',
+            'rode `pci provas` com os termos que a mostram e use um id da lista',
+        )
+    contexto = opcoes.contexto
+    _exigir_provas(contexto.provas)
+    if opcoes.dry_run:
+        typer.echo(
+            f'abriria {prova.link} e importaria os PDFs baixados para {contexto.provas / nome_da_pasta(prova)}'
+        )
+        return 0
+    if not opcoes.rede:
+        raise ErroDoUsuario(
+            '--download abre a página da prova, e foi pedido --offline', 'rode de novo sem --offline'
+        )
+    link = validar_link(prova.link)
+    try:
+        arquivos = ler_arquivos(baixar_pagina(link, configuracao.timeout))
+    except PciMcpErro as erro:
+        logger.warning('PCI: %s; baixe os arquivos que a página mostrar', erro.causa)
+        arquivos = []
+    pasta, avisos = preparar_pasta(contexto.provas, prova, alvo)
+    for aviso in avisos:
+        logger.warning('%s: %s', pasta.name, aviso)
+    downloads = download_assistido.pasta_de_downloads(configuracao.pasta_downloads)
+    desde = download_assistido.instante_atual()
+    relatorio_html.abrir_no_navegador(link)
+    if not arquivos:
+        typer.echo(
+            f'abri {link}; salve os PDFs da prova e do gabarito em {pasta} e rode `concurso-analise add {pasta}`'
+        )
+        return 0
+    typer.echo(
+        f'abri {link} no navegador. Baixe os arquivos que quiser: {", ".join(a.rotulo for a in arquivos)}.\n'
+        f'esperando em {downloads} (até {configuracao.timeout_download:g} s)...'
+    )
+    encontrados = download_assistido.esperar_downloads(
+        downloads, [a.nome for a in arquivos], desde, configuracao.timeout_download
+    )
+    if not encontrados:
+        raise ErroDoUsuario(
+            f'nenhum arquivo da prova apareceu em {downloads}',
+            f'salve os PDFs em {pasta} e rode `concurso-analise add {pasta}` (ou ajuste pasta_downloads em [pci_mcp])',
+        )
+    for copiado in download_assistido.importar(encontrados, pasta):
+        typer.echo(f'importado: {copiado}')
+    interacao = InteracaoConsole() if onboarding.interativo(opcoes.sim) else InteracaoAutomatica()
+    try:
+        cadastrado = cadastrar(pasta, interacao)
+    except ValueError as erro:
+        raise ErroDoUsuario(
+            f'{pasta.name}: o cadastro não terminou ({erro})',
+            f'confira os arquivos e rode `concurso-analise add {pasta}`',
+        ) from erro
+    if not cadastrado:
+        return 1
+    typer.echo(
+        f'simulado pronto em {pasta}; acrescente suas respostas com '
+        f'`concurso-analise add <arquivo> --candidate <nome> --concurso {pasta.name}`'
+    )
+    return 0
+
+
+def _aviso_pci(url: str, configuracao: ConfiguracaoPciMcp) -> str:
+    return '\n'.join(
+        [
+            f'O servidor MCP público do PCI Concursos em {url} vai receber só termos de busca:',
+            '- cargos, UF, cidade, região e termos de prova (do comando ou de [pci] no perfil do candidato).',
+            'Nome, CPF, inscrição e notas não saem do computador.',
+            f'As respostas ficam em .concurso/cache/ por {configuracao.ttl_horas:g} h; o servidor é beta, e o PCI '
+            'complementa, mas não substitui, o edital oficial.',
+            'Depois de cada análise, o radar de prazos consulta o PCI; `--offline` usa só o cache.',
+        ]
+    )
 
 
 @app.command('status', help='mostra a situação de cada concurso')
@@ -323,7 +745,24 @@ def status(
     _exigir_provas(raiz_provas)
     situacoes = [avaliar(pasta) for pasta in listar_concursos(raiz_provas)]
     typer.echo(formatar_tabela(situacoes))
+    for linha in _linhas_do_radar(contexto):
+        typer.echo(linha)
     return 0
+
+
+def _linhas_do_radar(contexto: Contexto) -> list[str]:
+    """Só o radar gravado na última análise: o `status` não fala com o PCI."""
+    try:
+        if not pci_mcp.ler_configuracao(contexto.config_global).enabled:
+            return []
+    except ConfiguracaoInvalidaError:
+        return []
+    linhas = []
+    for pasta in [contexto.analises, *sorted(p for p in contexto.analises.glob('*') if p.is_dir())]:
+        if (radar := ler_radar(pasta)) is not None:
+            dono = f' ({pasta.name})' if pasta != contexto.analises else ''
+            linhas.append(f'radar PCI{dono}: {resumo_radar(radar)}')
+    return linhas
 
 
 @app.command('doctor', help='verifica o ambiente e diz como corrigir o que falta')
@@ -721,7 +1160,9 @@ def _onboarding(opcoes: Opcoes, doctor: bool | None = None, extras: dict[str, st
 
 def _diagnosticar(contexto: Contexto) -> list[diagnostico.Item]:
     itens = diagnostico.diagnosticar(
-        [contexto.provas, contexto.analises, contexto.projeto, contexto.home], contexto.home
+        [contexto.provas, contexto.analises, contexto.projeto, contexto.home],
+        contexto.home,
+        contexto.analises,
     )
     typer.echo(diagnostico.formatar(itens))
     return itens
@@ -778,9 +1219,10 @@ def _analisar_candidato(
     pratica = _praticar(opcoes, candidato, destino, configuracao)
     textos = textos_para_normas(pratica) if pratica is not None else []
     recomendacoes = _recomendar(opcoes, fontes, provas, destino, configuracao.limiar_topico_baixo, textos)
+    radar = _radar_pci(opcoes, candidato, destino)
     indice = destino / relatorio_html.ARQUIVO_INDICE
     mudou_pratica = pratica is not None and pratica.mudou
-    if recomendacoes or mudou_pratica or _manifestos(destino) != antes or not indice.exists():
+    if recomendacoes or mudou_pratica or radar or _manifestos(destino) != antes or not indice.exists():
         relatorio_html.gerar_relatorio_html(
             provas, destino, contexto.taxonomia, configuracao.limiar_topico_baixo
         )
@@ -788,6 +1230,28 @@ def _analisar_candidato(
             relatorio_html.abrir_no_navegador(contexto.raiz / indice)
     typer.echo(f'relatório: {contexto.raiz / indice}')
     return sucesso
+
+
+def _radar_pci(opcoes: Opcoes, candidato: str | None, destino: Path) -> bool:
+    """Depois da análise, com o PCI ligado: falha vira aviso e não muda o código de saída. Devolve se o radar
+    mudou, para o índice ser refeito."""
+    contexto = opcoes.contexto
+    try:
+        configuracao = pci_mcp.ler_configuracao(contexto.config_global)
+        if not configuracao.enabled:
+            return False
+        cargos, uf = alvos_pci(contexto.home, candidato) if candidato else ((), '')
+        cargos, uf = cargos or configuracao.cargos, uf or configuracao.uf
+        interesses = Interesses.do_projeto(contexto.projeto).itens
+        encontrados = []
+        if cargos:
+            with sessao_pci(contexto.projeto, configuracao, rede=opcoes.rede) as cliente:
+                encontrados = cliente.buscar_concursos(cargos=cargos, uf=uf)
+    except (PciMcpErro, ConfiguracaoInvalidaError, OSError) as erro:
+        logger.warning('PCI: radar não atualizado: %s', getattr(erro, 'causa', erro))
+        return False
+    radar = montar_radar(encontrados, interesses, configuracao.dias_alerta, tuple(cargos), date.today())
+    return gravar_radar(destino, radar)
 
 
 def _manifestos(destino: Path) -> dict[str, int]:

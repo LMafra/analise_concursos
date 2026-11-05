@@ -1,0 +1,100 @@
+[
+  {
+    "name": "buscar_por_cargo",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "cargo": {
+          "type": "string",
+          "description": "Nome do cargo desejado. Não inclua a sigla do estado aqui — se quiser filtrar por estado, use o parâmetro \"uf\"."
+        },
+        "uf": {
+          "type": "string",
+          "pattern": "^[a-zA-Z]{2}$",
+          "description": "OPCIONAL. Sigla do estado em minúsculas (ex: sp, rj, mg, df). Se omitido, a busca cobre todo o Brasil. Quando informado, traz concursos do próprio estado e nacionais."
+        }
+      },
+      "required": [
+        "cargo"
+      ]
+    }
+  },
+  {
+    "name": "buscar_por_cidade",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "uf": {
+          "type": "string",
+          "description": "Sigla do estado em minúsculas. Ex: sp, rj, mg."
+        },
+        "cidade": {
+          "type": "string",
+          "description": "Nome da cidade. Pode ser informado com espaços, acentos e caixa livre — a normalização é feita internamente. Ex: \"São Paulo\", \"Rio de Janeiro\", \"florianopolis\"."
+        }
+      },
+      "required": [
+        "uf",
+        "cidade"
+      ]
+    }
+  },
+  {
+    "name": "listar_concursos",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "regiao": {
+          "type": "string",
+          "enum": [
+            "norte",
+            "nordeste",
+            "centro-oeste",
+            "sudeste",
+            "sul"
+          ],
+          "description": "Filtro por região brasileira. Deixe vazio para todas."
+        },
+        "professores": {
+          "type": "boolean",
+          "description": "True para filtrar apenas concursos para professores."
+        }
+      }
+    }
+  },
+  {
+    "name": "pesquisar_concursos",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "termo": {
+          "type": "string",
+          "description": "Qualquer palavra ou frase. Ex: 'policia civil', 'INSS', 'saúde'. Não inclua a sigla do estado aqui — se quiser filtrar por estado, use o parâmetro 'uf'."
+        },
+        "uf": {
+          "type": "string",
+          "pattern": "^[a-zA-Z]{2}$",
+          "description": "OPCIONAL. Sigla do estado em minúsculas (ex: sp, rj, mg, df). Se omitido, a busca cobre todo o Brasil. Quando informado, traz concursos do próprio estado e nacionais."
+        }
+      },
+      "required": [
+        "termo"
+      ]
+    }
+  },
+  {
+    "name": "pesquisar_provas",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "termo": {
+          "type": "string",
+          "description": "Cargo, órgão e/ou organizadora, com ou sem o ano. Os órgãos estão cadastrados com a sigla do estado (ex: \"TJ SP\", \"PM SP\", \"INSS\", \"Polícia Federal\"). Ex: \"agente administrativo\", \"escrevente TJ SP\", \"enfermeiro prefeitura campinas\", \"técnico INSS 2022\", \"professor matemática vunesp\"."
+        }
+      },
+      "required": [
+        "termo"
+      ]
+    }
+  }
+]

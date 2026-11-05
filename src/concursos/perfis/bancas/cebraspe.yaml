@@ -1,7 +1,7 @@
 id: cebraspe
 nome: Cebraspe
 ordem: 10
-marcas: [CEBRASPE]
+marcas: [CEBRASPE, CESPE]
 formato: certo_errado
 penalidade: 1.0
 # Um gabarito PDF por prova, com a grade "Item / Gabarito"; o cargo vem do cabeçalho.

@@ -32,7 +32,7 @@ def test_perfil_embutido_declara_o_comportamento_da_banca():
     cebraspe = perfil_da_banca('cebraspe')
     fgv = perfil_da_banca('fgv')
 
-    assert cebraspe.marcas == ('CEBRASPE',)
+    assert cebraspe.marcas == ('CEBRASPE', 'CESPE')
     assert (cebraspe.formato, cebraspe.penalidade) == ('certo_errado', 1.0)
     assert (cebraspe.leitor_gabarito, cebraspe.leitor_cargo, cebraspe.segmentacao) == (
         'cebraspe',

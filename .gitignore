@@ -24,7 +24,8 @@ notebooks/*.ipynb
 .paddleocr/
 
 # Editor
-.cursor/
+.cursor/*
+!.cursor/mcp.json
 
 # Retratos de paridade (nomes dos concursos)
 .paridade/

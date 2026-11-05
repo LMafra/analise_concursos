@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import platform
 import shutil
@@ -9,7 +10,8 @@ from pathlib import Path
 
 from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.config.contexto import ARQUIVO_CONFIG_GLOBAL
-from concursos.integracoes import open_notebook
+from concursos.integracoes import open_notebook, pci_mcp
+from concursos.integracoes.radar_pci import ler_radar, resumo_radar
 from concursos.legislacao import DICA_CLONE, URL_CLONE, ler_repositorio
 from concursos.llm import ler_configuracao, obter_chave
 
@@ -76,7 +78,7 @@ def sistema_atual() -> Sistema:
     return Sistema.LINUX
 
 
-def diagnosticar(pastas: list[Path], home: Path) -> list[Item]:
+def diagnosticar(pastas: list[Path], home: Path, analises: Path | None = None) -> list[Item]:
     """Os itens na ordem em que aparecem; só leitura, sem rede (a chave do LLM não é validada no provedor)."""
     sistema = sistema_atual()
     return [
@@ -88,6 +90,7 @@ def diagnosticar(pastas: list[Path], home: Path) -> list[Item]:
         _espaco(pastas[0]),
         _llm(home, sistema),
         _open_notebook(home),
+        _pci_mcp(home, analises),
         _legislacao(home),
     ]
 
@@ -198,6 +201,42 @@ def _open_notebook(home: Path) -> Item:
     senha = open_notebook.obter_senha(configuracao, home)
     detalhe = f'{configuracao.url}, ' + ('senha encontrada' if senha else 'sem senha')
     return Item(nome, Situacao.OK, f'{detalhe} (instância não consultada)')
+
+
+def _pci_mcp(home: Path, analises: Path | None) -> Item:
+    """A configuração, o extra instalado e o radar gravado; o servidor não é consultado."""
+    nome = 'PCI Concursos'
+    try:
+        configuracao = pci_mcp.ler_configuracao(home / ARQUIVO_CONFIG_GLOBAL)
+    except ConfiguracaoInvalidaError as erro:
+        return Item(nome, Situacao.ERRO, str(erro), f'corrija [pci_mcp] em {home / ARQUIVO_CONFIG_GLOBAL}')
+    if not configuracao.enabled:
+        return Item(nome, Situacao.OK, 'desligado (nenhuma chamada de rede)')
+    if not _sdk_mcp_instalado():
+        return Item(
+            nome,
+            Situacao.AVISO,
+            'ligado, mas o extra pci (SDK mcp) não está instalado; discover e o radar ficam só no cache',
+            "uv tool install 'concurso-analise[pci]'",
+        )
+    radares = []
+    if analises is not None and analises.is_dir():
+        pastas = [analises, *sorted(p for p in analises.iterdir() if p.is_dir())]
+        radares = [radar for pasta in pastas if (radar := ler_radar(pasta)) is not None]
+    if not radares:
+        return Item(
+            nome, Situacao.OK, f'{configuracao.url}; radar ainda não gerado (servidor não consultado)'
+        )
+    mais_recente = max(radares, key=lambda r: r.data_referencia)
+    return Item(
+        nome,
+        Situacao.OK,
+        f'{configuracao.url}; radar: {resumo_radar(mais_recente)} (servidor não consultado)',
+    )
+
+
+def _sdk_mcp_instalado() -> bool:
+    return importlib.util.find_spec('mcp') is not None
 
 
 def _legislacao(home: Path) -> Item:

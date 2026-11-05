@@ -357,6 +357,7 @@ analises = "analises"
 limiar_confianca = 0.75
 limiar_topico_baixo = 0.6
 concurso_alvo = "tcu_25"   # opcional; nome da pasta do concurso
+incluir_simulados = false  # true: os simulados do PCI entram no consolidado e nas tendências
 ```
 
 - **Validação:** os campos de `[analise]` são os mesmos do `config.yaml` antigo. Campo desconhecido ou valor fora de 0 a 1 (nos limiares) gera erro citando o campo e as opções.
@@ -364,6 +365,7 @@ concurso_alvo = "tcu_25"   # opcional; nome da pasta do concurso
 - **`[candidato] ultimo`:** o último candidato analisado; vale quando não há `--candidate` nem `CONCURSO_CANDIDATO`.
 - **`[migracao]`:** o registro da migração das fases 1 a 3 (`versao = 4`, `candidato`, `backup`, `data`).
 - **`[pratica]`:** a prática no TEC (opcional); veja "Prática no TEC (tec-erros)".
+- **`incluir_simulados`:** booleano; veja "PCI Concursos opcional".
 
 ## Onboarding (fase 4)
 
@@ -442,6 +444,44 @@ embed = false                              # true: a instância gera embeddings 
   O consolidado usa a chave `<slug>/_consolidado`; sem candidato (layout das fases 1 a 3), o slug fica vazio. `vinculos` guarda só as sources de outros notebooks que o app vinculou, e só essas ele desvincula.
 - **Idempotência:** hash igual e id presente no remoto, pula; senão apaga (o id do estado e as sources do notebook com o mesmo título, se começar por `concurso-analise:`) e cria. Notebook pelo id do estado, depois pelo nome exato (o mais antigo), depois cria. Nota pelo id ou pelo título, com `PUT` se o hash mudou.
 - **Saída:** `notebook sync` imprime o resumo e sai com 0, 1 (alguma falha parcial ou senha recusada) ou 2 (instância fora do ar). No fim da análise, uma falha vira aviso no log e não muda o código de saída.
+
+## PCI Concursos opcional
+
+Desligado por padrão; nada sai da máquina sem `[pci_mcp] enabled = true` na configuração global, gravado por `concurso-analise pci enable` depois de mostrar o que vai (só termos de busca: cargo, UF, cidade, região, termo de prova). Não há `consentimento`, porque nenhum dado do candidato vai. `--offline` fica só no cache e `--dry-run` não chama a rede nem grava. O SDK `mcp` vem no extra `pci`. Detalhes do servidor em `docs/pesquisa-pci-mcp.md`; comandos e decisões em `docs/spec-pci-mcp.md`.
+
+```toml
+# ~/.concurso/config.toml
+[pci_mcp]
+enabled = true
+url = "https://mcp.pciconcursos.com.br/mcp"
+timeout = 30              # segundos por consulta
+ttl_horas = 24            # validade do cache
+cargos = ["analista"]     # reserva dos cargos-alvo do candidato
+uf = "mg"                 # sigla de 2 letras, ou vazio
+regiao = ""               # norte | nordeste | centro-oeste | sudeste | sul, ou vazio
+dias_alerta = 15          # o radar mostra o que fecha ou abre nesse prazo
+pasta_downloads = ""      # vazio: ~/Downloads (no WSL, a Downloads do usuário do Windows)
+timeout_download = 300    # segundos esperando os arquivos do --download
+```
+
+```toml
+# ~/.concurso/candidatos/<slug>.toml
+[pci]
+cargos = ["auditor fiscal", "analista"]   # vencem os de [pci_mcp]
+uf = "df"
+```
+
+- **Campos:** desconhecidos ou de tipo errado levantam `ConfiguracaoInvalidaError`; o `doctor` mostra `✗` com a seção a corrigir e nunca consulta o servidor.
+- **Cache** `.concurso/cache/pci_mcp.json`: `{"<sha256>": {"ferramenta", "argumentos", "obtido_em", "data_atual", "resposta"}}`. A chave é o sha256 da ferramenta e dos argumentos normalizados (sem vazios, sem acento, minúsculas, chaves ordenadas). Respostas vazias entram; `isError` não. Gravado só quando muda.
+- **Interesses** `.concurso/interesses_pci.yaml`: `interesses: [{id, titulo, uf, inicio, fim, link, registrado_em, concurso?}]`, gravado por `discover --register ID` e limpo por `discover --forget ID`; `concurso` é a pasta vinculada por `add <pasta> --pci ID`.
+- **`pci:` no `concurso.yaml`:** `{id, titulo, link}` do concurso PCI vinculado. `pci.termos_provas` (lista) substitui os termos automáticos de `pci provas`.
+- **`simulado:` no `concurso.yaml`:** marca uma prova anterior do PCI como simulado. Campos: `fonte` (`pci` ou `manual`, padrão `manual`), `id_pci` (int), `ano_original` (int), `organizadora`, `orgao`, `descricao`, `link`, `concurso_alvo` (pasta do alvo) e `cargo_alvo` (o cargo usado para ler o edital emprestado). O `edital` aponta para o do alvo (`../<alvo>/<arquivo>`), só para os tópicos: a correção vem do `concurso.yaml` e do perfil da banca da prova, e as regras do edital do alvo não são extraídas. O manifesto inclui o hash do edital de fora da pasta. `data_prova` é o dia em que o candidato resolveu (o `add` das respostas grava hoje, quando falta).
+- **Simulados e consolidado:** com `incluir_simulados = false` (padrão), ficam fora de `desempenho_geral.csv`, do comparativo, do parquet e de `contar_questoes(raiz_analises, raiz_provas)`. O schema do parquet não muda. No `index.html`, aparecem na seção "Simulados (provas anteriores do PCI)", fora da tabela de concursos.
+- **`analises/<candidato>/<alvo>/provas_anteriores.md`:** a lista de `pci provas <alvo>` (id, ano, órgão, cargo, banca e página), gravada só quando muda.
+- **Radar** (depois de cada análise, com `enabled`): entram os concursos dos cargos-alvo abertos com `dias_ate_fim <= dias_alerta` e os que ainda não abriram com `dias_ate_inicio <= dias_alerta`, mais os interesses até o `fim`, juntados pelo `id` e ordenados pelo prazo. Os dias vêm do PCI, relativos ao `meta.data_atual`. Grava, só quando muda:
+  - `analises/<candidato>/radar_editais.json`: `{data_referencia, dias_alerta, cargos, itens: [{id, titulo, uf, inicio, fim, situacao, dias_ate_fim, link, interesse, concurso}]}`, lido pelo `status` e pelo `doctor`, que não falam com o PCI;
+  - `analises/<candidato>/radar_editais.md`: a seção "Editais que fecham em breve" do `index.html`.
+- **Falhas:** num comando explícito, `PciMcpParametroError` vira `ErroDoUsuario` (1), e `PciMcpIndisponivelError` e `PciMcpFormatoError`, `ErroDoAmbiente` (2). Depois da análise, viram aviso no log e não mudam o código de saída.
 
 ## Fontes de estudo: biblioteca e legislação
 
@@ -685,6 +725,8 @@ correcao:                      # opcional; complementa ou substitui a regra extr
 ignorar: [gabarito_prel.pdf]   # arquivos da pasta que não são usados
 historico:
   - {data: '2026-10-19', tipo: gabarito_definitivo, prova: cb, anterior: gabarito_prel.pdf, novo: gabarito_cb.pdf}
+pci: {id: 296237, titulo: '...', link: 'https://...'}  # opcional; vínculo com o PCI (add --pci)
+# simulado: {fonte: pci, id_pci: 20549582, ano_original: 2014, organizadora: ESAF, concurso_alvo: tcu_25, ...}
 ```
 
 Todo arquivo da pasta precisa aparecer no `concurso.yaml` (num campo ou em `ignorar`). Caso contrário, o concurso fica `desatualizado`. Ficam de fora dessa regra:

@@ -1,0 +1,9 @@
+{
+  "ferramenta": "buscar_por_cargo",
+  "argumentos": {
+    "cargo": "analista",
+    "uf": "xyz"
+  },
+  "is_error": true,
+  "texto": "Erro ao executar a tool: UF inválida. Use 2 letras minúsculas, ex: sp."
+}

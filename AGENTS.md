@@ -2,7 +2,7 @@
 
 Ferramenta local de correção e análise de provas de concurso, com um comando só: `concurso-analise` (`src/concursos/cli/`), que gera `analises/<candidato>/<concurso>/`. Fase 1: correção por concurso. Fase 2: a análise evolutiva entre concursos (`src/concursos/analytics/` e `notebooks/`). Fase 3: o edital como fonte de verdade (regras, validação e catálogo de descobertas). Fase 4: um comando, multi-candidato, perfis de banca e de OCR, fallbacks, onboarding, `doctor`, LLM opcional e distribuição.
 
-- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3) e `docs/spec-fase4.md` (fase 4). Leia a da fase antes de mudar comportamento.
+- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3), `docs/spec-fase4.md` (fase 4) e `docs/spec-pci-mcp.md` (PCI Concursos). Leia a da fase antes de mudar comportamento.
 - Paridade: antes de um refactor que toca código das fases 1 a 3, rode `concurso-analise --force` e `scripts/paridade.py retrato analises/<candidato> <arquivo>`; depois, `comparar` não pode mostrar diferença.
 - Ponta a ponta: `scripts/smoke.py` roda onboarding, análise e idempotência num projeto temporário; rode-o pelo `uvx --from "$PWD"` ao mexer em dependências, CLI ou empacotamento.
 - Modelo de domínio, contratos de arquivo e fórmulas: `docs/modelo.md`. É a fonte única dos campos do `concurso.yaml`, do `candidato.yaml`, do `config.toml`, dos perfis, do `correcao.json`, do `edital_estruturado.json`, do template do `catalogo_edital.md` e do schema do parquet; atualize-o na mesma mudança que o código.
@@ -11,7 +11,7 @@ Ferramenta local de correção e análise de provas de concurso, com um comando 
 
 `provas/`, `analises/` e `.concurso/` têm CPF, nome e notas e ficam fora do git e da imagem Docker, assim como os `notebooks/*.ipynb` gerados. `test_sem_dado_pessoal_no_pacote` procura no pacote nomes, slugs, inscrições, CPF e caminhos de usuário; fixtures usam nomes fictícios.
 
-Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na configuração global e só recebe texto do edital; o open-notebook exige `enabled` e `consentimento` em `[open_notebook]` e recebe o candidato como pseudônimo, salvo `incluir_nome`. `--offline` e `--dry-run` desligam os dois. A chave de API e a senha do open-notebook nunca vão para TOML.
+Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na configuração global e só recebe texto do edital; o open-notebook exige `enabled` e `consentimento` em `[open_notebook]` e recebe o candidato como pseudônimo, salvo `incluir_nome`; o PCI Concursos exige `enabled` em `[pci_mcp]` e só recebe termos de busca (cargo, UF, cidade, região, termo). `--offline` e `--dry-run` desligam os três (no PCI, `--offline` fica no cache). O PDF de prova do PCI nunca é baixado pelo app (captcha e `robots.txt`): ele lê só a página HTML e nunca chama `/provas/link`; o download é do usuário, no navegador. A chave de API e a senha do open-notebook nunca vão para TOML.
 
 ## Onde mora cada lógica
 
@@ -35,6 +35,12 @@ Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na conf
 | Camada LLM das regras do edital, com citação literal | `edital_llm.py` |
 | Cliente do open-notebook (urllib, multipart, Bearer) e a seção `[open_notebook]` | `integracoes/open_notebook.py` |
 | O que vai para o open-notebook, nota de resumo, pseudônimos, vínculos de livros e normas, notebooks `Legislação` e `Caderno de erros`, e estado `.concurso/open_notebook.json` | `integracoes/sincronizacao_notebook.py` |
+| Cliente do PCI Concursos (`[pci_mcp]`, transporte MCP, erros, `ConcursoPci`, `ProvaAnteriorPci`, limite por execução) | `integracoes/pci_mcp.py` |
+| Cache das respostas do PCI (`.concurso/cache/pci_mcp.json`, TTL) | `integracoes/cache_pci.py` |
+| Sessão de consultas ao PCI, tabela do `discover` e interesses (`.concurso/interesses_pci.yaml`) | `integracoes/sincronizacao_pci.py` |
+| Radar de prazos (`radar_editais.md` e `.json`) | `integracoes/radar_pci.py` |
+| Página da prova anterior no PCI (nomes dos arquivos, só HTML) e download assistido pela pasta de downloads | `integracoes/pagina_pci.py`, `integracoes/download_assistido.py` |
+| Prova anterior como simulado (bloco `simulado:`, banca pela organizadora, edital emprestado, `provas_anteriores.md`) | `integracoes/simulado_pci.py` |
 | Prática no TEC (`[pratica]`): exportações do tec-erros, mesclagem, matéria e assunto → disciplina e tópico, `.concurso/pratica_tec.yaml` e `analises/<candidato>/pratica/` | `pratica_tec.py` |
 | Fontes de estudo: `biblioteca.yaml`, catálogo do `books`, busca nos notebooks de biblioteca e `recomendacoes_estudo.md` | `biblioteca.py` |
 | Citações de normas nos tópicos e leitura do clone do `ctresb/leis` (`[legislacao]`) | `legislacao.py` |

@@ -12,8 +12,9 @@ from pandas.api import types
 from concursos.analytics.correcao import ARQUIVO_CORRECAO, FonteCorrecao, aplicar_correcao, ler_correcao
 from concursos.analytics.regras_edital import ler_regras
 from concursos.analytics.taxonomia import carregar_taxonomia, classificar
-from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso
+from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso, ler_dados
 from concursos.config.contexto import resolver_contexto
+from concursos.configuracao import incluir_simulados_do_projeto
 from concursos.consolidado import PASTA_CONSOLIDADO
 from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
@@ -125,21 +126,40 @@ def carregar_consolidado(
     return consolidado
 
 
-def concursos_analisados(raiz_provas: Path, raiz_analises: Path) -> list[str]:
+def concursos_analisados(
+    raiz_provas: Path, raiz_analises: Path, incluir_simulados: bool | None = None
+) -> list[str]:
+    """Sem `incluir_simulados`, vale `[analise] incluir_simulados` do projeto (padrão: os simulados ficam fora)."""
     if not raiz_analises.exists():
         return []
+    if incluir_simulados is None:
+        incluir_simulados = incluir_simulados_do_projeto()
     return sorted(
         pasta.name
         for pasta in raiz_analises.iterdir()
         if (pasta / ARQUIVO_QUESTOES).exists()
         and (pasta / ARQUIVO_CORRECAO).exists()
         and (raiz_provas / pasta.name / ARQUIVO_CONFIG).exists()
+        and (incluir_simulados or not eh_simulado(raiz_provas / pasta.name))
     )
 
 
-def contar_questoes(raiz_analises: Path) -> int:
-    """Soma das linhas de todos os questoes.csv, inclusive de concursos que ficaram fora do consolidado."""
-    return sum(len(pd.read_csv(arquivo)) for arquivo in raiz_analises.glob(f'*/{ARQUIVO_QUESTOES}'))
+def eh_simulado(pasta_concurso: Path) -> bool:
+    return bool(ler_dados(pasta_concurso).get('simulado'))
+
+
+def contar_questoes(
+    raiz_analises: Path, raiz_provas: Path | None = None, incluir_simulados: bool | None = None
+) -> int:
+    """Soma das linhas dos questoes.csv, inclusive de concursos que ficaram fora do consolidado; com
+    `raiz_provas`, sem os simulados que o consolidado deixa de fora."""
+    if raiz_provas is not None and incluir_simulados is None:
+        incluir_simulados = incluir_simulados_do_projeto()
+    return sum(
+        len(pd.read_csv(arquivo))
+        for arquivo in raiz_analises.glob(f'*/{ARQUIVO_QUESTOES}')
+        if raiz_provas is None or incluir_simulados or not eh_simulado(raiz_provas / arquivo.parent.name)
+    )
 
 
 def topicos_do_edital(raiz_analises: Path | None = None) -> pd.DataFrame:

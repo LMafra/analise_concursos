@@ -80,7 +80,7 @@ Ferramenta local que corrige suas provas de concurso e mostra **em quais discipl
 * Confere edital, prova e gabarito entre si, e cada valor lido do edital vem com trecho, documento e página.
 * Acompanha a evolução entre concursos em notebooks de análise.
 
-Tudo roda na sua máquina: nenhum arquivo é enviado para lugar nenhum. O único acesso à rede é opcional, quando você liga um LLM para ajudar a ler editais (veja [LLM opcional](#llm-opcional)).
+Tudo roda na sua máquina: nenhum arquivo é enviado para lugar nenhum. O único acesso à rede é opcional, quando você liga um LLM para ajudar a ler editais (veja [LLM opcional](#llm-opcional)), o open-notebook ou o PCI Concursos, que só recebe termos de busca (veja [Integração com o PCI Concursos](#integração-com-o-pci-concursos)).
 
 Bancas com perfil embutido: Cebraspe (certo/errado, um erro anula um acerto), FGV, FCC, Vunesp, IBFC, Idecan, SELECON e Quadrix. Uma banca sem perfil usa o genérico, e o que o edital não disser fica para você confirmar (veja [Problemas comuns](#problemas-comuns)).
 
@@ -206,6 +206,8 @@ Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa 
 | `doctor` | Confere uv, Python, Tesseract, permissão de escrita, espaço em disco, a chave do LLM e a configuração do open-notebook, com o comando de correção para o seu sistema. |
 | `upgrade` | Mostra o comando que atualiza a ferramenta. Com `--run`, executa `uv tool upgrade concurso-analise`. |
 | `notebook enable\|disable\|sync` | Liga, desliga ou roda a sincronização com o open-notebook (veja [Integração com open-notebook](#integração-com-open-notebook)). |
+| `discover` | Busca no PCI Concursos os concursos com inscrições abertas ou prestes a abrir; `--register ID` acompanha um no radar de prazos (veja [Integração com o PCI Concursos](#integração-com-o-pci-concursos)). |
+| `pci enable\|disable\|provas` | Liga ou desliga o PCI, ou lista as provas anteriores de um concurso e importa uma como simulado. |
 
 Flags globais, antes do subcomando: `--yes` (aceita os padrões sem perguntar), `--quiet`, `--verbose`, `--dry-run` (mostra o que seria feito, sem gravar nada), `--force` (reprocessa tudo), `--candidate`, `--all-candidates`, `--no-open`, `--no-llm`, `--offline`, `--data-dir`, `--provas` e `--analises`.
 
@@ -380,6 +382,47 @@ concurso-analise notebook disable
 
 Os campos e o estado estão em [docs/modelo.md](docs/modelo.md); as decisões, em [docs/spec-open-notebook.md](docs/spec-open-notebook.md).
 
+### Integração com o PCI Concursos
+
+Opcional e desligada por padrão. O [PCI Concursos](https://www.pciconcursos.com.br/) tem um servidor MCP público e gratuito (`https://mcp.pciconcursos.com.br/mcp`, em beta). Com ele ligado, o app descobre concursos, acha provas anteriores para treinar e avisa dos prazos de inscrição. O PCI é um complemento colaborativo e pode não ter todos os editais: confira sempre o edital no site do órgão ou da banca.
+
+```sh
+uv tool install 'concurso-analise[pci]'        # o cliente MCP vem num extra
+concurso-analise pci enable                     # mostra o que é enviado e pede confirmação
+concurso-analise discover --cargo analista --cargo auditor --uf mg
+concurso-analise discover --cidade campinas --uf sp --json
+concurso-analise discover --cargo analista --register 296237   # acompanha no radar
+concurso-analise add provas/camara_x --pci 296237              # vincula a pasta do concurso
+concurso-analise pci provas meu_concurso                       # provas anteriores do mesmo cargo e banca
+concurso-analise pci provas meu_concurso --download 20549582   # abre a página e importa o que você baixar
+```
+
+- **O que sai do computador:** só termos de busca (cargos, UF, cidade, região, termos de prova). Nome, CPF, inscrição e notas, não.
+- **Cargos-alvo:** sem filtro, o `discover` e o radar usam os cargos do candidato, em `~/.concurso/candidatos/<slug>.toml`:
+
+  ```toml
+  [pci]
+  cargos = ["auditor fiscal", "analista"]
+  uf = "df"
+  ```
+
+  Sem eles, valem `cargos` e `uf` de `[pci_mcp]` no `~/.concurso/config.toml`; sem nenhum, a lista geral.
+- **Radar de prazos:** depois de cada análise, o app grava `analises/<candidato>/radar_editais.md` e a seção "Editais que fecham em breve" no `index.html`, com os concursos dos seus cargos que fecham em até `dias_alerta` (15) dias ou que vão abrir, mais os que você registrou. O `status` e o `doctor` mostram o radar pelo cache, sem rede.
+- **Provas anteriores viram simulados:** o PDF fica atrás de um captcha e o `robots.txt` do PCI proíbe baixá-lo por robô, então o download é seu: o `--download` abre a página no navegador, você clica nos arquivos, e o app importa da pasta de downloads (`pasta_downloads`; no WSL, a do Windows). O simulado vira uma pasta própria, `provas/<orgao>_<ano>_pci<id>/`, corrigida pelo perfil da banca da prova, com os tópicos do edital do seu concurso. Acrescente suas respostas com `add`; a data do simulado é a data em que você resolveu. Simulados ficam fora do consolidado e das tendências, a não ser com `incluir_simulados = true` em `[analise]` no `.concurso/config.toml`, e aparecem na seção "Simulados" do `index.html`.
+- **Cache:** as respostas ficam em `.concurso/cache/pci_mcp.json` por `ttl_horas` (24); `--refresh` consulta de novo, e `--offline` usa o cache, mesmo vencido, com aviso. No máximo 20 consultas por execução.
+- **Falhas:** num comando explícito, saem como `erro:`/`dica:` (código 2 com o servidor fora do ar, 1 com um filtro recusado). Depois da análise, uma falha só gera aviso.
+- **No Cursor:** o `.cursor/mcp.json` do projeto registra o servidor, para o agente consultar o PCI direto.
+
+```toml
+# ~/.concurso/config.toml
+[pci_mcp]
+enabled = true
+dias_alerta = 15
+pasta_downloads = ""      # vazio: ~/Downloads (no WSL, a do usuário do Windows)
+```
+
+Os campos estão em [docs/modelo.md](docs/modelo.md); as decisões, em [docs/spec-pci-mcp.md](docs/spec-pci-mcp.md), e o que o servidor responde, em [docs/pesquisa-pci-mcp.md](docs/pesquisa-pci-mcp.md).
+
 ### Recomendações de estudo: livros e legislação
 
 Também opcionais. Com uma das duas fontes abaixo, a análise grava `analises/<candidato>/consolidado/recomendacoes_estudo.md` e a seção "Recomendações de estudo" no `index.html`: para cada tópico fraco persistente, as normas que o próprio tópico cita e até 3 livros. Cada linha diz de onde veio (`legislação`, `open-notebook` ou `catálogo`). São sugestões e não mudam o tópico nem a disciplina das questões.
@@ -479,7 +522,7 @@ Os notebooks são scripts [jupytext](https://jupytext.readthedocs.io/) em `noteb
 
 ### Privacidade
 
-`provas/`, `analises/` e `.concurso/` ficam fora do git (`.gitignore`) e fora da imagem Docker (`.dockerignore`), por conterem dados pessoais (nome, CPF, notas). Nenhum arquivo é enviado para fora da máquina; o LLM, se ligado, só recebe texto do edital. O open-notebook, se ligado, recebe os relatórios e CSVs da análise, com o candidato como pseudônimo.
+`provas/`, `analises/` e `.concurso/` ficam fora do git (`.gitignore`) e fora da imagem Docker (`.dockerignore`), por conterem dados pessoais (nome, CPF, notas). Nenhum arquivo é enviado para fora da máquina; o LLM, se ligado, só recebe texto do edital. O open-notebook, se ligado, recebe os relatórios e CSVs da análise, com o candidato como pseudônimo. O PCI Concursos, se ligado, só recebe termos de busca.
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
