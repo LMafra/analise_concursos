@@ -1,12 +1,14 @@
 import os
 from dataclasses import replace
+from pathlib import Path
 
 from concursos import doctor as diagnostico
 from concursos import onboarding
 from concursos.aplicacao.analise import analisar
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.projeto import diagnosticar, exigir_provas, migrar
-from concursos.calibracao import CalibracaoError
+from concursos.calibracao import Calibracao, CalibracaoError, calibrar
+from concursos.config.contexto import Contexto
 from concursos.erros import ErroDoUsuario
 from concursos.status import listar_concursos
 
@@ -33,12 +35,7 @@ def executar_onboarding(
         raise ErroDoUsuario(
             f'{erro}; nada foi gravado', f'corrija {onboarding.VARIAVEL_LLM} ou apague a variável'
         ) from erro
-    if respostas.calibracao is not None:
-        opcoes = replace(opcoes, forcar=True)
-    opcoes = replace(opcoes, contexto=onboarding.aplicar(contexto, respostas))
-    if opcoes.contexto.provas.is_dir():
-        opcoes = migrar(opcoes)
-    onboarding.gravar(contexto, respostas)
+    opcoes = configurar(opcoes, respostas)
     contexto = opcoes.contexto
     if respostas.doctor:
         opcoes.saida(diagnostico.formatar(diagnosticar(contexto)))
@@ -49,3 +46,65 @@ def executar_onboarding(
         )
         return 0
     return analisar(opcoes)
+
+
+def configurar(opcoes: Opcoes, respostas: onboarding.Respostas) -> Opcoes:
+    """Grava as respostas do onboarding (as mesmas do `init`) e migra o layout antigo, se houver."""
+    contexto = opcoes.contexto
+    if respostas.calibracao is not None:
+        opcoes = replace(opcoes, forcar=True)
+    opcoes = replace(opcoes, contexto=onboarding.aplicar(contexto, respostas))
+    if opcoes.contexto.provas.is_dir():
+        opcoes = migrar(opcoes)
+    onboarding.gravar(contexto, respostas)
+    return opcoes
+
+
+def respostas_atuais(contexto: Contexto) -> onboarding.Respostas:
+    """Os padrões do `init` para este projeto, como ponto de partida do formulário."""
+    return onboarding.perguntar(contexto, set(), None, {})
+
+
+def pasta_no_formulario(pasta: Path, raiz: Path) -> str:
+    return pasta.relative_to(raiz).as_posix() if pasta.is_relative_to(raiz) else str(pasta)
+
+
+def respostas_do_formulario(
+    contexto: Contexto,
+    nome: str,
+    provas: str,
+    analises: str,
+    doctor: bool,
+    calibracao: Calibracao | None = None,
+) -> onboarding.Respostas:
+    """As respostas do formulário; pastas relativas são relativas à pasta do projeto."""
+    if not nome.strip():
+        raise ErroDoUsuario('falta o seu nome', 'escreva o nome que vai aparecer nos relatórios')
+
+    def na_raiz(texto: str, padrao: Path) -> Path:
+        if not texto.strip():
+            return padrao
+        caminho = Path(texto.strip()).expanduser()
+        return caminho if caminho.is_absolute() else contexto.raiz / caminho
+
+    return onboarding.Respostas(
+        nome=nome.strip(),
+        provas=na_raiz(provas, contexto.provas),
+        analises=na_raiz(analises, contexto.analises),
+        doctor=doctor,
+        calibracao=calibracao,
+    )
+
+
+def calibrar_folha(folha: Path, digitadas: str) -> Calibracao:
+    try:
+        return calibrar(folha, digitadas)
+    except CalibracaoError as erro:
+        raise ErroDoUsuario(f'calibração reprovada: {erro.causa}', erro.dica) from erro
+
+
+def concluir_onboarding(opcoes: Opcoes, respostas: onboarding.Respostas) -> Opcoes:
+    """O onboarding do formulário: cria a pasta de provas com o LEIA-ME, se faltar, e grava."""
+    if not respostas.provas.is_dir():
+        onboarding.criar_pasta_de_provas(respostas.provas)
+    return configurar(opcoes, respostas)

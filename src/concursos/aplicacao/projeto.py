@@ -1,3 +1,4 @@
+import shutil
 from dataclasses import replace
 from pathlib import Path
 
@@ -109,6 +110,11 @@ def migrar(opcoes: Opcoes) -> Opcoes:
             str(erro), 'resolva o problema e rode de novo; a migração recomeça do zero'
         ) from erro
     return replace(opcoes, contexto=replace(contexto, candidato=migracao.candidato))
+
+
+def ocr_disponivel() -> bool:
+    """Sem o Tesseract, PDFs escaneados (sem texto) ficam sem leitura; a folha de respostas não depende dele."""
+    return shutil.which('tesseract') is not None
 
 
 def diagnosticar(contexto: Contexto) -> list[diagnostico.Item]:

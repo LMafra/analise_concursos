@@ -879,6 +879,8 @@ Sai com 2 se algum item tem `✗`, senão com 0.
 ultimo_projeto = "C:/Users/ana/Documents/Concursos"   # pasta com provas/, analises/ e .concurso/
 ```
 
+**Cadastro pela GUI.** O onboarding em formulário grava pelas mesmas `onboarding.aplicar` e `onboarding.gravar` do `init` e cria a pasta de provas com o `LEIA-ME.txt`, se faltar. Os arquivos soltos na tela "Novo concurso" esperam em `.concurso/envios/<aleatório>/` (apagados depois do cadastro, ou depois de um dia se abandonados) até o usuário confirmar o papel de cada um. Na confirmação, edital, prova, gabarito e resultado vão para `provas/<concurso>/` (o nome passa por `slug`) e o papel escolhido vence a detecção no `cadastrar` (`papeis`); folha e respostas vão para `candidatos/<slug>/` pelo `adicionar_respostas`; o que foi marcado para ignorar não é copiado. Se o usuário recusa ou o cadastro falha, a pasta volta a ser como era. Um arquivo com o nome de outro, diferente, já na pasta é erro, e nada é sobrescrito. As respostas digitadas viram `candidatos/<slug>/respostas.csv` (`questao,alternativa`, só as marcadas; as omitidas contam como branco), validado por `ler_respostas_csv` antes da cópia.
+
 **Executável (fase 5).** Pasta onedir do PyInstaller, gerada por `empacotamento/concurso-analise.spec`:
 
 | Caminho no bundle | Conteúdo |

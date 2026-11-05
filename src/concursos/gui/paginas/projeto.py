@@ -5,6 +5,7 @@ from nicegui import ui
 from concursos.gui.componentes.seletor_pasta import escolher_pasta
 from concursos.gui.estado import ESTADO, pasta_padrao
 from concursos.gui.textos import mostrar_erro, rotulo
+from concursos.onboarding import precisa_de_onboarding
 
 
 def pagina() -> None:
@@ -29,10 +30,11 @@ def pagina() -> None:
         def usar() -> None:
             try:
                 ESTADO.abrir_projeto(Path(campo.value))
+                novo = precisa_de_onboarding(ESTADO.contexto())
             except Exception as erro:  # noqa: BLE001
                 mostrar_erro(erro)
                 return
-            ui.navigate.to('/')
+            ui.navigate.to('/inicio' if novo else '/')
 
         with ui.row():
             ui.button('Escolher pasta…', icon='folder_open', on_click=procurar).props('outline')

@@ -27,7 +27,7 @@ def pagina() -> None:
         ui.label(
             f'Tesseract: {tesseract}'
             if tesseract
-            else 'Tesseract: não encontrado; a leitura automática da folha fica desligada, e as respostas '
-            'podem ser digitadas'
+            else 'Tesseract: não encontrado; PDFs escaneados (sem texto) não são lidos, e as respostas '
+            'podem ser digitadas se a folha não for lida'
         ).mark('tesseract')
         ui.label(PRIVACIDADE).classes('text-grey-8')

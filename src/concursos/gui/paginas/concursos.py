@@ -1,5 +1,6 @@
 from nicegui import ui
 
+from concursos import onboarding
 from concursos.aplicacao import analise
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
@@ -19,9 +20,16 @@ def pagina() -> None:
         with ui.row().classes('items-center gap-2'):
             ui.label(f'Projeto: {ESTADO.projeto}').classes('text-sm text-grey-8')
             ui.button('Trocar', on_click=lambda: ui.navigate.to('/projeto')).props('flat dense')
+        if onboarding.precisa_de_onboarding(ESTADO.contexto()):
+            with ui.card().classes('bg-blue-1 w-full max-w-4xl').mark('fazer-onboarding'):
+                ui.label('Primeira vez neste projeto? Responda a algumas perguntas para começar.')
+                ui.button('Começar', icon='waving_hand', on_click=lambda: ui.navigate.to('/inicio'))
         seletor_de_candidato()
         lista_de_concursos()
         with ui.row():
+            ui.button('Novo concurso', icon='add', on_click=lambda: ui.navigate.to('/novo')).props(
+                'outline'
+            ).mark('novo-concurso')
             ui.button('Analisar', icon='play_arrow', on_click=pedir_analise).mark('analisar')
 
 
@@ -30,12 +38,15 @@ def seletor_de_candidato() -> None:
     if len(candidatos) <= 1:
         return
     escolhido = ESTADO.candidato or ESTADO.contexto().candidato
+    if escolhido not in candidatos:
+        escolhido = candidatos[0]
+    ESTADO.candidato = escolhido
     with ui.row().classes('items-center gap-4'):
         rotulo(
             ui.select(
                 candidatos,
                 label='Candidato',
-                value=escolhido if escolhido in candidatos else candidatos[0],
+                value=escolhido,
                 on_change=lambda e: setattr(ESTADO, 'candidato', e.value),
             ),
             'candidato',
@@ -68,13 +79,26 @@ def lista_de_concursos() -> None:
                         ui.badge(item.situacao.value, color=COR_DA_SITUACAO.get(item.situacao, 'grey'))
                         with ui.label(f'gabarito: {item.gabarito}').classes('text-sm'):
                             ui.tooltip(EXPLICACAO_GABARITO)
-                if item.motivos:
-                    with (
-                        ui.item_section().props('side'),
-                        ui.expansion('Resolver').props('dense').classes('max-w-md'),
-                    ):
-                        for motivo in item.motivos:
-                            ui.label(motivo).classes('text-sm')
+                with ui.item_section().props('side'):
+                    if item.motivos:
+                        with ui.expansion('Resolver').props('dense').classes('max-w-md'):
+                            for motivo in item.motivos:
+                                ui.label(motivo).classes('text-sm')
+                            acoes_do_concurso(item.nome)
+                    else:
+                        acoes_do_concurso(item.nome)
+
+
+def acoes_do_concurso(nome: str) -> None:
+    with ui.row().classes('gap-1'):
+        ui.button(
+            'Acrescentar arquivos',
+            icon='upload_file',
+            on_click=lambda: ui.navigate.to(f'/novo?concurso={nome}'),
+        ).props('flat dense').mark(f'acrescentar-{nome}')
+        ui.button(
+            'Digitar respostas', icon='edit', on_click=lambda: ui.navigate.to(f'/respostas?concurso={nome}')
+        ).props('flat dense').mark(f'digitar-{nome}')
 
 
 def pedir_analise() -> None:

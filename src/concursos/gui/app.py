@@ -6,7 +6,7 @@ from nicegui import native, ui
 
 from concursos.config.contexto import resolver_home
 from concursos.gui.estado import ESTADO, projeto_inicial
-from concursos.gui.paginas import analise, concursos, projeto, sobre
+from concursos.gui.paginas import analise, concursos, inicio, novo_concurso, projeto, respostas, sobre
 
 HOST = '127.0.0.1'
 TAMANHO_JANELA = (1200, 820)
@@ -18,8 +18,11 @@ MENU: list[tuple[str, str, str]] = [
     ('/sobre', 'Sobre', 'info'),
 ]
 
-ROTAS: dict[str, Callable[[], None]] = {
+ROTAS: dict[str, Callable[..., None]] = {
     '/': concursos.pagina,
+    '/inicio': inicio.pagina,
+    '/novo': novo_concurso.pagina,
+    '/respostas': respostas.pagina,
     '/analise': analise.pagina,
     '/projeto': projeto.pagina,
     '/sobre': sobre.pagina,
