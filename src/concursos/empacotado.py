@@ -20,6 +20,7 @@ VARIAVEL_SEM_OCR = 'CONCURSO_SMOKE_SEM_OCR'
 VARIAVEL_LIMITE_PARTIDA = 'CONCURSO_SMOKE_LIMITE_PARTIDA'
 TIMEOUT_SERVIDOR = 120
 TEXTO_OCR = 'CONCURSO 2026'
+MUTEX = 'concurso-analise'
 _IMPORTADO_EM = time.monotonic()
 
 
@@ -74,9 +75,21 @@ def garantir_saidas() -> None:
             fluxo.reconfigure(encoding='utf-8', errors='replace')
 
 
+def segurar_mutex(sistema: str = sys.platform) -> object | None:
+    """No Windows, o setup da atualização espera este mutex sumir antes de trocar os arquivos.
+
+    O handle fica aberto até o processo sair; o Windows o fecha sozinho."""
+    if sistema != 'win32':
+        return None
+    import ctypes
+
+    return ctypes.windll.kernel32.CreateMutexW(None, False, MUTEX)
+
+
 def principal(argv: list[str]) -> int:
     if (base := pasta_embutida()) is not None:
         preparar_ambiente(base)
+        segurar_mutex()
     garantir_saidas()
     if argv == [ARGUMENTO_SMOKE]:
         return conferir_pacote()

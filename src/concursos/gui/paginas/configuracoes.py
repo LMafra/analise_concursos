@@ -2,11 +2,14 @@ import logging
 
 from nicegui import ui
 
+from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao import ia
 from concursos.aplicacao.preferencias import PreferenciasAnalise, gravar_analise, ler_analise
+from concursos.config.contexto import resolver_home
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.textos import mostrar_erro, rotulo
+from concursos.modelo import CanalAtualizacao
 from concursos.status import listar_concursos
 
 logger = logging.getLogger('concursos')
@@ -30,6 +33,7 @@ def pagina() -> None:
             mostrar_erro(erro)
         secao_do_projeto()
         SecaoDaIa()
+        secao_avancada()
 
 
 def controle_de_limiar(titulo: str, valor: float, explicacao: str, marca: str) -> ui.slider:
@@ -172,3 +176,42 @@ class SecaoDaIa:
         self.chave.value = ''
         self.situacao.set_text(self.descrever(ia.estado_da_ia(ESTADO.contexto())))
         ui.notify('IA ligada.', type='positive')
+
+
+EXPLICACAO_AVISO = (
+    'Ao abrir, consulta o GitHub no máximo uma vez por dia e mostra no cabeçalho quando há versão nova. '
+    'Só o arquivo da versão mais nova é pedido; nenhum dado seu vai junto. Instalar continua pedindo o seu clique.'
+)
+CANAIS = {
+    CanalAtualizacao.STABLE.value: 'stable: versões testadas',
+    CanalAtualizacao.BETA.value: 'beta: versões novas antes das outras pessoas, que podem ter problemas',
+}
+
+
+def secao_avancada() -> None:
+    config_global = resolver_home() / 'config.toml'
+    atuais = atualizacao.ler_preferencias(config_global)
+    with ui.expansion('Avançado', icon='tune').classes('w-full').mark('avancado'):
+        ui.label('Atualizações').classes('font-bold')
+        aviso = ui.checkbox('Avisar quando houver versão nova', value=atuais.verificar_ao_abrir).mark(
+            'verificar-ao-abrir'
+        )
+        ui.label(EXPLICACAO_AVISO).classes('text-sm text-grey-8')
+        canal = (
+            rotulo(ui.select(CANAIS, label='Canal', value=atuais.canal.value), 'canal de atualização')
+            .classes('w-full')
+            .mark('canal-atualizacao')
+        )
+
+        def gravar() -> None:
+            try:
+                atualizacao.gravar_preferencias(
+                    config_global, atualizacao.Preferencias(CanalAtualizacao(canal.value), bool(aviso.value))
+                )
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+                return
+            ui.notify('Preferência de atualização gravada.', type='positive')
+
+        aviso.on_value_change(gravar)
+        canal.on_value_change(gravar)

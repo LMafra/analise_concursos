@@ -157,6 +157,12 @@ Para o app aparecer no menu de aplicativos, com ícone, use o [AppImageLauncher]
 
 Depois de instalar, veja [Usar pela janela](#usar-pela-janela).
 
+#### Atualizar
+
+Em **Sobre**, clique em **Verificar atualizações**. Se houver versão nova, **Baixar e instalar** pede confirmação, baixa do GitHub e só usa o arquivo se a assinatura do manifesto da release e o SHA-256 conferirem. No Windows, o instalador continua sozinho e reabre o app; no Linux, o AppImage é trocado no mesmo lugar, e o app oferece reabrir. Os projetos e as análises não mudam. Pelo terminal, o mesmo é `concurso-analise upgrade --run`.
+
+O app não consulta nada sozinho. Em **Configurações > Avançado**, você pode ligar o aviso de versão nova (uma consulta ao GitHub por dia, no máximo, com o aviso no cabeçalho) e escolher o canal: `stable` (padrão) ou `beta` (versões novas antes, que podem ter problemas). Quem tem a 0.5.0 ou anterior instala a primeira versão com o atualizador à mão, uma vez.
+
 #### Por que o Windows avisa na primeira execução
 
 O SmartScreen, o filtro de downloads do Windows, avisa sobre todo programa que ainda foi baixado por poucas pessoas, mesmo quando o arquivo é assinado. A assinatura não tira esse aviso; ela garante duas coisas que você pode conferir:
@@ -322,7 +328,7 @@ Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa 
 | `report` | Reabre o último relatório HTML. |
 | `export --format csv\|parquet\|md` | Grava o consolidado do candidato, uma linha por questão. |
 | `doctor` | Confere uv, Python, Tesseract, permissão de escrita, espaço em disco, a chave do LLM e a configuração do open-notebook, com o comando de correção para o seu sistema. |
-| `upgrade` | Mostra o comando que atualiza a ferramenta. Com `--run`, executa `uv tool upgrade concurso-analise`. |
+| `upgrade` | No executável, procura a versão nova no GitHub (canal de `[atualizacao]`, ou `--canal stable`/`beta`); com `--run`, baixa, confere e instala. Fora dele, mostra o comando do uv; com `--run`, executa `uv tool upgrade concurso-analise`. |
 | `notebook enable\|disable\|sync` | Liga, desliga ou roda a sincronização com o open-notebook (veja [Integração com open-notebook](#integração-com-open-notebook)). |
 | `discover` | Busca no PCI Concursos os concursos com inscrições abertas ou prestes a abrir; `--register ID` acompanha um no radar de prazos (veja [Integração com o PCI Concursos](#integração-com-o-pci-concursos)). |
 | `pci enable\|disable\|provas` | Liga ou desliga o PCI, ou lista as provas anteriores de um concurso e importa uma como simulado. |

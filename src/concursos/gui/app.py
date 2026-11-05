@@ -3,11 +3,13 @@ import os
 import subprocess
 import sys
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 
-from nicegui import app, native, ui
+from nicegui import app, native, run, ui
 
 from concursos import janela
+from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao.preferencias import aviso_webview2_dispensado, dispensar_aviso_webview2
 from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.config.contexto import resolver_home
@@ -67,8 +69,13 @@ def raiz() -> None:
             ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props(
                 'flat color=white'
             )
+        ui.space()
+        ui.button(icon='new_releases', on_click=lambda: ui.navigate.to('/sobre')).props(
+            'flat dense no-caps color=white'
+        ).bind_text_from(
+            ESTADO, 'novidade', lambda n: f'Versão {n.versao} disponível' if n else ''
+        ).bind_visibility_from(ESTADO, 'novidade', backward=bool).mark('chip-atualizacao')
         if ESTADO.no_navegador:
-            ui.space()
             ui.button('Fechar o app', icon='power_settings_new', on_click=fechar_app).props(
                 'flat color=white'
             ).mark('fechar-app')
@@ -116,6 +123,16 @@ def decidir_janela(navegador: bool) -> DecisaoJanela:
     return janela.decidir_janela(sys.platform, navegador=navegador)
 
 
+async def verificar_ao_abrir() -> None:
+    home = resolver_home()
+    ESTADO.novidade = await run.io_bound(
+        atualizacao.verificar_ao_abrir,
+        home / 'config.toml',
+        home / atualizacao.ARQUIVO_ESTADO,
+        agora=datetime.now(UTC),
+    )
+
+
 def marcar_conexao() -> None:
     ESTADO.cliente_conectou = True
 
@@ -159,6 +176,8 @@ def executar(
     porta = porta or native.find_open_port()
     if not nativa and abrir:
         app.on_startup(lambda: abrir_no_navegador(f'http://{HOST}:{porta}/'))
+    if abrir and atualizacao.no_executavel():
+        app.on_startup(verificar_ao_abrir)
     if nativa and abrir:
         app.on_connect(marcar_conexao)
         app.on_shutdown(ao_encerrar_a_janela)

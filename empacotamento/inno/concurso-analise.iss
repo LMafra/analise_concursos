@@ -11,6 +11,7 @@
 #endif
 #define Nome "concurso-analise"
 #define Executavel "concurso-analise.exe"
+#define Mutex "concurso-analise"
 #define WebView2 "Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 [Setup]
@@ -64,8 +65,31 @@ Name: "{autodesktop}\{#Nome}"; Filename: "{app}\{#Executavel}"; Tasks: atalho
 
 [Run]
 Filename: "{app}\{#Executavel}"; Description: "{cm:LaunchProgram,{#Nome}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#Executavel}"; Flags: nowait; Check: DeveReabrir
 
 [Code]
+// A atualização pelo app roda este setup com /REABRIR=1 e fecha em seguida; o setup espera o app sumir
+// (o mutex que o executável segura) antes de copiar, e o reabre no fim.
+function DeveReabrir(): Boolean;
+begin
+  Result := ExpandConstant('{param:REABRIR|0}') = '1';
+end;
+
+function InitializeSetup(): Boolean;
+var
+  Tentativas: Integer;
+begin
+  Tentativas := 0;
+  while CheckForMutexes('{#Mutex}') and (Tentativas < 60) do
+  begin
+    Sleep(500);
+    Tentativas := Tentativas + 1;
+  end;
+  if Tentativas > 0 then
+    Log(Format('esperou o concurso-analise fechar por %d ms', [Tentativas * 500]));
+  Result := True;
+end;
+
 function VersaoValida(Raiz: Integer; Chave: String): Boolean;
 var
   Versao: String;

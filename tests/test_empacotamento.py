@@ -355,3 +355,17 @@ def test_appdir_tem_desktop_valido_icone_e_versao():
     assert 'X-AppImage-Version=$VERSAO' in montar
     assert 'Icon=concurso-analise' in desktop
     assert 'Categories=Education;' in desktop
+
+
+def test_mutex_so_no_windows():
+    assert empacotado.segurar_mutex('linux') is None
+    assert empacotado.MUTEX == 'concurso-analise'
+
+
+def test_setup_espera_o_mutex_e_reabre_com_reabrir():
+    texto = (RAIZ / 'empacotamento' / 'inno' / 'concurso-analise.iss').read_text(encoding='utf-8-sig')
+
+    assert '#define Mutex "concurso-analise"' in texto
+    assert "CheckForMutexes('{#Mutex}')" in texto
+    assert 'Check: DeveReabrir' in texto
+    assert '{param:REABRIR|0}' in texto
