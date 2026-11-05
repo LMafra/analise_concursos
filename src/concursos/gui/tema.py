@@ -149,9 +149,11 @@ body {{ font-family: {FONTE}; background: var(--ca-fundo); color: var(--ca-texto
   box-shadow: {ELEVACAO_1}; }}
 .q-dialog .q-card {{ border-radius: {RAIO_DIALOGO}; box-shadow: {ELEVACAO_2}; }}
 .q-header {{ background: var(--ca-primaria); color: var(--ca-sobre-primaria); }}
-.q-btn.bg-primary {{ color: var(--ca-sobre-primaria) !important; }}
-.text-primary, a, .nicegui-link {{ color: var(--ca-primaria-texto) !important; }}
-.q-header .q-btn {{ color: var(--ca-sobre-primaria) !important; }}
+@layer overrides {{
+  .q-btn.bg-primary {{ color: var(--ca-sobre-primaria) !important; }}
+  .text-primary, a, .nicegui-link {{ color: var(--ca-primaria-texto) !important; }}
+  .q-header .q-btn {{ color: var(--ca-sobre-primaria) !important; }}
+}}
 :focus-visible {{ outline: 3px solid var(--ca-foco); outline-offset: 2px; }}
 .ca-texto-suave {{ color: var(--ca-texto-suave); }}
 .ca-borda {{ border: 1px solid var(--ca-borda); border-radius: {RAIO_CARTAO}; }}

@@ -9,6 +9,6 @@ def cartao(titulo: str | None = None, *, icone: str | None = None) -> ui.card:
         if titulo:
             with ui.row().classes('items-center no-wrap').style(tema.gap('sm')):
                 if icone:
-                    ui.icon(icone).props('aria-hidden=true')
+                    ui.icon(icone, size='sm').props('aria-hidden=true')
                 ui.label(titulo).classes('text-lg font-bold')
     return elemento

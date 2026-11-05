@@ -62,15 +62,20 @@ def secao_do_ambiente() -> None:
         saida = ui.label().classes('whitespace-pre-line font-mono text-sm').mark('diagnostico')
 
         async def conferir() -> None:
+            botao.props(add='loading')
             try:
                 itens = await run.io_bound(projeto.diagnosticar, ESTADO.contexto())
             except Exception as erro:  # noqa: BLE001
                 mostrar_erro(erro)
                 return
+            finally:
+                botao.props(remove='loading')
             saida.set_text(diagnostico.formatar(itens))
 
-        ui.button('Conferir o ambiente', icon='fact_check', on_click=conferir).props('outline').mark(
-            'conferir-ambiente'
+        botao = (
+            ui.button('Conferir o ambiente', icon='fact_check', on_click=conferir)
+            .props('outline')
+            .mark('conferir-ambiente')
         )
 
 

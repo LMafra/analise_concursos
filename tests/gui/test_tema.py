@@ -103,3 +103,11 @@ def test_css_tem_as_duas_paletas():
     assert f'--ca-texto: {CLARO.texto};' in tema.CSS
     assert f'--ca-texto: {ESCURO.texto};' in tema.CSS
     assert 'body.body--dark' in tema.CSS
+
+
+def test_important_so_na_camada_de_overrides():
+    """O NiceGUI põe o `!important` do Quasar numa camada, que vence qualquer `!important` sem camada."""
+    camada = re.search(r'@layer overrides \{(.*?)\n\}', tema.CSS, re.DOTALL)
+    assert camada is not None
+    assert '!important' in camada.group(1)
+    assert '!important' not in tema.CSS.replace(camada.group(0), '')
