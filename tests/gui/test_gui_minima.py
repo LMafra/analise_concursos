@@ -23,8 +23,16 @@ async def esperar(condicao, segundos: float = 3.0) -> None:
     raise AssertionError('condição não atingida a tempo')
 
 
+@pytest.fixture
+def ao_subir(monkeypatch) -> list:
+    """O que `executar` agendaria para a subida do servidor, sem registrar no app de verdade."""
+    agendados: list = []
+    monkeypatch.setattr(gui_app.app, 'on_startup', agendados.append)
+    return agendados
+
+
 @pytest.mark.parametrize(('plataforma', 'nativa'), [('linux', False), ('win32', True), ('darwin', True)])
-def test_executar_so_escuta_no_proprio_computador(monkeypatch, tmp_path, plataforma, nativa):
+def test_executar_so_escuta_no_proprio_computador(monkeypatch, tmp_path, ao_subir, plataforma, nativa):
     chamadas: list[dict] = []
     monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: chamadas.append(kwargs))
     monkeypatch.setattr(gui_app.sys, 'platform', plataforma)
@@ -34,18 +42,21 @@ def test_executar_so_escuta_no_proprio_computador(monkeypatch, tmp_path, platafo
     assert chamadas[0]['host'] == '127.0.0.1'
     assert chamadas[0]['reload'] is False
     assert chamadas[0]['native'] is nativa
+    assert chamadas[0]['language'] == 'pt-BR'
     assert ESTADO.projeto == (tmp_path / 'projeto').resolve()
 
 
-def test_browser_forca_o_navegador_mesmo_fora_do_linux(monkeypatch, tmp_path):
+def test_browser_forca_o_navegador_mesmo_fora_do_linux(monkeypatch, tmp_path, ao_subir, navegador):
     chamadas: list[dict] = []
     monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: chamadas.append(kwargs))
     monkeypatch.setattr(gui_app.sys, 'platform', 'win32')
 
-    gui_app.executar(tmp_path, navegador=True)
+    gui_app.executar(tmp_path, navegador=True, porta=8123)
 
     assert chamadas[0]['native'] is False
     assert 'window_size' not in chamadas[0]
+    ao_subir[0]()
+    assert navegador == ['http://127.0.0.1:8123/']
 
 
 async def test_sem_projeto_pede_a_pasta_e_lembra_dela(user: User, tmp_path, home_isolada):

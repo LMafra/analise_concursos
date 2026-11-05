@@ -88,7 +88,7 @@ def perguntar(
         padrao = replace(padrao, llm=_provedor_valido(provedor))
         fornecidos = {*fornecidos, 'llm'}
         if padrao.llm != NENHUM:
-            logger.warning('%s: %s', VARIAVEL_LLM, _o_que_vai_para(padrao.llm))
+            logger.warning('%s: %s', VARIAVEL_LLM, o_que_vai_para(padrao.llm))
     if interacao is None:
         logger.info(
             'onboarding sem terminal: usando os padrões (nome %s, provas %s, análises %s, doctor %s)',
@@ -212,7 +212,7 @@ def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
     if escolha == NENHUM:
         return NENHUM
     if not (atual and atual.provedor == escolha and atual.consentimento):
-        interacao.mostrar(_o_que_vai_para(escolha))
+        interacao.mostrar(o_que_vai_para(escolha))
         if not interacao.confirmar('Concorda?'):
             return NENHUM
     provedor = PROVEDORES[escolha]
@@ -238,7 +238,7 @@ def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
     return escolha
 
 
-def _o_que_vai_para(provedor: str) -> str:
+def o_que_vai_para(provedor: str) -> str:
     return (
         f'Só o texto do edital e dos anexos vai para {provedor}; respostas, folhas, notas e inscrição não '
         'saem do computador. Sem LLM, a leitura do edital continua só local.'

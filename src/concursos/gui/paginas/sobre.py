@@ -1,9 +1,11 @@
 import platform
 import shutil
 from importlib.metadata import version
+from pathlib import Path
 
 from nicegui import ui
 
+from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.gui.progresso import arquivo_de_log
 
 PRIVACIDADE = (
@@ -22,7 +24,12 @@ def pagina() -> None:
         ui.label(f'concurso-analise {versao()}').classes('text-2xl font-bold').mark('versao')
         ui.label(f'{platform.system()} {platform.machine()}, Python {platform.python_version()}')
         log = arquivo_de_log()
-        ui.label(f'Log: {log}' if log else 'Log: desligado nesta execução').mark('log')
+        with ui.row().classes('items-center gap-2'):
+            ui.label(f'Log: {log}' if log else 'Log: desligado nesta execução').mark('log')
+            if log:
+                ui.button(
+                    'Abrir a pasta', icon='folder_open', on_click=lambda: abrir_no_navegador(Path(log).parent)
+                ).props('flat dense')
         tesseract = shutil.which('tesseract')
         ui.label(
             f'Tesseract: {tesseract}'
