@@ -163,7 +163,7 @@ def test_linux_troca_o_appimage_no_mesmo_caminho(tmp_path):
     assert instalacao.caminho == atual
     assert not instalacao.setup_em_andamento
     assert atual.read_bytes() == APPIMAGE
-    assert os.stat(atual).st_mode & 0o777 == 0o755
+    assert os.name == 'nt' or os.stat(atual).st_mode & 0o777 == 0o755
     assert sorted(p.name for p in tmp_path.iterdir()) == ['concurso-analise.AppImage']
 
 

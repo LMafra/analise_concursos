@@ -1,5 +1,6 @@
 import base64
 import importlib.util
+import os
 from pathlib import Path
 
 import pytest
@@ -79,6 +80,6 @@ def test_gerar_chave_nao_sobrescreve_e_fica_so_para_o_dono(script, tmp_path):
     publica = script.gerar_chave(destino)
 
     assert len(base64.b64decode(publica)) == 32
-    assert destino.stat().st_mode & 0o777 == 0o600
+    assert os.name == 'nt' or destino.stat().st_mode & 0o777 == 0o600
     with pytest.raises(SystemExit, match='já existe'):
         script.gerar_chave(destino)
