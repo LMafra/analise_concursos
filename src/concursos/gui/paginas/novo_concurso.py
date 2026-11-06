@@ -142,6 +142,9 @@ class TelaDeEnvio:
         if not self.papeis:
             ui.notify('Solte pelo menos o gabarito antes de cadastrar.', type='warning')
             return
+        if not (self.nome.value or '').strip():
+            ui.notify('Dê um nome ao concurso antes de cadastrar (ex.: tcu_2025).', type='warning')
+            return
         ESTADO.ocupado = True
         self.botao.disable()
         self.resultado.clear()

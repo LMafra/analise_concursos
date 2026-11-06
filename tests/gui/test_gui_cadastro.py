@@ -74,6 +74,19 @@ async def test_soltar_arquivos_mostra_o_papel_detectado_e_trocar_muda_o_cadastro
     }
 
 
+async def test_cadastrar_sem_nome_pede_o_nome_sem_tentar_cadastrar(user: User, projeto, monkeypatch):
+    chamadas: list[str] = []
+    monkeypatch.setattr(cadastro, 'cadastrar_envio', lambda opcoes, nome, *_: chamadas.append(nome))
+    await user.open('/novo')
+    await soltar(user, **{'gabarito.txt': GABARITO_FGV})
+    await user.should_see('Detectamos: gabarito. Confirma?')
+
+    user.find(marker='cadastrar').click()
+
+    await user.should_see('Dê um nome ao concurso antes de cadastrar (ex.: tcu_2025).')
+    assert chamadas == []
+
+
 async def test_cadastro_pergunta_em_dialogo_e_grava_com_as_respostas_na_pasta_do_candidato(
     user: User, projeto
 ):

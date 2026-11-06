@@ -149,6 +149,8 @@ body {{ font-family: {FONTE}; background: var(--ca-fundo); color: var(--ca-texto
   box-shadow: {ELEVACAO_1}; }}
 .q-dialog .q-card {{ border-radius: {RAIO_DIALOGO}; box-shadow: {ELEVACAO_2}; }}
 .q-header {{ background: var(--ca-primaria); color: var(--ca-sobre-primaria); }}
+.q-notification__actions {{ color: inherit; }}
+.q-notification__message {{ white-space: pre-line; }}
 @layer overrides {{
   .q-btn.bg-primary {{ color: var(--ca-sobre-primaria) !important; }}
   .text-primary, a, .nicegui-link {{ color: var(--ca-primaria-texto) !important; }}

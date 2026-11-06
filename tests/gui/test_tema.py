@@ -105,6 +105,12 @@ def test_css_tem_as_duas_paletas():
     assert 'body.body--dark' in tema.CSS
 
 
+def test_notificacao_tem_botao_na_cor_do_texto_e_a_dica_em_outra_linha():
+    """O Quasar pinta as ações da notificação com a primária: azul sobre o vermelho do erro."""
+    assert '.q-notification__actions { color: inherit; }' in tema.CSS
+    assert '.q-notification__message { white-space: pre-line; }' in tema.CSS
+
+
 def test_important_so_na_camada_de_overrides():
     """O NiceGUI põe o `!important` do Quasar numa camada, que vence qualquer `!important` sem camada."""
     camada = re.search(r'@layer overrides \{(.*?)\n\}', tema.CSS, re.DOTALL)
