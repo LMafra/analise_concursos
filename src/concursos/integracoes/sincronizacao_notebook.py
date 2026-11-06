@@ -310,18 +310,32 @@ class Sincronizador:
     estado: EstadoSincronizacao
     relatorio: RelatorioSincronizacao = field(default_factory=RelatorioSincronizacao)
     embed: bool = False
+    instancia: str | None = None
+    por_nome: bool = True
+    prefixo_nome: str = ''
 
     @property
     def url(self) -> str:
-        return self.cliente.url
+        """A chave da instância no estado; a gerenciada muda de porta a cada sessão e usa `instancia`."""
+        return self.instancia or self.cliente.url
 
     def notebook(
-        self, chave: str, nome: str, documentos: list[Documento], notas: list[Documento]
+        self,
+        chave: str,
+        nome: str,
+        documentos: list[Documento],
+        notas: list[Documento],
+        compartilhado: bool = False,
     ) -> str | None:
-        """Garante o notebook, as sources e as notas; uma falha entra no relatório e não para as demais."""
+        """Garante o notebook, as sources e as notas; uma falha entra no relatório e não para as demais.
+
+        Sem `por_nome`, um notebook do projeto é achado só pelo ID guardado; um `compartilhado` entre os
+        projetos (`Legislação`) também pelo nome."""
         registro = self.estado.notebook(self.url, chave)
+        if not compartilhado:
+            nome = f'{self.prefixo_nome}{nome}'
         try:
-            notebook_id = self._garantir_notebook(registro, nome)
+            notebook_id = self._garantir_notebook(registro, nome, self.por_nome or compartilhado)
             remotas = self.cliente.listar_sources(notebook_id)
         except OpenNotebookIndisponivelError as erro:
             self.relatorio.falhas.append(f'{nome}: {erro.causa}')
@@ -376,11 +390,11 @@ class Sincronizador:
     def gravar_estado(self) -> bool:
         return self.estado.gravar()
 
-    def _garantir_notebook(self, registro: dict, nome: str) -> str:
+    def _garantir_notebook(self, registro: dict, nome: str, por_nome: bool) -> str:
         notebook_id = registro.get('id')
         if notebook_id and self.cliente.obter_notebook(notebook_id) is not None:
             self.relatorio.notebooks_reusados.append(nome)
-        elif existente := self.cliente.buscar_notebook_por_nome(nome):
+        elif por_nome and (existente := self.cliente.buscar_notebook_por_nome(nome)):
             notebook_id = existente['id']
             self.relatorio.notebooks_reusados.append(nome)
         else:
@@ -438,12 +452,14 @@ def sincronizar_candidato(
     concurso: str | None = None,
     fontes: FontesDeEstudo | None = None,
     caderno_de_erros: dict[str, str] | None = None,
+    livros: dict[str, set[str]] | None = None,
 ) -> dict[str, str]:
     """Um notebook por concurso analisado e o do consolidado; devolve concurso → id do notebook.
 
     Com `fontes`, os livros e as normas de cada concurso são vinculados ao notebook dele. Com
     `caderno_de_erros` (disciplina → texto, de `pratica_tec.textos_do_caderno`), vai também o notebook
-    "Caderno de erros", com uma source por disciplina."""
+    "Caderno de erros", com uma source por disciplina. `livros` (concurso → sources) vincula os livros da
+    biblioteca associados a cada concurso."""
     rotulo = sincronizador.estado.rotulo(sincronizador.url, candidato, incluir_nome)
     prefixo = f'{candidato or ""}/'
     notebooks: dict[str, str] = {}
@@ -463,6 +479,9 @@ def sincronizar_candidato(
             notebooks[nome] = notebook_id
     pastas = {nome: pasta_candidato / nome for nome in notebooks}
     desejados = _sources_de_estudo(sincronizador, pastas, fontes or FontesDeEstudo(None, None))
+    if desejados is not None and livros:
+        for nome in desejados:
+            desejados[nome] |= livros.get(nome, set())
     for nome in notebooks if desejados is not None else []:
         sincronizador.vinculos(f'{prefixo}{nome}', desejados.get(nome, set()))
     if concurso is None and nomes:
@@ -519,7 +538,7 @@ def _sources_de_legislacao(
         Documento(chave, titulo_para_notebook(norma), conteudo_para_notebook(norma))
         for chave, norma in sorted(normas.items())
     ]
-    if sincronizador.notebook(CHAVE_LEGISLACAO, NOME_LEGISLACAO, documentos, []) is None:
+    if sincronizador.notebook(CHAVE_LEGISLACAO, NOME_LEGISLACAO, documentos, [], compartilhado=True) is None:
         return None
     registradas = sincronizador.estado.notebook(sincronizador.url, CHAVE_LEGISLACAO)['sources']
     if any(chave not in registradas for chave in normas):

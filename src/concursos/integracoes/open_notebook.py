@@ -155,7 +155,7 @@ class ClienteOpenNotebook:
                 return sources
 
     def adicionar_source_texto(
-        self, notebook_id: str, titulo: str, conteudo: str, embed: bool = False
+        self, notebook_id: str, titulo: str, conteudo: str, embed: bool = False, assincrono: bool = False
     ) -> dict:
         formulario = {
             'type': 'text',
@@ -163,7 +163,7 @@ class ClienteOpenNotebook:
             'title': titulo,
             'content': conteudo,
             'embed': _booleano(embed),
-            'async_processing': 'false',
+            'async_processing': _booleano(assincrono),
         }
         return self._requisitar('POST', '/api/sources', formulario=formulario)
 

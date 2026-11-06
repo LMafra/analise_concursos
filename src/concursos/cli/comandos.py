@@ -66,6 +66,10 @@ estudo_app = typer.Typer(
     rich_markup_mode=None,
 )
 app.add_typer(estudo_app, name='estudo')
+livros_app = typer.Typer(
+    help='seus livros: adicionar, listar e remover da biblioteca', no_args_is_help=True, rich_markup_mode=None
+)
+app.add_typer(livros_app, name='livros')
 
 
 Forcar = Annotated[bool, typer.Option('--force', help='reprocessa mesmo sem mudanças')]
@@ -525,4 +529,60 @@ def estudo_status(ctx: typer.Context) -> int:
     situacao = estudo.situacao_do_estudo(ctx.obj.contexto)
     versao = f' (versão {situacao.versao})' if situacao.versao else ''
     typer.echo(f'{situacao.mensagem}{versao}')
+    return 0
+
+
+@livros_app.command('add', help='adiciona um livro (PDF, EPUB, DOCX ou TXT) ou todos os de uma pasta')
+def livros_add(
+    ctx: typer.Context,
+    caminho: Annotated[Path, typer.Argument(help='arquivo ou pasta')],
+    disciplina: Annotated[str | None, typer.Option('--disciplina', help='padrão: Geral')] = None,
+    concurso: Annotated[
+        list[str] | None, typer.Option('--concurso', help='nome do concurso associado (pode repetir)')
+    ] = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    if not caminho.exists():
+        raise ErroDoUsuario(f'{caminho} não existe', 'confira o caminho do livro ou da pasta')
+    arquivos = estudo.arquivos_da_pasta(caminho) if caminho.is_dir() else [caminho]
+    if not arquivos:
+        raise ErroDoUsuario(f'{caminho} não tem livros', 'a pasta precisa ter PDF, EPUB, DOCX ou TXT')
+    resultados = estudo.adicionar_livros(opcoes, arquivos, disciplina=disciplina, concursos=concurso or ())
+    for resultado in resultados:
+        if resultado.erro:
+            typer.echo(f'{resultado.nome}: {resultado.erro}')
+    if not opcoes.dry_run:
+        typer.echo('lendo os livros…')
+        estudo.esperar_trabalho(opcoes.contexto)
+        preparado = estudo.situacao_do_estudo(opcoes.contexto).preparado
+        for livro in estudo.listar_livros(opcoes.contexto):
+            typer.echo(f'{livro.nome}: {estudo.situacao_do_livro(livro, preparado)}')
+    return 1 if any(r.erro for r in resultados) else 0
+
+
+@livros_app.command('list', help='lista os livros da biblioteca e a etapa de cada um')
+def livros_list(ctx: typer.Context) -> int:
+    livros = estudo.listar_livros(ctx.obj.contexto)
+    if not livros:
+        typer.echo('sua biblioteca está vazia')
+    preparado = estudo.situacao_do_estudo(ctx.obj.contexto).preparado
+    for livro in livros:
+        situacao = estudo.situacao_do_livro(livro, preparado)
+        typer.echo(f'{livro.sha[:12]}  {livro.disciplina}  {livro.nome}: {situacao}')
+    return 0
+
+
+@livros_app.command('remove', help='remove um livro pelo começo do código mostrado em `livros list`')
+def livros_remove(ctx: typer.Context, codigo: Annotated[str, typer.Argument(help='começo do código')]) -> int:
+    opcoes: Opcoes = ctx.obj
+    achados = [livro for livro in estudo.listar_livros(opcoes.contexto) if livro.sha.startswith(codigo)]
+    if len(achados) != 1:
+        raise ErroDoUsuario(
+            f'{len(achados)} livros começam com {codigo}', 'use mais caracteres do código de `livros list`'
+        )
+    if opcoes.dry_run:
+        typer.echo(f'removeria {achados[0].nome}')
+        return 0
+    estudo.remover_livro(opcoes.contexto, achados[0].sha)
+    typer.echo(f'{achados[0].nome} removido')
     return 0

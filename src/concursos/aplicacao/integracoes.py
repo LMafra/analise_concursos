@@ -7,6 +7,7 @@ from pathlib import Path
 
 from concursos import relatorio_html
 from concursos.analytics.consolidado import concursos_analisados
+from concursos.aplicacao import estudo
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.pratica import caderno_de_erros, fontes_de_estudo
 from concursos.aplicacao.projeto import (
@@ -59,8 +60,11 @@ from concursos.integracoes.sincronizacao_notebook import (
     sincronizar_candidato,
 )
 from concursos.integracoes.sincronizacao_pci import Interesses, sessao_pci
+from concursos.livros import envio
 
 logger = logging.getLogger(__name__)
+
+INSTANCIA_GERENCIADA = 'gerenciada'
 
 
 # open-notebook
@@ -123,10 +127,12 @@ def sincronizar(
     contexto = opcoes.contexto
     exigir_provas(contexto.provas)
     configuracao = configuracao_open_notebook(contexto)
-    if not configuracao.ativa:
+    gerenciada = not configuracao.ativa and estudo.situacao_do_estudo(contexto).preparado
+    if not configuracao.ativa and not gerenciada:
         raise ErroDoUsuario(
             'a sincronização com o open-notebook está desligada',
-            'ligue com `concurso-analise notebook enable`',
+            'prepare a biblioteca com `concurso-analise estudo preparar` ou ligue uma instância própria com '
+            '`concurso-analise notebook enable`',
         )
     if not opcoes.rede:
         raise ErroDoUsuario('notebook sync usa a rede e foi pedido --offline', 'rode de novo sem --offline')
@@ -137,9 +143,12 @@ def sincronizar(
             prefixo = f'{nome_candidato}/' if nome_candidato else ''
             for nome in concursos_analisados(contexto.provas, pasta):
                 if concurso in (None, nome):
-                    opcoes.saida(f'{prefixo}{nome}: sincronizaria com {configuracao.url}')
+                    destino = 'o open-notebook do app' if gerenciada else configuracao.url
+                    opcoes.saida(f'{prefixo}{nome}: sincronizaria com {destino}')
         return None
     try:
+        if gerenciada:
+            return sincronizar_gerenciada(contexto, candidatos, concurso)
         return sincronizar_notebooks(contexto, configuracao, candidatos, concurso)
     except OpenNotebookIndisponivelError as erro:
         if erro.status in (401, 403):
@@ -159,6 +168,38 @@ def sincronizar_notebooks(
     sincronizador = Sincronizador(
         cliente, EstadoSincronizacao.ler(contexto.projeto / ARQUIVO_ESTADO), embed=configuracao.embed
     )
+    return _sincronizar_candidatos(contexto, sincronizador, candidatos, concurso, configuracao.incluir_nome)
+
+
+def sincronizar_gerenciada(
+    contexto: Contexto, candidatos: list[str | None], concurso: str | None
+) -> RelatorioSincronizacao:
+    """O open-notebook do app: sem consentimento, com pseudônimo, notebooks com o nome da pasta do
+    projeto e achados só pelo ID, e os livros da biblioteca vinculados aos concursos associados."""
+    try:
+        cliente = estudo.cliente_gerenciado(contexto)
+    except ErroDoAmbiente as erro:
+        raise OpenNotebookIndisponivelError(erro.causa, erro.dica) from erro
+    sincronizador = Sincronizador(
+        cliente,
+        EstadoSincronizacao.ler(contexto.projeto / ARQUIVO_ESTADO),
+        embed=True,
+        instancia=INSTANCIA_GERENCIADA,
+        por_nome=False,
+        prefixo_nome=f'{contexto.raiz.name} · ',
+    )
+    livros = envio.sources_por_concurso(estudo.biblioteca(contexto))
+    return _sincronizar_candidatos(contexto, sincronizador, candidatos, concurso, False, livros)
+
+
+def _sincronizar_candidatos(
+    contexto: Contexto,
+    sincronizador: Sincronizador,
+    candidatos: list[str | None],
+    concurso: str | None,
+    incluir_nome: bool,
+    livros: dict[str, set[str]] | None = None,
+) -> RelatorioSincronizacao:
     limiar = configuracao_do_projeto(contexto).limiar_topico_baixo
     fontes = fontes_de_estudo(contexto)
     caderno = caderno_de_erros(contexto, candidatos)
@@ -171,10 +212,11 @@ def sincronizar_notebooks(
                 candidato,
                 limiar=limiar,
                 arquivo_taxonomia=contexto.taxonomia,
-                incluir_nome=configuracao.incluir_nome,
+                incluir_nome=incluir_nome,
                 concurso=concurso,
                 fontes=fontes,
                 caderno_de_erros=caderno.get(candidato),
+                livros=livros,
             )
     finally:
         sincronizador.gravar_estado()
@@ -191,10 +233,14 @@ def sincronizar_depois_da_analise(opcoes: Opcoes, candidatos: list[str | None]) 
     except ConfiguracaoInvalidaError as erro:
         logger.warning('open-notebook: %s; a sincronização foi pulada', erro)
         return
-    if not configuracao.ativa:
+    gerenciada = not configuracao.ativa and estudo.situacao_do_estudo(contexto).preparado
+    if not configuracao.ativa and not gerenciada:
         return
     try:
-        relatorio = sincronizar_notebooks(contexto, configuracao, candidatos, None)
+        if gerenciada:
+            relatorio = sincronizar_gerenciada(contexto, candidatos, None)
+        else:
+            relatorio = sincronizar_notebooks(contexto, configuracao, candidatos, None)
     except OpenNotebookIndisponivelError as erro:
         logger.warning(
             'open-notebook: %s; a sincronização foi pulada (%s)', erro.causa, erro.dica or DICA_INSTANCIA

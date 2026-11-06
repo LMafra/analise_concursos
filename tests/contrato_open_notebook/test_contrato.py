@@ -109,3 +109,34 @@ def test_reiniciar_mantem_os_livros(aberto, livro):
     cliente = ClienteOpenNotebook(sessao.url, sessao.senha, timeout=300)
 
     assert source['id'] in {s['id'] for s in cliente.listar_sources(notebook['id'])}
+
+
+def test_envio_de_livro_assincrono_fica_pronto(aberto, tmp_path):
+    from concursos.livros import envio, fila
+    from concursos.modelo import EstadoLivro
+
+    supervisor, _, _, _ = aberto
+    sessao = supervisor.garantir()
+    cliente = ClienteOpenNotebook(sessao.url, sessao.senha, timeout=300)
+    pastas = fila.PastasBiblioteca(tmp_path / 'bib')
+    arquivo = tmp_path / 'Apostila.txt'
+    arquivo.write_text('Crase antes de palavra feminina.\fRegência verbal.', encoding='utf-8')
+    livro = fila.adicionar(pastas, arquivo, disciplina='Português').livro
+    fila.ler_livro(pastas.banco, livro.arquivo(pastas), livro.sha)
+
+    fim = time.monotonic() + 180
+    while time.monotonic() < fim:
+        envio.processar_envios(cliente, pastas)
+        conexao = fila.conectar(pastas)
+        estado = fila.obter(conexao, livro.sha).estado
+        conexao.close()
+        if estado is EstadoLivro.PRONTO:
+            break
+        time.sleep(1)
+
+    assert estado is EstadoLivro.PRONTO
+    resultados = cliente.buscar_vetorial('uso da crase', limite=5)
+    assert any(
+        (r.get('parent_id') or r.get('id')) == fila.obter(fila.conectar(pastas), livro.sha).source_id
+        for r in resultados
+    )
