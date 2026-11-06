@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from concursos.analytics.taxonomia import carregar_taxonomia
 from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.config.contexto import Contexto
@@ -26,6 +27,7 @@ from concursos.livros.fila import Livro, PastasBiblioteca
 from concursos.livros.validacao import EXTENSOES
 from concursos.llm import guardar_chave, obter_chave_da_variavel
 from concursos.modelo import EstadoLivro
+from concursos.status import listar_concursos
 
 logger = logging.getLogger(__name__)
 
@@ -368,3 +370,18 @@ def esperar_trabalho(contexto: Contexto, timeout: float | None = None) -> None:
     thread = trabalho.thread if trabalho is not None else None
     if thread is not None:
         thread.join(timeout)
+
+
+def concursos_do_projeto(contexto: Contexto) -> list[str]:
+    return [pasta.name for pasta in listar_concursos(contexto.provas)] if contexto.provas.is_dir() else []
+
+
+def disciplinas_sugeridas(contexto: Contexto) -> list[str]:
+    """As opções do campo de disciplina: `Geral`, as da taxonomia e as dos livros já enviados."""
+    nomes = {fila.DISCIPLINA_PADRAO}
+    try:
+        nomes |= {d.nome for d in carregar_taxonomia(contexto.taxonomia).values()}
+    except (OSError, ValueError):
+        logger.debug('taxonomia ilegível; disciplinas só dos livros', exc_info=True)
+    nomes |= {livro.disciplina for livro in listar_livros(contexto)}
+    return [fila.DISCIPLINA_PADRAO, *sorted(nomes - {fila.DISCIPLINA_PADRAO})]

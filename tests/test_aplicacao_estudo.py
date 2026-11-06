@@ -124,3 +124,15 @@ def test_cli_livros_add_list_remove(tmp_path, monkeypatch, capsys):
     assert main(['livros', 'remove', codigo]) == 0
     main(['livros', 'list'])
     assert 'vazia' in capsys.readouterr().out
+
+
+def test_opcoes_de_concurso_e_disciplina(contexto):
+    (contexto.provas / 'sefaz-df-2026').mkdir(parents=True)
+    (contexto.provas / '.oculta').mkdir()
+    contexto.taxonomia.parent.mkdir(parents=True, exist_ok=True)
+    contexto.taxonomia.write_text(
+        'Direito Constitucional:\n  bloco: especifico\n  nomes: [Constitucional]\n', encoding='utf-8'
+    )
+
+    assert estudo.concursos_do_projeto(contexto) == ['sefaz-df-2026']
+    assert estudo.disciplinas_sugeridas(contexto) == ['Geral', 'Direito Constitucional']
