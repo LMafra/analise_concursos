@@ -23,8 +23,13 @@ from concursos.integracoes.open_notebook import ClienteOpenNotebook
 PACOTE = os.environ.get('ESTUDO_PACOTE')
 
 
+AQUI = Path(__file__).parent
+
+
 def pytest_collection_modifyitems(config, items):
     for item in items:
+        if AQUI not in item.path.parents:
+            continue
         item.add_marker(pytest.mark.open_notebook_real)
         if not PACOTE:
             item.add_marker(pytest.mark.skip(reason='defina ESTUDO_PACOTE com o pacote de estudo montado'))
