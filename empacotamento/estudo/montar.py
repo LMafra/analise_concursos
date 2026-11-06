@@ -47,6 +47,13 @@ URL_SURREAL = 'https://github.com/surrealdb/surrealdb/releases/download'
 URL_UPSTREAM = 'https://github.com/lfnovo/open-notebook'
 URL_HF = 'https://huggingface.co'
 REMOVER_DO_CODIGO = ('frontend', 'docs', 'tests', '.github', 'docker', 'scripts', 'setup_guide')
+REMOVER_DO_PYTHON = ('pip', 'pandas/tests')
+# o podcast_creator importa o imageio_ffmpeg ao carregar; os podcasts ficam fora do pacote
+SUBSTITUTOS = {
+    'imageio_ffmpeg': (
+        'def get_ffmpeg_exe():\n    raise RuntimeError("os podcasts não fazem parte do pacote de estudo")\n'
+    ),
+}
 
 
 def ler_versao(caminho: Path = VERSAO) -> dict:
@@ -97,6 +104,27 @@ def _tamanho(pasta: Path) -> int:
     return sum(p.stat().st_size for p in pasta.rglob('*') if p.is_file() and not p.is_symlink())
 
 
+def site_packages(python: Path) -> Path:
+    saida = subprocess.run(
+        [str(python), '-c', 'import sysconfig; print(sysconfig.get_paths()["purelib"])'],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return Path(saida.stdout.strip())
+
+
+def escrever_substitutos(python: Path) -> None:
+    """Módulos vazios no lugar dos pacotes excluídos que o open-notebook importa ao abrir, e a
+    remoção do que não roda no pacote (pip, testes do pandas)."""
+    pacotes = site_packages(python)
+    for modulo, codigo in SUBSTITUTOS.items():
+        (pacotes / modulo).mkdir(exist_ok=True)
+        (pacotes / modulo / '__init__.py').write_text(codigo, encoding='utf-8')
+    for sobra in REMOVER_DO_PYTHON:
+        shutil.rmtree(pacotes / sobra, ignore_errors=True)
+
+
 def montar(sistema: str, saida: Path, completo: bool = False, config: dict | None = None) -> Path:
     config = config or ler_versao()
     versao = versao_do_pacote(config)
@@ -118,7 +146,18 @@ def montar(sistema: str, saida: Path, completo: bool = False, config: dict | Non
     subprocess.run(comando_export(config, completo, requisitos), cwd=origem, check=True)
     python = python_do_pacote(raiz, sistema)
     subprocess.run(
-        ['uv', 'pip', 'install', '--python', str(python), '--break-system-packages', '-r', str(requisitos)],
+        [
+            *(
+                'uv',
+                'pip',
+                'install',
+                '--python',
+                str(python),
+                '--break-system-packages',
+                '--compile-bytecode',
+            ),
+            *('--no-deps', '-r', str(requisitos)),
+        ],
         check=True,
     )
     emb = config['embeddings']
@@ -127,8 +166,19 @@ def montar(sistema: str, saida: Path, completo: bool = False, config: dict | Non
     if 'tokenizers==' not in travados:
         extras.append(f'tokenizers=={emb["tokenizers"]}')
     subprocess.run(
-        ['uv', 'pip', 'install', '--python', str(python), '--break-system-packages', *extras], check=True
+        [
+            'uv',
+            'pip',
+            'install',
+            '--python',
+            str(python),
+            '--break-system-packages',
+            '--compile-bytecode',
+            *extras,
+        ],
+        check=True,
     )
+    escrever_substitutos(python)
     for nome in REMOVER_DO_CODIGO:
         shutil.rmtree(origem / nome, ignore_errors=True)
     shutil.copytree(origem, raiz / 'open-notebook')

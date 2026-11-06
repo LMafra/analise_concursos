@@ -61,7 +61,7 @@ Branch `fase-7`, PR único no fim, um commit verde por fatia (`uv run pytest`, `
 
 ## Seams de teste
 
-- **open-notebook:** o servidor HTTP falso de `tests/servidor_open_notebook.py`, estendido com credenciais, modelos, `ask/simple`, `retry` e `full_text`; os testes de contrato contra o pacote real ficam em `tests/contrato_open_notebook/`, marcados `open_notebook_real`.
+- **open-notebook:** o servidor HTTP falso de `tests/servidor_open_notebook.py`, estendido com credenciais, modelos, `ask/simple`, `embed` e `full_text`; os testes de contrato contra o pacote real ficam em `tests/contrato_open_notebook/`, marcados `open_notebook_real`.
 - **Supervisor:** os comandos dos processos vêm de uma função trocável; os testes usam scripts Python falsos que respondem `/health`.
 - **Leitura de livros:** OCR por uma função trocável; PDF, EPUB e DOCX gerados no próprio teste.
 - **Rede:** um teste bloqueia sockets fora de `127.0.0.1` durante o envio, a busca e a pergunta sem IA.

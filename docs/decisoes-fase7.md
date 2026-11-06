@@ -36,7 +36,7 @@ Registro curto das escolhas da fase 7 (estudar com o open-notebook, dicionário 
 
 ## 6. Ciclo de vida sob demanda
 
-- **Decisão:** os processos sobem ao abrir "Estudar", ao enviar um livro ou ao sincronizar depois de uma análise, e param depois de 10 min sem uso ou quando o app fecha. Portas livres de `127.0.0.1`, senha e token aleatórios por sessão, trava de instância única (lock do RocksDB), `/retry` nos jobs presos na partida, nunca `/api/config`.
+- **Decisão:** os processos sobem ao abrir "Estudar", ao enviar um livro ou ao sincronizar depois de uma análise, e param depois de 10 min sem uso ou quando o app fecha. Portas livres de `127.0.0.1`, senha da API e token dos embeddings aleatórios por sessão (a senha do banco é derivada da chave de cifra, porque o SurrealDB grava o usuário na primeira partida), trava de instância única (lock do RocksDB), `POST /api/embed` para refazer os embeddings dos sources de texto (o `/retry` só vale para source de arquivo), nunca `/api/config`.
 - **Descartado:** sempre ligados (cerca de 650 MB de RAM com o app aberto).
 
 ## 7. Consentimento e IA

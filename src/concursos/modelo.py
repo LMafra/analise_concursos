@@ -151,3 +151,12 @@ class TemaGui(StrEnum):
     SISTEMA = 'sistema'
     CLARO = 'claro'
     ESCURO = 'escuro'
+
+
+class EstadoLivro(StrEnum):
+    NA_FILA = 'na_fila'
+    LENDO = 'lendo'
+    LIDO = 'lido'
+    ENVIANDO = 'enviando'
+    PRONTO = 'pronto'
+    ERRO = 'erro'

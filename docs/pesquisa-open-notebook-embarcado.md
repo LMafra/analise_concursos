@@ -75,6 +75,11 @@ Link curto: `ON = https://github.com/lfnovo/open-notebook/blob/v1.15.1`.
 - **Jobs presos:** um worker morto no meio deixa o job em `running`; `POST /api/sources/{id}/retry` reenvia.
 - **Estabilidade da API:** cerca de 25 releases de 14/01/2026 a 03/11/2026; endpoints removidos em versões menores (1.12.0 tirou `POST /api/notebooks/{id}/context`; 1.15.1 tirou `POST /api/commands/jobs`), e a 1.15.0 mudou a cifra das credenciais ([CHANGELOG](https://github.com/lfnovo/open-notebook/blob/v1.15.1/CHANGELOG.md)). Por isso cada versão nova passa pelos testes de contrato antes de virar pacote.
 - **Windows:** o suporte nativo é comunitário ("the officially supported route is Docker Compose"); usar `127.0.0.1`, nunca `localhost`.
+- **Pacote montado** (**medido**, Linux x64, `estudo-1.15.1-1`): 355 MB para baixar (tar.xz) e 865 MB extraído, dos quais 241 MB do modelo ONNX e cerca de 560 MB do Python com o ambiente. O `podcast_creator` importa o `imageio_ffmpeg` ao carregar, então o pacote leva um módulo substituto vazio no lugar dele.
+- **Partida do pacote** (**medido**): 5,6 s com o disco em cache; na primeira partida depois de extrair, o servidor de embeddings levou 45 s só para ler o modelo, por isso o limite de partida é de 180 s.
+- **RAM do pacote em repouso** (**medido**): cerca de 1,1 GB, sendo 680 MB do servidor de embeddings (o onnxruntime com o modelo em fp32; desligar a arena de memória não reduziu).
+- **Senha do banco:** o SurrealDB grava o usuário na primeira partida com `rocksdb:`, então a senha do banco é derivada da chave de cifra e é a mesma a cada partida; a senha da API e o token dos embeddings continuam novos a cada sessão.
+- **Reprocessar:** `POST /api/sources/{id}/retry` só vale para source de arquivo ("Source asset has no file_path or url"); para os nossos sources de texto, `POST /api/embed` refaz os embeddings.
 
 ## 10. Recomendação
 

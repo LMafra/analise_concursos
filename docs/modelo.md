@@ -979,3 +979,34 @@ Artefatos da release a partir da fase 6: os da fase 5, mais `atualizacao.json`, 
 - `versao` segue `^\d+\.\d+\.\d+-\d+$`; `arquivo`, `^estudo-\d+\.\d+\.\d+-\d+-(windows-x64\.zip|linux-x86_64\.tar\.xz)$`, e precisa ser do sistema da chave. `canal` é `beta` quando `app_minimo` é pré-release. Um app usa o pacote só se a versão dele é pelo menos `app_minimo` (PEP 440).
 - Conteúdo, na raiz `estudo-<versao>/`: `python/` (Python 3.12 standalone com o ambiente travado do open-notebook, onnxruntime e tokenizers), `open-notebook/` (código da tag, sem `frontend/`), `bin/surreal[.exe]` (SurrealDB 2.x), `modelo/` (`model_optimized.onnx`, `tokenizer.json`), `tiktoken/` (cache do `o200k_base`), `servidor_embeddings.py`, `LICENSES/` (MIT do open-notebook, BSL 1.1 do SurrealDB, Apache-2.0 do modelo, PSF) e `estudo.toml` (`versao`, `open_notebook`, `surreal`, `modelo`, `dimensoes`, `tiktoken`).
 - `servidor_embeddings.py`: `POST /v1/embeddings` no formato da OpenAI (`input` texto ou lista de até 2048 textos; corpo de até 8 MB), `GET /health` e `GET /v1/models`; só em `127.0.0.1`, com `Authorization: Bearer <EMBEDDINGS_TOKEN>`; vetores de 384 dimensões, mean pooling normalizado, até 128 tokens por texto. Imprime `porta=<n>` na primeira linha.
+
+**Instalação na máquina do usuário** (`~/.concurso/open-notebook/`): `pacote/<versao>/estudo-<versao>/` (os 2 pacotes mais recentes), `dados/` (pasta de trabalho dos processos, com `banco/` do SurrealDB e as migrations), `backups/<versao>-<data>/` (os 2 mais recentes, verificados arquivo a arquivo), `instalado.json` e `.trava` (instância única).
+
+```json
+{"atual": "1.15.1-1", "anterior": null, "ultima_partida": "1.15.1-1"}
+```
+
+- `ultima_partida` diferente de `atual` pede um backup do banco antes de subir; se a partida da versão nova falhar, o app volta para `anterior`.
+- Processos, todos em `127.0.0.1` e em portas livres: `surreal start --bind 127.0.0.1:<p1> rocksdb:dados/banco` (usuário `concurso`, senha derivada da chave de cifra, porque o SurrealDB grava o usuário na primeira partida), `servidor_embeddings.py --porta <p2>`, a API (`uvicorn api.main:app --host 127.0.0.1 --port <p3>`) e o worker (`surreal_commands.cli.worker --import-modules commands`). A senha da API (`OPEN_NOTEBOOK_PASSWORD`) e o token dos embeddings são novos a cada sessão. A chave de cifra (`OPEN_NOTEBOOK_ENCRYPTION_KEY`) fica no keyring como `CONCURSO_OPEN_NOTEBOOK_CIFRA`. A chave da IA vai só por variável de ambiente da API e do worker.
+- Os embeddings são registrados como modelo `openai_compatible` do tipo `embedding`, sem credencial (`OPENAI_COMPATIBLE_BASE_URL_EMBEDDING` e `OPENAI_COMPATIBLE_API_KEY_EMBEDDING` apontam para o nosso servidor), e marcados como `default_embedding_model`.
+- Saída dos processos: `~/.concurso/logs/open-notebook-<processo>.log`. Três partidas seguidas com falha deixam a busca no índice local até o app reabrir; 10 min sem uso param os processos.
+
+**Biblioteca local** (`~/.concurso/biblioteca/`): `arquivos/<sha256>.<ext>` (os originais) e `biblioteca.sqlite`, com a tabela `livros` e o índice FTS5 `busca`.
+
+| Coluna de `livros` | Conteúdo |
+|---|---|
+| `sha` | SHA-256 do arquivo (chave; o mesmo conteúdo enviado de novo só atualiza `disciplina` e `concursos`) |
+| `nome` | nome do arquivo sem extensão |
+| `extensao` | `.pdf`, `.epub`, `.docx` ou `.txt` |
+| `tamanho` | bytes (até 300 MB) |
+| `disciplina` | escolhida no envio; `Geral` sem escolha |
+| `concursos` | lista JSON dos `nome` de concurso associados |
+| `estado` | `EstadoLivro`: `na_fila`, `lendo`, `lido`, `enviando`, `pronto`, `erro` |
+| `pagina`, `paginas` | última página lida e total (a leitura retoma de `pagina + 1`) |
+| `paginas_sem_texto` | páginas que ficaram sem texto (sem Tesseract ou OCR vazio) |
+| `erro` | mensagem para o usuário |
+| `adicionado_em` | ISO, segundos |
+| `source_id`, `notebook_id` | o source no open-notebook e o notebook `Biblioteca — <disciplina>` |
+
+- `busca` (FTS5, `unicode61 remove_diacritics 2`): `sha` e `pagina` (não indexadas), `texto` da página e `radicais` (snowball português). A consulta casa cada radical em `radicais` ou como prefixo em `texto`, e os termos do dicionário como frase; o trecho vem de `snippet` em `texto`, com o destaque entre `«` e `»`. `meta.versao_indice` diferente de `VERSAO_INDICE` refaz os radicais.
+- Página: no PDF, a página do arquivo (OCR nas páginas com menos de 20 caracteres); no EPUB, o item da ordem de leitura; no DOCX, as quebras de página gravadas; no TXT, o form feed. Sem quebra, blocos de 3000 caracteres.

@@ -11,7 +11,7 @@ import typer
 
 from concursos import doctor as diagnostico
 from concursos import onboarding, relatorio_html
-from concursos.aplicacao import analise, cadastro, integracoes, projeto
+from concursos.aplicacao import analise, cadastro, estudo, integracoes, projeto
 from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao.inicio import executar_onboarding
 from concursos.aplicacao.opcoes import Opcoes
@@ -60,6 +60,12 @@ pci_app = typer.Typer(
     rich_markup_mode=None,
 )
 app.add_typer(pci_app, name='pci')
+estudo_app = typer.Typer(
+    help='estudar com seus livros: prepara o open-notebook no computador',
+    no_args_is_help=True,
+    rich_markup_mode=None,
+)
+app.add_typer(estudo_app, name='estudo')
 
 
 Forcar = Annotated[bool, typer.Option('--force', help='reprocessa mesmo sem mudanças')]
@@ -481,3 +487,42 @@ def notebook_sync(
         return 0
     typer.echo(relatorio.formatar())
     return 0 if relatorio.sucesso else 1
+
+
+@estudo_app.command('preparar', help='baixa e instala o open-notebook do app (ou instala de --arquivo)')
+def estudo_preparar(
+    ctx: typer.Context,
+    arquivo: Annotated[
+        Path | None, typer.Option('--arquivo', help='pacote estudo-<versão>-<sistema> já baixado')
+    ] = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    situacao = estudo.situacao_do_estudo(opcoes.contexto)
+    if not situacao.disponivel_no_sistema:
+        raise ErroDoUsuario(situacao.mensagem, 'use o app no Windows ou no Linux')
+    consentiu = opcoes.sim or arquivo is not None
+    if not consentiu and not opcoes.dry_run:
+        typer.echo(situacao.mensagem)
+        if not onboarding.interativo(False):
+            raise ErroDoUsuario(
+                'preparar a biblioteca exige confirmação, e não há terminal para perguntar',
+                'confirme com `concurso-analise --yes estudo preparar`',
+            )
+        consentiu = typer.confirm('preparar agora?', default=False)
+        if not consentiu:
+            typer.echo('nada foi baixado')
+            return 0
+
+    def mostrar(texto: str, _fracao: float) -> None:
+        typer.echo(texto)
+
+    estudo.preparar_estudo(opcoes, consentiu=consentiu, arquivo=arquivo, progresso=mostrar)
+    return 0
+
+
+@estudo_app.command('status', help='diz se a biblioteca está preparada e qual versão')
+def estudo_status(ctx: typer.Context) -> int:
+    situacao = estudo.situacao_do_estudo(ctx.obj.contexto)
+    versao = f' (versão {situacao.versao})' if situacao.versao else ''
+    typer.echo(f'{situacao.mensagem}{versao}')
+    return 0

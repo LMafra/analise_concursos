@@ -218,6 +218,57 @@ class ClienteOpenNotebook:
         }
         return self._requisitar('POST', '/api/search', corpo=corpo).get('results', [])
 
+    def buscar_vetorial(
+        self, consulta: str, notebook_ids: list[str] | None = None, limite: int = 20
+    ) -> list[dict]:
+        corpo = {
+            'query': consulta,
+            'type': 'vector',
+            'limit': limite,
+            'search_sources': True,
+            'search_notes': False,
+            'minimum_score': 0.2,
+        }
+        if notebook_ids:
+            corpo['notebook_ids'] = notebook_ids
+        return self._requisitar('POST', '/api/search', corpo=corpo).get('results', [])
+
+    def obter_source(self, source_id: str) -> dict:
+        return self._requisitar('GET', f'/api/sources/{_id(source_id)}')
+
+    def reprocessar_source(self, source_id: str) -> dict:
+        """Refaz os embeddings do source em segundo plano (o `/retry` só vale para source de arquivo)."""
+        corpo = {'item_id': source_id, 'item_type': 'source', 'async_processing': True}
+        return self._requisitar('POST', '/api/embed', corpo=corpo)
+
+    def listar_modelos(self, tipo: str | None = None) -> list[dict]:
+        return self._requisitar('GET', '/api/models', consulta={'type': tipo} if tipo else None)
+
+    def criar_modelo(self, nome: str, provedor: str, tipo: str, credencial: str | None = None) -> dict:
+        corpo = {'name': nome, 'provider': provedor, 'type': tipo}
+        if credencial:
+            corpo['credential'] = credencial
+        return self._requisitar('POST', '/api/models', corpo=corpo)
+
+    def apagar_modelo(self, modelo_id: str) -> None:
+        self._requisitar('DELETE', f'/api/models/{_id(modelo_id)}')
+
+    def modelos_padrao(self) -> dict:
+        return self._requisitar('GET', '/api/models/defaults')
+
+    def gravar_modelos_padrao(self, **padroes: str) -> dict:
+        return self._requisitar('PUT', '/api/models/defaults', corpo=padroes)
+
+    def perguntar(self, pergunta: str, modelo_id: str) -> dict:
+        """Ask do open-notebook com o mesmo modelo nas três funções; devolve `{answer, question}`."""
+        corpo = {
+            'question': pergunta,
+            'strategy_model': modelo_id,
+            'answer_model': modelo_id,
+            'final_answer_model': modelo_id,
+        }
+        return self._requisitar('POST', '/api/search/ask/simple', corpo=corpo)
+
     def _requisitar(
         self,
         metodo: str,
