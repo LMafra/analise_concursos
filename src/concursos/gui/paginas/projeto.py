@@ -2,6 +2,7 @@ from pathlib import Path
 
 from nicegui import ui
 
+from concursos.gui import tema
 from concursos.gui.componentes.seletor_pasta import escolher_pasta
 from concursos.gui.estado import ESTADO, pasta_padrao
 from concursos.gui.textos import mostrar_erro, rotulo
@@ -9,7 +10,7 @@ from concursos.onboarding import precisa_de_onboarding
 
 
 def pagina() -> None:
-    with ui.column().classes('w-full max-w-2xl gap-4'):
+    with ui.column().classes('w-full max-w-2xl').style(tema.gap('md')):
         ui.label('Pasta do projeto').classes('text-2xl font-bold')
         ui.label(
             'É nesta pasta que ficam as provas (provas/), as análises (analises/) e a configuração (.concurso/). '

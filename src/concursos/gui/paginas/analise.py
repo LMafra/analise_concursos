@@ -4,10 +4,14 @@ from nicegui import run, ui
 
 from concursos.aplicacao import analise
 from concursos.aplicacao.opcoes import Opcoes
+from concursos.gui import tema
+from concursos.gui.componentes.aviso import aviso
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.progresso import Andamento, HandlerDoPainel
+from concursos.gui.tema import Tom
 from concursos.gui.textos import linhas_do_erro
+from concursos.modelo import Etapa
 
 logger = logging.getLogger('concursos')
 
@@ -24,9 +28,12 @@ def pagina() -> None:
 class PainelDeAnalise:
     def __init__(self) -> None:
         self.andamento = Andamento()
-        with ui.column().classes('w-full max-w-4xl gap-4'):
+        with ui.column().classes('w-full max-w-4xl').style(tema.gap('md')):
             self.titulo = (
-                ui.label('Pronto para analisar o que mudou.').classes('text-lg').mark('titulo-analise')
+                ui.label('Pronto para analisar o que mudou.')
+                .classes('text-lg')
+                .props('role=status aria-live=polite')
+                .mark('titulo-analise')
             )
             self.barra = ui.linear_progress(value=0, show_value=False).props(
                 'aria-label="andamento da análise"'
@@ -54,10 +61,13 @@ class PainelDeAnalise:
                 sim=True,
                 abrir=False,
                 todos=ESTADO.todos,
+                forcar=ESTADO.forcar_proxima_analise,
                 saida=self.andamento.escrever,
                 ao_progresso=self.andamento.ao_progresso,
+                ao_etapa=self.andamento.ao_etapa,
             )
             codigo = await run.io_bound(analise.analisar, opcoes)
+            ESTADO.forcar_proxima_analise = False
         except Exception as erro:  # noqa: BLE001
             logger.debug('falha na análise pela GUI', exc_info=True)
             self._mostrar_falha(*linhas_do_erro(erro))
@@ -73,9 +83,16 @@ class PainelDeAnalise:
         for linha in self.andamento.retirar_linhas():
             self.log.push(linha)
         passo = self.andamento.passo
-        if passo is not None and ESTADO.ocupado:
+        if not ESTADO.ocupado:
+            return
+        etapa = self.andamento.etapa
+        if etapa is Etapa.CONSOLIDANDO:
+            self.barra.value = 1
+            self.titulo.text = analise.TEXTO_DA_ETAPA[etapa]
+        elif passo is not None:
             self.barra.value = passo.fracao
-            self.titulo.text = f'Analisando {passo.concurso} ({passo.indice} de {passo.total})'
+            texto = f'Analisando {passo.concurso} ({passo.indice} de {passo.total})'
+            self.titulo.text = f'{texto}: {analise.TEXTO_DA_ETAPA[etapa]}' if etapa else texto
 
     def _mostrar_fim(self, codigo: int) -> None:
         self.barra.value = 1
@@ -86,11 +103,13 @@ class PainelDeAnalise:
         else:
             self.titulo.text = 'A análise terminou com falhas em algum concurso.'
             with self.resultado:
-                ui.label('Abra o "Log detalhado" para ver qual concurso falhou e por quê.')
+                aviso(
+                    'Algum concurso falhou',
+                    'Abra o "Log detalhado" para ver qual concurso falhou e por quê.',
+                    tom=Tom.ALERTA,
+                )
 
     def _mostrar_falha(self, causa: str, dica: str | None) -> None:
         self.titulo.text = 'A análise não rodou.'
-        with self.resultado, ui.card().classes('bg-red-1 w-full').mark('falha'):
-            ui.label(causa).classes('font-bold')
-            if dica:
-                ui.label(dica)
+        with self.resultado:
+            aviso(causa, dica, tom=Tom.ERRO).mark('falha')

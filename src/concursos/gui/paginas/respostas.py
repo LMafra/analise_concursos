@@ -4,6 +4,7 @@ from nicegui import run, ui
 
 from concursos.aplicacao import cadastro
 from concursos.aplicacao.opcoes import Opcoes
+from concursos.gui import tema
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.textos import mostrar_erro, rotulo
@@ -26,7 +27,7 @@ class FormularioDeRespostas:
         provas = self.contexto.provas
         nomes = [p.name for p in listar_concursos(provas)] if provas.is_dir() else []
         self.marcadas: dict[int, ui.toggle] = {}
-        with ui.column().classes('w-full max-w-4xl gap-4'):
+        with ui.column().classes('w-full max-w-4xl').style(tema.gap('md')):
             ui.label('Digitar as suas respostas').classes('text-2xl font-bold')
             ui.label('Marque a alternativa de cada questão; deixe sem marcar a que ficou em branco.').classes(
                 'text-sm'
@@ -67,9 +68,9 @@ class FormularioDeRespostas:
         except Exception as erro:  # noqa: BLE001
             mostrar_erro(erro)
             return
-        with ui.grid(columns=3).classes('w-full gap-x-6 gap-y-1'):
+        with ui.grid(columns=3).classes('w-full').style(tema.gap('xs', 'lg')):
             for questao in folha.questoes:
-                with ui.row().classes('items-center gap-2 no-wrap'):
+                with ui.row().classes('items-center no-wrap').style(tema.gap('sm')):
                     ui.label(f'{questao}').classes('w-8 text-right font-mono')
                     self.marcadas[questao] = rotulo(
                         ui.toggle(folha.alternativas, clearable=True).props('dense'),

@@ -1,6 +1,6 @@
 # Spec: integração com o open-notebook, biblioteca, legislação e prática
 
-Os fatos da API estão em `docs/pesquisa-open-notebook.md`; os campos de arquivo, em `docs/modelo.md`.
+Os campos de arquivo estão em `docs/modelo.md`.
 
 ## Objetivo
 

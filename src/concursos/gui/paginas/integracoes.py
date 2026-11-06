@@ -4,6 +4,7 @@ from nicegui import run, ui
 
 from concursos.aplicacao import integracoes
 from concursos.aplicacao.opcoes import Opcoes
+from concursos.gui import tema
 from concursos.gui.componentes.consentimento import texto_do_aviso
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.descobrir import PainelDescobrir, PainelProvasAnteriores
@@ -24,7 +25,7 @@ ABAS = {
 def pagina(aba: str | None = None) -> None:
     if not exigir_projeto():
         return
-    with ui.column().classes('w-full max-w-4xl gap-3'):
+    with ui.column().classes('w-full max-w-4xl').style(tema.gap('md')):
         ui.label('Integrações').classes('text-2xl font-bold')
         ui.label(
             'Cada integração fica desligada até você ligar, e a tela mostra antes o que sai do computador.'

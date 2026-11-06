@@ -3,15 +3,19 @@ name = "concurso-analise"
 version = "0.5.0"
 description = "Análise de desempenho em concursos públicos por disciplina e tópico"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "LMafra", email = "chagas.lucas.mafra@gmail.com" }
 ]
 requires-python = ">=3.11,<3.13"
 dependencies = [
+    "cryptography>=44",
     "markdown-it-py>=3.0",
     "matplotlib>=3.9",
     "numpy>=2.3",
     "opencv-python-headless>=5.0.0.93",
+    "packaging>=24",
     "pandas>=2.2",
     "pdfplumber>=0.11.10",
     "pillow>=13.0.0",

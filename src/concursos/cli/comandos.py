@@ -12,6 +12,7 @@ import typer
 from concursos import doctor as diagnostico
 from concursos import onboarding, relatorio_html
 from concursos.aplicacao import analise, cadastro, integracoes, projeto
+from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao.inicio import executar_onboarding
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.assistente import InteracaoConsole
@@ -29,6 +30,7 @@ from concursos.integracoes.pci_mcp import REGIOES
 from concursos.integracoes.simulado_pci import formatar_provas
 from concursos.integracoes.sincronizacao_pci import como_json
 from concursos.integracoes.sincronizacao_pci import formatar_tabela as tabela_pci
+from concursos.modelo import CanalAtualizacao
 from concursos.status import formatar_tabela
 
 logger = logging.getLogger(__name__)
@@ -380,11 +382,21 @@ def gui(
     return 0
 
 
-@app.command('upgrade', help='mostra (ou, com --run, executa) o comando que atualiza a ferramenta')
+@app.command(
+    'upgrade',
+    help='procura a versão nova (no executável, pelo GitHub; fora dele, mostra o comando do uv); '
+    '--run instala',
+)
 def upgrade(
     ctx: typer.Context,
     executar: Annotated[bool, typer.Option('--run', help='executa a atualização agora')] = False,
+    canal: Annotated[
+        CanalAtualizacao | None,
+        typer.Option('--canal', help='stable ou beta (padrão: o de [atualizacao] no config.toml global)'),
+    ] = None,
 ) -> int:
+    if atualizacao.no_executavel():
+        return atualizacao.atualizar_executavel(ctx.obj, canal=canal, executar=executar)
     comando = ['tool', 'upgrade', 'concurso-analise']
     if not executar or ctx.obj.dry_run:
         typer.echo(f'para atualizar: uv {" ".join(comando)}')

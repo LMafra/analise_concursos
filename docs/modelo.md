@@ -403,7 +403,7 @@ Desligado por padrão; nenhuma chamada de rede acontece sem `[llm]` com `consent
 
 ## open-notebook opcional
 
-Desligado por padrão; nada sai da máquina sem `[open_notebook]` com `enabled = true` e `consentimento = true` na configuração global, gravados por `concurso-analise notebook enable` depois de mostrar o que vai. `--offline` e `--dry-run` desligam a sincronização numa execução. Detalhes da API em `docs/pesquisa-open-notebook.md`; comandos e decisões em `docs/spec-open-notebook.md`.
+Desligado por padrão; nada sai da máquina sem `[open_notebook]` com `enabled = true` e `consentimento = true` na configuração global, gravados por `concurso-analise notebook enable` depois de mostrar o que vai. `--offline` e `--dry-run` desligam a sincronização numa execução. Comandos e decisões em `docs/spec-open-notebook.md`.
 
 ```toml
 [open_notebook]
@@ -865,7 +865,7 @@ No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_htm
 
 Sai com 2 se algum item tem `✗`, senão com 0.
 
-**`upgrade`.** Só imprime `uv tool upgrade concurso-analise`; com `--run`, executa-o pelo `uv` do PATH (sem ele, sai com 2 e a `dica:` de instalação). Com `--dry-run`, só imprime. A ferramenta nunca se atualiza sozinha.
+**`upgrade`.** Instalado pelo `uv`, só imprime `uv tool upgrade concurso-analise`; com `--run`, executa-o pelo `uv` do PATH (sem ele, sai com 2 e a `dica:` de instalação). No executável (fase 6), consulta o manifesto do canal (`--canal stable|beta`, padrão o de `[atualizacao]`) e diz se há versão nova; com `--run`, baixa, confere e aplica (ver "Atualizador"). Com `--dry-run` ou `--offline`, não consulta nada. A ferramenta nunca se atualiza sem um pedido.
 
 **Idempotência.** Uma execução sem mudança nas entradas não altera nenhum `mtime` em `analises/`, nem com `--dry-run`: as saídas por concurso dependem do manifesto, o `index.html` só é regerado quando algo foi reprocessado, e o consolidado (`desempenho_geral.csv`, `comparativo_concursos.md`) só é regravado quando o conteúdo muda.
 
@@ -877,13 +877,19 @@ Sai com 2 se algum item tem `✗`, senão com 0.
 # ~/.concurso/config.toml
 [gui]
 ultimo_projeto = "C:/Users/ana/Documents/Concursos"   # pasta com provas/, analises/ e .concurso/
+tema = "sistema"                     # fase 6: sistema, claro ou escuro
+aviso_webview2_dispensado = false    # fase 6: true depois do "Entendi" no aviso de navegador
+
+[atualizacao]                        # fase 6
+canal = "stable"                     # ou "beta"
+verificar_ao_abrir = false           # consulta o GitHub ao abrir a GUI, no máximo 1 vez a cada 24 h
 ```
 
 **Resultados e configurações pela GUI.** O relatório aparece num `iframe`: a pasta `analises/<candidato>/` é servida em `/_analises/<hash do caminho>/`, só em `127.0.0.1` e sem cache, e "Abrir no navegador" usa o mesmo `abrir_no_navegador` da CLI (no WSL, o navegador do Windows). As abas de recomendações e de prática mostram `consolidado/recomendacoes_estudo.md` e `pratica/resumo_pratica.md` (com as tabelas da prática), ou explicam por que ainda não existem. A tela de configurações grava `[analise]` pelo `gravar_analise`; a IA começa desmarcada, ligar grava `[llm]` com `consentimento = true` e a chave vai para `llm.guardar_chave` (keyring ou `~/.concurso/.env` com permissão 600), e desmarcar grava `provedor = "nenhum"`.
 
 **Integrações pela GUI.** A tela Integrações tem quatro abas. Desligada, cada integração mostra só o texto de `aplicacao.integracoes.aviso_*` e o botão "Concordo e ligar", e nenhuma consulta é feita. Descobrir concursos e Provas anteriores chamam o PCI por `descobrir` e `provas_anteriores`; "Acompanhar no radar" grava em `.concurso/interesses_pci.yaml` pelo `registrar_interesse`. "Importar como simulado" roda `importar_simulado` numa thread, com a espera na pasta de downloads interrompida pelo botão Cancelar (`espera_cancelavel`); o app continua sem pedir o link do PDF ao PCI. A aba open-notebook grava `[open_notebook]` com `enabled` e `consentimento` e sincroniza com um botão. A aba Prática no TEC valida todas as exportações soltas antes de copiar a primeira; sem `[pratica]`, ela grava `entrada_tec = "tec"`. A instalação da captura usa o `dist/` do `tec-erros/` (no executável, a pasta `tec-erros/` do `_MEIPASS`); sem ele, a aba aponta para as instruções do repositório.
 
-**Executável.** O build do PyInstaller (`empacotamento/concurso-analise.spec`, onedir) gera dois executáveis na mesma pasta: `concurso-analise` (janela, sem console no Windows) e `concurso-analise-cli` (console). Os dois rodam `concursos.empacotado.principal`: sem argumentos, a GUI; com argumentos, a CLI; com `--smoke`, a conferência do pacote (versão, perfis, Tesseract com `por` e a GUI respondendo em `127.0.0.1`), que sai com 0 ou 1. Dentro de `_internal/` ficam `tesseract/bin` e `tesseract/tessdata` (o executável põe o primeiro no `PATH` e o segundo em `TESSDATA_PREFIX`), `tec-erros/` (o `dist/` da captura) e `LICENSES/`. O `doctor` e a tela Sobre mostram o Tesseract como embutido. `CONCURSO_SMOKE_SEM_OCR=1` dispensa o Tesseract no `--smoke`, só para builds de desenvolvimento. No Windows sem WebView2, a GUI abre no navegador. No Linux, `tesseract/bin/tesseract` é um wrapper que roda o binário com o carregador e as bibliotecas que vieram com ele (`tesseract/lib`), e o executável devolve o `LD_LIBRARY_PATH` original aos processos que abre; no macOS, a árvore do Tesseract fica em `concurso-analise.app/Contents/Frameworks/tesseract`, com as dylibs relocadas para `@executable_path/../lib`.
+**Executável.** O build do PyInstaller (`empacotamento/concurso-analise.spec`, onedir) gera dois executáveis na mesma pasta: `concurso-analise` (janela, sem console no Windows) e `concurso-analise-cli` (console). Os dois rodam `concursos.empacotado.principal`: sem argumentos, a GUI; com argumentos, a CLI; com `--smoke`, a conferência do pacote (versão, perfis, Tesseract com `por` e a GUI respondendo em `127.0.0.1`), que sai com 0 ou 1. Dentro de `_internal/` ficam `tesseract/bin` e `tesseract/tessdata` (o executável põe o primeiro no `PATH` e o segundo em `TESSDATA_PREFIX`), `tec-erros/` (o `dist/` da captura) e `LICENSES/`. O `doctor` e a tela Sobre mostram o Tesseract como embutido. `CONCURSO_SMOKE_SEM_OCR=1` dispensa o Tesseract no `--smoke`, só para builds de desenvolvimento. No Windows sem WebView2, a GUI abre no navegador, com aviso (veja **Janela**). No Linux, `tesseract/bin/tesseract` é um wrapper que roda o binário com o carregador e as bibliotecas que vieram com ele (`tesseract/lib`), e o executável devolve o `LD_LIBRARY_PATH` original aos processos que abre; no macOS, a árvore do Tesseract fica em `concurso-analise.app/Contents/Frameworks/tesseract`, com as dylibs relocadas para `@executable_path/../lib`.
 
 **Cadastro pela GUI.** O onboarding em formulário grava pelas mesmas `onboarding.aplicar` e `onboarding.gravar` do `init` e cria a pasta de provas com o `LEIA-ME.txt`, se faltar. Os arquivos soltos na tela "Novo concurso" esperam em `.concurso/envios/<aleatório>/` (apagados depois do cadastro, ou depois de um dia se abandonados) até o usuário confirmar o papel de cada um. Na confirmação, edital, prova, gabarito e resultado vão para `provas/<concurso>/` (o nome passa por `slug`) e o papel escolhido vence a detecção no `cadastrar` (`papeis`); folha e respostas vão para `candidatos/<slug>/` pelo `adicionar_respostas`; o que foi marcado para ignorar não é copiado. Se o usuário recusa ou o cadastro falha, a pasta volta a ser como era. Um arquivo com o nome de outro, diferente, já na pasta é erro, e nada é sobrescrito. As respostas digitadas viram `candidatos/<slug>/respostas.csv` (`questao,alternativa`, só as marcadas; as omitidas contam como branco), validado por `ler_respostas_csv` antes da cópia.
 
@@ -899,3 +905,53 @@ ultimo_projeto = "C:/Users/ana/Documents/Concursos"   # pasta com provas/, anali
 | `_internal/LICENSES/` | as licenças de Tesseract, Leptonica, bibliotecas de imagem, NiceGUI, pywebview e Python |
 
 Artefatos da release: `concurso-analise-<versão>-windows-x64-setup.exe`, `concurso-analise-<versão>-linux-x86_64.AppImage`, `concurso-analise-<versão>-macos-arm64.dmg` e `SHA256SUMS`. `concurso-analise --smoke`, no executável, confere o pacote e sai com 0 quando tudo passa; `scripts/smoke.py congelado <executável>` roda, numa pasta temporária, o `--smoke`, o doctor, o onboarding e a análise de um concurso sintético.
+
+## Fase 6: atualizador, janela, etapas e tema
+
+**Atualizador.** `concursos.atualizador` e `concursos.aplicacao.atualizador`, usados pelo Sobre da GUI e pelo `upgrade` do executável. O canal `stable` lê `https://github.com/LMafra/analise_concursos/releases/latest/download/atualizacao.json` e `.sig`; o `beta` lê `https://api.github.com/repos/LMafra/analise_concursos/releases?per_page=10` e usa a primeira release que não é rascunho. Cada release traz:
+
+```json
+{
+  "formato": 1,
+  "versao": "0.6.0",
+  "canal": "stable",
+  "publicado_em": "2026-12-01",
+  "notas": "https://github.com/LMafra/analise_concursos/releases/tag/v0.6.0",
+  "artefatos": {
+    "windows-x64": {"arquivo": "concurso-analise-0.6.0-windows-x64-setup.exe", "sha256": "<64 hex>", "tamanho": 191000000},
+    "linux-x86_64": {"arquivo": "concurso-analise-0.6.0-linux-x86_64.AppImage", "sha256": "<64 hex>", "tamanho": 290000000}
+  }
+}
+```
+
+- `atualizacao.json.sig`: 64 bytes da assinatura Ed25519 sobre os bytes exatos do `atualizacao.json`, em base64 numa linha. A assinatura é conferida antes de ler o JSON, contra qualquer chave de `atualizador.CHAVES_PUBLICAS`.
+- `formato` diferente de 1, campo faltando, `canal` fora de `stable`/`beta`, `arquivo` fora de `^concurso-analise-[0-9A-Za-z.+-]+-(windows-x64-setup\.exe|linux-x86_64\.AppImage)$`, `sha256` fora de 64 hex ou `tamanho` não positivo: manifesto inválido.
+- O cliente `stable` só aceita `canal: stable`; o `beta` aceita os dois. Só versão maior que a instalada (PEP 440) é oferecida.
+- O artefato é baixado de `https://github.com/LMafra/analise_concursos/releases/download/v<versao>/<arquivo>`, com no máximo `tamanho` bytes, e só é usado se o SHA-256 bate. Só HTTPS e redirecionamento para `github.com`, `api.github.com`, `objects.githubusercontent.com` e `release-assets.githubusercontent.com`; o manifesto tem no máximo 64 KB.
+- Windows: o setup vai para a pasta temporária; se o `.exe` em execução tem Authenticode válido, o setup precisa ter assinatura válida do mesmo signatário. Roda `setup.exe /SILENT /SUPPRESSMSGBOXES /CLOSEAPPLICATIONS /REABRIR=1` e o app fecha; o setup espera (até 30 s) sumir o mutex `concurso-analise`, que o executável segura enquanto roda, e com `/REABRIR=1` reabre o app no fim.
+- Linux: o AppImage novo é gravado num temporário na pasta de `$APPIMAGE`, recebe `chmod 755` e substitui o arquivo no mesmo caminho (`os.replace`), mantendo o nome e os atalhos; a GUI oferece reabrir. Sem `$APPIMAGE` ou sem permissão de escrita na pasta: `ErroDoUsuario` com a dica de baixar à mão.
+- `verificar_ao_abrir`: a data da última consulta fica em `~/.concurso/atualizacao.json` (`{"ultima_consulta": "<ISO 8601>"}`); com menos de 24 h, não consulta. Falha nessa consulta só vai para o log.
+
+**Janela.** `concursos.janela.decidir_janela` devolve `DecisaoJanela` (`modelo.py`): `nativa`; `navegador_pedido` (`--browser`); `navegador_linux`; `navegador_sem_webview2` (Windows sem `pv` válido em `HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`, no mesmo caminho sem `WOW6432Node` ou em `HKCU\Software\...`, ou sem conseguir carregar o `WebView2Loader.dll`). Só `navegador_sem_webview2` e `CONCURSO_JANELA_FALHOU=1` (a janela nativa falhou, ou fechou sem nenhuma página ter conectado, e o app reabriu no navegador) mostram o aviso "Componente de janela indisponível; o app abre no navegador", com o link do WebView2; "Entendi" grava `[gui] aviso_webview2_dispensado`, que `CONCURSO_JANELA_FALHOU` ignora.
+
+**Etapas da análise.** `pipeline.analisar_todos(..., ao_etapa=None)` chama `ao_etapa(concurso, Etapa)` em cada concurso processado: `lendo_arquivos`, `lendo_folha`, `corrigindo`, `classificando`, `gerando_relatorios`; e `ao_etapa('', Etapa.CONSOLIDANDO)` antes do consolidado. `Etapa` mora em `modelo.py`, e o texto mostrado ("Lendo a folha…") em `aplicacao.analise.TEXTO_DA_ETAPA`. Com `None`, as saídas não mudam.
+
+**Exemplo.** `concursos.exemplo.criar_exemplo(raiz)` grava em `<raiz>/provas/exemplo/` um concurso sintético de múltipla escolha com 10 questões (o mesmo formato do `scripts/smoke.py`: gabarito, `respostas.txt` da candidata fictícia `exemplo` e edital manual mínimo); `aplicacao.exemplo.analisar_exemplo` recria `~/.concurso/exemplo/` a cada uso e o analisa sem OCR nem rede. O projeto real do usuário não muda.
+
+**Tema.** `gui/tema.py` é a fonte única de cor, tipografia, espaço, raio e elevação da GUI:
+
+| Token | Claro | Escuro |
+|---|---|---|
+| primária, texto sobre ela, primária como texto | `#1976D2`, `#FFFFFF`, `#1565C0` | `#64B5F6`, `#0F172A`, `#64B5F6` |
+| info: fundo, ícone, texto | `#E3F2FD`, `#1976D2`, `#0D47A1` | `#0C2A4A`, `#64B5F6`, `#BFDBFE` |
+| sucesso: fundo, ícone, texto | `#E8F5E9`, `#2E7D32`, `#2E7D32` | `#14301B`, `#66BB6A`, `#86EFAC` |
+| erro: fundo, ícone, texto | `#FFEBEE`, `#D32F2F`, `#C62828` | `#3B1518`, `#EF5350`, `#FCA5A5` |
+| alerta: fundo, ícone, texto | `#FFF8E1`, `#E65100`, `#B45309` | `#3A2A0A`, `#FFB74D`, `#FCD34D` |
+| fundo, superfície | `#FAFAFA`, `#FFFFFF` | `#0F172A`, `#1E293B` |
+| texto, texto suave, borda | `#1E293B`, `#475569`, `#CBD5E1` | `#F1F5F9`, `#CBD5E1`, `#334155` |
+
+Espaço `xs` 4 px, `sm` 8, `md` 16, `lg` 24, `xl` 32; raio 8 px (cartão) e 12 px (diálogo); elevação 1 `0 1px 2px rgb(0 0 0 / .08)` e 2 `0 8px 24px rgb(0 0 0 / .16)`; fonte do sistema (`"Segoe UI", Roboto, "Noto Sans", Ubuntu, sans-serif`). Texto sobre fundo e sobre superfície tem contraste de pelo menos 4,5:1, e ícone e foco, de 3:1; o teste calcula cada par. O Quasar recebe a primária como `var(--ca-primaria)`, para o modo escuro trocá-la pelo CSS. O modo (`[gui] tema`, enum `TemaGui`: `sistema`, `claro`, `escuro`) é escolhido em Configurações > Aparência; `sistema` segue o sistema operacional. Status nunca depende só da cor: `gui/componentes/` (`cartao`, `Dialogo`, `aviso`, `situacao`, `estado_vazio`, `etapas`, `Assistente`) põe ícone e texto em cada tom (`info`, `sucesso`, `alerta`, `erro`), e o passo atual do assistente leva `aria-current="step"`.
+
+**Onboarding (fase 6).** A tela `/inicio` é um assistente de 4 passos (nome; pasta, com as pastas de provas e análises em "Avançado"; opcionais desmarcados: IA para editais e aviso de versão nova; primeiro resultado: exemplo ou cadastro). Grava pelas mesmas `onboarding.aplicar` e `onboarding.gravar`; o aviso de versão nova grava `[atualizacao] verificar_ao_abrir`, e "Pular" no passo 3 não grava nenhum dos dois. A calibração da folha fica em Configurações (`aplicacao.inicio.salvar_calibracao`, que grava o mesmo `./.concurso/folha_calibrada.yaml`; a análise seguinte pela GUI é forçada, para reler as folhas), e o `doctor` fica no Sobre ("Conferir o ambiente"). Projeto sem concursos, sem relatório, sem recomendações ou sem prática mostra um estado vazio com a próxima ação.
+
+Artefatos da release a partir da fase 6: os da fase 5, mais `atualizacao.json`, `atualizacao.json.sig` e `RELATORIO-SMOKE.md` (o resultado dos gates de cada sistema). O `--smoke` também imprime `partida: <s>` (falha acima de `CONCURSO_SMOKE_LIMITE_PARTIDA`, se definida) e confere o OCR numa imagem gerada.

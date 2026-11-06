@@ -123,13 +123,13 @@ Baixe o instalador do seu sistema na [página da última versão](https://github
 | macOS em Mac com chip Apple (M1 em diante) | `concurso-analise-<versão>-macos-arm64.dmg` |
 | Linux 64 bits, distribuições de 2019 em diante | `concurso-analise-<versão>-linux-x86_64.AppImage` |
 
-O app não tem assinatura digital paga, por isso o Windows e o macOS desconfiam dele na primeira vez. Os passos abaixo mostram como liberar.
+No Windows, o instalador e os executáveis são assinados pela SignPath Foundation (veja [Por que o Windows avisa na primeira execução](#por-que-o-windows-avisa-na-primeira-execução)). No macOS, o app não tem assinatura, e o sistema desconfia dele na primeira vez. Os passos abaixo mostram como seguir.
 
 **Windows**
 
 1. Abra o `concurso-analise-<versão>-windows-x64-setup.exe`.
-2. Se aparecer "O Windows protegeu o computador", clique em **Mais informações** e depois em **Executar assim mesmo**.
-3. Siga o instalador. Ele instala só para o seu usuário e não pede senha de administrador. Se o computador não tiver o WebView2 (que a janela usa), o instalador oferece a página para baixá-lo; sem ele, o app abre no navegador.
+2. Se aparecer "O Windows protegeu o computador", confira se o editor é **SignPath Foundation**, clique em **Mais informações** e depois em **Executar assim mesmo**.
+3. Siga o instalador. Ele instala só para o seu usuário e não pede senha de administrador. Se o computador não tiver o WebView2 (o componente da Microsoft que a janela usa), o instalador o instala sozinho. Se não conseguir (sem internet, por exemplo), o app abre no navegador e avisa, com o link para instalar depois.
 4. Abra o **concurso-analise** pelo menu Iniciar.
 
 Para desinstalar, use Configurações > Aplicativos.
@@ -144,14 +144,42 @@ Das próximas vezes, o app abre direto.
 
 **Linux**
 
-1. Torne o arquivo executável: no gerenciador de arquivos, abra Propriedades > Permissões e marque "Permitir executar como programa".
+1. Torne o arquivo executável: no gerenciador de arquivos, abra Propriedades > Permissões e marque "Permitir executar como programa". No terminal, é o mesmo que `chmod +x concurso-analise-*.AppImage`.
 2. Abra o arquivo com dois cliques. A tela abre no navegador padrão, num endereço que só o seu computador acessa (`127.0.0.1`).
 
+O AppImage já traz o Python e o Tesseract com o português; a leitura de folhas escaneadas funciona sem instalar nada. Ele foi testado em Debian 12 e Ubuntu 22.04 sem Python nem Tesseract.
+
 Se ele não abrir, rode no terminal `APPIMAGE_EXTRACT_AND_RUN=1 ./concurso-analise-*.AppImage`, que dispensa o FUSE.
+
+Para o app aparecer no menu de aplicativos, com ícone, use o [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) ou o [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) (no Flathub): ao abrir o AppImage, eles oferecem integrá-lo ao sistema. Guarde o arquivo numa pasta onde você tenha permissão de escrita (por exemplo, `~/Aplicativos`), para que a atualização pelo app consiga substituí-lo.
 
 **Conferir o download (opcional).** A página da versão traz o `SHA256SUMS`, com a impressão digital de cada arquivo. No Windows, compare com a saída de `Get-FileHash .\concurso-analise-<versão>-windows-x64-setup.exe` no PowerShell; no Linux e no macOS, rode `sha256sum -c SHA256SUMS --ignore-missing` (no macOS, `shasum -a 256 -c SHA256SUMS --ignore-missing`) na pasta do download.
 
 Depois de instalar, veja [Usar pela janela](#usar-pela-janela).
+
+#### Atualizar
+
+Em **Sobre**, clique em **Verificar atualizações**. Se houver versão nova, **Baixar e instalar** pede confirmação, baixa do GitHub e só usa o arquivo se a assinatura do manifesto da release e o SHA-256 conferirem. No Windows, o instalador continua sozinho e reabre o app; no Linux, o AppImage é trocado no mesmo lugar, e o app oferece reabrir. Os projetos e as análises não mudam. Pelo terminal, o mesmo é `concurso-analise upgrade --run`.
+
+O app não consulta nada sozinho. Em **Configurações > Avançado**, você pode ligar o aviso de versão nova (uma consulta ao GitHub por dia, no máximo, com o aviso no cabeçalho) e escolher o canal: `stable` (padrão) ou `beta` (versões novas antes, que podem ter problemas). Quem tem a 0.5.0 ou anterior instala a primeira versão com o atualizador à mão, uma vez.
+
+#### Por que o Windows avisa na primeira execução
+
+O SmartScreen, o filtro de downloads do Windows, avisa sobre todo programa que ainda foi baixado por poucas pessoas, mesmo quando o arquivo é assinado. A assinatura não tira esse aviso; ela garante duas coisas que você pode conferir:
+
+* **Quem publicou:** no aviso, depois de **Mais informações**, o editor aparece como **SignPath Foundation**. Nas propriedades do `.exe` (botão direito > Propriedades > Assinaturas Digitais), a assinatura aparece como válida.
+* **Que o arquivo não mudou:** se alguém alterar o instalador depois da assinatura, o Windows mostra a assinatura como inválida, ou o editor como "desconhecido".
+
+O aviso some sozinho à medida que mais pessoas baixam a mesma versão; não há como prometer que ele não apareça. Se o editor não for SignPath Foundation, ou se a assinatura estiver inválida, não instale: baixe de novo pela [página de releases](https://github.com/LMafra/analise_concursos/releases) e confira o `SHA256SUMS`.
+
+#### Política de assinatura de código
+
+Assinatura de código gratuita fornecida pela [SignPath.io](https://about.signpath.io/), com certificado da [SignPath Foundation](https://signpath.org/).
+
+* **O que é assinado:** só os binários deste repositório: `concurso-analise.exe`, `concurso-analise-cli.exe` e o setup. As bibliotecas de terceiros que vêm junto (Python, Tesseract, WebView2) mantêm a assinatura de origem, quando têm.
+* **Como:** cada release sai do workflow [`release.yml`](.github/workflows/release.yml), a partir de uma tag deste repositório; nenhum binário é assinado fora do CI.
+* **Quem:** autores e revisores: [LMafra](https://github.com/LMafra). Aprovação de cada assinatura de release: [LMafra](https://github.com/LMafra).
+* **Privacidade:** o programa não envia nada pela rede sem que você ligue a integração na configuração (IA, open-notebook, PCI Concursos ou o aviso de atualização). Veja [Privacidade](#privacidade).
 
 ### Pré-requisitos
 
@@ -300,7 +328,7 @@ Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa 
 | `report` | Reabre o último relatório HTML. |
 | `export --format csv\|parquet\|md` | Grava o consolidado do candidato, uma linha por questão. |
 | `doctor` | Confere uv, Python, Tesseract, permissão de escrita, espaço em disco, a chave do LLM e a configuração do open-notebook, com o comando de correção para o seu sistema. |
-| `upgrade` | Mostra o comando que atualiza a ferramenta. Com `--run`, executa `uv tool upgrade concurso-analise`. |
+| `upgrade` | No executável, procura a versão nova no GitHub (canal de `[atualizacao]`, ou `--canal stable`/`beta`); com `--run`, baixa, confere e instala. Fora dele, mostra o comando do uv; com `--run`, executa `uv tool upgrade concurso-analise`. |
 | `notebook enable\|disable\|sync` | Liga, desliga ou roda a sincronização com o open-notebook (veja [Integração com open-notebook](#integração-com-open-notebook)). |
 | `discover` | Busca no PCI Concursos os concursos com inscrições abertas ou prestes a abrir; `--register ID` acompanha um no radar de prazos (veja [Integração com o PCI Concursos](#integração-com-o-pci-concursos)). |
 | `pci enable\|disable\|provas` | Liga ou desliga o PCI, ou lista as provas anteriores de um concurso e importa uma como simulado. |
@@ -507,7 +535,7 @@ concurso-analise pci provas meu_concurso --download 20549582   # abre a página 
 - **Provas anteriores viram simulados:** o PDF fica atrás de um captcha e o `robots.txt` do PCI proíbe baixá-lo por robô, então o download é seu: o `--download` abre a página no navegador, você clica nos arquivos, e o app importa da pasta de downloads (`pasta_downloads`; no WSL, a do Windows). O simulado vira uma pasta própria, `provas/<orgao>_<ano>_pci<id>/`, corrigida pelo perfil da banca da prova, com os tópicos do edital do seu concurso. Acrescente suas respostas com `add`; a data do simulado é a data em que você resolveu. Simulados ficam fora do consolidado e das tendências, a não ser com `incluir_simulados = true` em `[analise]` no `.concurso/config.toml`, e aparecem na seção "Simulados" do `index.html`.
 - **Cache:** as respostas ficam em `.concurso/cache/pci_mcp.json` por `ttl_horas` (24); `--refresh` consulta de novo, e `--offline` usa o cache, mesmo vencido, com aviso. No máximo 20 consultas por execução.
 - **Falhas:** num comando explícito, saem como `erro:`/`dica:` (código 2 com o servidor fora do ar, 1 com um filtro recusado). Depois da análise, uma falha só gera aviso.
-- **No Cursor:** o `.cursor/mcp.json` do projeto registra o servidor, para o agente consultar o PCI direto.
+- **No Cursor:** para o agente consultar o PCI direto, crie `.cursor/mcp.json` com `{"mcpServers": {"pci-concursos": {"url": "https://mcp.pciconcursos.com.br/mcp"}}}`.
 
 ```toml
 # ~/.concurso/config.toml
@@ -632,12 +660,11 @@ A janela do app é servida só em `127.0.0.1`: nenhum outro computador da rede a
 - [x] Fase 3: edital como fonte de verdade
 - [x] Fase 4: generalização e portabilidade (onboarding, CLI, Docker, perfis de banca)
 - [x] Fase 5: janela (NiceGUI) e instaladores para Windows, macOS arm64 e Linux, com o Tesseract embutido
+- [x] Fase 6: assinatura no Windows (SignPath), WebView2 no instalador, AppImage verificado, atualizador por manifesto assinado e novo visual da janela
+- [ ] Checklist de máquina limpa da fase 6 e primeira release com o atualizador
 - [ ] Escopo de cargo nos pesos e nas demais buscas do edital
 - [ ] Precedência completa com o `concurso.yaml` (total de questões e pesos)
 - [ ] Nome oficial e cargo nas discrepâncias e no notebook 05
-- [ ] Verificação da CLI no macOS e no Windows nativo
-- [ ] Assinatura de código no Windows e no macOS
-- [ ] Publicação no PyPI
 
 Veja [docs/pendencias.md](docs/pendencias.md) para o detalhe e a ordem sugerida de cada pendência.
 
@@ -691,11 +718,12 @@ APPIMAGE_EXTRACT_AND_RUN=1 python3 scripts/smoke.py congelado dist/concurso-anal
 uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
 uv run --no-sync python empacotamento/coletar_licencas.py
 uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersao=0.5.0 empacotamento\inno\concurso-analise.iss
-.\scripts\smoke_maquina_limpa.ps1 -Instalador dist\concurso-analise-0.5.0-windows-x64-setup.exe
+.\empacotamento\windows\obter_webview2.ps1
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersao=0.6.0 /DVersaoNumerica=0.6.0.0 empacotamento\inno\concurso-analise.iss
+.\scripts\smoke_maquina_limpa.ps1 -Instalador dist\concurso-analise-0.6.0-windows-x64-setup.exe -Relatorio smoke-windows.md
 ```
 
-O último comando instala, confere o executável com o `PATH` sem Python nem Tesseract, roda a análise sintética e desinstala. Antes de publicar uma versão, repita a instalação à mão no Windows Sandbox (veja `.scratch/gui-leigo/issues/07-executavel-windows.md`).
+O último comando instala, confere o WebView2, o executável com o `PATH` sem Python nem Tesseract, o OCR e o tempo de partida, roda a análise sintética e desinstala. O build local sai sem assinatura; só o CI assina, pela SignPath. Antes de publicar uma versão, siga o checklist de máquina limpa de `docs/spec-fase6.md` (Windows Sandbox e VM Windows 10 sem WebView2).
 
 **macOS arm64 (DMG).** Precisa do Homebrew e do uv:
 
@@ -711,14 +739,14 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin /usr/bin/python3 scripts/smoke.py congela
 
 Num build de desenvolvimento sem o Tesseract embutido, `CONCURSO_SMOKE_SEM_OCR=1` dispensa a conferência do OCR no `--smoke`.
 
-**Release.** Uma tag `v*` dispara o `release.yml`: ele gera os três instaladores, roda o teste de máquina limpa em cada sistema e cria a release como rascunho, com o `SHA256SUMS`. A release só é publicada depois da conferência manual no Windows Sandbox.
+**Release.** Uma tag `v*` dispara o `release.yml`: ele gera os instaladores, roda o teste de máquina limpa em cada sistema e cria a release como rascunho, com o `SHA256SUMS`, o manifesto de atualização assinado e o `RELATORIO-SMOKE.md` (o resultado do teste de cada sistema, montado por `scripts/relatorio_smoke.py`). A release só é publicada depois do checklist manual. O passo a passo, com a configuração da chave de atualização e da SignPath, está em [docs/release.md](docs/release.md).
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
 <!-- LICENÇA -->
 ## Licença
 
-Sem licença definida: todos os direitos reservados ao autor.
+MIT. Veja [`LICENSE`](LICENSE). As licenças das bibliotecas e programas embutidos no executável (Tesseract, Leptonica, Python, NiceGUI e outras) vão na pasta `LICENSES/` dele.
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 

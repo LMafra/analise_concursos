@@ -2,10 +2,12 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from concursos.aplicacao.atualizador import Novidade
 from concursos.aplicacao.preferencias import lembrar_projeto, ultimo_projeto
 from concursos.candidatos import candidatos_existentes
 from concursos.config.contexto import PASTA_PROJETO, PASTA_PROVAS, Contexto, resolver_contexto, resolver_home
 from concursos.erros import ErroDoUsuario
+from concursos.modelo import DecisaoJanela
 
 NOME_PASTA_PADRAO = 'Concursos'
 
@@ -19,7 +21,13 @@ class Estado:
     todos: bool = False
     ocupado: bool = False
     pedir_analise: bool = False
+    forcar_proxima_analise: bool = False
     no_navegador: bool = False
+    decisao_janela: DecisaoJanela | None = None
+    janela_falhou: bool = False
+    cliente_conectou: bool = False
+    janela_reaberta: bool = False
+    novidade: Novidade | None = None
 
     def contexto(self) -> Contexto:
         if self.projeto is None:

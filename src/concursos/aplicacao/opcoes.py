@@ -3,9 +3,11 @@ from dataclasses import dataclass
 
 from concursos.assistente import Interacao, InteracaoAutomatica
 from concursos.config.contexto import Contexto
+from concursos.modelo import Etapa
 
 Saida = Callable[[str], None]
 Progresso = Callable[[str, int, int], None]
+AoEtapa = Callable[[str, Etapa], None]
 
 
 def descartar(_texto: str) -> None:
@@ -28,6 +30,7 @@ class Opcoes:
     saida: Saida = descartar
     interacao: Interacao | None = None
     ao_progresso: Progresso | None = None
+    ao_etapa: AoEtapa | None = None
 
     def interacao_ou_automatica(self) -> Interacao:
         return self.interacao if self.interacao is not None else InteracaoAutomatica()

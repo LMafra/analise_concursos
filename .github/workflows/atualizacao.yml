@@ -1,0 +1,87 @@
+# Teste ponta a ponta do atualizador, antes de promover uma release a "latest": instala a versão `de`
+# (publicada, com o atualizador da fase 6), roda `upgrade --run` e confere que a versão instalada virou a
+# `esperada`. Rode depois de publicar a release nova como prerelease (canal beta) ou como latest (stable).
+name: atualizacao
+
+on:
+  workflow_dispatch:
+    inputs:
+      de:
+        description: 'tag instalada antes (ex.: v0.6.0b1)'
+        required: true
+      esperada:
+        description: 'versão esperada depois da atualização (ex.: 0.6.0b2)'
+        required: true
+      canal:
+        description: 'canal consultado'
+        type: choice
+        options: [beta, stable]
+        default: beta
+
+permissions:
+  contents: read
+
+env:
+  DE: ${{ inputs.de }}
+  ESPERADA: ${{ inputs.esperada }}
+  CANAL: ${{ inputs.canal }}
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Instalar a versão de partida
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download $env:DE --repo $env:GITHUB_REPOSITORY --pattern '*-windows-x64-setup.exe' --dir antigo
+          $setup = Get-ChildItem antigo\*.exe | Select-Object -First 1
+          $instalacao = Start-Process $setup.FullName -Wait -PassThru -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER'
+          if ($instalacao.ExitCode -ne 0) { throw "setup antigo saiu com $($instalacao.ExitCode)" }
+
+      - name: Atualizar pelo app
+        run: |
+          $pasta = Join-Path $env:LOCALAPPDATA 'Programs\concurso-analise'
+          & (Join-Path $pasta 'concurso-analise-cli.exe') --yes upgrade --run --canal $env:CANAL
+          if ($LASTEXITCODE -ne 0) { throw "upgrade saiu com $LASTEXITCODE" }
+          $janela = Join-Path $pasta 'concurso-analise.exe'
+          $limite = (Get-Date).AddMinutes(10)
+          do {
+            Start-Sleep -Seconds 10
+            $versao = (Get-Item $janela).VersionInfo.ProductVersion
+            Write-Host "versão instalada: $versao"
+          } while ($versao -ne $env:ESPERADA -and (Get-Date) -lt $limite)
+          if ($versao -ne $env:ESPERADA) { throw "esperava $env:ESPERADA, ficou $versao" }
+          "Windows: $env:DE -> $versao pelo canal $env:CANAL" | Add-Content $env:GITHUB_STEP_SUMMARY
+
+      - name: O app reaberto pelo setup responde
+        run: |
+          Get-Process concurso-analise -ErrorAction SilentlyContinue | Stop-Process -Force
+          $cli = Join-Path $env:LOCALAPPDATA 'Programs\concurso-analise\concurso-analise-cli.exe'
+          & $cli --smoke
+          if ($LASTEXITCODE -ne 0) { throw 'smoke da versão nova falhou' }
+
+  linux:
+    runs-on: ubuntu-latest
+    env:
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - name: Baixar a versão de partida
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ~/Aplicativos
+          gh release download "$DE" --repo "$GITHUB_REPOSITORY" --pattern '*-linux-x86_64.AppImage' --dir ~/Aplicativos
+          mv ~/Aplicativos/*.AppImage ~/Aplicativos/concurso-analise.AppImage
+          chmod +x ~/Aplicativos/concurso-analise.AppImage
+
+      - name: Atualizar pelo app e conferir
+        run: |
+          app=~/Aplicativos/concurso-analise.AppImage
+          "$app" --yes upgrade --run --canal "$CANAL"
+          "$app" --smoke | tee smoke.txt
+          grep -qx "smoke: versão $ESPERADA" smoke.txt
+          echo "Linux: $DE -> $ESPERADA pelo canal $CANAL" >> "$GITHUB_STEP_SUMMARY"

@@ -1,16 +1,16 @@
-# Pendências das issues do `.scratch/`
+# Pendências
 
-Auditoria de 27/10/2026 sobre as 58 issues em `.scratch/` (`analise-desempenho`: 16, fase 1; `analise-evolutiva`: 10, fase 2; `edital-fonte-de-verdade`: 14, fase 3; `generalizacao-portabilidade`: 18, fase 4), conferidas contra o código no commit `d694f77`. 55 estão feitas, com `Status: done` e os critérios marcados. Duas delas têm uma verificação que ficou de fora, sem código faltando. Três issues da fase 3 não foram desenvolvidas: estão `ready-for-agent`, com nenhum critério marcado, e o código confirma que o comportamento pedido não existe.
+O que ainda está aberto, conferido contra o código. Três itens da fase 3 não foram desenvolvidos (o código confirma que o comportamento pedido não existe), e algumas conferências cabem ao usuário ou dependem de ambiente que o CI não reproduz.
 
-| Item | Fase | Tipo | Prioridade | Issue |
-| --- | --- | --- | --- | --- |
-| [Nome oficial e cargo nas discrepâncias e no notebook 05](#issue-12) | 3 | Não feito | Baixa | [12](../.scratch/edital-fonte-de-verdade/issues/12-rotulos-nas-discrepancias-e-no-notebook.md) |
-| [Escopo de cargo nos pesos e nas demais buscas](#issue-13) | 3 | Não feito | Alta | [13](../.scratch/edital-fonte-de-verdade/issues/13-escopo-de-cargo-nos-pesos-e-demais-buscas.md) |
-| [Precedência completa com a configuração](#issue-14) | 3 | Não feito | Média | [14](../.scratch/edital-fonte-de-verdade/issues/14-precedencia-completa-do-config.md) |
-| [Trecho de origem conferido à mão contra o PDF](#verificacao-fase2) | 2 | Verificação incompleta | Baixa | [10](../.scratch/analise-evolutiva/issues/10-verificacao-final-e-documentacao.md) |
-| [Windows nativo, macOS e CI sem execução](#verificacao-fase4) | 4 | Verificação incompleta | Baixa | [17](../.scratch/generalizacao-portabilidade/issues/17-distribuicao-e-verificacao.md) |
+| Item | Fase | Tipo | Prioridade |
+| --- | --- | --- | --- |
+| [Nome oficial e cargo nas discrepâncias e no notebook 05](#issue-12) | 3 | Não feito | Baixa |
+| [Escopo de cargo nos pesos e nas demais buscas](#issue-13) | 3 | Não feito | Alta |
+| [Precedência completa com a configuração](#issue-14) | 3 | Não feito | Média |
+| [Trecho de origem conferido à mão contra o PDF](#verificacao-fase2) | 2 | Conferência à mão | Baixa |
+| [Checklist de máquina limpa e primeira release com atualizador](#verificacao-fase6) | 5 e 6 | Conferência à mão | Alta |
 
-A prioridade segue o risco de número errado na análise: a 13 pode ler o peso de outro cargo num edital com vários cargos; a 14 deixa de usar um valor que o usuário declarou e cai no padrão; a 12 é só de apresentação.
+A prioridade dos itens da fase 3 segue o risco de número errado na análise: a 13 pode ler o peso de outro cargo num edital com vários cargos; a 14 deixa de usar um valor que o usuário declarou e cai no padrão; a 12 é só de apresentação.
 
 ## Ordem sugerida
 
@@ -130,37 +130,25 @@ A história 33 da spec da fase 3 pede a precedência retificação, edital, conf
 
 ---
 
-## Verificações incompletas
+## Conferências à mão
 
-Nada a programar nestes itens: ou cabem ao usuário, ou dependem de ambiente que não existe hoje.
+Nada a programar nestes itens.
 
 <a id="verificacao-fase2"></a>
 
-### Fase 2, issue 10: trecho de origem conferido à mão contra o PDF
+### Fase 2: trecho de origem conferido à mão contra o PDF
 
-Critério desmarcado: "Sempre que a fonte é o edital, o trecho de origem está preenchido e confere com o PDF (amostra de 3 concursos conferida à mão)". A verificação automática foi feita: em tcu_25, agsus e cpnu (3 variantes), o trecho foi encontrado na página citada pelo texto extraído com pypdfium2. Falta a conferência visual dos 3 PDFs, que cabe ao usuário. Basta abrir cada edital na página do `pagina_origem` do `correcao.json` e marcar o critério na issue.
+"Sempre que a fonte é o edital, o trecho de origem está preenchido e confere com o PDF" foi verificado automaticamente: em três concursos reais, o trecho foi encontrado na página citada pelo texto extraído com pypdfium2. Falta a conferência visual: abrir cada edital na página do `pagina_origem` do `correcao.json` e ver o trecho.
 
-<a id="verificacao-fase4"></a>
+<a id="verificacao-fase6"></a>
 
-### Fase 4, issue 17: Windows nativo, macOS e CI sem execução
+### Fases 5 e 6: checklist de máquina limpa e primeira release com atualizador
 
-Os critérios estão marcados, com ressalvas registradas na própria issue:
+O `release.yml` passa nos três sistemas: em cada um, o executável roda o `--smoke` (Tesseract embutido com `por`, OCR numa imagem gerada, partida medida, GUI em `127.0.0.1`), o `doctor` e a análise do projeto sintético sem Python nem Tesseract no `PATH`. O AppImage da fase 6 também passou, num build local, em `debian:12` e `ubuntu:22.04` limpos, e a GUI congelada foi percorrida com `HOME` vazio (onboarding, exemplo, modo escuro, Sobre).
 
-- **Windows nativo:** `uvx --from . concurso-analise --dry-run --yes` não foi verificado no Windows nativo, por decisão do usuário (sem `uv` instalado no Windows). Linux/WSL e o container foram verificados.
-- **macOS:** não verificado.
-- **CI:** `.github/workflows/ci.yml` está escrito (Ubuntu, macOS e Windows; Python 3.11 e 3.12), mas nunca rodou porque o repositório não tem remoto. Publicar no PyPI e rodar o CI estão fora de escopo enquanto não houver remoto.
+Falta o que o runner não reproduz, com o roteiro em [release.md](release.md):
 
-Fecha quando houver remoto (o CI cobre macOS e Windows) ou quando o `uv` for instalado no Windows para rodar o comando pelo `powershell.exe`.
-
-<a id="verificacao-fase5"></a>
-
-### Fase 5, issues 07 e 08: janela nativa e Gatekeeper conferidos à mão
-
-O `release.yml` passou nos três sistemas na tag `v0.5.0-rc2`: em cada um, o executável rodou o `--smoke` (Tesseract embutido com `por`, GUI em `127.0.0.1`), o `doctor` e a análise do projeto sintético sem Python nem Tesseract no `PATH`; no Windows, depois de instalar em silêncio, e com a desinstalação conferida; no Linux, também num `debian:12` limpo; no macOS, com o app copiado do DMG. A release ficou em rascunho com os três artefatos e o `SHA256SUMS`.
-
-Falta o que o runner não reproduz:
-
-- **Windows:** o checklist do Windows Sandbox (janela nativa com WebView2, SmartScreen, menu Iniciar), em `.scratch/gui-leigo/issues/07-executavel-windows.md`.
-- **macOS arm64:** abrir o DMG baixado num Mac, com o "Abrir Mesmo Assim" do Gatekeeper, e ver a janela nativa.
-
-Fecha com os dois registrados nos tickets; aí a tag `v0.5.0` gera a release final.
+- **Windows:** o checklist no Windows Sandbox (SmartScreen, menu Iniciar, janela nativa, partida abaixo de 3 s, onboarding com o exemplo) e, na VM Win10 sem WebView2, o bootstrapper e o aviso de navegador.
+- **Linux:** abrir pelo menu de um desktop real depois de integrar o AppImage.
+- **Atualizador:** a primeira release com o manifesto assinado (a v0.6.0b1) precisa do environment `release` com o secret `CHAVE_ATUALIZACAO`; o teste de atualização de ponta a ponta (workflow `atualizacao`) só roda a partir da release seguinte.
+- **macOS arm64:** abrir o DMG baixado num Mac, com o "Abrir Mesmo Assim" do Gatekeeper, e ver a janela nativa. O macOS ficou fora da fase 6, mas o `release.yml` ainda gera o DMG.

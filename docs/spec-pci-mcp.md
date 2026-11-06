@@ -19,7 +19,7 @@ Usar o servidor MCP público da PCI Concursos como fonte estruturada, e opcional
 
 ## Entrega em 3 PRs
 
-1. **Cliente, cache e descoberta:** `[pci_mcp]`, `[pci]` no perfil do candidato, `integracoes/pci_mcp.py`, `integracoes/cache_pci.py`, `discover`, `pci enable/disable`, fixtures reais e `.cursor/mcp.json`.
+1. **Cliente, cache e descoberta:** `[pci_mcp]`, `[pci]` no perfil do candidato, `integracoes/pci_mcp.py`, `integracoes/cache_pci.py`, `discover`, `pci enable/disable` e fixtures reais.
 2. **Provas anteriores e simulados:** `pci provas`, `integracoes/pagina_pci.py`, `integracoes/download_assistido.py`, bloco `simulado:`, edital emprestado só para tópicos, simulados fora do consolidado por padrão.
 3. **Radar:** radar depois da análise, `radar_editais.md`, seções no `index.html`, linha no `status` e item no `doctor`, ambos só pelo cache.
 
@@ -63,7 +63,7 @@ Cada PR passa pela paridade com a integração desligada.
 - **Erros:** rede, timeout e HTTP viram `PciMcpIndisponivelError`; formato inesperado, `PciMcpFormatoError`; argumento recusado (`isError`), `PciMcpParametroError`. Num comando explícito, os dois primeiros saem como `ErroDoAmbiente` (código 2) e o último como `ErroDoUsuario` (código 1). Depois da análise, viram aviso.
 - **Logs:** uma linha INFO por comando (`PCI: N consultas, M do cache, F falhas`); cada chamada, a duração e o hit/miss em DEBUG; falhas em WARNING.
 - **Contrato:** `scripts/gravar_fixtures_pci.py` grava `tools/list` e uma resposta real de cada ferramenta em `tests/fixtures/pci/`. O teste de integração (`PCI_MCP_INTEGRACAO=1`, marker `pci_mcp`) compara o `tools/list` real com o gravado.
-- **Cursor:** `.cursor/mcp.json` versionado, só com a URL pública, para o agente consultar o PCI direto.
+- **Cursor:** o README mostra o `.cursor/mcp.json` (só a URL pública) para o agente consultar o PCI direto; o arquivo não é versionado.
 
 ## Descartado
 

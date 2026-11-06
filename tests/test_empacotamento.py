@@ -144,6 +144,79 @@ def test_smoke_pode_dispensar_o_tesseract_num_build_de_desenvolvimento(monkeypat
     assert 'dispensado' in empacotado.conferir_tesseract()
 
 
+TESSERACT_LOCAL = RAIZ / 'empacotamento' / 'construcao' / 'tesseract'
+
+
+def test_segundos_desde_o_inicio_do_processo_e_positivo_e_cresce():
+    primeiro = empacotado.segundos_desde_o_inicio()
+    segundo = empacotado.segundos_desde_o_inicio()
+
+    assert 0 < primeiro <= segundo < 3600
+
+
+def test_partida_acima_do_limite_falha(monkeypatch):
+    monkeypatch.setenv(empacotado.VARIAVEL_LIMITE_PARTIDA, '3')
+
+    with pytest.raises(empacotado.SmokeError, match='partida de 4,2 s passou do limite de 3 s'):
+        empacotado.conferir_partida(4.2)
+
+
+def test_partida_dentro_do_limite_ou_sem_limite_passa(monkeypatch):
+    monkeypatch.setenv(empacotado.VARIAVEL_LIMITE_PARTIDA, '10')
+    assert empacotado.conferir_partida(2.6) == 'partida: 2,6 s (limite 10 s)'
+
+    monkeypatch.delenv(empacotado.VARIAVEL_LIMITE_PARTIDA)
+    assert empacotado.conferir_partida(2.6) == 'partida: 2,6 s'
+
+
+def test_limite_de_partida_invalido_e_erro(monkeypatch):
+    monkeypatch.setenv(empacotado.VARIAVEL_LIMITE_PARTIDA, 'rapido')
+
+    with pytest.raises(empacotado.SmokeError, match=empacotado.VARIAVEL_LIMITE_PARTIDA):
+        empacotado.conferir_partida(1.0)
+
+
+def test_ocr_recusa_tesseract_que_nao_le_a_imagem(monkeypatch, tmp_path):
+    class Saida:
+        returncode = 0
+        stdout = 'texto qualquer\n'
+        stderr = ''
+
+    monkeypatch.setattr(empacotado.subprocess, 'run', lambda *a, **k: Saida())
+
+    with pytest.raises(empacotado.SmokeError, match='não leu'):
+        empacotado.conferir_ocr(str(tmp_path / 'tesseract'))
+
+
+def test_ocr_aceita_quando_o_texto_aparece(monkeypatch, tmp_path):
+    comandos: list[list[str]] = []
+
+    class Saida:
+        returncode = 0
+        stdout = 'CONCURSO 2026\n'
+        stderr = ''
+
+    def rodar(comando, **_):
+        comandos.append(comando)
+        assert Path(comando[1]).is_file()
+        return Saida()
+
+    monkeypatch.setattr(empacotado.subprocess, 'run', rodar)
+
+    assert 'OCR' in empacotado.conferir_ocr(str(tmp_path / 'tesseract'))
+    assert comandos[0][2:] == ['stdout', '-l', 'por']
+
+
+@pytest.mark.skipif(
+    not (TESSERACT_LOCAL / 'bin' / 'tesseract').is_file() or sys.platform != 'linux',
+    reason='sem o Tesseract extraído por empacotamento/tesseract/obter_linux.sh',
+)
+def test_ocr_de_verdade_com_o_tesseract_do_empacotamento(monkeypatch):
+    monkeypatch.setenv('TESSDATA_PREFIX', str(TESSERACT_LOCAL / 'tessdata'))
+
+    assert 'OCR' in empacotado.conferir_ocr(str(TESSERACT_LOCAL / 'bin' / 'tesseract'))
+
+
 def test_responde_espera_o_servidor_subir():
     servidor = http.server.HTTPServer(('127.0.0.1', 0), http.server.SimpleHTTPRequestHandler)
     threading.Thread(target=servidor.serve_forever, daemon=True).start()
@@ -178,17 +251,6 @@ def test_fora_do_executavel_nada_e_embutido(monkeypatch):
     assert not empacotado.embutido('/qualquer/tesseract')
 
 
-def test_windows_sem_webview2_abre_no_navegador(monkeypatch):
-    pytest.importorskip('nicegui')
-    from concursos.gui import app
-
-    monkeypatch.setattr(app.sys, 'platform', 'win32')
-    monkeypatch.setattr(app, 'webview2_instalado', lambda: False)
-    assert app.usar_janela_nativa() is False
-    monkeypatch.setattr(app, 'webview2_instalado', lambda: True)
-    assert app.usar_janela_nativa() is True
-
-
 def test_arquivos_do_empacotamento_existem():
     pasta = RAIZ / 'empacotamento'
     for relativo in (
@@ -198,6 +260,11 @@ def test_arquivos_do_empacotamento_existem():
         'coletar_licencas.py',
         'tesseract/obter_windows.ps1',
         'inno/concurso-analise.iss',
+        'windows/versao.py',
+        'windows/obter_webview2.ps1',
+        'linux/verificar_bibliotecas.sh',
+        'linux/bibliotecas_do_sistema.txt',
+        'icones/concurso-analise-256.png',
         'LICENSES/LEIA-ME.md',
     ):
         assert (pasta / relativo).is_file(), relativo
@@ -213,8 +280,92 @@ def test_launcher_chama_freeze_support_antes_de_tudo():
 
 
 def test_instalador_por_usuario_com_versao_no_nome():
-    texto = (RAIZ / 'empacotamento' / 'inno' / 'concurso-analise.iss').read_text(encoding='utf-8')
+    texto = (RAIZ / 'empacotamento' / 'inno' / 'concurso-analise.iss').read_text(encoding='utf-8-sig')
 
     assert 'PrivilegesRequired=lowest' in texto
     assert 'OutputBaseFilename=concurso-analise-{#Versao}-windows-x64-setup' in texto
     assert 'BrazilianPortuguese.isl' in texto
+    assert 'VersionInfoProductName={#Nome}' in texto
+    assert 'VersionInfoVersion={#VersaoNumerica}' in texto
+
+
+def modulo_versao():
+    import importlib.util
+
+    caminho = RAIZ / 'empacotamento' / 'windows' / 'versao.py'
+    especificacao = importlib.util.spec_from_file_location('versao_windows', caminho)
+    modulo = importlib.util.module_from_spec(especificacao)
+    especificacao.loader.exec_module(modulo)
+    return modulo
+
+
+@pytest.mark.parametrize(
+    ('versao', 'numerica'),
+    [
+        ('0.6.0', (0, 6, 0, 0)),
+        ('0.6.0b1', (0, 6, 0, 0)),
+        ('1.2', (1, 2, 0, 0)),
+        ('0.6.0.post1', (0, 6, 0, 1)),
+    ],
+)
+def test_versao_numerica_do_windows_tem_quatro_partes(versao, numerica):
+    assert modulo_versao().versao_numerica(versao) == numerica
+
+
+def test_recurso_de_versao_identifica_o_produto_e_o_editor(tmp_path):
+    versao = modulo_versao()
+
+    texto = versao.recurso_de_versao('0.6.0b1', 'concurso-analise-cli', 'concurso-analise (linha de comando)')
+
+    assert 'filevers=(0, 6, 0, 0)' in texto
+    assert "StringStruct('ProductName', 'concurso-analise')" in texto
+    assert "StringStruct('ProductVersion', '0.6.0b1')" in texto
+    assert "StringStruct('OriginalFilename', 'concurso-analise-cli.exe')" in texto
+    assert "StringStruct('CompanyName', 'LMafra')" in texto
+    assert 'VarStruct' in texto
+
+
+def test_spec_usa_o_recurso_de_versao_nos_dois_executaveis():
+    texto = (RAIZ / 'empacotamento' / 'concurso-analise.spec').read_text(encoding='utf-8')
+
+    assert texto.count('version=recurso(') == 2
+
+
+def test_lista_de_bibliotecas_do_sistema_e_so_a_glibc():
+    linhas = (
+        (RAIZ / 'empacotamento' / 'linux' / 'bibliotecas_do_sistema.txt')
+        .read_text(encoding='utf-8')
+        .splitlines()
+    )
+    permitidas = {linha for linha in linhas if linha and not linha.startswith('#')}
+
+    assert {'libc.so.6', 'ld-linux-x86-64.so.2', 'libm.so.6'} <= permitidas
+    assert not {
+        nome for nome in permitidas if nome.startswith(('libstdc++', 'libgcc_s', 'libz.', 'libtesseract'))
+    }
+
+
+def test_appdir_tem_desktop_valido_icone_e_versao():
+    montar = (RAIZ / 'empacotamento' / 'linux' / 'montar_appimage.sh').read_text(encoding='utf-8')
+    desktop = (RAIZ / 'empacotamento' / 'linux' / 'concurso-analise.desktop').read_text(encoding='utf-8')
+
+    assert 'verificar_bibliotecas.sh' in montar
+    assert '.DirIcon' in montar
+    assert 'hicolor/256x256/apps' in montar
+    assert 'X-AppImage-Version=$VERSAO' in montar
+    assert 'Icon=concurso-analise' in desktop
+    assert 'Categories=Education;' in desktop
+
+
+def test_mutex_so_no_windows():
+    assert empacotado.segurar_mutex('linux') is None
+    assert empacotado.MUTEX == 'concurso-analise'
+
+
+def test_setup_espera_o_mutex_e_reabre_com_reabrir():
+    texto = (RAIZ / 'empacotamento' / 'inno' / 'concurso-analise.iss').read_text(encoding='utf-8-sig')
+
+    assert '#define Mutex "concurso-analise"' in texto
+    assert "CheckForMutexes('{#Mutex}')" in texto
+    assert 'Check: DeveReabrir' in texto
+    assert '{param:REABRIR|0}' in texto

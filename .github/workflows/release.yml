@@ -54,21 +54,94 @@ jobs:
           uv run --no-sync python empacotamento/coletar_licencas.py
           $versao = uv run --no-sync python -c "from importlib.metadata import version; print(version('concurso-analise'))"
           "VERSAO=$versao" >> $env:GITHUB_ENV
+          $numerica = uv run --no-sync python -c "import sys; sys.path.insert(0, 'empacotamento/windows'); from versao import versao_numerica; print('.'.join(map(str, versao_numerica(sys.argv[1]))))" $versao
+          "VERSAO_NUMERICA=$numerica" >> $env:GITHUB_ENV
+
+      # Sem o token e as variáveis da SignPath (fork, ou antes da aprovação), o build segue sem assinatura.
+      - name: Assinatura disponível?
+        id: assinatura
+        env:
+          TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          ORGANIZACAO: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          PROJETO: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+        run: |
+          $ativa = [bool]$env:TOKEN -and [bool]$env:ORGANIZACAO -and [bool]$env:PROJETO
+          "ativa=$($ativa.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          $politica = if ($env:GITHUB_REF.StartsWith('refs/tags/v')) { 'release-signing' } else { 'test-signing' }
+          "politica=$politica" >> $env:GITHUB_OUTPUT
+          if (-not $ativa) { 'Sem SignPath configurada: executáveis e setup sem assinatura.' | Add-Content $env:GITHUB_STEP_SUMMARY }
 
       - name: PyInstaller (onedir)
         run: uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
 
+      - name: Executáveis para a SignPath
+        id: executaveis
+        if: steps.assinatura.outputs.ativa == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: executaveis-sem-assinatura
+          path: |
+            dist/concurso-analise/concurso-analise.exe
+            dist/concurso-analise/concurso-analise-cli.exe
+          if-no-files-found: error
+
+      - name: Assinar os executáveis (SignPath)
+        if: steps.assinatura.outputs.ativa == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ steps.assinatura.outputs.politica }}
+          artifact-configuration-slug: executaveis
+          github-artifact-id: ${{ steps.executaveis.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist/concurso-analise
+
+      - name: Bootstrapper do WebView2
+        run: ./empacotamento/windows/obter_webview2.ps1
+
       - name: Instalador (Inno Setup)
         run: |
+          if (-not (Test-Path empacotamento\construcao\MicrosoftEdgeWebview2Setup.exe)) { throw 'falta o bootstrapper do WebView2' }
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) {
             choco install innosetup --yes --no-progress
           }
-          & $iscc "/DVersao=$env:VERSAO" empacotamento\inno\concurso-analise.iss
+          & $iscc "/DVersao=$env:VERSAO" "/DVersaoNumerica=$env:VERSAO_NUMERICA" empacotamento\inno\concurso-analise.iss
           if ($LASTEXITCODE -ne 0) { throw 'iscc falhou' }
 
+      - name: Setup para a SignPath
+        id: instalador
+        if: steps.assinatura.outputs.ativa == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: instalador-sem-assinatura
+          path: dist/concurso-analise-*-windows-x64-setup.exe
+          if-no-files-found: error
+
+      - name: Assinar o setup (SignPath)
+        if: steps.assinatura.outputs.ativa == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ steps.assinatura.outputs.politica }}
+          artifact-configuration-slug: instalador
+          github-artifact-id: ${{ steps.instalador.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist
+
+      # O certificado da política test-signing não é confiável para o Windows; só a tag exige Authenticode válido.
       - name: Gate de máquina limpa
-        run: ./scripts/smoke_maquina_limpa.ps1 -Instalador "dist\concurso-analise-$env:VERSAO-windows-x64-setup.exe"
+        env:
+          ASSINADO: ${{ steps.assinatura.outputs.ativa }}
+        run: |
+          $assinatura = @{ ExigirAssinatura = ($env:ASSINADO -eq 'true' -and $env:GITHUB_REF.StartsWith('refs/tags/v')) }
+          ./scripts/smoke_maquina_limpa.ps1 -Instalador "dist\concurso-analise-$env:VERSAO-windows-x64-setup.exe" `
+            -LimitePartida 10 -Relatorio dist\smoke-windows.md @assinatura
+          Get-Content dist\smoke-windows.md | Add-Content $env:GITHUB_STEP_SUMMARY
 
       - name: Tamanho
         run: |
@@ -80,6 +153,12 @@ jobs:
         with:
           name: windows
           path: dist/concurso-analise-*-windows-x64-setup.exe
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-windows
+          path: dist/smoke-windows.md
           if-no-files-found: error
 
   linux:
@@ -112,6 +191,10 @@ jobs:
   linux-smoke:
     needs: linux
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        imagem: ['debian:12', 'ubuntu:22.04']
     env:
       APPIMAGE_EXTRACT_AND_RUN: '1'
     steps:
@@ -122,18 +205,37 @@ jobs:
           name: linux
           path: dist
 
-      - name: Gate de máquina limpa (debian:12, sem Python e sem Tesseract)
+      - name: Gate de máquina limpa (${{ matrix.imagem }}, sem Python e sem Tesseract)
         run: |
           chmod +x dist/*.AppImage
-          docker run --rm -v "$PWD/dist:/dist:ro" -e APPIMAGE_EXTRACT_AND_RUN=1 debian:12 sh -euc '
+          relatorio="smoke-linux-$(echo '${{ matrix.imagem }}' | tr ':.' '--').md"
+          docker run --rm -v "$PWD/dist:/dist:ro" -e APPIMAGE_EXTRACT_AND_RUN=1 \
+            -e CONCURSO_SMOKE_LIMITE_PARTIDA=10 '${{ matrix.imagem }}' sh -euc '
             if command -v python3 || command -v tesseract; then exit 1; fi
             cd /tmp
             /dist/concurso-analise-*.AppImage --smoke
             /dist/concurso-analise-*.AppImage doctor
-          '
+          ' | tee saida.txt
+          {
+            echo "## Linux (${{ matrix.imagem }}, AppImage)"
+            echo
+            grep '^smoke:' saida.txt | sed 's/^smoke: /- /'
+            echo '- doctor sem erros, sem Python nem Tesseract no contêiner'
+          } > "$relatorio"
+          echo "RELATORIO=$relatorio" >> "$GITHUB_ENV"
 
       - name: Onboarding e análise pelo executável
-        run: python3 scripts/smoke.py congelado dist/concurso-analise-*-linux-x86_64.AppImage
+        run: |
+          python3 scripts/smoke.py congelado dist/concurso-analise-*-linux-x86_64.AppImage
+          echo '- scripts/smoke.py congelado: onboarding, análise e idempotência ok' >> "$RELATORIO"
+          echo >> "$RELATORIO"
+          cat "$RELATORIO" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-${{ strategy.job-index }}
+          path: smoke-linux-*.md
+          if-no-files-found: error
 
   macos:
     runs-on: macos-latest
@@ -188,32 +290,75 @@ jobs:
           if-no-files-found: error
 
   publicar:
-    # Rascunho: a release só é publicada depois do checklist manual no Windows Sandbox
-    # (.scratch/gui-leigo/issues/07-instalador-windows.md).
+    # Rascunho: a release só é publicada depois do checklist manual de docs/spec-fase6.md. O environment
+    # `release` exige aprovação e guarda a chave que assina o manifesto de atualização.
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [windows, linux-smoke, macos]
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v5
 
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
       - uses: actions/download-artifact@v4
         with:
+          pattern: '{windows,linux,macos}'
           path: dist
           merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: relatorio-*
+          path: relatorios
+          merge-multiple: true
+
+      # O passo com a chave usa só as dependências do uv.lock (com hash), nada resolvido na hora.
+      - name: Dependências travadas
+        run: uv sync --frozen --no-dev --no-install-project
+
+      - name: Versão da tag
+        run: |
+          versao=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          if [ "$GITHUB_REF_NAME" != "v$versao" ]; then
+            echo "a tag $GITHUB_REF_NAME não é v$versao (pyproject.toml)" >&2
+            exit 1
+          fi
+          echo "VERSAO=$versao" >> "$GITHUB_ENV"
+          previa=$(uv run --no-sync python -c "import sys; from packaging.version import Version; print('sim' if Version(sys.argv[1]).is_prerelease else 'nao')" "$versao")
+          echo "PREVIA=$previa" >> "$GITHUB_ENV"
+
+      - name: Manifesto de atualização assinado
+        env:
+          CHAVE_ATUALIZACAO: ${{ secrets.CHAVE_ATUALIZACAO }}
+        run: |
+          uv run --no-sync python scripts/assinar_manifesto.py assinar "$VERSAO" dist
+          uv run --no-sync python scripts/assinar_manifesto.py conferir dist \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: RELATORIO-SMOKE.md
+        run: |
+          python3 scripts/relatorio_smoke.py "$VERSAO" "$GITHUB_SHA" relatorios dist/RELATORIO-SMOKE.md
+          cat dist/RELATORIO-SMOKE.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: SHA256SUMS
         working-directory: dist
         run: |
-          sha256sum concurso-analise-* > SHA256SUMS
+          sha256sum concurso-analise-* atualizacao.json atualizacao.json.sig RELATORIO-SMOKE.md > SHA256SUMS
           cat SHA256SUMS | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Pré-release (b, rc) nasce como prerelease; nenhuma vira "latest" sozinha: a promoção é manual,
+      # depois do teste de atualização ponta a ponta (atualizacao.yml).
       - name: Release (rascunho)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notas="docs/release-$GITHUB_REF_NAME.md"
           if [ -f "$notas" ]; then origem=(--notes-file "$notas"); else origem=(--generate-notes); fi
-          gh release create "$GITHUB_REF_NAME" --draft "${origem[@]}" \
+          if [ "$PREVIA" = sim ]; then tipo=(--prerelease); else tipo=(--latest=false); fi
+          gh release create "$GITHUB_REF_NAME" --draft "${origem[@]}" "${tipo[@]}" \
             --title "concurso-analise ${GITHUB_REF_NAME#v}" dist/*

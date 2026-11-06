@@ -6,6 +6,8 @@ from nicegui import run, ui
 from concursos.aplicacao import analise
 from concursos.aplicacao.resultados import Resultados, abrir_no_navegador, resultados
 from concursos.exportacao import FormatoExportacao
+from concursos.gui import tema
+from concursos.gui.componentes.estado_vazio import estado_vazio
 from concursos.gui.componentes.relatorio import relatorio
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
@@ -14,14 +16,14 @@ from concursos.gui.textos import mostrar_erro, rotulo
 logger = logging.getLogger('concursos')
 
 LINHAS_POR_PAGINA = 15
-SEM_RELATORIO = 'Ainda não há relatório. Clique em "Analisar" para corrigir as provas e gerar o relatório.'
+SEM_RELATORIO = 'Analise as provas para corrigir e gerar o relatório com as suas notas e os tópicos fracos.'
 SEM_RECOMENDACOES = (
-    'Sem recomendações ainda. Elas aparecem depois da análise quando o projeto tem uma biblioteca de '
-    'estudo (biblioteca.yaml) ou a legislação ligada; os tópicos fracos estão no relatório.'
+    'Elas aparecem depois da análise quando o projeto tem uma biblioteca de estudo (biblioteca.yaml) ou a '
+    'legislação ligada; os tópicos fracos estão no relatório.'
 )
 SEM_PRATICA = (
-    'Sem prática no TEC ainda. Instale a captura do TEC (em Integrações), exporte os seus erros e solte o '
-    'arquivo em Integrações, Prática no TEC; a análise seguinte junta a prática ao relatório.'
+    'Instale a captura do TEC (em Integrações), exporte os seus erros e solte o arquivo em Integrações, '
+    'Prática no TEC; a análise seguinte junta a prática ao relatório.'
 )
 DESCRICAO_DOS_FORMATOS = {
     FormatoExportacao.CSV: 'CSV (Excel, planilhas)',
@@ -33,7 +35,7 @@ DESCRICAO_DOS_FORMATOS = {
 def pagina() -> None:
     if not exigir_projeto():
         return
-    with ui.column().classes('w-full gap-3'):
+    with ui.column().classes('w-full').style(tema.gap('md')):
         seletor_do_candidato()
         try:
             achados = resultados(ESTADO.contexto())
@@ -49,7 +51,17 @@ def pagina() -> None:
             with ui.tab_panel(aba_relatorio):
                 painel_do_relatorio(achados)
             with ui.tab_panel(aba_recomendacoes):
-                markdown_ou_explicacao(achados.recomendacoes, SEM_RECOMENDACOES, 'recomendacoes')
+                if achados.recomendacoes is None:
+                    estado_vazio(
+                        'menu_book',
+                        'Sem recomendações ainda',
+                        SEM_RECOMENDACOES,
+                        acao='Ver o relatório',
+                        ao_clicar=lambda: abas.set_value(aba_relatorio),
+                        marca='sem-recomendacoes',
+                    )
+                else:
+                    ui.markdown(achados.recomendacoes).classes('w-full').mark('recomendacoes')
             with ui.tab_panel(aba_pratica):
                 painel_da_pratica(achados)
             with ui.tab_panel(aba_exportar):
@@ -76,31 +88,36 @@ def seletor_do_candidato() -> None:
 
 def painel_do_relatorio(achados: Resultados) -> None:
     if achados.indice is None:
-        with ui.column().mark('sem-relatorio'):
-            ui.label(SEM_RELATORIO)
-            ui.button('Analisar', icon='play_arrow', on_click=analisar)
+        estado_vazio(
+            'insights',
+            'Ainda não há relatório',
+            SEM_RELATORIO,
+            acao='Analisar',
+            ao_clicar=analisar,
+            icone_da_acao='play_arrow',
+            marca='sem-relatorio',
+        )
         return
     indice = achados.indice
-    with ui.row():
+    with ui.row().style(tema.gap('sm')):
         ui.button('Abrir no navegador', icon='open_in_new', on_click=lambda: abrir_no_navegador(indice)).mark(
             'abrir-navegador'
         )
     relatorio(indice)
 
 
-def markdown_ou_explicacao(texto: str | None, explicacao: str, marca: str) -> None:
-    if texto is None:
-        ui.label(explicacao).classes('text-grey-8').mark(f'sem-{marca}')
-        return
-    ui.markdown(texto).classes('w-full').mark(marca)
-
-
 def painel_da_pratica(achados: Resultados) -> None:
-    markdown_ou_explicacao(achados.pratica, SEM_PRATICA, 'pratica')
     if achados.pratica is None:
-        ui.button('Ir para a prática no TEC', on_click=lambda: ui.navigate.to('/integracoes?aba=tec')).props(
-            'outline'
+        estado_vazio(
+            'school',
+            'Sem prática no TEC ainda',
+            SEM_PRATICA,
+            acao='Ir para a prática no TEC',
+            ao_clicar=lambda: ui.navigate.to('/integracoes?aba=tec'),
+            marca='sem-pratica',
         )
+    else:
+        ui.markdown(achados.pratica).classes('w-full').mark('pratica')
     for titulo, caminho in achados.tabelas_pratica.items():
         with ui.expansion(titulo, icon='table_chart').classes('w-full'):
             tabela = pd.read_csv(caminho, keep_default_na=False)
@@ -120,13 +137,13 @@ def painel_de_exportacao() -> None:
         saida.clear()
         with saida:
             ui.label(f'Exportado em {destino}').mark('exportado')
-            with ui.row():
+            with ui.row().style(tema.gap('sm')):
                 ui.button('Baixar', icon='download', on_click=lambda: ui.download.file(destino)).props('flat')
                 ui.button(
                     'Abrir a pasta', icon='folder_open', on_click=lambda: abrir_no_navegador(destino.parent)
                 ).props('flat')
 
-    with ui.row():
+    with ui.row().style(tema.gap('sm')):
         for formato, descricao in DESCRICAO_DOS_FORMATOS.items():
             ui.button(descricao, on_click=lambda f=formato: exportar(f)).props('outline').mark(
                 f'exportar-{formato.value}'

@@ -1,6 +1,6 @@
 # Spec: Generalização, Portabilidade e UX de 1 Comando (Fase 4)
 
-Tickets: `.scratch/generalizacao-portabilidade/issues/`. Pesquisa de apoio (bancas, UX de CLI, OMR, distribuição): `docs/pesquisa-fase4.md`.
+Pesquisa de apoio (bancas, UX de CLI, OMR, distribuição): `docs/pesquisa-fase4.md`.
 
 ## Problem Statement
 

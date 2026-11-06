@@ -1,0 +1,16 @@
+# Bibliotecas que o onedir do Linux pode carregar do sistema (fora de dist/concurso-analise).
+# Só a glibc e o carregador: estão em toda distribuição, e o build na glibc 2.28 (manylinux_2_28) roda nas
+# mais novas. Qualquer outra biblioteca de fora vira erro do verificar_bibliotecas.sh: ela precisa ir no bundle.
+linux-vdso.so.1
+ld-linux-x86-64.so.2
+libc.so.6
+libm.so.6
+libmvec.so.1
+libdl.so.2
+libpthread.so.0
+librt.so.1
+libutil.so.1
+libresolv.so.2
+libnsl.so.1
+libanl.so.1
+libcrypt.so.1

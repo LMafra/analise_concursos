@@ -1,0 +1,116 @@
+from pathlib import Path
+
+import pytest
+from nicegui.testing.user import User
+
+from concursos.aplicacao import atualizador as atualizacao
+from concursos.atualizador import Artefato
+from concursos.gui.estado import ESTADO
+from concursos.modelo import CanalAtualizacao
+
+NOVIDADE = atualizacao.Novidade(
+    versao='9.0.0',
+    canal=CanalAtualizacao.STABLE,
+    notas='https://github.com/LMafra/analise_concursos/releases/tag/v9.0.0',
+    plataforma='linux-x86_64',
+    artefato=Artefato('concurso-analise-9.0.0-linux-x86_64.AppImage', 'a' * 64, 250_000_000),
+    url='https://github.com/LMafra/analise_concursos/releases/download/v9.0.0/x',
+)
+
+
+def elemento(user: User, marca: str):
+    return next(iter(user.find(marker=marca).elements))
+
+
+@pytest.fixture
+def executavel(monkeypatch, home_isolada):
+    monkeypatch.setattr(atualizacao, 'no_executavel', lambda: True)
+
+
+async def test_fora_do_executavel_o_sobre_mostra_o_comando_do_uv(user: User):
+    await user.open('/sobre')
+
+    await user.should_see(marker='atualizar-pelo-uv')
+    await user.should_not_see(marker='verificar-atualizacoes')
+
+
+async def test_sobre_so_consulta_no_clique_e_mostra_a_versao_nova(user: User, executavel, monkeypatch):
+    consultas = []
+    monkeypatch.setattr(atualizacao, 'verificar', lambda canal: consultas.append(canal) or NOVIDADE)
+
+    await user.open('/sobre')
+    assert consultas == []
+    user.find(marker='verificar-atualizacoes').click()
+
+    await user.should_see('Versão 9.0.0 disponível (stable).')
+    await user.should_see(marker='instalar-atualizacao')
+    assert consultas == [CanalAtualizacao.STABLE]
+    assert ESTADO.novidade == NOVIDADE
+
+
+async def test_sobre_sem_novidade_diz_que_esta_na_mais_nova(user: User, executavel, monkeypatch):
+    monkeypatch.setattr(atualizacao, 'verificar', lambda canal: None)
+
+    await user.open('/sobre')
+    user.find(marker='verificar-atualizacoes').click()
+
+    await user.should_see('Você já tem a versão mais nova do canal stable')
+
+
+async def test_falha_na_consulta_aparece_como_erro_e_dica(user: User, executavel, monkeypatch):
+    from concursos.erros import ErroDoAmbiente
+
+    def falha(canal):
+        raise ErroDoAmbiente('sem conexão com o GitHub para procurar a atualização', 'confira a internet')
+
+    monkeypatch.setattr(atualizacao, 'verificar', falha)
+
+    await user.open('/sobre')
+    user.find(marker='verificar-atualizacoes').click()
+
+    await user.should_see('erro: sem conexão com o GitHub para procurar a atualização')
+
+
+async def test_instalar_pede_confirmacao_e_no_linux_oferece_reabrir(
+    user: User, executavel, monkeypatch, tmp_path
+):
+    ESTADO.novidade = NOVIDADE
+    instalados = []
+
+    def instalar(novidade, progresso):
+        progresso(1, 2)
+        instalados.append(novidade)
+        return atualizacao.Instalacao('9.0.0', tmp_path / 'x.AppImage', setup_em_andamento=False)
+
+    monkeypatch.setattr(atualizacao, 'instalar', instalar)
+
+    await user.open('/sobre')
+    user.find(marker='instalar-atualizacao').click()
+    await user.should_see('Baixar e instalar a 9.0.0?')
+    assert instalados == []
+    user.find(marker='confirmar-atualizacao').click()
+
+    await user.should_see('Atualizado para 9.0.0. Reabrir agora?')
+    assert instalados == [NOVIDADE]
+
+
+async def test_chip_no_cabecalho_so_com_versao_nova(user: User):
+    await user.open('/')
+    await user.should_not_see('Versão 9.0.0 disponível')
+
+    ESTADO.novidade = NOVIDADE
+    await user.open('/')
+    await user.should_see('Versão 9.0.0 disponível')
+
+
+async def test_avancado_grava_canal_e_aviso_que_comecam_desligados(user: User, projeto, home_isolada):
+    await user.open('/configuracoes')
+    assert elemento(user, 'verificar-ao-abrir').value is False
+    assert elemento(user, 'canal-atualizacao').value == 'stable'
+
+    elemento(user, 'verificar-ao-abrir').value = True
+    elemento(user, 'canal-atualizacao').value = 'beta'
+
+    await user.should_see('Preferência de atualização gravada.')
+    preferencias = atualizacao.ler_preferencias(Path(home_isolada) / 'config.toml')
+    assert preferencias == atualizacao.Preferencias(CanalAtualizacao.BETA, True)

@@ -35,6 +35,7 @@ def desenhar() -> Image.Image:
 def main() -> None:
     imagem = desenhar()
     imagem.save(PASTA / 'concurso-analise.png')
+    imagem.resize((256, 256), Image.Resampling.LANCZOS).save(PASTA / 'concurso-analise-256.png')
     imagem.save(PASTA / 'concurso-analise.ico', sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
     imagem.save(PASTA / 'concurso-analise.icns')
 

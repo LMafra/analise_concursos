@@ -39,6 +39,21 @@ a = Analysis(
     noarchive=False,
 )
 pyz = PYZ(a.pure)
+
+
+def recurso(nome: str, descricao: str) -> str | None:
+    """Recurso de versão do `.exe`; sem ele, as propriedades do arquivo e o SmartScreen não mostram o produto."""
+    if sys.platform != 'win32':
+        return None
+    sys.path.insert(0, str(PASTA / 'windows'))
+    from versao import recurso_de_versao
+
+    CONSTRUCAO.mkdir(exist_ok=True)
+    destino = CONSTRUCAO / f'versao-{nome}.txt'
+    destino.write_text(recurso_de_versao(VERSAO, nome, descricao), encoding='utf-8')
+    return str(destino)
+
+
 icone = PASTA / 'icones' / ('concurso-analise.ico' if sys.platform == 'win32' else 'concurso-analise.icns')
 
 janela = EXE(
@@ -48,6 +63,7 @@ janela = EXE(
     exclude_binaries=True,
     name=NOME,
     console=False,
+    version=recurso(NOME, 'concurso-analise'),
     icon=str(icone) if icone.exists() else None,
 )
 cli = EXE(
@@ -57,6 +73,7 @@ cli = EXE(
     exclude_binaries=True,
     name=f'{NOME}-cli',
     console=True,
+    version=recurso(f'{NOME}-cli', 'concurso-analise (linha de comando)'),
     icon=str(icone) if icone.exists() else None,
 )
 coll = COLLECT(janela, cli, a.binaries, a.datas, name=NOME)

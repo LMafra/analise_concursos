@@ -1,18 +1,24 @@
 import asyncio
 import shutil
+import threading
 import tomllib
 from pathlib import Path
 
 import pytest
 from concurso_sintetico import ARQUIVOS_SIMPLES, config_simples, criar_concurso
+from nicegui import ui
 from nicegui.testing.user import User
 
+from concursos import doctor as diagnostico
+from concursos import janela
 from concursos.aplicacao import analise
+from concursos.aplicacao import projeto as projeto_aplicacao
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.cli import main
 from concursos.erros import ErroDoUsuario
 from concursos.gui import app as gui_app
 from concursos.gui.estado import ESTADO
+from concursos.modelo import DecisaoJanela, Etapa
 
 
 async def esperar(condicao, segundos: float = 3.0) -> None:
@@ -28,7 +34,16 @@ def ao_subir(monkeypatch) -> list:
     """O que `executar` agendaria para a subida do servidor, sem registrar no app de verdade."""
     agendados: list = []
     monkeypatch.setattr(gui_app.app, 'on_startup', agendados.append)
+    monkeypatch.setattr(gui_app.app, 'on_connect', agendados.append)
+    monkeypatch.setattr(gui_app.app, 'on_shutdown', agendados.append)
     return agendados
+
+
+@pytest.fixture
+def reaberturas(monkeypatch) -> list[list[str]]:
+    comandos: list[list[str]] = []
+    monkeypatch.setattr(gui_app.subprocess, 'Popen', lambda comando, env: comandos.append((comando, env)))
+    return comandos
 
 
 @pytest.mark.parametrize(('plataforma', 'nativa'), [('linux', False), ('win32', True), ('darwin', True)])
@@ -36,7 +51,7 @@ def test_executar_so_escuta_no_proprio_computador(monkeypatch, tmp_path, ao_subi
     chamadas: list[dict] = []
     monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: chamadas.append(kwargs))
     monkeypatch.setattr(gui_app.sys, 'platform', plataforma)
-    monkeypatch.setattr(gui_app, 'webview2_instalado', lambda: True)
+    monkeypatch.setattr(janela, 'ler_registro_windows', lambda raiz, chave: '130.0.2849.56')
 
     gui_app.executar(tmp_path / 'projeto')
 
@@ -97,6 +112,103 @@ def test_executar_lembra_se_abriu_no_navegador(monkeypatch, tmp_path, ao_subir, 
     gui_app.executar(tmp_path, navegador=True, porta=8123)
 
     assert ESTADO.no_navegador is True
+
+
+def test_windows_sem_webview2_abre_no_navegador_e_guarda_o_motivo(monkeypatch, tmp_path, ao_subir, navegador):
+    chamadas: list[dict] = []
+    monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: chamadas.append(kwargs))
+    monkeypatch.setattr(gui_app.sys, 'platform', 'win32')
+    monkeypatch.setattr(janela, 'ler_registro_windows', lambda raiz, chave: None)
+    monkeypatch.setattr(janela, 'versao_pelo_loader_windows', lambda: None)
+
+    gui_app.executar(tmp_path, porta=8123)
+
+    assert chamadas[0]['native'] is False
+    assert ESTADO.decisao_janela is DecisaoJanela.NAVEGADOR_SEM_WEBVIEW2
+    assert navegador == [] and ao_subir
+    ao_subir[0]()
+    assert navegador == ['http://127.0.0.1:8123/']
+
+
+def test_janela_que_quebra_ao_abrir_reabre_no_navegador(monkeypatch, tmp_path, ao_subir, reaberturas):
+    def quebra(raiz, **kwargs):
+        raise RuntimeError('WebView2 corrompido')
+
+    monkeypatch.setattr(gui_app.ui, 'run', quebra)
+    monkeypatch.setattr(gui_app.sys, 'platform', 'darwin')
+
+    gui_app.executar(tmp_path / 'projeto', porta=8123)
+
+    comando, ambiente = reaberturas[0]
+    assert comando[-3:] == ['--browser', '--project', str((tmp_path / 'projeto').resolve())]
+    assert ambiente[janela.VARIAVEL_JANELA_FALHOU] == '1'
+
+
+def test_janela_que_fecha_sem_carregar_reabre_uma_vez_so(monkeypatch, tmp_path, ao_subir, reaberturas):
+    monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: None)
+    monkeypatch.setattr(gui_app.sys, 'platform', 'darwin')
+    gui_app.executar(tmp_path, porta=8123)
+    marcar, encerrar = ao_subir
+
+    encerrar()
+    encerrar()
+
+    assert len(reaberturas) == 1
+    assert marcar is gui_app.marcar_conexao
+
+
+def test_janela_usada_e_fechada_nao_reabre(monkeypatch, tmp_path, ao_subir, reaberturas):
+    monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: None)
+    monkeypatch.setattr(gui_app.sys, 'platform', 'darwin')
+    gui_app.executar(tmp_path, porta=8123)
+    marcar, encerrar = ao_subir
+
+    marcar()
+    encerrar()
+
+    assert reaberturas == []
+
+
+def test_reaberto_depois_da_falha_mostra_o_aviso(monkeypatch, tmp_path, ao_subir, navegador):
+    monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: None)
+    monkeypatch.setenv(janela.VARIAVEL_JANELA_FALHOU, '1')
+
+    gui_app.executar(tmp_path, navegador=True, porta=8123)
+
+    assert ESTADO.janela_falhou is True
+
+
+async def test_aviso_sem_webview2_tem_link_e_entendi_que_lembra(user: User, home_isolada):
+    ESTADO.decisao_janela = DecisaoJanela.NAVEGADOR_SEM_WEBVIEW2
+
+    await user.open('/')
+    await user.should_see(janela.TITULO_AVISO)
+    await user.should_see(marker='link-webview2')
+    user.find(marker='dispensar-aviso-janela').click()
+
+    await user.should_not_see(janela.TITULO_AVISO)
+    configuracao = tomllib.loads((home_isolada / 'config.toml').read_text(encoding='utf-8'))
+    assert configuracao['gui']['aviso_webview2_dispensado'] is True
+
+
+async def test_aviso_dispensado_nao_volta_mas_a_falha_da_janela_sim(user: User, home_isolada):
+    home_isolada.mkdir(parents=True, exist_ok=True)
+    (home_isolada / 'config.toml').write_text('[gui]\naviso_webview2_dispensado = true\n', encoding='utf-8')
+    ESTADO.decisao_janela = DecisaoJanela.NAVEGADOR_SEM_WEBVIEW2
+
+    await user.open('/')
+    await user.should_not_see(janela.TITULO_AVISO)
+
+    ESTADO.janela_falhou = True
+    await user.open('/')
+    await user.should_see(janela.TITULO_AVISO)
+
+
+async def test_navegador_pedido_nao_avisa(user: User):
+    ESTADO.decisao_janela = DecisaoJanela.NAVEGADOR_PEDIDO
+
+    await user.open('/')
+    await user.should_not_see(janela.TITULO_AVISO)
 
 
 async def test_sem_projeto_pede_a_pasta_e_lembra_dela(user: User, tmp_path, home_isolada):
@@ -167,6 +279,25 @@ async def test_analisar_avanca_a_barra_por_concurso_e_preenche_o_log(user: User,
     assert recebidas[0].ao_progresso is not None
 
 
+async def test_analisar_mostra_a_etapa_atual_do_concurso(user: User, projeto, monkeypatch):
+    liberar = threading.Event()
+
+    def analisar_falso(opcoes: Opcoes) -> int:
+        opcoes.ao_progresso('alfa', 1, 2)
+        opcoes.ao_etapa('alfa', Etapa.LENDO_FOLHA)
+        liberar.wait(5)
+        return 0
+
+    monkeypatch.setattr(analise, 'analisar', analisar_falso)
+
+    await user.open('/analise')
+    user.find(marker='iniciar').click()
+
+    await user.should_see('Analisando alfa (1 de 2): Lendo a folha…', retries=60)
+    liberar.set()
+    await user.should_see('Análise concluída.', retries=60)
+
+
 async def test_analisar_mostra_erro_e_dica_como_a_cli(user: User, projeto, monkeypatch):
     def analisar_falso(opcoes: Opcoes) -> int:
         raise ErroDoUsuario('pasta de provas não encontrada', 'crie uma subpasta por concurso')
@@ -181,6 +312,7 @@ async def test_analisar_mostra_erro_e_dica_como_a_cli(user: User, projeto, monke
 
 
 async def test_botao_analisar_da_lista_ja_inicia_a_analise(user: User, projeto, monkeypatch):
+    criar_concurso(projeto / 'provas', 'alfa', config_simples('alfa'), ARQUIVOS_SIMPLES)
     chamadas: list[Opcoes] = []
     monkeypatch.setattr(analise, 'analisar', lambda opcoes: chamadas.append(opcoes) or 0)
 
@@ -225,3 +357,30 @@ async def test_sobre_mostra_versao_e_caminho_do_log(user: User):
     await user.should_see('concurso-analise')
     await user.should_see('Log:')
     await user.should_see('127.0.0.1')
+
+
+async def test_projeto_vazio_oferece_criar_o_primeiro_concurso(user: User, projeto):
+    await user.open('/')
+
+    user.find(marker='sem-concursos-acao').click()
+
+    await user.should_see(marker='nome-concurso')
+
+
+async def test_situacao_do_concurso_tem_icone_e_texto(user: User, projeto):
+    criar_concurso(projeto / 'provas', 'alfa', config_simples('alfa'), ARQUIVOS_SIMPLES)
+
+    await user.open('/')
+
+    await user.should_see('completo')
+    await user.should_see(kind=ui.icon, content='check_circle')
+
+
+async def test_sobre_confere_o_ambiente_sem_sair_da_tela(user: User, projeto, monkeypatch):
+    monkeypatch.setattr(projeto_aplicacao, 'diagnosticar', lambda contexto: [])
+    monkeypatch.setattr(diagnostico, 'formatar', lambda itens: 'tudo certo no ambiente')
+    await user.open('/sobre')
+
+    user.find(marker='conferir-ambiente').click()
+
+    await user.should_see('tudo certo no ambiente')

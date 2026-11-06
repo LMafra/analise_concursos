@@ -31,10 +31,20 @@ from concursos.erros import ErroDoUsuario
 from concursos.exportacao import FormatoExportacao, exportar_consolidado
 from concursos.llm import ClienteComMemoria, ClienteLlm, cliente_configurado
 from concursos.manifesto import ARQUIVO_MANIFESTO
+from concursos.modelo import Etapa
 from concursos.pipeline import ARQUIVO_RESPOSTAS, analisar_todos, planejar
 from concursos.pratica_tec import textos_para_normas
 from concursos.respostas import RespostasInvalidasError
 from concursos.status import StatusConcurso, avaliar, listar_concursos
+
+TEXTO_DA_ETAPA = {
+    Etapa.LENDO_ARQUIVOS: 'Lendo os arquivos…',
+    Etapa.LENDO_FOLHA: 'Lendo a folha…',
+    Etapa.CORRIGINDO: 'Corrigindo…',
+    Etapa.CLASSIFICANDO: 'Classificando tópicos…',
+    Etapa.GERANDO_RELATORIOS: 'Gerando os relatórios…',
+    Etapa.CONSOLIDANDO: 'Juntando os concursos…',
+}
 
 
 def analisar(opcoes: Opcoes, concurso: str | None = None, reaproveitar: bool = False) -> int:
@@ -86,7 +96,15 @@ def analisar_candidato(
     fontes = fontes_de_estudo(contexto)
     antes = manifestos(destino)
     sucesso = analisar_todos(
-        provas, destino, opcoes.forcar, concurso, configuracao, taxonomia, candidato, opcoes.ao_progresso
+        provas,
+        destino,
+        opcoes.forcar,
+        concurso,
+        configuracao,
+        taxonomia,
+        candidato,
+        opcoes.ao_progresso,
+        opcoes.ao_etapa,
     )
     pratica = praticar(opcoes, candidato, destino, configuracao)
     textos = textos_para_normas(pratica) if pratica is not None else []

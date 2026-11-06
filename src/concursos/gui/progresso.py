@@ -3,6 +3,8 @@ import threading
 from collections import deque
 from dataclasses import dataclass
 
+from concursos.modelo import Etapa
+
 
 @dataclass(frozen=True)
 class Passo:
@@ -25,10 +27,15 @@ class Andamento:
         self._trava = threading.Lock()
         self._linhas: deque[str] = deque(maxlen=maximo_linhas)
         self.passo: Passo | None = None
+        self.etapa: Etapa | None = None
         self.terminou = False
 
     def ao_progresso(self, concurso: str, indice: int, total: int) -> None:
         self.passo = Passo(concurso, indice, total)
+        self.etapa = None
+
+    def ao_etapa(self, _concurso: str, etapa: Etapa) -> None:
+        self.etapa = etapa
 
     def escrever(self, linha: str) -> None:
         with self._trava:
