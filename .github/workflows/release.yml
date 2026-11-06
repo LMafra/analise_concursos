@@ -278,7 +278,9 @@ jobs:
           hdiutil detach /tmp/dmg
           codesign --verify --deep --strict /tmp/instalado/concurso-analise.app
           CLI=/tmp/instalado/concurso-analise.app/Contents/MacOS/concurso-analise-cli
-          env -i HOME="$HOME" PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/python3 scripts/smoke.py congelado "$CLI"
+          # O macOS sempre define TMPDIR; sem ele, o Python usa /tmp, que a Leptonica troca pela pasta
+          # temporária do usuário, e o OCR não acha a imagem.
+          env -i HOME="$HOME" TMPDIR="$TMPDIR" PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/python3 scripts/smoke.py congelado "$CLI"
 
       - name: Tamanho
         run: du -h "dist/concurso-analise-$VERSAO-macos-arm64.dmg" | tee -a "$GITHUB_STEP_SUMMARY"
