@@ -1,6 +1,6 @@
 [project]
 name = "concurso-analise"
-version = "0.5.0"
+version = "0.6.0b1"
 description = "Análise de desempenho em concursos públicos por disciplina e tópico"
 readme = "README.md"
 license = "MIT"
