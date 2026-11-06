@@ -62,11 +62,14 @@ def restaurar_bibliotecas_do_sistema() -> None:
         os.environ['LD_LIBRARY_PATH'] = original
 
 
-def garantir_saidas() -> None:
-    """Na janela sem console do Windows, `sys.stdout` e `sys.stderr` são None, e quem escreve neles quebra.
+def garantir_fluxos_padrao() -> None:
+    """Na janela sem console do Windows, `sys.stdin`, `sys.stdout` e `sys.stderr` são None, e quem os usa
+    quebra (a CLI pergunta `sys.stdin.isatty()` antes de qualquer subcomando, inclusive o `gui`).
 
     Com a saída redirecionada, o Windows dá a codificação do sistema (cp1252), que não tem o ✓ do doctor;
     o executável não tem o `PYTHONUTF8` do ambiente de desenvolvimento."""
+    if sys.stdin is None:
+        sys.stdin = open(os.devnull, encoding='utf-8')  # noqa: SIM115
     for nome in ('stdout', 'stderr'):
         fluxo = getattr(sys, nome)
         if fluxo is None:
@@ -90,7 +93,7 @@ def principal(argv: list[str]) -> int:
     if (base := pasta_embutida()) is not None:
         preparar_ambiente(base)
         segurar_mutex()
-    garantir_saidas()
+    garantir_fluxos_padrao()
     if argv == [ARGUMENTO_SMOKE]:
         return conferir_pacote()
     from concursos.cli import main

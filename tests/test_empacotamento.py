@@ -1,4 +1,5 @@
 import http.server
+import importlib
 import io
 import os
 import sys
@@ -78,12 +79,14 @@ def test_smoke_recusa_o_tesseract_do_sistema_quando_o_pacote_traz_o_seu(executav
         empacotado.conferir_tesseract()
 
 
-def test_janela_sem_console_ganha_saidas_vazias(monkeypatch):
-    monkeypatch.setattr(sys, 'stdout', None)
-    monkeypatch.setattr(sys, 'stderr', None)
+def test_janela_sem_console_ganha_fluxos_vazios(monkeypatch):
+    for nome in ('stdin', 'stdout', 'stderr'):
+        monkeypatch.setattr(sys, nome, None)
 
-    empacotado.garantir_saidas()
+    empacotado.garantir_fluxos_padrao()
 
+    assert not sys.stdin.isatty()
+    assert sys.stdin.read() == ''
     sys.stdout.write('nada')
     sys.stderr.write('nada')
 
@@ -92,7 +95,7 @@ def test_saida_redirecionada_no_windows_escreve_utf8(monkeypatch):
     saida = io.BytesIO()
     monkeypatch.setattr(sys, 'stdout', io.TextIOWrapper(saida, encoding='cp1252'))
 
-    empacotado.garantir_saidas()
+    empacotado.garantir_fluxos_padrao()
     sys.stdout.write('✓ legislação')
     sys.stdout.flush()
 
@@ -109,6 +112,19 @@ def cli(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 def test_sem_argumentos_abre_a_gui(cli):
     assert empacotado.principal([]) == 0
     assert cli == [['gui']]
+
+
+def test_janela_sem_console_abre_a_gui_pela_cli_de_verdade(monkeypatch, tmp_path):
+    pytest.importorskip('nicegui')
+    gui_app = importlib.import_module('concursos.gui.app')
+    for nome in ('stdin', 'stdout', 'stderr'):
+        monkeypatch.setattr(sys, nome, None)
+    monkeypatch.chdir(tmp_path)
+    abertas: list[bool] = []
+    monkeypatch.setattr(gui_app, 'executar', lambda pasta, navegador: abertas.append(navegador))
+
+    assert empacotado.principal([]) == 0
+    assert abertas == [False]
 
 
 def test_com_argumentos_e_a_cli(cli):
