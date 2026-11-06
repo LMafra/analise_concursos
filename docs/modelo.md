@@ -403,7 +403,7 @@ Desligado por padrão; nenhuma chamada de rede acontece sem `[llm]` com `consent
 
 ## open-notebook opcional
 
-Desligado por padrão; nada sai da máquina sem `[open_notebook]` com `enabled = true` e `consentimento = true` na configuração global, gravados por `concurso-analise notebook enable` depois de mostrar o que vai. `--offline` e `--dry-run` desligam a sincronização numa execução. Detalhes da API em `docs/pesquisa-open-notebook.md`; comandos e decisões em `docs/spec-open-notebook.md`.
+Desligado por padrão; nada sai da máquina sem `[open_notebook]` com `enabled = true` e `consentimento = true` na configuração global, gravados por `concurso-analise notebook enable` depois de mostrar o que vai. `--offline` e `--dry-run` desligam a sincronização numa execução. Comandos e decisões em `docs/spec-open-notebook.md`.
 
 ```toml
 [open_notebook]

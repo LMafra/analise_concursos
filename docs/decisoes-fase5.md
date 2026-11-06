@@ -1,6 +1,6 @@
 # Decisões da fase 5
 
-Registro curto das escolhas da fase 5, com o contexto e as alternativas descartadas. Os fatos citados estão em `docs/pesquisa-gui.md`.
+Registro curto das escolhas da fase 5, com o contexto e as alternativas descartadas.
 
 ## 1. NiceGUI como framework da interface
 

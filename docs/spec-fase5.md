@@ -1,6 +1,6 @@
 # Spec da fase 5: interface gráfica e executável para usuário leigo
 
-A pesquisa (frameworks, empacotamento, Tesseract, instaladores, runners e a medição do bundle) está em `docs/pesquisa-gui.md`; as decisões, com as alternativas descartadas, em `docs/decisoes-fase5.md`; os campos de arquivo, em `docs/modelo.md`. Tickets: `.scratch/gui-leigo/issues/`.
+As decisões, com as alternativas descartadas, estão em `docs/decisoes-fase5.md`; os campos de arquivo, em `docs/modelo.md`.
 
 ## Objetivo
 

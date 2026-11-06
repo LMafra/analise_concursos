@@ -535,7 +535,7 @@ concurso-analise pci provas meu_concurso --download 20549582   # abre a página 
 - **Provas anteriores viram simulados:** o PDF fica atrás de um captcha e o `robots.txt` do PCI proíbe baixá-lo por robô, então o download é seu: o `--download` abre a página no navegador, você clica nos arquivos, e o app importa da pasta de downloads (`pasta_downloads`; no WSL, a do Windows). O simulado vira uma pasta própria, `provas/<orgao>_<ano>_pci<id>/`, corrigida pelo perfil da banca da prova, com os tópicos do edital do seu concurso. Acrescente suas respostas com `add`; a data do simulado é a data em que você resolveu. Simulados ficam fora do consolidado e das tendências, a não ser com `incluir_simulados = true` em `[analise]` no `.concurso/config.toml`, e aparecem na seção "Simulados" do `index.html`.
 - **Cache:** as respostas ficam em `.concurso/cache/pci_mcp.json` por `ttl_horas` (24); `--refresh` consulta de novo, e `--offline` usa o cache, mesmo vencido, com aviso. No máximo 20 consultas por execução.
 - **Falhas:** num comando explícito, saem como `erro:`/`dica:` (código 2 com o servidor fora do ar, 1 com um filtro recusado). Depois da análise, uma falha só gera aviso.
-- **No Cursor:** o `.cursor/mcp.json` do projeto registra o servidor, para o agente consultar o PCI direto.
+- **No Cursor:** para o agente consultar o PCI direto, crie `.cursor/mcp.json` com `{"mcpServers": {"pci-concursos": {"url": "https://mcp.pciconcursos.com.br/mcp"}}}`.
 
 ```toml
 # ~/.concurso/config.toml
@@ -660,12 +660,11 @@ A janela do app é servida só em `127.0.0.1`: nenhum outro computador da rede a
 - [x] Fase 3: edital como fonte de verdade
 - [x] Fase 4: generalização e portabilidade (onboarding, CLI, Docker, perfis de banca)
 - [x] Fase 5: janela (NiceGUI) e instaladores para Windows, macOS arm64 e Linux, com o Tesseract embutido
+- [x] Fase 6: assinatura no Windows (SignPath), WebView2 no instalador, AppImage verificado, atualizador por manifesto assinado e novo visual da janela
+- [ ] Checklist de máquina limpa da fase 6 e primeira release com o atualizador
 - [ ] Escopo de cargo nos pesos e nas demais buscas do edital
 - [ ] Precedência completa com o `concurso.yaml` (total de questões e pesos)
 - [ ] Nome oficial e cargo nas discrepâncias e no notebook 05
-- [ ] Verificação da CLI no macOS e no Windows nativo
-- [ ] Assinatura de código no Windows e no macOS
-- [ ] Publicação no PyPI
 
 Veja [docs/pendencias.md](docs/pendencias.md) para o detalhe e a ordem sugerida de cada pendência.
 
@@ -740,7 +739,7 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin /usr/bin/python3 scripts/smoke.py congela
 
 Num build de desenvolvimento sem o Tesseract embutido, `CONCURSO_SMOKE_SEM_OCR=1` dispensa a conferência do OCR no `--smoke`.
 
-**Release.** Uma tag `v*` dispara o `release.yml`: ele gera os instaladores, roda o teste de máquina limpa em cada sistema e cria a release como rascunho, com o `SHA256SUMS`, o manifesto de atualização assinado e o `RELATORIO-SMOKE.md` (o resultado do teste de cada sistema, montado por `scripts/relatorio_smoke.py`). A release só é publicada depois do checklist manual de `docs/spec-fase6.md` (Windows Sandbox, VM Win10 sem WebView2 e Linux), registrado em `.scratch/fase6/checklist.md`.
+**Release.** Uma tag `v*` dispara o `release.yml`: ele gera os instaladores, roda o teste de máquina limpa em cada sistema e cria a release como rascunho, com o `SHA256SUMS`, o manifesto de atualização assinado e o `RELATORIO-SMOKE.md` (o resultado do teste de cada sistema, montado por `scripts/relatorio_smoke.py`). A release só é publicada depois do checklist manual. O passo a passo, com a configuração da chave de atualização e da SignPath, está em [docs/release.md](docs/release.md).
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 

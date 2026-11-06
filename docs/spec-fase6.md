@@ -138,7 +138,7 @@ Windows Sandbox (Win11) para o fluxo; VM Win10 LTSC com snapshot limpo, sem WebV
 
 Linux: o mesmo fluxo num contêiner `ubuntu:22.04` (pelo `smoke.py congelado`) e num desktop real (abrir pelo menu depois de integrar com o AppImageLauncher ou o Gear Lever).
 
-Registrar data, versão e resultado em `.scratch/fase6/checklist.md`.
+Registrar data, versão e resultado na descrição da release. Os ambientes, o roteiro do Linux e a configuração da chave e da SignPath estão em `docs/release.md`.
 
 ## Fora do escopo
 

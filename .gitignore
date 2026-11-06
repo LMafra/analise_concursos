@@ -24,8 +24,7 @@ notebooks/*.ipynb
 .paddleocr/
 
 # Editor
-.cursor/*
-!.cursor/mcp.json
+.cursor/
 
 # Retratos de paridade (nomes dos concursos)
 .paridade/
@@ -36,3 +35,11 @@ notebooks/*.ipynb
 
 # Saídas do empacotamento (Tesseract baixado, licenças coletadas)
 empacotamento/construcao/
+
+# Histórico e rascunhos do mantenedor (tickets, revisões antigas, pesquisa já resumida nas specs)
+.scratch/
+docs/bugs.md
+docs/smells.md
+docs/pesquisa-gui.md
+docs/pesquisa-open-notebook.md
+docs/release-v0.5.0.md

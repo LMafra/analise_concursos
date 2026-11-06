@@ -148,7 +148,7 @@ Para acrescentar uma camada:
 - Assinatura pela SignPath, só dos binários próprios (`concurso-analise.exe`, `concurso-analise-cli.exe`, o setup); DLLs de terceiros e o desinstalador ficam sem assinatura. Sem o secret `SIGNPATH_API_TOKEN`, o build segue sem assinar.
 - O AppImage passa por `empacotamento/linux/verificar_bibliotecas.sh`: nada resolve fora do bundle além de `bibliotecas_do_sistema.txt`, e o Tesseract só usa o próprio carregador.
 - A release traz `atualizacao.json` e `atualizacao.json.sig` (Ed25519, `scripts/assinar_manifesto.py`); mudar o formato do manifesto exige manter o app antigo lendo a release nova.
-- Antes de publicar uma release: o `release.yml` verde (`--smoke` e `scripts/smoke.py congelado` em máquina limpa em cada sistema, juntados no `RELATORIO-SMOKE.md` da release) e o checklist manual de `docs/spec-fase6.md` (Windows Sandbox, VM Win10 sem WebView2 e Linux), registrado em `.scratch/fase6/checklist.md`. A release nasce como rascunho.
+- Antes de publicar uma release: o `release.yml` verde (`--smoke` e `scripts/smoke.py congelado` em máquina limpa em cada sistema, juntados no `RELATORIO-SMOKE.md` da release) e o checklist manual de `docs/release.md` (Windows Sandbox, VM Win10 sem WebView2 e Linux), registrado na descrição da release. A release nasce como rascunho.
 
 ## Código
 
