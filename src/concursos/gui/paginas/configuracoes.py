@@ -4,7 +4,7 @@ from pathlib import Path, PureWindowsPath
 from nicegui import events, run, ui
 
 from concursos.aplicacao import atualizador as atualizacao
-from concursos.aplicacao import ia, inicio
+from concursos.aplicacao import dicionario, ia, inicio
 from concursos.aplicacao.cadastro import nova_pasta_de_envio
 from concursos.aplicacao.preferencias import (
     PreferenciasAnalise,
@@ -18,6 +18,7 @@ from concursos.config.contexto import resolver_home
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.cartao import cartao
+from concursos.gui.componentes.situacao import situacao
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
@@ -117,6 +118,30 @@ def secao_das_disciplinas() -> None:
         ui.button('Abrir', icon='arrow_forward', on_click=lambda: ui.navigate.to('/disciplinas')).props(
             'flat'
         ).mark('abrir-disciplinas')
+        ui.separator()
+        situacao_do_dicionario()
+
+
+def situacao_do_dicionario() -> None:
+    try:
+        atual = dicionario.situacao(ESTADO.contexto())
+    except Exception as erro:  # noqa: BLE001
+        mostrar_erro(erro)
+        return
+    ui.label('Dicionário de temas').classes('font-bold')
+    if not atual.existe:
+        situacao('Não usado. Ele ajuda a achar o tema de cada questão.', Tom.INFO)
+    elif atual.ligado:
+        situacao(f'Usado, com {atual.entradas} temas.', Tom.SUCESSO)
+    else:
+        situacao('Desligado.', Tom.INFO)
+    if atual.ultimo is not None:
+        ui.label(dicionario.resumo_do_ultimo(atual.ultimo)).classes('text-sm')
+        if atual.ultimo.alerta and atual.ligado:
+            situacao('O último teste mostrou piora: veja os detalhes.', Tom.ALERTA)
+    ui.button(
+        'Ver detalhes', icon='arrow_forward', on_click=lambda: ui.navigate.to('/disciplinas?aba=temas')
+    ).props('flat').mark('abrir-dicionario')
 
 
 def secao_do_projeto() -> None:

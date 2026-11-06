@@ -13,8 +13,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from concursos.analytics.dicionario_topicos import expandir_consulta
 from concursos.analytics.taxonomia import carregar_taxonomia
 from concursos.aplicacao import atualizador as atualizacao
+from concursos.aplicacao.dicionario import dicionario_do_projeto
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.projeto import curto, pasta_do_candidato
 from concursos.biblioteca import consultas_do_topico, topicos_fracos
@@ -499,6 +501,16 @@ def _livros_apontados(
     return shas
 
 
+def termos_do_dicionario(contexto: Contexto, pergunta: str) -> list[str]:
+    """Os termos do dicionário de temas que a pergunta menciona, em OR na busca; dicionário inválido não
+    impede a busca."""
+    try:
+        return expandir_consulta(dicionario_do_projeto(contexto), pergunta)
+    except ErroDoUsuario as erro:
+        logger.warning('dicionário de temas: %s', erro.causa)
+        return []
+
+
 def _trechos_dos_livros(
     contexto: Contexto, pergunta: str, livros: list[Livro], primeiro: list[str]
 ) -> list[TrechoEncontrado]:
@@ -517,7 +529,13 @@ def _trechos_dos_livros(
         vistos = {(t.sha, t.pagina) for t in achados}
         achados += [
             t
-            for t in indice.buscar(conexao, pergunta, shas=list(por_sha), limite=LIMITE_TRECHOS)
+            for t in indice.buscar(
+                conexao,
+                pergunta,
+                shas=list(por_sha),
+                limite=LIMITE_TRECHOS,
+                termos_extra=termos_do_dicionario(contexto, pergunta),
+            )
             if (t.sha, t.pagina) not in vistos
         ]
     finally:

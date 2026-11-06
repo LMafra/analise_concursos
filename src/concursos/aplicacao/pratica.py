@@ -137,6 +137,7 @@ def praticar(
             configuracao_analise.concurso_alvo,
             opcoes.interacao,
             fracos,
+            configuracao_analise.dicionario,
         )
     except ConfiguracaoInvalidaError as erro:
         raise ErroDoUsuario(str(erro), f'corrija ou apague {contexto.projeto / ARQUIVO_ESCOLHAS}') from erro

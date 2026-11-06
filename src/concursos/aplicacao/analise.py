@@ -4,6 +4,7 @@ from pathlib import Path
 from concursos import relatorio_html
 from concursos.analytics.consolidado import concursos_analisados
 from concursos.analytics.taxonomia import carregar_taxonomia
+from concursos.aplicacao.dicionario import dicionario_do_projeto
 from concursos.aplicacao.integracoes import radar_pci, sincronizar_depois_da_analise
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.pratica import (
@@ -92,7 +93,9 @@ def analisar_candidato(
         completar_perfis(contexto.provas, candidato)
         if not opcoes.todos:
             lembrar_candidato(contexto, candidato)
-    configuracao = replace(configuracao_do_projeto(contexto), cliente_llm=cliente)
+    configuracao = replace(
+        configuracao_do_projeto(contexto), cliente_llm=cliente, dicionario=dicionario_do_projeto(contexto)
+    )
     taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else None
     fontes = fontes_de_estudo(contexto)
     antes = manifestos(destino)

@@ -11,7 +11,7 @@ import typer
 
 from concursos import doctor as diagnostico
 from concursos import onboarding, relatorio_html
-from concursos.aplicacao import analise, cadastro, estudo, integracoes, projeto
+from concursos.aplicacao import analise, cadastro, dicionario, estudo, integracoes, projeto
 from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao.inicio import executar_onboarding
 from concursos.aplicacao.opcoes import Opcoes
@@ -70,6 +70,12 @@ livros_app = typer.Typer(
     help='seus livros: adicionar, listar e remover da biblioteca', no_args_is_help=True, rich_markup_mode=None
 )
 app.add_typer(livros_app, name='livros')
+dicionario_app = typer.Typer(
+    help='dicionário de temas: termos que ajudam a achar o tópico do edital de cada questão',
+    no_args_is_help=True,
+    rich_markup_mode=None,
+)
+app.add_typer(dicionario_app, name='dicionario')
 
 
 Forcar = Annotated[bool, typer.Option('--force', help='reprocessa mesmo sem mudanças')]
@@ -609,4 +615,66 @@ def livros_ask(
     for trecho in resposta.trechos:
         onde_esta = f'p. {trecho.pagina}' if trecho.de_livro else trecho.secao
         typer.echo(f'{trecho.nome}, {onde_esta}: {trecho.texto}')
+    return 0
+
+
+@dicionario_app.command('iniciar', help='começa com o dicionário inicial e liga o dicionário')
+def dicionario_iniciar(ctx: typer.Context) -> int:
+    opcoes: Opcoes = ctx.obj
+    if opcoes.dry_run:
+        typer.echo(f'gravaria {opcoes.contexto.dicionario} e ligaria o dicionário')
+        return 0
+    novas = dicionario.iniciar(opcoes.contexto)
+    typer.echo(f'{novas} tópico(s) acrescentado(s) a {opcoes.contexto.dicionario}; dicionário ligado')
+    return 0
+
+
+@dicionario_app.command('sugerir', help='sugere termos tirados das suas revisões de tópico')
+def dicionario_sugerir(
+    ctx: typer.Context,
+    aceitar: Annotated[
+        list[str] | None,
+        typer.Option('--aceitar', help='aceita a sugestão pela chave mostrada (pode repetir)'),
+    ] = None,
+    recusar: Annotated[
+        list[str] | None,
+        typer.Option('--recusar', help='recusa a sugestão pela chave mostrada (pode repetir)'),
+    ] = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    sugestoes = {s.chave: s for s in dicionario.sugestoes(opcoes.contexto)}
+    escolhidas = [(c, dicionario.aceitar) for c in aceitar or []] + [
+        (c, dicionario.recusar) for c in recusar or []
+    ]
+    if desconhecidas := [c for c, _ in escolhidas if c not in sugestoes]:
+        raise ErroDoUsuario(
+            f'sugestão desconhecida: {desconhecidas[0]}', 'use uma chave listada por `dicionario sugerir`'
+        )
+    for chave, acao in escolhidas:
+        if opcoes.dry_run:
+            typer.echo(f'gravaria {chave}')
+        else:
+            acao(opcoes.contexto, sugestoes.pop(chave))
+    if not escolhidas:
+        if not sugestoes:
+            typer.echo('nenhuma sugestão: revise mais tópicos das questões e tente de novo')
+        for chave, sugestao in sugestoes.items():
+            typer.echo(f'{chave}  ({sugestao.n} questões; {", ".join(sugestao.concursos)})')
+    return 0
+
+
+@dicionario_app.command('avaliar', help='mede se o dicionário melhora a sugestão de tópico nas suas revisões')
+def dicionario_avaliar(ctx: typer.Context) -> int:
+    opcoes: Opcoes = ctx.obj
+    if opcoes.dry_run:
+        typer.echo(f'mediria o ganho e gravaria {opcoes.contexto.projeto / dicionario.ARQUIVO_GANHO}')
+        return 0
+    ganho = dicionario.avaliar(opcoes.contexto)
+    geral = ganho.geral
+    typer.echo(
+        f'acerto: {100 * geral.taxa_antes:.0f}% -> {100 * geral.taxa_depois:.0f}% (n={geral.n}); '
+        f'corrigidas {len(ganho.corrigidas)}, quebradas {len(ganho.quebradas)}'
+    )
+    if ganho.alerta:
+        typer.echo('atenção: o dicionário piorou a sugestão; desligue-o ou revise os termos')
     return 0

@@ -10,6 +10,7 @@ import logging
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import yaml
@@ -23,6 +24,9 @@ from concursos.config.contexto import ler_toml
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, Conhecimento, Disciplina, Edital, Topico
 from concursos.modelo import ModoCaderno, OrigemErroTec
 from concursos.topicos import NAO_MAPEADO, SCORE_BAIXO, chave_de_palavras, palavras_chave, sugerir_topicos
+
+if TYPE_CHECKING:
+    from concursos.analytics.dicionario_topicos import Dicionario
 
 logger = logging.getLogger(__name__)
 
@@ -355,6 +359,7 @@ def _resolver_assuntos(
     sugeridos: dict,
     revisados: dict[str, str | None],
     interacao: Interacao | None,
+    dicionario: 'Dicionario | None' = None,
 ) -> list[Pendencia]:
     """Grava em `escolhas.aliases` cada assunto decidido; devolve os que ficaram para a revisão."""
     escolhas.aliases.update(revisados)
@@ -365,7 +370,10 @@ def _resolver_assuntos(
             escolhas.aliases[assunto] = topico
             abertos.remove(assunto)
     calculadas = sugerir_topicos(
-        edital, dict(enumerate(abertos)), {i: assuntos[a] for i, a in enumerate(abertos) if assuntos[a]}
+        edital,
+        dict(enumerate(abertos)),
+        {i: assuntos[a] for i, a in enumerate(abertos) if assuntos[a]},
+        dicionario,
     )
     pendentes = []
     for i, assunto in enumerate(abertos):
@@ -574,6 +582,7 @@ def importar_pratica(
     concurso_alvo: str | None,
     interacao: Interacao | None = None,
     fracos: pd.DataFrame | None = None,
+    dicionario: 'Dicionario | None' = None,
 ) -> ResultadoPratica:
     """Lê a pasta de exportações e grava as tabelas de `pratica/`; sem terminal (`interacao` None), o assunto
     sem tópico vai para `revisao_aliases.csv`, e o caderno novo conta desde o início."""
@@ -601,7 +610,7 @@ def importar_pratica(
     else:
         sugeridos = {a: t for a, t in (pratica.estado.get('aliases') or {}).items() if a in assuntos}
         pendentes = _resolver_assuntos(
-            assuntos, edital, escolhas, sugeridos, _ler_revisao(revisao), interacao
+            assuntos, edital, escolhas, sugeridos, _ler_revisao(revisao), interacao, dicionario
         )
         if pendentes:
             avisos.append(

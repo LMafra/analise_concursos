@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -48,6 +49,9 @@ from concursos.status import Situacao, StatusConcurso, avaliar, listar_concursos
 from concursos.texto import MINIMO_CARACTERES_PAGINA, OcrIndisponivelError, extrair_paginas
 from concursos.topicos import ARQUIVO_REVISAO, gravar_revisao, ler_revisao, sugerir_topicos
 
+if TYPE_CHECKING:
+    from concursos.analytics.dicionario_topicos import Dicionario
+
 logger = logging.getLogger(__name__)
 
 ARQUIVO_RESPOSTAS = 'respostas_extraidas.csv'
@@ -64,6 +68,8 @@ COLUNAS_QUESTOES = [
     'resposta',
     'resultado',
 ]
+
+COLUNAS_DICIONARIO = ['score_tfidf', 'topico_tfidf', 'score_expandido']
 
 COLUNAS_RESPOSTAS = [
     'concurso',
@@ -218,7 +224,7 @@ def analisar_concurso(
     avisar(Etapa.CORRIGINDO)
     resultados = corrigir(config, gabaritos, respostas, _disciplinas_por_questao(config))
     avisar(Etapa.CLASSIFICANDO)
-    resultados = _classificar_topicos(config, edital, resultados)
+    resultados = _classificar_topicos(config, edital, resultados, configuracao.dicionario, taxonomia)
     validacao = validar_resultado(config, resultados)
     if validacao is not None and validacao.alerta:
         logger.warning('%s: %s', config.nome, validacao.descricao)
@@ -227,7 +233,8 @@ def analisar_concurso(
     destino.mkdir(parents=True, exist_ok=True)
     tabela = _tabela_respostas(config, respostas, configuracao.limiar_confianca)
     tabela.to_csv(destino / ARQUIVO_RESPOSTAS, index=False)
-    resultados[COLUNAS_QUESTOES].to_csv(destino / ARQUIVO_QUESTOES, index=False)
+    colunas = COLUNAS_QUESTOES + (COLUNAS_DICIONARIO if configuracao.dicionario is not None else [])
+    resultados[colunas].to_csv(destino / ARQUIVO_QUESTOES, index=False)
     if edital is not None:
         edital.gravar_json(destino / ARQUIVO_EDITAL_ESTRUTURADO)
     por_disciplina = agregar(resultados, ['concurso', 'prova', 'disciplina'], config.pontuacao)
@@ -386,7 +393,11 @@ def _disciplinas_por_questao(config: ConcursoConfig) -> dict[int, str]:
 
 
 def _classificar_topicos(
-    config: ConcursoConfig, edital: Edital | None, resultados: pd.DataFrame
+    config: ConcursoConfig,
+    edital: Edital | None,
+    resultados: pd.DataFrame,
+    dicionario: 'Dicionario | None' = None,
+    taxonomia: dict[str, DisciplinaCanonica] | None = None,
 ) -> pd.DataFrame:
     """Tópico sugerido por similaridade com o edital; a revisão manual (revisao/) tem prioridade.
 
@@ -399,11 +410,18 @@ def _classificar_topicos(
         for q, d in zip(resultados['questao'], resultados['disciplina'], strict=True)
         if d != TOPICO_NAO_MAPEADO
     }
-    sugestoes = sugerir_topicos(edital, {q: textos.get(q, '') for q in resultados['questao']}, conhecidas)
+    canonicas = {bruto: disciplina.nome for bruto, disciplina in (taxonomia or {}).items()}
+    sugestoes = sugerir_topicos(
+        edital, {q: textos.get(q, '') for q in resultados['questao']}, conhecidas, dicionario, canonicas
+    )
     resultados['disciplina'] = [sugestoes[q].disciplina or TOPICO_NAO_MAPEADO for q in resultados['questao']]
     resultados['topico_sugerido'] = [sugestoes[q].topico for q in resultados['questao']]
     resultados['score'] = [sugestoes[q].score for q in resultados['questao']]
     resultados['topico'] = resultados['topico_sugerido']
+    if dicionario is not None:
+        resultados['score_tfidf'] = [sugestoes[q].score_tfidf for q in resultados['questao']]
+        resultados['topico_tfidf'] = [sugestoes[q].topico_tfidf for q in resultados['questao']]
+        resultados['score_expandido'] = resultados['score']
 
     caminho = config.caminho(ARQUIVO_REVISAO)
     revisao = ler_revisao(caminho)

@@ -366,6 +366,7 @@ incluir_simulados = false  # true: os simulados do PCI entram no consolidado e n
 - **`[candidato] ultimo`:** o último candidato analisado; vale quando não há `--candidate` nem `CONCURSO_CANDIDATO`.
 - **`[migracao]`:** o registro da migração das fases 1 a 3 (`versao = 4`, `candidato`, `backup`, `data`).
 - **`[pratica]`:** a prática no TEC (opcional); veja "Prática no TEC (tec-erros)".
+- **`[dicionario]`:** `usar` (booleano; sem a chave, o dicionário vale quando o arquivo existe) e o resumo do último teste de ganho, gravado pelo app: `antes` e `depois` (taxas de 0 a 1), `n`, `data` (ISO) e `alerta`; veja "Dicionário de temas".
 - **`incluir_simulados`:** booleano; veja "PCI Concursos opcional".
 
 ## Onboarding (fase 4)
@@ -801,7 +802,8 @@ Por concurso, em `analises/<concurso>/`:
 - **`questoes.csv`:** colunas:
   - `questao`, `prova`, `disciplina`;
   - `topico_sugerido`, `score`, `topico`, `revisado`;
-  - `gabarito`, `anulada`, `resposta`, `resultado`.
+  - `gabarito`, `anulada`, `resposta`, `resultado`;
+  - só com o [dicionário de temas](#dicionário-de-temas) ligado, no fim: `score_tfidf`, `topico_tfidf` (a sugestão sem o dicionário) e `score_expandido` (igual a `score`). O parquet não muda.
 - **`diff_gabarito.csv`** (após a troca de gabarito): colunas:
   - `prova`, `questao`;
   - `gabarito_preliminar`, `gabarito_definitivo`;
@@ -1036,4 +1038,27 @@ Nenhum arquivo de entrada exige edição à mão: `aplicacao/conferencia.py` gra
 - **Dados do edital (`campos_a_confirmar`, `gravar_campos`):** o tipo de cada campo é `TipoCampo` (`data`, `inteiro`, `numero`): `data_prova` aceita `DD/MM/AAAA` ou `AAAA-MM-DD` e grava ISO; `alternativas` é inteiro de 2 a 10; `fator_penalidade` é número de 0 a 10 (aceita vírgula); `nota_corte` é número a partir de 0. Vazio esvazia a chave. `edital_a_confirmar.gravar_valores` troca só a linha `campo:` e preserva os comentários; se `carregar_concurso` recusar o resultado, o arquivo volta ao que era e a tela mostra o erro.
 - **Disciplinas (`taxonomia`, `gravar_taxonomia`, `juntar_disciplinas`, `separar_disciplina`):** os grupos vêm da `taxonomia.yaml`; os nomes soltos são os da coluna `disciplina` dos `questoes.csv` das análises que a taxonomia não conhece. Um nome só pode estar em uma disciplina, e o bloco é `geral` ou `especifico`. Grava com `gravar_se_mudou`.
 - **Reanálise (`reanalisar_afetados(opcoes, concurso)`):** a análise de sempre (`aplicacao.analise.analisar`), com o concurso conferido ou todos (taxonomia). Quem não mudou é pulado pelo manifesto.
-- **Manifesto:** além dos arquivos da pasta do concurso (já com `revisao/` e `edital_a_confirmar.yaml`), entram os de `Contexto.extras_do_manifesto` (`.concurso/taxonomia.yaml`), cada um só quando existe, para não invalidar os manifestos gravados antes dele.
+- **Manifesto:** além dos arquivos da pasta do concurso (já com `revisao/` e `edital_a_confirmar.yaml`), entram os de `Contexto.extras_do_manifesto` (`.concurso/taxonomia.yaml`), cada um só quando existe, para não invalidar os manifestos gravados antes dele. Com o dicionário de temas ligado, entra também `.concurso/taxonomia_topicos.yaml`.
+
+## Dicionário de temas
+
+Opcional; sem `.concurso/taxonomia_topicos.yaml` (ou com `[dicionario] usar = false`), a sugestão de tópico e as saídas são as de antes, byte a byte. O arquivo é gravado pela tela Configurações > "Disciplinas e temas" > "Dicionário de temas" ou pelo `dicionario iniciar|sugerir|avaliar`; editá-lo à mão continua valendo.
+
+```yaml
+versao: 1
+lingua_portuguesa:            # slug da disciplina (canônica ou do edital)
+  crase:                      # slug do tópico
+    nomes: [Emprego do sinal indicativo de crase]   # opcional: nomes exatos de tópicos do edital
+    termos: [crase, acento grave]
+    expressoes: [à medida que, às vezes]
+    origem: [tcu_25]          # concursos de onde o termo foi tirado (aceito de uma sugestão)
+recusados: [lingua_portuguesa/crase/fusao]
+```
+
+- **Validação (`ler_dicionario`):** campo desconhecido, versão diferente de 1 ou termo vazio ou com mais de 6 palavras é `ErroDoUsuario` (código 1), com o caminho do campo.
+- **Casamento com o edital:** a disciplina casa pelo slug, pelo nome canônico da `taxonomia.yaml` ou pelas palavras-chave (uma contida na outra); o tópico casa por `nomes` (palavras-chave iguais) ou, sem `nomes`, quando as palavras do slug estão no nome do tópico.
+- **Expansão:** a questão que cita um termo (palavra inteira, sem acento, caixa nem plural simples) ganha a marca `tema_<disciplina>_<topico>`, no máximo 3, as dos termos mais longos primeiro, e só das disciplinas permitidas para ela; o documento do tópico casado ganha só a marca. Um termo que já nomeia outro tópico da mesma disciplina no edital não marca nada, e a questão que o cita fica sem marcas da disciplina: o edital decide sozinho. A versão expandida decide `topico_sugerido` e `score`; a sem dicionário fica em `topico_tfidf` e `score_tfidf`.
+- **Prática no TEC e livros:** o mesmo dicionário entra na ligação dos assuntos do TEC aos tópicos e, na busca nos livros, acrescenta em OR os outros termos dos temas que a pergunta cita.
+- **Ganho (`avaliar_ganho`, `.concurso/ganho_dicionario.md`):** a verdade são as linhas da revisão com `topico` preenchido; o texto é o `enunciado` da revisão, e o edital, o `edital_estruturado.json`. A sugestão roda sem e com o dicionário, e as entradas cuja `origem` inclui o concurso ficam fora da avaliação dele. O relatório traz o acerto antes e depois (com n e Δ em p.p.), as corrigidas e as quebradas, o número de scores abaixo de 0,05 e a tabela por disciplina (n < 5 marcado como amostra insuficiente). O alerta liga quando há mais quebradas que corrigidas ou quando uma disciplina com n ≥ 5 cai, e a tela oferece desligar o dicionário.
+- **Sugestões (`sugerir_termos`):** palavras (mais de 3 letras, fora das vazias) e pares de palavras que se repetem em ao menos 2 questões revisadas para o mesmo tópico, que não são termo dele, não estão em `recusados` e não estão só no nome do tópico; até 5 por tópico, dos mais frequentes e mais exclusivos do tópico para os outros. Aceitar grava o termo (par de palavras vai para `expressoes`) com a `origem`; recusar grava a chave `disciplina/topico/termo` em `recusados`.
+- **Dicionário inicial (`concursos/dicionarios/inicial.yaml`):** Direito Administrativo, Direito Constitucional, Língua Portuguesa e Raciocínio Lógico; "Começar com o dicionário inicial" acrescenta só os tópicos que o projeto ainda não tem e liga o dicionário.

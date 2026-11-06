@@ -19,6 +19,8 @@ PASTA_ANALISES = 'analises'
 ARQUIVO_CONFIG_PROJETO = 'config.toml'
 ARQUIVO_CONFIG_GLOBAL = 'config.toml'
 ARQUIVO_TAXONOMIA = 'taxonomia.yaml'
+ARQUIVO_DICIONARIO = 'taxonomia_topicos.yaml'
+SECAO_DICIONARIO = 'dicionario'
 
 
 @dataclass(frozen=True)
@@ -54,9 +56,24 @@ class Contexto:
         return self.projeto / ARQUIVO_TAXONOMIA
 
     @property
+    def dicionario(self) -> Path:
+        return self.projeto / ARQUIVO_DICIONARIO
+
+    @property
+    def dicionario_ligado(self) -> bool:
+        """O dicionário de temas existe e não foi desligado (`[dicionario] usar = false`)."""
+        if not self.dicionario.exists():
+            return False
+        return ler_toml(self.config_projeto).get(SECAO_DICIONARIO, {}).get('usar', True) is not False
+
+    @property
     def extras_do_manifesto(self) -> dict[str, Path]:
-        """Os arquivos de fora da pasta do concurso que mudam a análise e por isso entram no manifesto."""
-        return {'.concurso/taxonomia.yaml': self.taxonomia}
+        """Os arquivos de fora da pasta do concurso que mudam a análise e por isso entram no manifesto; o
+        dicionário só quando ligado, para que ligar e desligar refaça a análise."""
+        extras = {'.concurso/taxonomia.yaml': self.taxonomia}
+        if self.dicionario_ligado:
+            extras[f'.concurso/{ARQUIVO_DICIONARIO}'] = self.dicionario
+        return extras
 
 
 def resolver_home(ambiente: Mapping[str, str] | None = None) -> Path:
