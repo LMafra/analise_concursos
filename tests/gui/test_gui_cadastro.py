@@ -74,6 +74,25 @@ async def test_soltar_arquivos_mostra_o_papel_detectado_e_trocar_muda_o_cadastro
     }
 
 
+async def test_nome_do_concurso_parece_campo_obrigatorio_e_ja_tem_o_foco(user: User, projeto):
+    await user.open('/novo')
+
+    campo = next(iter(user.find(marker='nome-concurso').elements))
+    assert campo.props['label'] == 'Nome do concurso (obrigatório)'
+    assert campo.props.get('outlined') is True
+    assert campo.props.get('autofocus') is True
+
+
+async def test_arquivo_de_nome_longo_fica_na_mesma_linha_do_papel(user: User, projeto):
+    await user.open('/novo')
+    nome_longo = 'analista-de-gestao-tecnologia-da-informacaocns014-tipo-1.txt'
+    await soltar(user, **{nome_longo: GABARITO_FGV})
+    await user.should_see('Detectamos: gabarito. Confirma?')
+
+    linha = next(iter(user.find(marker=f'linha-{nome_longo}').elements))
+    assert 'no-wrap' in linha.classes
+
+
 async def test_cadastrar_sem_nome_pede_o_nome_sem_tentar_cadastrar(user: User, projeto, monkeypatch):
     chamadas: list[str] = []
     monkeypatch.setattr(cadastro, 'cadastrar_envio', lambda opcoes, nome, *_: chamadas.append(nome))

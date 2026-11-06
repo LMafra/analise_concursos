@@ -55,7 +55,11 @@ class TelaDeEnvio:
             )
             self.nome = (
                 rotulo(
-                    ui.input('Nome do concurso', value=concurso or '', placeholder='ex.: tcu_2025'),
+                    ui.input(
+                        'Nome do concurso (obrigatório)',
+                        value=concurso or '',
+                        placeholder='ex.: tcu_2025',
+                    ).props('outlined hint="letras, números e _; vira o nome da pasta do concurso"'),
                     'nome do concurso',
                 )
                 .classes('w-full')
@@ -63,6 +67,8 @@ class TelaDeEnvio:
             )
             if concurso:
                 self.nome.disable()
+            else:
+                self.nome.props('autofocus')
             ui.label(
                 'Solte aqui o edital, o gabarito, o caderno de prova e as suas respostas (ou a foto/PDF da folha).'
             )
@@ -122,9 +128,20 @@ class TelaDeEnvio:
         with self.tabela:
             for detectado in detectados:
                 caminho = detectado.caminho
-                with ui.row().classes('items-center w-full').style(tema.gap('md')):
-                    ui.label(caminho.name).classes('font-mono min-w-48')
-                    ui.label(f'Detectamos: {NOME_DO_PAPEL[detectado.papel]}. Confirma?').classes('text-sm')
+                with (
+                    ui.row()
+                    .classes('items-center w-full no-wrap')
+                    .style(tema.gap('md'))
+                    .mark(f'linha-{caminho.name}')
+                ):
+                    with ui.column().classes('col').style(tema.gap('xs')):
+                        with ui.row().classes('items-center').style(tema.gap('sm')):
+                            ui.label(caminho.name).classes('font-mono break-all')
+                            if detectado.banca:
+                                ui.badge(detectado.banca)
+                        ui.label(f'Detectamos: {NOME_DO_PAPEL[detectado.papel]}. Confirma?').classes(
+                            'text-sm ca-texto-suave'
+                        )
                     rotulo(
                         ui.select(
                             opcoes,
@@ -132,9 +149,7 @@ class TelaDeEnvio:
                             on_change=lambda e, c=caminho: self.papeis.__setitem__(c, Papel(e.value)),
                         ),
                         f'papel de {caminho.name}',
-                    ).classes('min-w-56').mark(f'papel-{caminho.name}')
-                    if detectado.banca:
-                        ui.badge(detectado.banca)
+                    ).classes('w-56').mark(f'papel-{caminho.name}')
 
     async def cadastrar(self) -> None:
         if ESTADO.ocupado:
