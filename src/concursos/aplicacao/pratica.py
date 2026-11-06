@@ -1,13 +1,17 @@
 import logging
 import shutil
+from dataclasses import replace
 from pathlib import Path
 
 from concursos.analytics.taxonomia import carregar_taxonomia
+from concursos.aplicacao import estudo
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.projeto import curto
 from concursos.biblioteca import (
     BuscaBiblioteca,
+    BuscaLocal,
     FontesDeEstudo,
+    MapaBiblioteca,
     gravar_recomendacoes,
     indexar_biblioteca,
     ler_fontes_de_estudo,
@@ -23,6 +27,7 @@ from concursos.integracoes.open_notebook import (
     OpenNotebookIndisponivelError,
     ler_configuracao,
 )
+from concursos.modelo import EstadoLivro
 from concursos.pratica_tec import (
     ARQUIVO_ESCOLHAS,
     ConfiguracaoPratica,
@@ -150,15 +155,31 @@ def caderno_de_erros(contexto: Contexto, candidatos: list[str | None]) -> dict[s
     return {dono: textos_do_caderno(lido)} if lido.pratica.erros else {}
 
 
+LIVRO_LIDO = {EstadoLivro.LIDO, EstadoLivro.ENVIANDO, EstadoLivro.PRONTO}
+
+
 def fontes_de_estudo(contexto: Contexto) -> FontesDeEstudo:
     try:
-        return ler_fontes_de_estudo(
+        fontes = ler_fontes_de_estudo(
             contexto.projeto, contexto.raiz, contexto.taxonomia, contexto.config_global
         )
     except ConfiguracaoInvalidaError as erro:
         raise ErroDoUsuario(
             str(erro), 'corrija o .concurso/biblioteca.yaml ou a seção [legislacao] e rode de novo'
         ) from erro
+    if not livros_do_app(contexto):
+        return fontes
+    mapa = fontes.mapa or MapaBiblioteca({})
+    return replace(fontes, mapa=replace(mapa, por_disciplina=True))
+
+
+def livros_do_app(contexto: Contexto) -> dict[str, dict[str, str]]:
+    """Os livros lidos da biblioteca do app, por disciplina (sha → nome)."""
+    por_disciplina: dict[str, dict[str, str]] = {}
+    for livro in estudo.listar_livros(contexto):
+        if livro.estado in LIVRO_LIDO and livro.disciplina:
+            por_disciplina.setdefault(livro.disciplina, {})[livro.sha] = livro.nome
+    return por_disciplina
 
 
 def recomendar_estudo(
@@ -180,9 +201,14 @@ def recomendar_estudo(
     return gravar_recomendacoes(destino, resultado)
 
 
-def busca_na_biblioteca(opcoes: Opcoes, fontes: FontesDeEstudo) -> BuscaBiblioteca | None:
-    """A camada do open-notebook só entra ligada, com consentimento e rede; senão, fica o catálogo."""
-    if not opcoes.rede or fontes.mapa is None:
+def busca_na_biblioteca(opcoes: Opcoes, fontes: FontesDeEstudo) -> BuscaBiblioteca | BuscaLocal | None:
+    """Os livros do app, pelo índice local, vêm primeiro. O open-notebook externo só entra ligado, com
+    consentimento e rede; senão, fica o catálogo."""
+    if fontes.mapa is None:
+        return None
+    if livros := livros_do_app(opcoes.contexto):
+        return BuscaLocal(estudo.biblioteca(opcoes.contexto).banco, livros)
+    if not opcoes.rede:
         return None
     try:
         configuracao = ler_configuracao(opcoes.contexto.config_global)

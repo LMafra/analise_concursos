@@ -198,7 +198,7 @@ A precedência é retificação, depois edital, depois configuração, depois pe
 - `fator_penalidade`: regra de correção no default;
 - `nota_corte`: nenhum corte calculável fora da discursiva.
 
-O arquivo traz um cabeçalho, a lista do que foi extraído (ou "Nada foi extraído do edital") e, para cada campo, um comentário e a chave vazia. Já existindo, só ganha as chaves que faltam; o que o usuário escreveu fica. Na próxima análise, os valores preenchidos entram como se estivessem no `concurso.yaml` (fonte `config`; `fator_penalidade` e `nota_corte` dentro de `correcao`), e o `concurso.yaml` vence quando os dois trazem o campo. Chave desconhecida ou valor inválido param a análise com o nome do arquivo.
+O arquivo traz um cabeçalho, a lista do que foi extraído (ou "Nada foi extraído do edital") e, para cada campo, um comentário e a chave vazia. Já existindo, só ganha as chaves que faltam; o que o usuário escreveu fica. O usuário preenche os valores pela tela de conferência ("Conferir" no card do concurso, aba "Dados do edital"); ver [Conferência pela tela](#conferência-pela-tela). Na próxima análise, os valores preenchidos entram como se estivessem no `concurso.yaml` (fonte `config`; `fator_penalidade` e `nota_corte` dentro de `correcao`), e o `concurso.yaml` vence quando os dois trazem o campo. Chave desconhecida ou valor inválido param a análise com o nome do arquivo.
 
 **Retificações.** Há duas formas de um valor sair com fonte `retificacao`:
 
@@ -486,9 +486,11 @@ uf = "df"
 
 ## Fontes de estudo: biblioteca e legislação
 
-Opcionais e independentes; sem `.concurso/biblioteca.yaml` e sem `[legislacao]`, nenhuma saída muda. São sugestões: não trocam o tópico nem a disciplina de nenhuma questão.
+Opcionais e independentes; sem livros na biblioteca do app, sem `.concurso/biblioteca.yaml` e sem `[legislacao]`, nenhuma saída muda. São sugestões: não trocam o tópico nem a disciplina de nenhuma questão.
 
-`.concurso/biblioteca.yaml` (projeto, fora do git), disciplina canônica → categorias `<main> › <sub>` da estante do projeto `books`:
+**Livros do app (fase 7).** Com algum livro lido (`lido`, `enviando` ou `pronto`) na biblioteca do app, a própria disciplina de cada livro também é categoria (`MapaBiblioteca.por_disciplina`), mesmo sem `biblioteca.yaml`, e a busca de recomendações usa o índice local dos livros (`BuscaLocal`, sem abrir o open-notebook). Sem livros do app, a busca no open-notebook externo segue como antes.
+
+**`biblioteca.yaml` (legado, opcional).** `.concurso/biblioteca.yaml` (projeto, fora do git), disciplina canônica → categorias `<main> › <sub>` da estante do projeto `books`. Uma migração única (`migracao.migrar_biblioteca_yaml`, chamada antes da análise) passa os livros do app cuja disciplina é uma categoria do arquivo para a disciplina mapeada, com backup verificado em `~/.concurso/backup-biblioteca-<data>/` (o `biblioteca.yaml`, o `biblioteca.sqlite` e o `hashes.json`), e registra `[migracao_biblioteca] feita` e `livros` no `config.toml` do projeto. O arquivo fica onde está:
 
 ```yaml
 catalogo: ../books/Bookshelf/README.md   # relativo à raiz do projeto; opcional
@@ -515,6 +517,7 @@ repositorio = "~/projects/leis"
 | Fonte | Camada | Detalhe |
 |---|---|---|
 | `legislacao` | normas citadas no próprio tópico, do clone | trecho citado, `fonte` oficial, arquivo e avisos da norma |
+| `livros` | o índice local dos livros do app da disciplina, por trechos do tópico; até `LIVROS_POR_TOPICO` (3), origem `Meus livros` | a página do melhor trecho (`p. N`) |
 | `open_notebook` | `POST /api/search` `type=text` nos notebooks `Biblioteca — <categoria>` mapeados, por trechos do tópico; até `LIVROS_POR_TOPICO` (3) | relevância (a busca não devolve trecho) |
 | `catalogo` | sem rede, com erro ou sem resultado: os livros das categorias mapeadas, primeiro os que dividem palavras com o tópico | — |
 
@@ -738,7 +741,7 @@ Todo arquivo da pasta precisa aparecer no `concurso.yaml` (num campo ou em `igno
 
 ## Taxonomia de disciplinas
 
-A taxonomia fica em `./.concurso/taxonomia.yaml`. É escrita e revisada à mão. Ela mapeia cada nome de disciplina, como aparece nos `questoes.csv`, para uma **disciplina canônica**. Assim, a mesma matéria é comparada entre editais que usam nomes diferentes:
+A taxonomia fica em `./.concurso/taxonomia.yaml`. É gravada pela tela Configurações > "Disciplinas e temas" (ver [Conferência pela tela](#conferência-pela-tela)), e editá-la à mão continua valendo. Ela mapeia cada nome de disciplina, como aparece nos `questoes.csv`, para uma **disciplina canônica**. Assim, a mesma matéria é comparada entre editais que usam nomes diferentes:
 
 ```yaml
 Raciocínio Lógico:
@@ -783,7 +786,7 @@ O arquivo `provas/<concurso>/revisao/questoes_revisado.csv` é criado na primeir
 - `enunciado` (trecho);
 - `disciplina`, `topico` (para o usuário preencher).
 
-Células não vazias em `disciplina` e `topico` têm prioridade sobre a sugestão. Editar o arquivo dispara o reprocessamento.
+Células não vazias em `disciplina` e `topico` têm prioridade sobre a sugestão. Editar o arquivo dispara o reprocessamento. A tela de conferência grava as duas colunas das questões escolhidas (`topicos.gravar_revisao_editada`), sem mexer nas outras linhas nem nas colunas; "Nenhum" grava `topico = nao_mapeado`.
 
 ## Contratos de saída
 
@@ -1023,3 +1026,14 @@ Artefatos da release a partir da fase 6: os da fase 5, mais `atualizacao.json`, 
 - Cada trecho leva o nome do arquivo, a página (livro) ou a seção (análise) e o caminho para "Abrir arquivo". Sem nada, o aviso "Não achei isso nos seus livros".
 - IA: só com `[llm] consentimento_livros = true` na configuração global, separado do `consentimento` do edital, e fora do `--offline`. A chave vai por variável de ambiente na partida da API e do worker (`OPENAI_COMPATIBLE_BASE_URL_LLM` e `OPENAI_COMPATIBLE_API_KEY_LLM`; na Anthropic, `ANTHROPIC_API_KEY`), nunca no banco; mudar a IA sobe os processos de novo. O modelo (`[llm] modelo`) é registrado sem credencial, como `openai_compatible` (ou `anthropic`), e usado nas três funções do `POST /api/search/ask/simple`. A resposta aparece como "Resposta da IA — confira nos trechos"; os `[source:<id>]` viram "Livros citados" e os trechos desses livros vêm primeiro.
 - Sugestões: uma por tópico fraco persistente (`biblioteca.topicos_fracos`), "Revisar <tópico> nos seus livros"; em Resultados, os mesmos tópicos abrem `/estudar?aba=perguntar&pergunta=<tópico>`.
+
+## Conferência pela tela
+
+Nenhum arquivo de entrada exige edição à mão: `aplicacao/conferencia.py` grava cada um e a GUI chama.
+
+- **Pendências (`pendencias(contexto, concurso)`):** as questões sem revisão cuja sugestão é `nao_mapeado` ou tem `score` abaixo de `SCORE_BAIXO` (0,05), mais os campos vazios do `edital_a_confirmar.yaml`. O card do concurso mostra "Conferir (N)".
+- **Tópicos (`topicos_para_conferir`, `opcoes_de_topico`, `gravar_topicos`):** as opções são os tópicos do `edital_estruturado.json` do concurso (da pasta do candidato ou de qualquer `analises/**/<concurso>/`); sem ele, as sugestões do próprio CSV. A gravação usa `topicos.gravar_revisao_editada` e devolve se o arquivo mudou.
+- **Dados do edital (`campos_a_confirmar`, `gravar_campos`):** o tipo de cada campo é `TipoCampo` (`data`, `inteiro`, `numero`): `data_prova` aceita `DD/MM/AAAA` ou `AAAA-MM-DD` e grava ISO; `alternativas` é inteiro de 2 a 10; `fator_penalidade` é número de 0 a 10 (aceita vírgula); `nota_corte` é número a partir de 0. Vazio esvazia a chave. `edital_a_confirmar.gravar_valores` troca só a linha `campo:` e preserva os comentários; se `carregar_concurso` recusar o resultado, o arquivo volta ao que era e a tela mostra o erro.
+- **Disciplinas (`taxonomia`, `gravar_taxonomia`, `juntar_disciplinas`, `separar_disciplina`):** os grupos vêm da `taxonomia.yaml`; os nomes soltos são os da coluna `disciplina` dos `questoes.csv` das análises que a taxonomia não conhece. Um nome só pode estar em uma disciplina, e o bloco é `geral` ou `especifico`. Grava com `gravar_se_mudou`.
+- **Reanálise (`reanalisar_afetados(opcoes, concurso)`):** a análise de sempre (`aplicacao.analise.analisar`), com o concurso conferido ou todos (taxonomia). Quem não mudou é pulado pelo manifesto.
+- **Manifesto:** além dos arquivos da pasta do concurso (já com `revisao/` e `edital_a_confirmar.yaml`), entram os de `Contexto.extras_do_manifesto` (`.concurso/taxonomia.yaml`), cada um só quando existe, para não invalidar os manifestos gravados antes dele.

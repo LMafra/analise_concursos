@@ -1,7 +1,7 @@
 from nicegui import ui
 
 from concursos import onboarding
-from concursos.aplicacao import analise
+from concursos.aplicacao import analise, conferencia
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.estado_vazio import estado_vazio
@@ -113,7 +113,16 @@ def lista_de_concursos() -> bool:
 
 
 def acoes_do_concurso(nome: str) -> None:
+    try:
+        pendentes = conferencia.pendencias(ESTADO.contexto(), nome).total
+    except Exception:  # noqa: BLE001
+        pendentes = 0
     with ui.row().style(tema.gap('xs')):
+        ui.button(
+            f'Conferir ({pendentes})' if pendentes else 'Conferir',
+            icon='fact_check',
+            on_click=lambda: ui.navigate.to(f'/conferir?concurso={nome}'),
+        ).props('flat dense').mark(f'conferir-{nome}')
         ui.button(
             'Acrescentar arquivos',
             icon='upload_file',

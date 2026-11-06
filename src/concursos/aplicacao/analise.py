@@ -83,7 +83,8 @@ def analisar_candidato(
     destino = analises / candidato if candidato else analises
     if opcoes.dry_run:
         prefixo = f'{candidato}/' if candidato else ''
-        for nome, acao in planejar(provas, destino, opcoes.forcar, concurso, candidato):
+        extras = contexto.extras_do_manifesto
+        for nome, acao in planejar(provas, destino, opcoes.forcar, concurso, candidato, extras):
             opcoes.saida(f'{prefixo}{nome}: {acao}')
         praticar(opcoes, candidato, destino, None)
         return True
@@ -105,6 +106,7 @@ def analisar_candidato(
         candidato,
         opcoes.ao_progresso,
         opcoes.ao_etapa,
+        contexto.extras_do_manifesto,
     )
     pratica = praticar(opcoes, candidato, destino, configuracao)
     textos = textos_para_normas(pratica) if pratica is not None else []

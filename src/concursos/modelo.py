@@ -88,6 +88,7 @@ class FonteRecomendacao(StrEnum):
     """De onde veio uma recomendação de estudo, na ordem em que as camadas são tentadas."""
 
     LEGISLACAO = 'legislacao'
+    LIVROS = 'livros'
     OPEN_NOTEBOOK = 'open_notebook'
     CATALOGO = 'catalogo'
 
@@ -166,3 +167,9 @@ class OndeProcurar(StrEnum):
     LIVROS = 'livros'
     ANALISES = 'analises'
     TUDO = 'tudo'
+
+
+class TipoCampo(StrEnum):
+    DATA = 'data'
+    INTEIRO = 'inteiro'
+    NUMERO = 'numero'

@@ -53,6 +53,11 @@ class Contexto:
     def taxonomia(self) -> Path:
         return self.projeto / ARQUIVO_TAXONOMIA
 
+    @property
+    def extras_do_manifesto(self) -> dict[str, Path]:
+        """Os arquivos de fora da pasta do concurso que mudam a análise e por isso entram no manifesto."""
+        return {'.concurso/taxonomia.yaml': self.taxonomia}
+
 
 def resolver_home(ambiente: Mapping[str, str] | None = None) -> Path:
     ambiente = os.environ if ambiente is None else ambiente

@@ -8,7 +8,7 @@ from concursos.candidatos import candidatos_existentes, slug
 from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, carregar_concurso
 from concursos.config.contexto import Contexto, gravar_no_config_projeto, ler_toml
 from concursos.erros import ErroDoAmbiente, ErroDoUsuario
-from concursos.migracao import MigracaoError, executar_migracao, planejar_migracao
+from concursos.migracao import MigracaoError, executar_migracao, migrar_biblioteca_yaml, planejar_migracao
 from concursos.status import listar_concursos
 
 
@@ -97,6 +97,8 @@ def migrar(opcoes: Opcoes) -> Opcoes:
     """Passa para o layout multi-candidato o que estiver no formato das fases 1 a 3."""
     contexto = opcoes.contexto
     try:
+        if not opcoes.dry_run:
+            migrar_biblioteca_yaml(contexto)
         migracao = planejar_migracao(contexto)
         if migracao.vazia:
             return opcoes

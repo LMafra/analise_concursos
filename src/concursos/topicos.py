@@ -214,6 +214,22 @@ def gravar_revisao(caminho: Path, linhas: list[dict]) -> bool:
     return True
 
 
+def gravar_revisao_editada(caminho: Path, edicoes: dict[tuple[int, str], tuple[str, str]]) -> bool:
+    """Troca `disciplina` e `topico` só das linhas editadas; as outras linhas e as colunas ficam como estão."""
+    bruto = caminho.read_bytes()
+    tabela = pd.read_csv(caminho, dtype=str, keep_default_na=False)
+    for indice, linha in tabela.iterrows():
+        chave = (int(linha['questao']), linha['prova'])
+        if chave in edicoes:
+            tabela.loc[indice, ['disciplina', 'topico']] = list(edicoes[chave])
+    fim_de_linha = '\r\n' if b'\r\n' in bruto else '\n'
+    texto = tabela.to_csv(index=False, lineterminator=fim_de_linha)
+    if texto.encode('utf-8') == bruto:
+        return False
+    caminho.write_bytes(texto.encode('utf-8'))
+    return True
+
+
 def ler_revisao(caminho: Path) -> dict[tuple[int, str], tuple[str, str]]:
     """(questao, prova) -> (disciplina, topico) revisados; células vazias mantêm a sugestão."""
     if not caminho.exists():

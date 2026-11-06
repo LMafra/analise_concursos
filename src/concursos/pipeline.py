@@ -93,6 +93,7 @@ def analisar_todos(
     candidato: str | None = None,
     ao_progresso: Callable[[str, int, int], None] | None = None,
     ao_etapa: Callable[[str, Etapa], None] | None = None,
+    extras: manifesto.Extras | None = None,
 ) -> bool:
     """Analisa os concursos completos que mudaram; retorna False se algum falhou durante a análise.
 
@@ -110,7 +111,7 @@ def analisar_todos(
         destino = raiz_analises / pasta.name
         etapa = (lambda e, nome=pasta.name: ao_etapa(nome, e)) if ao_etapa is not None else None
         situacao, analisado = _analisar_se_necessario(
-            pasta, destino, forcar, configuracao, taxonomia, candidato, etapa
+            pasta, destino, forcar, configuracao, taxonomia, candidato, etapa, extras
         )
         situacoes[pasta.name] = situacao
         sucesso &= analisado
@@ -133,6 +134,7 @@ def planejar(
     forcar: bool = False,
     apenas: str | None = None,
     candidato: str | None = None,
+    extras: manifesto.Extras | None = None,
 ) -> list[tuple[str, str]]:
     """O que `analisar_todos` faria com cada concurso, sem gravar nada."""
     plano = []
@@ -142,7 +144,7 @@ def planejar(
             plano.append((pasta.name, f'pularia ({situacao.situacao}: {"; ".join(situacao.motivos)})'))
         elif situacao.trocas:
             plano.append((pasta.name, 'analisaria (gabarito definitivo novo)'))
-        elif not forcar and manifesto.atualizado(pasta, raiz_analises / pasta.name, candidato):
+        elif not forcar and manifesto.atualizado(pasta, raiz_analises / pasta.name, candidato, extras):
             plano.append((pasta.name, 'sem mudanças'))
         else:
             plano.append((pasta.name, 'analisaria'))
@@ -166,6 +168,7 @@ def _analisar_se_necessario(
     taxonomia: dict[str, DisciplinaCanonica] | None,
     candidato: str | None,
     etapa: Callable[[Etapa], None] | None = None,
+    extras: manifesto.Extras | None = None,
 ) -> tuple[StatusConcurso, bool]:
     """A situação do concurso depois da troca de gabarito, se houve, e se a análise não falhou."""
     situacao = avaliar(pasta, candidato)
@@ -175,7 +178,7 @@ def _analisar_se_necessario(
     elif (
         situacao.situacao is Situacao.COMPLETO
         and not forcar
-        and manifesto.atualizado(pasta, destino, candidato)
+        and manifesto.atualizado(pasta, destino, candidato, extras)
     ):
         logger.info('%s: sem mudanças desde a última análise', situacao.nome)
         return situacao, True
@@ -188,7 +191,7 @@ def _analisar_se_necessario(
     except (ValueError, FileNotFoundError, RuntimeError) as erro:
         logger.error('%s: falha na análise: %s', situacao.nome, erro)
         return situacao, False
-    manifesto.gravar(pasta, destino, candidato)
+    manifesto.gravar(pasta, destino, candidato, extras)
     return situacao, True
 
 

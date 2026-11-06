@@ -19,7 +19,9 @@ from concursos.gui.estado import ESTADO, projeto_inicial
 from concursos.gui.paginas import (
     analise,
     concursos,
+    conferir,
     configuracoes,
+    disciplinas_e_temas,
     estudar,
     inicio,
     integracoes,
@@ -58,6 +60,8 @@ ROTAS: dict[str, Callable[..., None]] = {
     '/integracoes': integracoes.pagina,
     '/projeto': projeto.pagina,
     '/configuracoes': configuracoes.pagina,
+    '/conferir': conferir.pagina,
+    '/disciplinas': disciplinas_e_temas.pagina,
     '/sobre': sobre.pagina,
 }
 

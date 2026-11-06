@@ -1,5 +1,6 @@
 import hashlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 import yaml
@@ -10,9 +11,13 @@ _IGNORADOS = (':Zone.Identifier',)
 _PASTA_CANDIDATOS = 'candidatos'
 
 
-def calcular(pasta: Path, candidato: str | None = None) -> dict:
+Extras = Mapping[str, Path]
+
+
+def calcular(pasta: Path, candidato: str | None = None, extras: Extras | None = None) -> dict:
     """Hash de todos os arquivos de entrada da pasta do concurso (inclui concurso.yaml e revisao/). Com
-    candidato, entram só os arquivos comuns e os da subpasta dele."""
+    candidato, entram só os arquivos comuns e os da subpasta dele. Os `extras` (de fora da pasta, como a
+    taxonomia do projeto) entram só quando existem, para não invalidar os manifestos de antes deles."""
     arquivos = {
         str(caminho.relative_to(pasta)): hash_arquivo(caminho)
         for caminho in sorted(pasta.rglob('*'))
@@ -23,6 +28,9 @@ def calcular(pasta: Path, candidato: str | None = None) -> dict:
     for nome in _edital_de_fora(pasta):
         if (pasta / nome).is_file():
             arquivos[nome] = hash_arquivo(pasta / nome)
+    for chave, caminho in (extras or {}).items():
+        if caminho.is_file():
+            arquivos[chave] = hash_arquivo(caminho)
     return {'versao': VERSAO_ANALISE, 'arquivos': arquivos}
 
 
@@ -51,17 +59,19 @@ def hash_arquivo(caminho: Path) -> str:
     return hashlib.sha256(caminho.read_bytes()).hexdigest()
 
 
-def atualizado(pasta: Path, destino: Path, candidato: str | None = None) -> bool:
+def atualizado(
+    pasta: Path, destino: Path, candidato: str | None = None, extras: Extras | None = None
+) -> bool:
     caminho = destino / ARQUIVO_MANIFESTO
     if not caminho.exists():
         return False
-    return json.loads(caminho.read_text(encoding='utf-8')) == calcular(pasta, candidato)
+    return json.loads(caminho.read_text(encoding='utf-8')) == calcular(pasta, candidato, extras)
 
 
 def invalidar(destino: Path) -> None:
     (destino / ARQUIVO_MANIFESTO).unlink(missing_ok=True)
 
 
-def gravar(pasta: Path, destino: Path, candidato: str | None = None) -> None:
-    conteudo = json.dumps(calcular(pasta, candidato), indent=2, ensure_ascii=False)
+def gravar(pasta: Path, destino: Path, candidato: str | None = None, extras: Extras | None = None) -> None:
+    conteudo = json.dumps(calcular(pasta, candidato, extras), indent=2, ensure_ascii=False)
     (destino / ARQUIVO_MANIFESTO).write_text(conteudo, encoding='utf-8')

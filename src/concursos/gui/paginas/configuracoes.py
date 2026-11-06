@@ -44,6 +44,7 @@ def pagina() -> None:
             secao_da_analise()
         except Exception as erro:  # noqa: BLE001
             mostrar_erro(erro)
+        secao_das_disciplinas()
         secao_do_projeto()
         secao_da_aparencia()
         SecaoDaIa()
@@ -106,6 +107,16 @@ def secao_da_analise() -> None:
             ui.notify('Configurações gravadas; valem na próxima análise.', type='positive')
 
         ui.button('Salvar', icon='save', on_click=salvar).mark('salvar-analise')
+
+
+def secao_das_disciplinas() -> None:
+    with cartao('Disciplinas e temas', icone='category'):
+        ui.label('Junte nomes diferentes da mesma disciplina e diga se ela é geral ou específica.').classes(
+            'text-sm ca-texto-suave'
+        )
+        ui.button('Abrir', icon='arrow_forward', on_click=lambda: ui.navigate.to('/disciplinas')).props(
+            'flat'
+        ).mark('abrir-disciplinas')
 
 
 def secao_do_projeto() -> None:

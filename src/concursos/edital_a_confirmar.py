@@ -1,9 +1,11 @@
 """O `edital_a_confirmar.yaml`: os campos que nenhuma camada do edital preencheu, para o usuário completar.
 
-O arquivo nunca é reescrito: depois de criado, só ganha no fim os campos que passarem a faltar. O que o
-usuário preenche é lido por `concurso_config.carregar_concurso` como se estivesse no `concurso.yaml`."""
+A análise nunca reescreve o arquivo: depois de criado, só ganha no fim os campos que passarem a faltar. A
+tela de conferência preenche os valores (`gravar_valores`) sem tocar nos comentários. O que o usuário
+preenche é lido por `concurso_config.carregar_concurso` como se estivesse no `concurso.yaml`."""
 
 import logging
+import re
 from pathlib import Path
 
 import yaml
@@ -95,3 +97,17 @@ def _extraidos(regras: RegrasEdital) -> str:
     if not linhas:
         return '# Nada foi extraído do edital (modo mínimo).\n#\n'
     return '# Extraído do edital, só para conferência:\n' + '\n'.join(linhas) + '\n#\n'
+
+
+def gravar_valores(caminho: Path, valores: dict[str, object]) -> bool:
+    """Preenche (ou esvazia, com None) os campos já presentes no arquivo, sem mexer nos comentários."""
+    texto = caminho.read_text(encoding='utf-8')
+    for campo, valor in valores.items():
+        escrito = '' if valor is None else f' {valor}'
+        texto, trocas = re.subn(rf'^{campo}:.*$', f'{campo}:{escrito}', texto, count=1, flags=re.MULTILINE)
+        if not trocas:
+            texto += ('' if texto.endswith('\n') else '\n') + f'{campo}:{escrito}\n'
+    if texto == caminho.read_text(encoding='utf-8'):
+        return False
+    caminho.write_text(texto, encoding='utf-8')
+    return True
