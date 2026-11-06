@@ -207,6 +207,16 @@ def test_ocr_aceita_quando_o_texto_aparece(monkeypatch, tmp_path):
     assert comandos[0][2:] == ['stdout', '-l', 'por']
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='Tesseract falso em shell script')
+def test_ocr_relata_a_falha_mesmo_com_bytes_que_nao_sao_utf8(tmp_path):
+    tesseract = tmp_path / 'tesseract'
+    tesseract.write_text("#!/bin/sh\nprintf 'Error in pixReadStreamPng: \\211PNG\\n' >&2\nexit 1\n")
+    tesseract.chmod(0o755)
+
+    with pytest.raises(empacotado.SmokeError, match='código 1: Error in pixReadStreamPng'):
+        empacotado.conferir_ocr(str(tesseract))
+
+
 @pytest.mark.skipif(
     not (TESSERACT_LOCAL / 'bin' / 'tesseract').is_file() or sys.platform != 'linux',
     reason='sem o Tesseract extraído por empacotamento/tesseract/obter_linux.sh',

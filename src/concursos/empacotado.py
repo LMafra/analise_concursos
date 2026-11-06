@@ -117,7 +117,12 @@ def conferir_tesseract() -> str:
             return f'Tesseract dispensado ({VARIAVEL_SEM_OCR})'
         raise SmokeError('Tesseract não encontrado no executável nem no PATH')
     saida = subprocess.run(
-        [caminho, '--list-langs'], capture_output=True, text=True, timeout=30, check=False
+        [caminho, '--list-langs'],
+        capture_output=True,
+        encoding='utf-8',
+        errors='replace',
+        timeout=30,
+        check=False,
     ).stdout
     if 'por' not in saida.split():
         raise SmokeError(f'Tesseract em {caminho} sem o idioma português (por)')
@@ -140,7 +145,8 @@ def conferir_ocr(tesseract: str) -> str:
         resultado = subprocess.run(
             [tesseract, str(imagem), 'stdout', '-l', 'por'],
             capture_output=True,
-            text=True,
+            encoding='utf-8',
+            errors='replace',
             timeout=60,
             check=False,
         )
