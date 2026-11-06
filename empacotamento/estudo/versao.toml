@@ -1,0 +1,45 @@
+# O que entra no pacote de estudo. O workflow `estudo.yml` troca [open_notebook] quando sai uma
+# release nova do upstream; o resto muda só à mão, com o SHA-256 conferido na fonte.
+# Trocar o modelo exige uma decisão em docs/decisoes-fase7.md: todos os livros são reprocessados.
+
+revisao = 1
+app_minimo = "0.7.0b1"
+
+[open_notebook]
+tag = "v1.15.1"
+commit = "5e285b7a2e435895c4ee99ad7e4b8d2af64c3239"
+# Pacotes que o open-notebook declara mas que o uso pelo app não precisa (Node do pytubefix e
+# ffmpeg dos podcasts). Se os testes de contrato quebrarem sem eles, monte com --completo.
+excluir = ["nodejs-wheel-binaries", "imageio-ffmpeg"]
+
+[python]
+versao = "3.12.16"
+build = "20261026"
+"linux-x86_64" = { arquivo = "cpython-3.12.16+20261026-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz", sha256 = "ce4f6d0a6cfdb3bed6e44c2f9affd85943c76a42e25ad3a259002f31d6fb8a20" }
+"windows-x64" = { arquivo = "cpython-3.12.16+20261026-x86_64-pc-windows-msvc-install_only_stripped.tar.gz", sha256 = "1f2ab53880fc67ea323398c6388e05af28addc99a8e389209f08a51fdff4b149" }
+
+[surreal]
+versao = "v2.7.0"
+"linux-x86_64" = { arquivo = "surreal-v2.7.0.linux-amd64.tgz", sha256 = "c5f53be46e287d15302d3467c629ad8df016c96fcf15451077633949dadb2028" }
+"windows-x64" = { arquivo = "surreal-v2.7.0.windows-amd64.exe", sha256 = "55c7e05ee2b68ec0d8b86c4b588e9b9807f257af8c15c05d17074514c64d8c91" }
+licenca_sha256 = "dd98c688e54be8b85ad79e603f5112449b9789dfc031db94eb5c7dc843702aef"
+
+# Instalados depois do ambiente travado; se o open-notebook já trava um deles, vale a versão dele.
+[embeddings]
+onnxruntime = "1.31.1"
+tokenizers = "0.23.3"
+
+[modelo]
+nome = "paraphrase-multilingual-MiniLM-L12-v2"
+repositorio = "Qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q"
+revisao = "faf4aa4225822f3bc6376869cb1164e8e3feedd0"
+licenca = "Apache-2.0"
+dimensoes = 384
+arquivos = [
+    { nome = "model_optimized.onnx", sha256 = "634d0f66c29dc934c8fa72b8a4fe91dd4d420a22f1d82a241058d4316e659a99" },
+    { nome = "tokenizer.json", sha256 = "fa685fc160bbdbab64058d4fc91b60e62d207e8dc60b9af5c002c5ab946ded00" },
+]
+
+[tiktoken]
+url = "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken"
+sha256 = "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d"

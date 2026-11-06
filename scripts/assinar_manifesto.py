@@ -7,6 +7,7 @@ Roda no job `publicar` do release.yml, só com as dependências do uv.lock e sem
 
 A chave privada (PEM, Ed25519) vem da variável `CHAVE_ATUALIZACAO`, o secret do environment `release`.
 
+    ... assinar_manifesto.py assinar-estudo dist/estudo   # estudo.json.sig do pacote de estudo (estudo.yml)
     ... assinar_manifesto.py gerar-chave <destino.pem>   # chave nova; imprime a pública para CHAVES_PUBLICAS
     ... assinar_manifesto.py conferir dist                # confere com as chaves do pacote
 """
@@ -24,6 +25,7 @@ from cryptography.hazmat.primitives import serialization  # noqa: E402
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey  # noqa: E402
 
 from concursos import atualizador  # noqa: E402
+from concursos.estudo import manifesto as manifesto_estudo  # noqa: E402
 
 VARIAVEL_CHAVE = 'CHAVE_ATUALIZACAO'
 
@@ -57,6 +59,21 @@ def assinar(versao: str, pasta: Path, texto_chave: str, hoje: str) -> tuple[Path
     return destino, assinatura
 
 
+def assinar_estudo(pasta: Path, texto_chave: str) -> Path:
+    """Assina o `estudo.json` já gravado pelo `empacotamento/estudo/montar.py manifesto`."""
+    chave = ler_chave_privada(texto_chave)
+    if publica_em_base64(chave) not in atualizador.CHAVES_PUBLICAS:
+        raise SystemExit('a chave privada não corresponde a nenhuma de atualizador.CHAVES_PUBLICAS')
+    conteudo = (pasta / manifesto_estudo.ARQUIVO_MANIFESTO).read_bytes()
+    lido = manifesto_estudo.ler_manifesto(conteudo)
+    for artefato in lido.artefatos.values():
+        atualizador.conferir_sha256(pasta / artefato.arquivo, artefato.sha256)
+    assinatura = pasta / manifesto_estudo.ARQUIVO_ASSINATURA
+    assinatura.write_bytes(atualizador.assinar(conteudo, chave) + b'\n')
+    manifesto_estudo.conferir_assinatura(conteudo, assinatura.read_bytes())
+    return assinatura
+
+
 def conferir(pasta: Path) -> str:
     conteudo = (pasta / atualizador.ARQUIVO_MANIFESTO).read_bytes()
     atualizador.conferir_assinatura(conteudo, (pasta / atualizador.ARQUIVO_ASSINATURA).read_bytes())
@@ -87,13 +104,17 @@ def main(argv: list[str] | None = None) -> int:
     p_assinar = comandos.add_parser('assinar')
     p_assinar.add_argument('versao')
     p_assinar.add_argument('pasta', type=Path)
+    comandos.add_parser('assinar-estudo').add_argument('pasta', type=Path)
     comandos.add_parser('conferir').add_argument('pasta', type=Path)
     comandos.add_parser('gerar-chave').add_argument('destino', type=Path)
     args = parser.parse_args(argv)
-    if args.comando == 'assinar':
+    if args.comando in ('assinar', 'assinar-estudo'):
         texto = os.environ.get(VARIAVEL_CHAVE)
         if not texto:
             raise SystemExit(f'defina {VARIAVEL_CHAVE} com a chave privada (PEM)')
+        if args.comando == 'assinar-estudo':
+            print(f'gravado: {assinar_estudo(args.pasta, texto)}')  # noqa: T201
+            return 0
         for caminho in assinar(args.versao, args.pasta, texto, datetime.now(UTC).date().isoformat()):
             print(f'gravado: {caminho}')  # noqa: T201
     elif args.comando == 'conferir':

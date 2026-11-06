@@ -68,7 +68,8 @@ A instância gerenciada do open-notebook (fase 7) roda no próprio computador e 
 | Métricas de evolução: ranking, z-score, tendência, correlação, tópicos, meta, nota ponderada, gap para o corte, simulação | `analytics/evolucao.py` |
 | Respostas em texto, `relatorio_evolucao.md`, desempate e peculiaridades do edital | `analytics/insights.py` |
 | Gráficos (plotly no notebook, PNG com matplotlib) e resumo de tabelas | `analytics/visualizacao.py` |
-| Pacote de estudo: manifesto `estudo.json`, download verificado, instalação, backup e volta ao anterior | `estudo/instalacao.py` |
+| Pacote de estudo: manifesto `estudo.json` (formato, assinatura, compatibilidade) | `estudo/manifesto.py` |
+| Pacote de estudo: escolha da release, download verificado, espaço em disco, instalação, backup e volta ao anterior | `estudo/instalacao.py` |
 | Processos do open-notebook gerenciado (SurrealDB, API, worker, embeddings): portas, senha, trava, saúde, parada por ociosidade | `estudo/supervisor.py` |
 | Montagem do pacote de estudo e servidor de embeddings (fora do pacote) | `empacotamento/estudo/` |
 | Livros: validação do arquivo, leitura por página (com OCR), índice FTS5 com radicais, fila em segundo plano e envio ao open-notebook | `livros/` |

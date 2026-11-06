@@ -78,6 +78,7 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "integration: usa uma instância real do open-notebook em OPEN_NOTEBOOK_URL; pulado sem ela",
     "pci_mcp: usa o servidor MCP real da PCI Concursos; pulado sem PCI_MCP_INTEGRACAO=1",
+    "open_notebook_real: usa o pacote de estudo montado em ESTUDO_PACOTE; pulado sem ele",
 ]
 
 [tool.ruff]

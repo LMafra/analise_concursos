@@ -12,7 +12,7 @@ Registro curto das escolhas da fase 7 (estudar com o open-notebook, dicionário 
 
 - **Contexto:** o open-notebook precisa de um Python de verdade (o app congelado não hospeda `uvicorn api.main`), do código da release (migrations e prompts) e do SurrealDB. Embutir tudo levaria o instalador perto de 800 MB.
 - **Decisão:** um pacote por sistema (Windows x64 e Linux x64), montado no CI e assinado com a mesma chave Ed25519 do atualizador: Python 3.12 standalone, o ambiente travado da tag sem Node e ffmpeg, o `surreal` 2.x, o servidor de embeddings com o modelo, o cache do tiktoken e as licenças. É baixado uma vez, com consentimento, ao abrir "Estudar".
-- **Publicação:** release própria no mesmo repositório, tag `estudo-v<open-notebook>-<n>`, com `estudo.json`, `estudo.json.sig` e um arquivo por sistema. O `estudo.json` declara `app_minimo`; o pacote segue o canal do app.
+- **Publicação:** release própria no mesmo repositório, tag `estudo-v<open-notebook>-<n>`, com `estudo.json`, `estudo.json.sig` e um arquivo por sistema: `.zip` no Windows e `.tar.xz` no Linux, que guarda as permissões de execução. O `.tar.zst` foi descartado porque o zstd só entra na biblioteca padrão no Python 3.14, e o app não ganha uma dependência só para isso. O `estudo.json` declara `app_minimo`; o pacote segue o canal do app.
 - **Descartado:** tudo no instalador (tamanho, e toda atualização rebaixaria o modelo); instalar com um uv embutido resolvendo no PyPI (mais pontos de falha na máquina do usuário).
 
 ## 3. Acompanhar cada release do open-notebook

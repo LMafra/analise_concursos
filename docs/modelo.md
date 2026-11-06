@@ -955,3 +955,27 @@ Espaço `xs` 4 px, `sm` 8, `md` 16, `lg` 24, `xl` 32; raio 8 px (cartão) e 12 p
 **Onboarding (fase 6).** A tela `/inicio` é um assistente de 4 passos (nome; pasta, com as pastas de provas e análises em "Avançado"; opcionais desmarcados: IA para editais e aviso de versão nova; primeiro resultado: exemplo ou cadastro). Grava pelas mesmas `onboarding.aplicar` e `onboarding.gravar`; o aviso de versão nova grava `[atualizacao] verificar_ao_abrir`, e "Pular" no passo 3 não grava nenhum dos dois. A calibração da folha fica em Configurações (`aplicacao.inicio.salvar_calibracao`, que grava o mesmo `./.concurso/folha_calibrada.yaml`; a análise seguinte pela GUI é forçada, para reler as folhas), e o `doctor` fica no Sobre ("Conferir o ambiente"). Projeto sem concursos, sem relatório, sem recomendações ou sem prática mostra um estado vazio com a próxima ação.
 
 Artefatos da release a partir da fase 6: os da fase 5, mais `atualizacao.json`, `atualizacao.json.sig` e `RELATORIO-SMOKE.md` (o resultado dos gates de cada sistema). O `--smoke` também imprime `partida: <s>` (falha acima de `CONCURSO_SMOKE_LIMITE_PARTIDA`, se definida) e confere o OCR numa imagem gerada.
+
+## Fase 7: estudar com o open-notebook
+
+**Pacote de estudo.** Uma release própria por versão, tag `estudo-v<versao>`, com `<versao> = <open-notebook>-<revisao>` (ex.: `estudo-v1.15.1-1`). Anexos: `estudo-<versao>-windows-x64.zip`, `estudo-<versao>-linux-x86_64.tar.xz`, `estudo.json` e `estudo.json.sig` (Ed25519 sobre os bytes exatos, com as mesmas `atualizador.CHAVES_PUBLICAS`). Montado por `empacotamento/estudo/montar.py` a partir de `empacotamento/estudo/versao.toml`.
+
+```json
+{
+  "formato": 1,
+  "versao": "1.15.1-1",
+  "open_notebook": "1.15.1",
+  "app_minimo": "0.7.0b1",
+  "canal": "beta",
+  "publicado_em": "2026-11-06",
+  "modelo": {"nome": "paraphrase-multilingual-MiniLM-L12-v2", "revisao": "<commit do HF>", "dimensoes": 384},
+  "artefatos": {
+    "windows-x64": {"arquivo": "estudo-1.15.1-1-windows-x64.zip", "sha256": "<64 hex>", "tamanho": 400000000, "tamanho_extraido": 1100000000},
+    "linux-x86_64": {"arquivo": "estudo-1.15.1-1-linux-x86_64.tar.xz", "sha256": "<64 hex>", "tamanho": 300000000, "tamanho_extraido": 1200000000}
+  }
+}
+```
+
+- `versao` segue `^\d+\.\d+\.\d+-\d+$`; `arquivo`, `^estudo-\d+\.\d+\.\d+-\d+-(windows-x64\.zip|linux-x86_64\.tar\.xz)$`, e precisa ser do sistema da chave. `canal` é `beta` quando `app_minimo` é pré-release. Um app usa o pacote só se a versão dele é pelo menos `app_minimo` (PEP 440).
+- Conteúdo, na raiz `estudo-<versao>/`: `python/` (Python 3.12 standalone com o ambiente travado do open-notebook, onnxruntime e tokenizers), `open-notebook/` (código da tag, sem `frontend/`), `bin/surreal[.exe]` (SurrealDB 2.x), `modelo/` (`model_optimized.onnx`, `tokenizer.json`), `tiktoken/` (cache do `o200k_base`), `servidor_embeddings.py`, `LICENSES/` (MIT do open-notebook, BSL 1.1 do SurrealDB, Apache-2.0 do modelo, PSF) e `estudo.toml` (`versao`, `open_notebook`, `surreal`, `modelo`, `dimensoes`, `tiktoken`).
+- `servidor_embeddings.py`: `POST /v1/embeddings` no formato da OpenAI (`input` texto ou lista de até 2048 textos; corpo de até 8 MB), `GET /health` e `GET /v1/models`; só em `127.0.0.1`, com `Authorization: Bearer <EMBEDDINGS_TOKEN>`; vetores de 384 dimensões, mean pooling normalizado, até 128 tokens por texto. Imprime `porta=<n>` na primeira linha.

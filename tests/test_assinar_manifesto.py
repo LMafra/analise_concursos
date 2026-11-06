@@ -74,6 +74,36 @@ def test_conferir_pega_artefato_trocado(script, chave, tmp_path):
         script.conferir(pasta)
 
 
+def test_assina_o_manifesto_do_pacote_de_estudo(script, chave, tmp_path):
+    from concursos.estudo import manifesto
+
+    pasta = tmp_path / 'estudo'
+    pasta.mkdir()
+    arquivos = []
+    for sufixo in manifesto.SUFIXOS.values():
+        arquivo = pasta / f'estudo-1.15.1-1-{sufixo}'
+        arquivo.write_bytes(sufixo.encode())
+        arquivos.append(arquivo)
+    (pasta / manifesto.ARQUIVO_MANIFESTO).write_bytes(
+        manifesto.montar_manifesto(
+            open_notebook='1.15.1',
+            revisao=1,
+            app_minimo='0.7.0b1',
+            publicado_em='2026-11-06',
+            modelo={'nome': 'm'},
+            arquivos=arquivos,
+            extraidos={'windows-x64': 1, 'linux-x86_64': 1},
+        )
+    )
+
+    assinatura = script.assinar_estudo(pasta, chave)
+
+    manifesto.conferir_assinatura((pasta / manifesto.ARQUIVO_MANIFESTO).read_bytes(), assinatura.read_bytes())
+    arquivos[0].write_bytes(b'trocado')
+    with pytest.raises(Exception, match='SHA-256'):
+        script.assinar_estudo(pasta, chave)
+
+
 def test_gerar_chave_nao_sobrescreve_e_fica_so_para_o_dono(script, tmp_path):
     destino = tmp_path / 'chave.pem'
 
