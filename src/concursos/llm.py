@@ -72,6 +72,7 @@ class ConfiguracaoLlm:
     modelo: str
     variavel_chave: str | None
     consentimento: bool = False
+    consentimento_livros: bool = False
 
     @property
     def api(self) -> FormatoApi:
@@ -90,6 +91,7 @@ def ler_configuracao(config_global: Path) -> ConfiguracaoLlm | None:
         modelo=dados.get('modelo') or (padrao and padrao.modelo) or '',
         variavel_chave=dados.get('variavel_chave', padrao and padrao.variavel_chave) or None,
         consentimento=bool(dados.get('consentimento')),
+        consentimento_livros=bool(dados.get('consentimento_livros')),
     )
 
 
@@ -103,6 +105,11 @@ def gravar_configuracao(config_global: Path, provedor: str) -> None:
     if padrao.variavel_chave:
         dados['variavel_chave'] = padrao.variavel_chave
     gravar_secao(config_global, SECAO, dados)
+
+
+def gravar_consentimento_livros(config_global: Path, consentiu: bool) -> None:
+    """Separado do consentimento do edital: os trechos dos livros só vão ao provedor com este."""
+    gravar_secao(config_global, SECAO, {'consentimento_livros': consentiu})
 
 
 def obter_chave(

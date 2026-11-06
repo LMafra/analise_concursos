@@ -30,7 +30,7 @@ from concursos.integracoes.pci_mcp import REGIOES
 from concursos.integracoes.simulado_pci import formatar_provas
 from concursos.integracoes.sincronizacao_pci import como_json
 from concursos.integracoes.sincronizacao_pci import formatar_tabela as tabela_pci
-from concursos.modelo import CanalAtualizacao
+from concursos.modelo import CanalAtualizacao, OndeProcurar
 from concursos.status import formatar_tabela
 
 logger = logging.getLogger(__name__)
@@ -585,4 +585,28 @@ def livros_remove(ctx: typer.Context, codigo: Annotated[str, typer.Argument(help
         return 0
     estudo.remover_livro(opcoes.contexto, achados[0].sha)
     typer.echo(f'{achados[0].nome} removido')
+    return 0
+
+
+@livros_app.command('ask', help='procura nos livros e mostra os trechos com a página (e a resposta da IA)')
+def livros_ask(
+    ctx: typer.Context,
+    pergunta: Annotated[str, typer.Argument(help='o que procurar')],
+    onde: Annotated[
+        OndeProcurar, typer.Option('--onde', help='livros, analises ou tudo')
+    ] = OndeProcurar.LIVROS,
+    disciplina: Annotated[
+        str | None, typer.Option('--disciplina', help='só os livros desta disciplina')
+    ] = None,
+) -> int:
+    resposta = estudo.perguntar(ctx.obj, pergunta, onde=onde, disciplina=disciplina)
+    for aviso in resposta.avisos:
+        typer.echo(aviso)
+    if resposta.resposta_ia:
+        typer.echo(f'{estudo.TITULO_IA}:\n{resposta.resposta_ia}')
+        if resposta.livros_citados:
+            typer.echo(f'livros citados: {", ".join(resposta.livros_citados)}')
+    for trecho in resposta.trechos:
+        onde_esta = f'p. {trecho.pagina}' if trecho.de_livro else trecho.secao
+        typer.echo(f'{trecho.nome}, {onde_esta}: {trecho.texto}')
     return 0

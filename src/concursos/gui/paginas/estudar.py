@@ -1,6 +1,8 @@
 import logging
 import shutil
+from collections.abc import Callable
 from pathlib import Path, PureWindowsPath
+from urllib.parse import quote
 
 from nicegui import events, run, ui
 
@@ -10,16 +12,18 @@ from concursos.datas import data_br
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.cartao import cartao
+from concursos.gui.componentes.consentimento import consentimento
 from concursos.gui.componentes.dialogo import Dialogo
 from concursos.gui.componentes.estado_vazio import estado_vazio
 from concursos.gui.componentes.situacao import situacao
+from concursos.gui.componentes.trecho import trecho
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
 from concursos.livros.fila import Livro
 from concursos.livros.validacao import EXTENSOES
-from concursos.modelo import EstadoLivro
+from concursos.modelo import EstadoLivro, OndeProcurar
 
 logger = logging.getLogger('concursos')
 
@@ -40,6 +44,13 @@ ICONE_DO_LIVRO = {
     EstadoLivro.ENVIANDO: 'hourglass_top',
 }
 EM_LEITURA = {EstadoLivro.NA_FILA, EstadoLivro.LENDO}
+TODAS = 'Todas'
+OPCOES_DE_BUSCA = {
+    OndeProcurar.LIVROS.value: 'Meus livros',
+    OndeProcurar.ANALISES.value: 'Minhas análises',
+    OndeProcurar.TUDO.value: 'Tudo',
+}
+SEM_IA = 'Para uma resposta escrita pela IA, ligue a IA em Configurações.'
 
 
 def tamanho(bytes_: int) -> str:
@@ -52,15 +63,24 @@ def assinatura(livros: list[Livro]) -> tuple:
     return tuple((livro.sha, livro.estado, livro.pagina, livro.disciplina) for livro in livros)
 
 
-def pagina() -> None:
+def endereco_da_pergunta(pergunta: str) -> str:
+    return f'/estudar?aba=perguntar&pergunta={quote(pergunta)}'
+
+
+def pagina(aba: str | None = None, pergunta: str | None = None) -> None:
     if not exigir_projeto():
         return
     with ui.column().classes('w-full max-w-5xl').style(tema.gap('md')):
         ui.label('Estudar').classes('text-2xl font-bold')
         with ui.tabs().classes('w-full') as abas:
             aba_livros = ui.tab('Meus livros', icon='menu_book').mark('aba-livros')
-        with ui.tab_panels(abas, value=aba_livros).classes('w-full'), ui.tab_panel(aba_livros):
-            MeusLivros()
+            aba_perguntar = ui.tab('Perguntar', icon='search').mark('aba-perguntar')
+        inicial = aba_perguntar if aba == 'perguntar' or pergunta else aba_livros
+        with ui.tab_panels(abas, value=inicial).classes('w-full'):
+            with ui.tab_panel(aba_livros):
+                MeusLivros()
+            with ui.tab_panel(aba_perguntar):
+                Perguntar(pergunta or '', ao_adicionar=lambda: abas.set_value(aba_livros))
 
 
 class MeusLivros:
@@ -304,3 +324,121 @@ class MeusLivros:
             else:
                 ui.notify(f'{livro.nome} saiu da biblioteca.')
             self.atualizar()
+
+
+class Perguntar:
+    """A busca nos livros (e nas análises): trechos com arquivo e página e, com a IA consentida, a resposta."""
+
+    def __init__(self, pergunta: str, ao_adicionar: Callable[[], None]) -> None:
+        self.contexto = ESTADO.contexto()
+        self.ao_adicionar = ao_adicionar
+        with ui.column().classes('w-full').style(tema.gap('md')):
+            with ui.row().classes('w-full items-center no-wrap').style(tema.gap('sm')):
+                self.campo = rotulo(
+                    ui.input(placeholder='o que cai sobre licitações?', value=pergunta).classes('flex-grow'),
+                    'pergunta',
+                ).mark('campo-pergunta')
+                self.campo.on('keydown.enter', self.perguntar)
+                ui.button('Perguntar', icon='search', on_click=self.perguntar).mark('perguntar')
+            with ui.row().classes('w-full items-center').style(tema.gap('md')):
+                ui.label('Procurar em:')
+                self.onde = (
+                    ui.radio(OPCOES_DE_BUSCA, value=OndeProcurar.LIVROS.value)
+                    .props('inline')
+                    .mark('onde-procurar')
+                )
+                self.disciplina = rotulo(
+                    ui.select(
+                        [TODAS, *sorted({livro.disciplina for livro in estudo.listar_livros(self.contexto)})],
+                        value=TODAS,
+                        label='Disciplina',
+                    ).classes('min-w-48'),
+                    'disciplina da busca',
+                ).mark('filtro-disciplina')
+            self.sugestoes = ui.row().classes('w-full items-center').style(tema.gap('sm'))
+            self.ia = ui.column().classes('w-full')
+            self.resultado = ui.column().classes('w-full').style(tema.gap('sm')).mark('resultado-pergunta')
+        self.desenhar_ia()
+        ui.timer(0.1, self.carregar_sugestoes, once=True)
+        if pergunta:
+            ui.timer(0.1, self.perguntar, once=True)
+
+    def desenhar_ia(self) -> None:
+        self.ia.clear()
+        texto = estudo.texto_ia_livros(self.contexto)
+        with self.ia:
+            if texto is None:
+                ui.label(SEM_IA).classes('text-sm ca-texto-suave').mark('sem-ia')
+            elif estudo.ia_nos_livros(self.contexto) is None:
+                with ui.expansion('Respostas escritas pela IA (opcional)', icon='smart_toy').classes(
+                    'w-full'
+                ):
+                    consentimento(texto, 'ia-livros', self.ligar_ia)
+
+    def ligar_ia(self) -> None:
+        estudo.ligar_ia_nos_livros(self.contexto, True)
+        ui.notify('A IA vai responder com base nos seus livros.', type='positive')
+        self.desenhar_ia()
+
+    async def carregar_sugestoes(self) -> None:
+        try:
+            sugestoes = await run.io_bound(estudo.sugestoes_de_pergunta, self.contexto)
+        except Exception:  # noqa: BLE001
+            logger.debug('sugestões indisponíveis', exc_info=True)
+            return
+        if not sugestoes:
+            return
+        with self.sugestoes:
+            ui.label('Sugestões:').classes('text-sm')
+            for sugestao in sugestoes:
+                ui.button(sugestao.rotulo, on_click=lambda s=sugestao: self.usar_sugestao(s.pergunta)).props(
+                    'outline dense rounded no-caps'
+                ).mark('sugestao')
+
+    async def usar_sugestao(self, pergunta: str) -> None:
+        self.campo.value = pergunta
+        await self.perguntar()
+
+    async def perguntar(self) -> None:
+        pergunta = (self.campo.value or '').strip()
+        if not pergunta:
+            return
+        disciplina = None if self.disciplina.value == TODAS else self.disciplina.value
+        self.resultado.clear()
+        with self.resultado:
+            ui.spinner(size='lg')
+            try:
+                resposta = await run.io_bound(
+                    estudo.perguntar,
+                    Opcoes(self.contexto),
+                    pergunta,
+                    onde=OndeProcurar(self.onde.value),
+                    disciplina=disciplina,
+                )
+            except Exception as erro:  # noqa: BLE001
+                logger.debug('falha ao perguntar pela GUI', exc_info=True)
+                self.resultado.clear()
+                mostrar_erro(erro)
+                return
+        self.resultado.clear()
+        with self.resultado:
+            self.mostrar(resposta)
+
+    def mostrar(self, resposta: estudo.Resposta) -> None:
+        for texto in resposta.avisos:
+            if texto == estudo.TEXTO_NADA:
+                with aviso('Nada encontrado', texto, icone='search_off').mark('nada-encontrado'):
+                    ui.button('Adicionar livros', icon='upload_file', on_click=self.ao_adicionar).props(
+                        'flat'
+                    )
+            else:
+                aviso(texto, tom=Tom.ALERTA).mark('aviso-pergunta')
+        if resposta.resposta_ia:
+            with cartao(estudo.TITULO_IA, icone='smart_toy').mark('resposta-ia'):
+                ui.markdown(resposta.resposta_ia)
+                if resposta.livros_citados:
+                    ui.label(f'Livros citados: {", ".join(resposta.livros_citados)}').classes('text-sm')
+        if resposta.trechos:
+            ui.label('Trechos encontrados').classes('text-lg font-bold')
+            for achado in resposta.trechos:
+                trecho(achado)

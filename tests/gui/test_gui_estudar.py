@@ -3,9 +3,11 @@ from nicegui import ui
 from nicegui.testing.user import User
 
 from concursos.aplicacao import estudo
-from concursos.aplicacao.estudo import ResultadoAdicao, SituacaoEstudo
+from concursos.aplicacao.estudo import Resposta, ResultadoAdicao, SituacaoEstudo, Sugestao, TrechoEncontrado
+from concursos.config.contexto import gravar_secao
+from concursos.gui.estado import ESTADO
 from concursos.livros.fila import Livro
-from concursos.modelo import EstadoLivro
+from concursos.modelo import EstadoLivro, OndeProcurar
 
 PREPARADO = SituacaoEstudo(True, '1.15.1-1', True, False, 'Sua biblioteca está pronta.')
 SEM_PACOTE = SituacaoEstudo(True, None, False, False, estudo.TEXTO_PREPARAR.format(mb=360))
@@ -35,6 +37,8 @@ def biblioteca(monkeypatch):
     monkeypatch.setattr(estudo, 'iniciar_trabalho', lambda contexto, ao_mudar=None: None)
     monkeypatch.setattr(estudo, 'disciplinas_sugeridas', lambda contexto: ['Geral', 'Direito Constitucional'])
     monkeypatch.setattr(estudo, 'concursos_do_projeto', lambda contexto: ['sefaz-df-2026'])
+    monkeypatch.setattr(estudo, 'sugestoes_de_pergunta', lambda contexto: list(estado['sugestoes']))
+    estado['sugestoes'] = []
     return estado
 
 
@@ -136,3 +140,92 @@ async def test_fora_do_ar_avisa_que_a_busca_continua(user: User, projeto, biblio
 
     await user.should_see(marker='estudo-fora')
     await user.should_see('A busca continua nos seus livros')
+
+
+@pytest.fixture
+def perguntas(monkeypatch, biblioteca, tmp_path):
+    feitas = []
+    arquivo = tmp_path / 'manual.pdf'
+    arquivo.write_bytes(b'%PDF')
+
+    def perguntar(opcoes, pergunta, *, onde=OndeProcurar.LIVROS, disciplina=None):
+        feitas.append((pergunta, onde, disciplina))
+        if pergunta == 'astronomia':
+            return Resposta([], avisos=(estudo.TEXTO_NADA,))
+        trechos = [TrechoEncontrado('Manual de Adm', 'a «licitação» é dispensável', arquivo, pagina=412)]
+        if estudo.ia_nos_livros(opcoes.contexto):
+            return Resposta(trechos, 'A dispensa ocorre quando o valor é pequeno.', ('Manual de Adm',))
+        return Resposta(trechos)
+
+    monkeypatch.setattr(estudo, 'perguntar', perguntar)
+    biblioteca['livros'] = [livro()]
+    return feitas
+
+
+async def abrir_perguntar(user: User) -> None:
+    await user.open('/estudar')
+    user.find(marker='aba-perguntar').click()
+
+
+async def test_perguntar_mostra_trecho_com_arquivo_e_pagina(user: User, projeto, perguntas):
+    await abrir_perguntar(user)
+    user.find(marker='campo-pergunta').type('licitação')
+    user.find(marker='perguntar').click()
+
+    await user.should_see('Manual de Adm, p. 412')
+    await user.should_see('Para uma resposta escrita pela IA, ligue a IA em Configurações.')
+    await user.should_not_see(marker='resposta-ia')
+    assert perguntas == [('licitação', OndeProcurar.LIVROS, None)]
+
+
+async def test_filtro_de_onde_e_disciplina(user: User, projeto, perguntas):
+    await abrir_perguntar(user)
+    user.find(marker='onde-procurar').elements.pop().value = 'tudo'
+    user.find(marker='filtro-disciplina').elements.pop().value = 'Direito Constitucional'
+    user.find(marker='campo-pergunta').type('licitação')
+    user.find(marker='perguntar').click()
+
+    await user.should_see('Manual de Adm, p. 412')
+    assert perguntas == [('licitação', OndeProcurar.TUDO, 'Direito Constitucional')]
+
+
+async def test_sugestao_preenche_e_pergunta(user: User, projeto, perguntas, biblioteca):
+    biblioteca['sugestoes'] = [Sugestao('Revisar crase nos seus livros', 'crase')]
+    await abrir_perguntar(user)
+
+    await user.should_see('Revisar crase nos seus livros')
+    user.find('Revisar crase nos seus livros').click()
+
+    await user.should_see('Manual de Adm, p. 412')
+    assert perguntas[-1][0] == 'crase'
+
+
+async def test_nada_encontrado_oferece_adicionar(user: User, projeto, perguntas):
+    await abrir_perguntar(user)
+    user.find(marker='campo-pergunta').type('astronomia')
+    user.find(marker='perguntar').click()
+
+    await user.should_see('Não achei isso nos seus livros')
+    await user.should_see(marker='nada-encontrado')
+
+
+async def test_ia_pede_consentimento_proprio_e_responde_com_aviso(user: User, projeto, perguntas):
+    gravar_secao(ESTADO.contexto().config_global, 'llm', {'provedor': 'openai', 'consentimento': True})
+    await abrir_perguntar(user)
+    user.find('Respostas escritas pela IA (opcional)').click()
+    await user.should_see('trechos dos seus livros vão para openai')
+    user.find(marker='ligar-ia-livros').click()
+    user.find(marker='campo-pergunta').type('licitação')
+    user.find(marker='perguntar').click()
+
+    await user.should_see(marker='resposta-ia')
+    await user.should_see('Resposta da IA — confira nos trechos')
+    await user.should_see('Livros citados: Manual de Adm')
+    await user.should_see('Manual de Adm, p. 412')
+
+
+async def test_endereco_com_pergunta_abre_e_ja_pergunta(user: User, projeto, perguntas):
+    await user.open('/estudar?aba=perguntar&pergunta=licita%C3%A7%C3%A3o')
+
+    await user.should_see('Manual de Adm, p. 412')
+    assert perguntas == [('licitação', OndeProcurar.LIVROS, None)]

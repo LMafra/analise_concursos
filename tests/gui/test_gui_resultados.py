@@ -85,3 +85,29 @@ async def test_exportar_mostra_onde_gravou(user: User, projeto, monkeypatch):
 
     await user.should_see(marker='exportado', retries=60)
     assert pedidos == [FormatoExportacao.CSV]
+
+
+async def test_topico_fraco_abre_a_pergunta_nos_livros(user: User, projeto, monkeypatch):
+    from concursos.aplicacao import estudo
+
+    com_relatorio(projeto)
+    monkeypatch.setattr(
+        estudo, 'sugestoes_de_pergunta', lambda contexto: [estudo.Sugestao('Revisar crase', 'crase')]
+    )
+    monkeypatch.setattr(estudo, 'listar_livros', lambda contexto: [])
+    monkeypatch.setattr(estudo, 'iniciar_trabalho', lambda contexto, ao_mudar=None: None)
+    perguntas = []
+    monkeypatch.setattr(
+        estudo,
+        'perguntar',
+        lambda opcoes, pergunta, **kw: (
+            perguntas.append(pergunta) or estudo.Resposta([], avisos=(estudo.TEXTO_NADA,))
+        ),
+    )
+
+    await user.open('/resultados')
+    await user.should_see(marker='procurar-nos-livros')
+    user.find(marker='procurar-nos-livros').click()
+
+    await user.should_see(marker='nada-encontrado')
+    assert perguntas == ['crase']

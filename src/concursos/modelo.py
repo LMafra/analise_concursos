@@ -160,3 +160,9 @@ class EstadoLivro(StrEnum):
     ENVIANDO = 'enviando'
     PRONTO = 'pronto'
     ERRO = 'erro'
+
+
+class OndeProcurar(StrEnum):
+    LIVROS = 'livros'
+    ANALISES = 'analises'
+    TUDO = 'tudo'

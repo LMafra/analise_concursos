@@ -3,13 +3,14 @@ import logging
 import pandas as pd
 from nicegui import run, ui
 
-from concursos.aplicacao import analise
+from concursos.aplicacao import analise, estudo
 from concursos.aplicacao.resultados import Resultados, abrir_no_navegador, resultados
 from concursos.exportacao import FormatoExportacao
 from concursos.gui import tema
 from concursos.gui.componentes.estado_vazio import estado_vazio
 from concursos.gui.componentes.relatorio import relatorio
 from concursos.gui.estado import ESTADO
+from concursos.gui.paginas.estudar import endereco_da_pergunta
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.textos import mostrar_erro, rotulo
 
@@ -103,7 +104,32 @@ def painel_do_relatorio(achados: Resultados) -> None:
         ui.button('Abrir no navegador', icon='open_in_new', on_click=lambda: abrir_no_navegador(indice)).mark(
             'abrir-navegador'
         )
+    procurar_nos_livros()
     relatorio(indice)
+
+
+def procurar_nos_livros() -> None:
+    """Um botão por tópico fraco que abre Estudar > Perguntar com a consulta pronta."""
+    linha = ui.row().classes('w-full items-center').style(tema.gap('sm'))
+
+    async def carregar() -> None:
+        try:
+            sugestoes = await run.io_bound(estudo.sugestoes_de_pergunta, ESTADO.contexto())
+        except Exception:  # noqa: BLE001
+            logger.debug('sugestões indisponíveis', exc_info=True)
+            return
+        if not sugestoes:
+            return
+        with linha:
+            ui.label('Procurar nos meus livros:').classes('text-sm')
+            for sugestao in sugestoes:
+                ui.button(
+                    sugestao.pergunta,
+                    icon='search',
+                    on_click=lambda s=sugestao: ui.navigate.to(endereco_da_pergunta(s.pergunta)),
+                ).props('outline dense no-caps').mark('procurar-nos-livros')
+
+    ui.timer(0.1, carregar, once=True)
 
 
 def painel_da_pratica(achados: Resultados) -> None:

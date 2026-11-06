@@ -16,18 +16,29 @@ from pathlib import Path
 from concursos.analytics.taxonomia import carregar_taxonomia
 from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao.opcoes import Opcoes
+from concursos.aplicacao.projeto import curto, pasta_do_candidato
+from concursos.biblioteca import consultas_do_topico, topicos_fracos
 from concursos.config.contexto import Contexto
+from concursos.configuracao import configuracao_do_projeto
 from concursos.erros import ErroDoAmbiente, ErroDoUsuario
 from concursos.estudo import embeddings, instalacao
 from concursos.estudo.instalacao import PacoteDisponivel, Pastas
 from concursos.estudo.supervisor import VARIAVEL_CIFRA, Sessao, Supervisor
 from concursos.integracoes.open_notebook import ClienteOpenNotebook, OpenNotebookIndisponivelError
-from concursos.livros import envio, fila
+from concursos.livros import envio, fila, indice, perguntas
 from concursos.livros.fila import Livro, PastasBiblioteca
 from concursos.livros.validacao import EXTENSOES
-from concursos.llm import guardar_chave, obter_chave_da_variavel
-from concursos.modelo import EstadoLivro
+from concursos.llm import (
+    ConfiguracaoLlm,
+    gravar_consentimento_livros,
+    guardar_chave,
+    obter_chave,
+    obter_chave_da_variavel,
+)
+from concursos.llm import ler_configuracao as ler_configuracao_llm
+from concursos.modelo import EstadoLivro, OndeProcurar
 from concursos.status import listar_concursos
+from concursos.texto import abreviar
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +101,7 @@ def supervisor(contexto: Contexto) -> Supervisor:
             pastas(contexto),
             contexto.logs,
             chave_cifra=lambda: chave_de_cifra(contexto.home),
+            ambiente_ia=lambda: ambiente_da_ia(contexto),
             ao_subir=[_registrar_embeddings],
         )
         novo.vigiar()
@@ -385,3 +397,219 @@ def disciplinas_sugeridas(contexto: Contexto) -> list[str]:
         logger.debug('taxonomia ilegível; disciplinas só dos livros', exc_info=True)
     nomes |= {livro.disciplina for livro in listar_livros(contexto)}
     return [fila.DISCIPLINA_PADRAO, *sorted(nomes - {fila.DISCIPLINA_PADRAO})]
+
+
+# perguntar
+
+TITULO_IA = 'Resposta da IA — confira nos trechos'
+TEXTO_NADA = 'Não achei isso nos seus livros. Tente outras palavras ou adicione livros.'
+TEXTO_IA_LIVROS = (
+    'Com esta opção, a sua pergunta e trechos dos seus livros vão para {provedor} escrever a resposta. '
+    'Respostas da prova, notas e inscrição não saem do computador.'
+)
+LIMITE_TRECHOS = 12
+TRECHOS_POR_LIVRO_CITADO = 2
+MAXIMO_SUGESTOES = 4
+TAMANHO_SUGESTAO = 40
+
+
+@dataclass(frozen=True)
+class TrechoEncontrado:
+    """Um trecho para conferir: de um livro (com a página) ou de um relatório da análise (com a seção)."""
+
+    nome: str
+    texto: str
+    caminho: Path
+    pagina: int | None = None
+    secao: str = ''
+
+    @property
+    def de_livro(self) -> bool:
+        return self.pagina is not None
+
+
+@dataclass(frozen=True)
+class Resposta:
+    trechos: list[TrechoEncontrado]
+    resposta_ia: str | None = None
+    livros_citados: tuple[str, ...] = ()
+    avisos: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class Sugestao:
+    rotulo: str
+    pergunta: str
+
+
+def ia_nos_livros(contexto: Contexto) -> ConfiguracaoLlm | None:
+    """A IA do usuário, se ele concordou em mandar trechos dos livros a ela."""
+    configuracao = ler_configuracao_llm(contexto.config_global)
+    if configuracao is None or not configuracao.consentimento_livros:
+        return None
+    return configuracao
+
+
+def texto_ia_livros(contexto: Contexto) -> str | None:
+    configuracao = ler_configuracao_llm(contexto.config_global)
+    return TEXTO_IA_LIVROS.format(provedor=configuracao.provedor) if configuracao else None
+
+
+def ligar_ia_nos_livros(contexto: Contexto, ligar: bool) -> None:
+    gravar_consentimento_livros(contexto.config_global, ligar)
+
+
+def ambiente_da_ia(contexto: Contexto) -> dict[str, str]:
+    """As variáveis da IA para os processos do open-notebook; vazio sem consentimento ou sem chave."""
+    configuracao = ia_nos_livros(contexto)
+    if configuracao is None:
+        return {}
+    chave = None
+    if configuracao.variavel_chave is not None:
+        encontrada = obter_chave(configuracao, contexto.home)
+        if encontrada is None:
+            logger.warning('IA nos livros sem chave (%s); seguindo sem ela', configuracao.variavel_chave)
+            return {}
+        chave = encontrada[0]
+    return perguntas.ambiente_da_ia(configuracao, chave)
+
+
+def _modelo_da_ia(cliente: ClienteOpenNotebook, configuracao: ConfiguracaoLlm) -> str:
+    provedor = perguntas.provedor_do_modelo(configuracao)
+    for modelo in cliente.listar_modelos('language'):
+        if modelo.get('name') == configuracao.modelo and modelo.get('provider') == provedor:
+            return modelo['id']
+    return cliente.criar_modelo(configuracao.modelo, provedor, 'language')['id']
+
+
+def _livros_apontados(
+    cliente: ClienteOpenNotebook, pergunta: str, livros: list[Livro], por_source: dict[str, Livro]
+) -> list[str]:
+    notebooks = sorted({livro.notebook_id for livro in livros if livro.notebook_id})
+    if not notebooks:
+        return []
+    resultados = cliente.buscar_vetorial(pergunta, notebooks) + cliente.buscar_texto(pergunta, notebooks)
+    shas = []
+    for resultado in resultados:
+        livro = por_source.get(
+            str(resultado.get('parent_id') or resultado.get('id') or '').removeprefix('source:')
+        )
+        if livro is not None and livro.sha not in shas:
+            shas.append(livro.sha)
+    return shas
+
+
+def _trechos_dos_livros(
+    contexto: Contexto, pergunta: str, livros: list[Livro], primeiro: list[str]
+) -> list[TrechoEncontrado]:
+    pastas_bib = biblioteca(contexto)
+    if not pastas_bib.banco.exists() or not livros:
+        return []
+    por_sha = {livro.sha: livro for livro in livros}
+    conexao = indice.abrir(pastas_bib.banco)
+    try:
+        achados = [
+            trecho
+            for sha in primeiro
+            if sha in por_sha
+            for trecho in indice.localizar_trechos(conexao, sha, pergunta, TRECHOS_POR_LIVRO_CITADO)
+        ]
+        vistos = {(t.sha, t.pagina) for t in achados}
+        achados += [
+            t
+            for t in indice.buscar(conexao, pergunta, shas=list(por_sha), limite=LIMITE_TRECHOS)
+            if (t.sha, t.pagina) not in vistos
+        ]
+    finally:
+        conexao.close()
+    return [
+        TrechoEncontrado(por_sha[t.sha].nome, t.trecho, por_sha[t.sha].arquivo(pastas_bib), pagina=t.pagina)
+        for t in achados[:LIMITE_TRECHOS]
+    ]
+
+
+def _pasta_das_analises(contexto: Contexto) -> Path | None:
+    try:
+        return pasta_do_candidato(contexto)
+    except ErroDoUsuario as erro:
+        logger.warning('análises: %s', erro.causa)
+        return None
+
+
+def _trechos_das_analises(contexto: Contexto, pergunta: str) -> list[TrechoEncontrado]:
+    pasta = _pasta_das_analises(contexto)
+    if pasta is None:
+        return []
+    return [
+        TrechoEncontrado(achado.arquivo.name, achado.trecho, achado.arquivo, secao=achado.secao)
+        for achado in perguntas.buscar_nas_analises(pasta, pergunta)
+    ]
+
+
+def perguntar(
+    opcoes: Opcoes,
+    pergunta: str,
+    *,
+    onde: OndeProcurar = OndeProcurar.LIVROS,
+    disciplina: str | None = None,
+) -> Resposta:
+    """Os trechos com página que respondem à pergunta e, com a IA consentida, a resposta escrita por ela.
+
+    O open-notebook aponta os livros (busca por sentido e por texto); o índice local acha o trecho e a
+    página. Com o open-notebook fora, só o índice local."""
+    pergunta = ' '.join(pergunta.split())
+    if not pergunta:
+        raise ErroDoUsuario('a pergunta está vazia', 'escreva o que quer encontrar nos seus livros')
+    contexto = opcoes.contexto
+    avisos: list[str] = []
+    trechos: list[TrechoEncontrado] = []
+    resposta_ia = None
+    citados: list[str] = []
+    if onde in {OndeProcurar.LIVROS, OndeProcurar.TUDO}:
+        livros = [
+            livro
+            for livro in listar_livros(contexto)
+            if livro.estado is not EstadoLivro.ERRO and (not disciplina or livro.disciplina == disciplina)
+        ]
+        apontados: list[str] = []
+        cliente = _cliente_se_preparado(contexto) if livros else None
+        if cliente is not None:
+            por_source = perguntas.por_source(envio.livros_por_source(biblioteca(contexto)))
+            try:
+                apontados = _livros_apontados(cliente, pergunta, livros, por_source)
+                configuracao = ia_nos_livros(contexto)
+                if configuracao is not None and opcoes.rede:
+                    resposta = cliente.perguntar(pergunta, _modelo_da_ia(cliente, configuracao))
+                    texto = resposta.get('answer') or ''
+                    citados_shas = [por_source[s].sha for s in perguntas.citacoes(texto) if s in por_source]
+                    citados = [livro.nome for livro in livros if livro.sha in citados_shas]
+                    resposta_ia = perguntas.sem_citacoes(texto) or None
+                    apontados = list(dict.fromkeys([*citados_shas, *apontados]))
+            except OpenNotebookIndisponivelError as erro:
+                logger.warning('open-notebook: %s; buscando só nos seus livros', erro.causa)
+                avisos.append(TEXTO_FORA)
+        elif livros and situacao_do_estudo(contexto).preparado:
+            avisos.append(TEXTO_FORA)
+        trechos += _trechos_dos_livros(contexto, pergunta, livros, apontados)
+    if onde in {OndeProcurar.ANALISES, OndeProcurar.TUDO}:
+        trechos += _trechos_das_analises(contexto, pergunta)
+    if not trechos and resposta_ia is None:
+        avisos.append(TEXTO_NADA)
+    return Resposta(trechos, resposta_ia, tuple(citados), tuple(avisos))
+
+
+def sugestoes_de_pergunta(contexto: Contexto) -> list[Sugestao]:
+    """Uma pergunta por tópico fraco da última análise do candidato."""
+    pasta = _pasta_das_analises(contexto)
+    if pasta is None or not contexto.provas.is_dir():
+        return []
+    limiar = configuracao_do_projeto(contexto).limiar_topico_baixo
+    fracos, _ = topicos_fracos(curto(contexto.provas, contexto.raiz), pasta, contexto.taxonomia, limiar)
+    sugestoes = []
+    for linha in fracos.head(MAXIMO_SUGESTOES).itertuples():
+        topico = str(linha.topico)
+        consulta = consultas_do_topico(topico)[0]
+        sugestoes.append(
+            Sugestao(f'Revisar {abreviar(consulta, TAMANHO_SUGESTAO)} nos seus livros', consulta)
+        )
+    return sugestoes

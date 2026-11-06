@@ -328,6 +328,7 @@ class Supervisor:
     relogio: Callable[[], float] = time.monotonic
     _rodando: list[_Rodando] = field(default_factory=list)
     _sessao: Sessao | None = None
+    _ambiente: dict[str, str] = field(default_factory=dict)
     _ultimo_uso: float = 0.0
     _falhas: int = 0
     _trava: _Trava | None = None
@@ -352,8 +353,12 @@ class Supervisor:
         """A sessão em uso, subindo os processos se preciso."""
         with self._lock:
             self.usar()
+            ambiente = self._ambiente_da_ia()
             if self._sessao is not None and self._vivos():
-                return self._sessao
+                if ambiente == self._ambiente:
+                    return self._sessao
+                logger.info('open-notebook: a IA mudou; subindo de novo')
+                self._parar_processos()
             if self._rodando:
                 logger.warning('open-notebook: um processo caiu; subindo de novo')
                 self._parar_processos()
@@ -375,7 +380,7 @@ class Supervisor:
             if nova_versao:
                 instalacao.fazer_backup(self.pastas, instalacao.ler_estado(self.pastas).atual or '')
             try:
-                sessao = self._subir(raiz)
+                sessao = self._subir(raiz, ambiente)
             except ErroDoAmbiente:
                 self._falhas += 1
                 if nova_versao and instalacao.voltar_ao_anterior(self.pastas):
@@ -385,7 +390,14 @@ class Supervisor:
             instalacao.registrar_partida(self.pastas)
             return sessao
 
-    def _subir(self, raiz: Path) -> Sessao:
+    def _ambiente_da_ia(self) -> dict[str, str]:
+        try:
+            return dict(self.ambiente_ia())
+        except Exception:
+            logger.warning('open-notebook: a IA não pôde ser lida; seguindo sem ela', exc_info=True)
+            return {}
+
+    def _subir(self, raiz: Path, ambiente: dict[str, str]) -> Sessao:
         self.pastas.banco.parent.mkdir(parents=True, exist_ok=True)
         self.logs.mkdir(parents=True, exist_ok=True)
         porta_api = porta_livre()
@@ -408,7 +420,7 @@ class Supervisor:
             with contextlib.suppress(Exception):
                 self._grupo = _GrupoWindows()
         try:
-            for processo in self.montar(raiz, self.pastas, sessao, segredos, self.ambiente_ia()):
+            for processo in self.montar(raiz, self.pastas, sessao, segredos, ambiente):
                 log = (self.logs / f'open-notebook-{processo.nome}.log').open('ab')
                 popen = _abrir(processo, log)
                 if self._grupo is not None:
@@ -427,6 +439,7 @@ class Supervisor:
             logger.exception('open-notebook: falha ao subir')
             raise ErroDoAmbiente('a biblioteca não conseguiu abrir agora', DICA) from erro
         self._sessao = sessao
+        self._ambiente = ambiente
         logger.info('open-notebook: em uso (%s)', ', '.join(r.processo.nome for r in self._rodando))
         return sessao
 

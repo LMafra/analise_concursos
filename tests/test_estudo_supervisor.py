@@ -193,6 +193,20 @@ def test_ganchos_rodam_depois_de_subir(pastas, tmp_path):
     assert vistos == [sessao]
 
 
+def test_mudar_a_ia_sobe_de_novo_com_o_ambiente_novo(pastas, tmp_path):
+    ia = {}
+    sup = novo(pastas, tmp_path, ambiente_ia=lambda: dict(ia))
+    try:
+        primeira = sup.garantir()
+        assert sup.garantir() is primeira
+        ia['ANTHROPIC_API_KEY'] = 'nova'
+        segunda = sup.garantir()
+    finally:
+        sup.parar()
+
+    assert segunda is not primeira
+
+
 def test_ambiente_limpo_tira_chaves_e_variaveis_do_open_notebook():
     limpo = supervisor.ambiente_limpo(
         {

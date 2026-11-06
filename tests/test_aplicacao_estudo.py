@@ -120,6 +120,8 @@ def test_cli_livros_add_list_remove(tmp_path, monkeypatch, capsys):
     assert main(['livros', 'list']) == 0
     saida = capsys.readouterr().out
     assert 'Português  a: Pronto para buscar' in saida
+    assert main(['livros', 'ask', 'crase']) == 0
+    assert 'a, p. 1: «crase»' in capsys.readouterr().out
     codigo = saida.strip().splitlines()[-1].split()[0]
     assert main(['livros', 'remove', codigo]) == 0
     main(['livros', 'list'])
