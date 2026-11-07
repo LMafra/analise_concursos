@@ -4,6 +4,7 @@ Sem argumentos, abre a GUI; com argumentos, é a CLI; `--smoke` confere o pacote
 """
 
 import codecs
+import io
 import os
 import shutil
 import subprocess
@@ -62,6 +63,13 @@ def restaurar_bibliotecas_do_sistema() -> None:
         os.environ['LD_LIBRARY_PATH'] = original
 
 
+class _EntradaVazia(io.TextIOWrapper):
+    """No Windows, o `NUL` é um dispositivo de caractere e responde `isatty()` verdadeiro."""
+
+    def isatty(self) -> bool:
+        return False
+
+
 def garantir_fluxos_padrao() -> None:
     """Na janela sem console do Windows, `sys.stdin`, `sys.stdout` e `sys.stderr` são None, e quem os usa
     quebra (a CLI pergunta `sys.stdin.isatty()` antes de qualquer subcomando, inclusive o `gui`).
@@ -69,7 +77,7 @@ def garantir_fluxos_padrao() -> None:
     Com a saída redirecionada, o Windows dá a codificação do sistema (cp1252), que não tem o ✓ do doctor;
     o executável não tem o `PYTHONUTF8` do ambiente de desenvolvimento."""
     if sys.stdin is None:
-        sys.stdin = open(os.devnull, encoding='utf-8')  # noqa: SIM115
+        sys.stdin = _EntradaVazia(open(os.devnull, 'rb'), encoding='utf-8')  # noqa: SIM115
     for nome in ('stdout', 'stderr'):
         fluxo = getattr(sys, nome)
         if fluxo is None:

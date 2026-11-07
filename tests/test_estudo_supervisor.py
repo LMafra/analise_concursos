@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import sys
 import tarfile
 from pathlib import Path
@@ -40,7 +41,10 @@ def montador(registro: Path, falhar: set[str] | None = None):
             argv = [sys.executable, str(FALSO), str(porta) if porta else '-', str(registro)]
             if nome in falhar:
                 argv.append('--falhar')
-            ambiente = supervisor.ambiente_limpo({'PATH': '', 'OPENAI_API_KEY': 'do-usuario'}) | (extra or {})
+            # Sem SYSTEMROOT, o Python do Windows não abre socket (WinError 10106).
+            sistema = {'SYSTEMROOT': os.environ['SYSTEMROOT']} if 'SYSTEMROOT' in os.environ else {}
+            base = {'PATH': '', 'OPENAI_API_KEY': 'do-usuario', **sistema}
+            ambiente = supervisor.ambiente_limpo(base) | (extra or {})
             return Processo(nome, argv, pastas.base, ambiente, saude)
 
         return [
