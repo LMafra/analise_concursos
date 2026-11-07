@@ -48,6 +48,9 @@ def carregar_taxonomia(caminho: Path) -> dict[str, DisciplinaCanonica]:
     return taxonomia
 
 
+EXEMPLOS_NO_AVISO = 3
+
+
 def classificar(questoes: pd.DataFrame, taxonomia: dict[str, DisciplinaCanonica]) -> pd.DataFrame:
     """Acrescenta disciplina canônica, bloco e chave de tópico.
 
@@ -58,10 +61,14 @@ def classificar(questoes: pd.DataFrame, taxonomia: dict[str, DisciplinaCanonica]
     """
     fora = sorted(set(questoes['disciplina']) - set(taxonomia) - {TOPICO_NAO_MAPEADO})
     if fora:
+        if len(fora) <= EXEMPLOS_NO_AVISO:
+            quais = f'{", ".join(fora)}: fora da lista de disciplinas equivalentes'
+        else:
+            exemplos = f'{", ".join(fora[: EXEMPLOS_NO_AVISO - 1])} e {fora[EXEMPLOS_NO_AVISO - 1]}'
+            quais = f'{len(fora)} disciplinas estão fora da lista de disciplinas equivalentes (por exemplo, {exemplos})'
         avisar(
             logger,
-            f'{", ".join(fora)}: fora da lista de disciplinas equivalentes; cada uma conta como uma disciplina '
-            'à parte.',
+            f'{quais}; cada uma conta como uma disciplina à parte.',
             'junte as que forem a mesma disciplina em Configurações > Disciplinas e temas.',
             f'disciplinas fora da taxonomia: {fora}; cada uma conta como canônica de si mesma',
         )

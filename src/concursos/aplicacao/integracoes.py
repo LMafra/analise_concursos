@@ -130,6 +130,16 @@ def estado_open_notebook(contexto: Contexto) -> EstadoOpenNotebook:
     return EstadoOpenNotebook(configuracao.ativa, configuracao.url, ultima)
 
 
+DICA_GERENCIADA = 'feche e abra o app de novo; se continuar, prepare a biblioteca outra vez em Estudar.'
+
+
+def _dica_da_falha(erro: OpenNotebookIndisponivelError, gerenciada: bool) -> str:
+    """No open-notebook do app, o endereço não é do usuário: a dica de conferi-lo não serve."""
+    if gerenciada and erro.dica in (None, DICA_INSTANCIA):
+        return DICA_GERENCIADA
+    return erro.dica or DICA_INSTANCIA
+
+
 def sincronizar(
     opcoes: Opcoes, concurso: str | None = None, todos: bool = False
 ) -> RelatorioSincronizacao | None:
@@ -165,7 +175,7 @@ def sincronizar(
     except OpenNotebookIndisponivelError as erro:
         if erro.status in (401, 403):
             raise ErroDoUsuario(erro.causa, erro.dica, erro.detalhe) from erro
-        raise ErroDoAmbiente(erro.causa, erro.dica or DICA_INSTANCIA, erro.detalhe) from erro
+        raise ErroDoAmbiente(erro.causa, _dica_da_falha(erro, gerenciada), erro.detalhe) from erro
 
 
 def sincronizar_notebooks(
@@ -262,7 +272,7 @@ def sincronizar_depois_da_analise(opcoes: Opcoes, candidatos: list[str | None]) 
         avisar(
             logger,
             'Não consegui falar com o open-notebook; não atualizei seus materiais de estudo.',
-            erro.dica or DICA_INSTANCIA,
+            _dica_da_falha(erro, gerenciada),
             erro.detalhe or erro.causa,
         )
         return

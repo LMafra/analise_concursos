@@ -9,6 +9,7 @@ from concursos.concurso_config import (
     ConcursoConfig,
     ConfiguracaoInvalidaError,
     carregar_concurso,
+    simulado_sem_provas,
     vinculo_sem_provas,
 )
 from concursos.perfis import ids_de_ocr
@@ -44,6 +45,10 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
     if vinculo_sem_provas(pasta) is not None:
         motivo = f'falta o edital e os arquivos da prova; adicione-os à pasta e rode `concurso-analise add {pasta}`'
+        return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
+    if (simulado := simulado_sem_provas(pasta)) is not None:
+        pagina = simulado.get('link') or 'a página da prova no PCI'
+        motivo = f'faltam os arquivos da prova; baixe-os em {pagina} e rode `concurso-analise add {pasta}`'
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
     try:
         config = carregar_concurso(pasta)

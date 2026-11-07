@@ -10,7 +10,7 @@ from concursos.aplicacao.dicionario import dicionario_do_projeto
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.projeto import pasta_do_candidato
 from concursos.biblioteca import topicos_fracos
-from concursos.concurso_config import ConfiguracaoInvalidaError, carregar_concurso
+from concursos.concurso_config import ConfiguracaoInvalidaError, carregar_concurso, simulado_sem_provas
 from concursos.config.contexto import Contexto
 from concursos.configuracao import ConfiguracaoGlobal, configuracao_do_projeto
 from concursos.erros import avisar
@@ -56,7 +56,7 @@ def gerar_simulado_focado(
     if not pastas or opcoes.dry_run:
         return None
     for pasta in pastas:
-        if not (pasta / ARQUIVO_REVISAO).exists():
+        if not (pasta / ARQUIVO_REVISAO).exists() and simulado_sem_provas(pasta) is None:
             revisar_simulado(contexto, pasta, configuracao)
     fracos, avisos = topicos_fracos(raiz_provas, destino, contexto.taxonomia, limiar)
     for aviso in avisos:

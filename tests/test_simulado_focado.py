@@ -125,3 +125,30 @@ def test_simulado_sem_respostas_ganha_a_revisao_e_o_arquivo_na_analise(
     mtime = arquivo.stat().st_mtime_ns
     assert main(['--yes', '--no-open', '--offline']) == 0
     assert arquivo.stat().st_mtime_ns == mtime
+
+
+def test_simulado_ainda_sem_os_arquivos_da_prova_avisa_uma_vez_com_o_link(
+    tmp_path: Path, monkeypatch, home_isolada, caplog
+):
+    raiz = tmp_path / 'projeto'
+    provas = raiz / 'provas'
+    provas.mkdir(parents=True)
+    (raiz / '.concurso').mkdir()
+    monkeypatch.chdir(raiz)
+    criar_concurso(provas, 'alvo', ALVO, ARQUIVOS_ALVO)
+    pasta = provas / 'orgao_2002_pci1'
+    pasta.mkdir()
+    link = 'https://www.pciconcursos.com.br/provas/download/orgao-2002'
+    (pasta / 'concurso.yaml').write_text(
+        yaml.safe_dump(
+            {'nome': 'Órgão 2002 (simulado PCI 1)', 'banca': 'generic', 'simulado': {'link': link}}
+        ),
+        encoding='utf-8',
+    )
+
+    assert main(['--yes', '--no-open', '--offline']) == 0
+
+    avisos = [r for r in caplog.records if r.levelname == 'WARNING' and 'orgao_2002_pci1' in r.getMessage()]
+    assert len(avisos) == 1
+    texto = f'{avisos[0].getMessage()} {avisos[0].dica} {avisos[0].detalhe}'
+    assert link in texto and 'campo obrigatório' not in texto

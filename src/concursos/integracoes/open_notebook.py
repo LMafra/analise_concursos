@@ -24,8 +24,8 @@ VARIAVEL_CHAVE_PADRAO = 'OPEN_NOTEBOOK_PASSWORD'
 TIMEOUT_PADRAO = 120
 LIMITE_PAGINA = 100
 DICA_INSTANCIA = (
-    'ligue o seu open-notebook (por exemplo, com `docker compose up -d`) e confira o endereço em '
-    'Configurações > Avançado.'
+    'abra o seu open-notebook e confira o endereço em Configurações > Avançado; para usar a biblioteca do '
+    'próprio app, desligue-o lá e prepare a biblioteca em Estudar.'
 )
 DICA_VERSAO = 'o open-notebook mudou de versão; o app foi testado com a versão 1.15.'
 

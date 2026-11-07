@@ -43,6 +43,14 @@ def linhas_extras(record: logging.LogRecord) -> list[str]:
     ]
 
 
+_PREFIXOS = {logging.DEBUG: 'debug: ', logging.WARNING: 'aviso: ', logging.ERROR: 'erro: '}
+
+
+def prefixo_do_nivel(record: logging.LogRecord) -> str:
+    """`aviso: ` ou `erro: ` no lugar do nome do nível; INFO fica sem prefixo."""
+    return _PREFIXOS.get(min(record.levelno, logging.ERROR) // 10 * 10, '')
+
+
 class FormatoComDica(logging.Formatter):
     """O formato pedido na primeira linha e a `dica:` e o `detalhe:` recuados nas seguintes."""
 

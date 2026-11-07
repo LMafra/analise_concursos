@@ -10,6 +10,7 @@ from concursos.erros import (
     ErroDoUsuario,
     FormatoComDica,
     linhas_extras,
+    prefixo_do_nivel,
 )
 
 __all__ = [
@@ -59,11 +60,8 @@ class FormatoDoConsole(logging.Formatter):
     """`aviso:` ou `erro:` na primeira linha (INFO sem prefixo) e, quando o registro traz, `dica:` e
     `detalhe:` nas seguintes; o `--quiet` corta pelo nível, nunca o detalhe de um aviso que aparece."""
 
-    _PREFIXOS = {logging.DEBUG: 'debug: ', logging.WARNING: 'aviso: ', logging.ERROR: 'erro: '}
-
     def format(self, record: logging.LogRecord) -> str:
-        prefixo = self._PREFIXOS.get(min(record.levelno, logging.ERROR) // 10 * 10, '')
-        linhas = [prefixo + record.getMessage(), *linhas_extras(record)]
+        linhas = [prefixo_do_nivel(record) + record.getMessage(), *linhas_extras(record)]
         if record.exc_info:
             linhas.append(self.formatException(record.exc_info))
         return '\n'.join(linhas)

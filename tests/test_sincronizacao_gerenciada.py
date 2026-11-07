@@ -75,3 +75,22 @@ def test_sem_preparar_nada_e_sincronizado(tmp_path, monkeypatch):
     )
 
     integracoes.sincronizar_depois_da_analise(Opcoes(contexto), [None])
+
+
+def test_falha_do_open_notebook_do_app_nao_manda_configurar_o_endereco(tmp_path, monkeypatch, caplog):
+    contexto = Contexto(
+        tmp_path, tmp_path / 'home', tmp_path / '.concurso', tmp_path / 'provas', tmp_path / 'a'
+    )
+    monkeypatch.setattr(
+        estudo, 'situacao_do_estudo', lambda c: estudo.SituacaoEstudo(True, '1.15.1-1', False, False, '')
+    )
+
+    def fora_do_ar(*_args):
+        ClienteOpenNotebook('http://127.0.0.1:1', timeout=2).saude()
+
+    monkeypatch.setattr(integracoes, 'sincronizar_gerenciada', fora_do_ar)
+
+    integracoes.sincronizar_depois_da_analise(Opcoes(contexto), [None])
+
+    [registro] = [r for r in caplog.records if r.levelname == 'WARNING']
+    assert 'Estudar' in registro.dica and 'Avançado' not in registro.dica

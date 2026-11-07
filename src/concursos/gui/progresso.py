@@ -3,7 +3,7 @@ import threading
 from collections import deque
 from dataclasses import dataclass
 
-from concursos.erros import FormatoComDica
+from concursos.erros import linhas_extras, prefixo_do_nivel
 from concursos.modelo import Etapa
 
 
@@ -49,13 +49,21 @@ class Andamento:
         return linhas
 
 
+class FormatoDoPainel(logging.Formatter):
+    """Hora, `aviso:` ou `erro:` e a mensagem; o traceback fica só no arquivo de log."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        primeira = f'{self.formatTime(record, "%H:%M:%S")} {prefixo_do_nivel(record)}{record.getMessage()}'
+        return '\n'.join([primeira, *(f'    {linha}' for linha in linhas_extras(record))])
+
+
 class HandlerDoPainel(logging.Handler):
     """Manda o log do pacote para o painel "Log detalhado" enquanto a análise roda."""
 
     def __init__(self, andamento: Andamento, nivel: int = logging.INFO) -> None:
         super().__init__(nivel)
         self.andamento = andamento
-        self.setFormatter(FormatoComDica('%(asctime)s %(levelname)s %(message)s', '%H:%M:%S'))
+        self.setFormatter(FormatoDoPainel())
 
     def emit(self, record: logging.LogRecord) -> None:
         try:

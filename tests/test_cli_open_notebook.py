@@ -137,7 +137,7 @@ def test_sync_com_instancia_fora_do_ar_sai_com_dois(projeto, capsys):
     assert main(['notebook', 'sync', '--candidate', 'zuleica']) == 2
 
     erro = capsys.readouterr().err
-    assert 'docker compose' in erro and 'Traceback' not in erro
+    assert 'Configurações > Avançado' in erro and 'docker' not in erro.lower() and 'Traceback' not in erro
 
 
 def test_sync_com_dry_run_nao_chama_a_rede(projeto, servidor, capsys):
@@ -195,7 +195,7 @@ def test_instancia_fora_do_ar_vira_aviso_e_a_analise_sai_com_zero(projeto, caplo
 
     assert main(['--yes', '--no-open', '--force', '--candidate', 'zuleica']) == 0
 
-    assert 'open-notebook' in caplog.text and 'docker compose' in log_completo(caplog)
+    assert 'open-notebook' in caplog.text and 'Configurações > Avançado' in log_completo(caplog)
 
 
 def test_desligado_a_analise_nao_chama_a_instancia(projeto, servidor):

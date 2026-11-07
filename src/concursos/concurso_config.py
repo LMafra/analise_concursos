@@ -259,15 +259,24 @@ def ler_dados(pasta: Path) -> dict:
         return {}
 
 
-def vinculo_sem_provas(pasta: Path) -> dict | None:
-    """O bloco `pci` da pasta criada por "Adicionar ao meu projeto", enquanto ela não tem os arquivos da prova."""
+def _bloco_sem_provas(pasta: Path, bloco: str) -> dict | None:
     try:
         dados = ler_dados(pasta)
     except ValueError:
         return None
-    if not isinstance(dados, dict) or dados.get('provas') or not isinstance(dados.get('pci'), dict):
+    if not isinstance(dados, dict) or dados.get('provas') or not isinstance(dados.get(bloco), dict):
         return None
-    return dados['pci']
+    return dados[bloco]
+
+
+def vinculo_sem_provas(pasta: Path) -> dict | None:
+    """O bloco `pci` da pasta criada por "Adicionar ao meu projeto", enquanto ela não tem os arquivos da prova."""
+    return _bloco_sem_provas(pasta, 'pci')
+
+
+def simulado_sem_provas(pasta: Path) -> dict | None:
+    """O bloco `simulado` da prova anterior do PCI cujos PDFs ainda não foram baixados."""
+    return _bloco_sem_provas(pasta, 'simulado')
 
 
 def gravar_dados(pasta: Path, dados: dict) -> None:
