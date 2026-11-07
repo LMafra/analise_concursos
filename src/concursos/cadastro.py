@@ -28,7 +28,16 @@ logger = logging.getLogger(__name__)
 
 _IGNORAR = 'ignorar'
 _NENHUM = '(nenhum)'
-_CAMPOS_MANUAIS = ('data_prova', 'nivel', 'escolaridade', 'correcao', 'historico', 'simulado', 'pci')
+_CAMPOS_MANUAIS = (
+    'data_prova',
+    'nivel',
+    'escolaridade',
+    'correcao',
+    'historico',
+    'simulado',
+    'pci',
+    'titulo',
+)
 
 
 @dataclass(frozen=True)

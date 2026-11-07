@@ -355,8 +355,10 @@ async def test_sobre_mostra_versao_e_caminho_do_log(user: User):
 
     await user.should_see(marker='versao')
     await user.should_see('concurso-analise')
-    await user.should_see('Log:')
-    await user.should_see('127.0.0.1')
+    await user.should_see('Registro de erros')
+    await user.should_see('Leitor de folhas')
+    await user.should_see('Biblioteca: ')
+    await user.should_see('Privacidade: tudo fica no seu computador')
 
 
 async def test_projeto_vazio_oferece_criar_o_primeiro_concurso(user: User, projeto):
@@ -364,7 +366,7 @@ async def test_projeto_vazio_oferece_criar_o_primeiro_concurso(user: User, proje
 
     user.find(marker='sem-concursos-acao').click()
 
-    await user.should_see(marker='nome-concurso')
+    await user.should_see(marker='soltar')
 
 
 async def test_situacao_do_concurso_tem_icone_e_texto(user: User, projeto):

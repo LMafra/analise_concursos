@@ -91,6 +91,25 @@ def test_janela_sem_console_ganha_fluxos_vazios(monkeypatch):
     sys.stderr.write('nada')
 
 
+@pytest.mark.skipif(not hasattr(os, 'openpty'), reason='pseudoterminal só no POSIX')
+def test_stdin_vazio_nao_e_terminal_mesmo_quando_o_devnull_e(monkeypatch):
+    mestre, escravo = os.openpty()
+    try:
+        try:
+            terminal = os.ttyname(escravo)
+        except OSError:
+            pytest.skip('sem /dev/pts')
+        monkeypatch.setattr(os, 'devnull', terminal)
+        monkeypatch.setattr(sys, 'stdin', None)
+
+        empacotado.garantir_fluxos_padrao()
+
+        assert not sys.stdin.isatty()
+    finally:
+        os.close(mestre)
+        os.close(escravo)
+
+
 def test_saida_redirecionada_no_windows_escreve_utf8(monkeypatch):
     saida = io.BytesIO()
     monkeypatch.setattr(sys, 'stdout', io.TextIOWrapper(saida, encoding='cp1252'))

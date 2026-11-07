@@ -3,7 +3,9 @@
 # imagem, doctor e a análise de dois concursos com idempotência) e desinstala.
 #
 # Uso: pwsh scripts/smoke_maquina_limpa.ps1 -Instalador dist\concurso-analise-0.6.0-windows-x64-setup.exe `
-#        [-LimitePartida 10] [-ExigirAssinatura] [-Relatorio smoke-windows.md]
+#        [-LimitePartida 10] [-ExigirAssinatura] [-Relatorio smoke-windows.md] [-PacoteEstudo estudo-...zip]
+#
+# Com -PacoteEstudo, instala também a biblioteca daquele arquivo, envia um PDF ao open-notebook e pergunta.
 #
 # No CI, roda no próprio runner. Antes de publicar uma release, rode também no Windows Sandbox (ou numa VM sem
 # Python nem Tesseract) e siga o checklist de docs/spec-fase6.md.
@@ -11,7 +13,8 @@ param(
     [Parameter(Mandatory = $true)][string]$Instalador,
     [double]$LimitePartida = 0,
     [switch]$ExigirAssinatura,
-    [string]$Relatorio = ''
+    [string]$Relatorio = '',
+    [string]$PacoteEstudo = ''
 )
 $ErrorActionPreference = 'Stop'
 
@@ -86,6 +89,12 @@ try {
     & $Python $Smoke congelado $Cli
     if ($LASTEXITCODE -ne 0) { throw 'scripts/smoke.py congelado falhou' }
     Registrar '- scripts/smoke.py congelado: doctor, onboarding, análise e idempotência ok'
+
+    if ($PacoteEstudo) {
+        & $Python $Smoke estudo $PacoteEstudo $Cli
+        if ($LASTEXITCODE -ne 0) { throw 'scripts/smoke.py estudo falhou' }
+        Registrar "- biblioteca ($(Split-Path -Leaf $PacoteEstudo)): pacote instalado, PDF com página escaneada enviado, pergunta com trecho e página"
+    }
 }
 finally {
     $env:PATH = $PathOriginal

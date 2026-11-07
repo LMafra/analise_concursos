@@ -20,6 +20,8 @@ COLUNAS_DISCREPANCIAS = [
     'diferenca',
     'severidade',
     'acao_sugerida',
+    'nome_oficial',
+    'cargo',
 ]
 
 
@@ -56,7 +58,14 @@ def validar_edital(
     if questoes is not None:
         discrepancias += _contagens(regras.distribuicao, questoes, taxonomia or {})
         discrepancias += _alternativas(regras, questoes)
-    return pd.DataFrame([asdict(d) for d in discrepancias], columns=COLUNAS_DISCREPANCIAS)
+    tabela = pd.DataFrame([asdict(d) for d in discrepancias], columns=COLUNAS_DISCREPANCIAS)
+    identificacao = regras.identificacao
+    cargo = identificacao.cargo.valor
+    if cargo and identificacao.especialidade.valor:
+        cargo = f'{cargo} – {identificacao.especialidade.valor}'
+    tabela['nome_oficial'] = identificacao.nome_oficial.valor
+    tabela['cargo'] = cargo
+    return tabela
 
 
 def gravar_discrepancias(discrepancias: pd.DataFrame, destino: Path) -> None:

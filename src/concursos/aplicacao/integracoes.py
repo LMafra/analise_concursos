@@ -1,12 +1,15 @@
+import json
 import logging
+import re
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
 from concursos import relatorio_html
 from concursos.analytics.consolidado import concursos_analisados
+from concursos.aplicacao import estudo
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.pratica import caderno_de_erros, fontes_de_estudo
 from concursos.aplicacao.projeto import (
@@ -15,14 +18,17 @@ from concursos.aplicacao.projeto import (
     escolher_candidato,
     exigir_provas,
     pasta_do_candidato,
+    proxima_pasta,
 )
+from concursos.aplicacao.simulados import revisar_simulado
 from concursos.cadastro import cadastrar
-from concursos.candidatos import alvos_pci
-from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError
+from concursos.candidatos import alvos_pci, slug
+from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, gravar_dados, ler_dados
 from concursos.config.contexto import Contexto
 from concursos.configuracao import configuracao_do_projeto
 from concursos.erros import ErroDoAmbiente, ErroDoUsuario
 from concursos.integracoes import download_assistido, pci_mcp
+from concursos.integracoes.cache_pci import ARQUIVO_CACHE
 from concursos.integracoes.open_notebook import (
     DICA_INSTANCIA,
     ClienteOpenNotebook,
@@ -59,8 +65,14 @@ from concursos.integracoes.sincronizacao_notebook import (
     sincronizar_candidato,
 )
 from concursos.integracoes.sincronizacao_pci import Interesses, sessao_pci
+from concursos.livros import envio
+from concursos.municipios import REGIAO_DA_UF, cidade_da_uf
+from concursos.status import listar_concursos
 
 logger = logging.getLogger(__name__)
+
+INSTANCIA_GERENCIADA = 'gerenciada'
+NACIONAL = 'Nacional — todas as regiões'
 
 
 # open-notebook
@@ -123,13 +135,17 @@ def sincronizar(
     contexto = opcoes.contexto
     exigir_provas(contexto.provas)
     configuracao = configuracao_open_notebook(contexto)
-    if not configuracao.ativa:
+    gerenciada = not configuracao.ativa and estudo.situacao_do_estudo(contexto).preparado
+    if not configuracao.ativa and not gerenciada:
         raise ErroDoUsuario(
-            'a sincronização com o open-notebook está desligada',
-            'ligue com `concurso-analise notebook enable`',
+            'o envio das análises ao open-notebook está desligado',
+            'prepare a biblioteca em Estudar (`concurso-analise estudo preparar`) ou use um open-notebook seu '
+            '(`concurso-analise notebook enable`)',
         )
     if not opcoes.rede:
-        raise ErroDoUsuario('notebook sync usa a rede e foi pedido --offline', 'rode de novo sem --offline')
+        raise ErroDoUsuario(
+            'o envio ao open-notebook usa a rede e foi pedido --offline', 'rode de novo sem --offline'
+        )
     candidatos = candidatos_da_execucao(contexto, todos or opcoes.todos)
     if opcoes.dry_run:
         for nome_candidato in candidatos:
@@ -137,9 +153,12 @@ def sincronizar(
             prefixo = f'{nome_candidato}/' if nome_candidato else ''
             for nome in concursos_analisados(contexto.provas, pasta):
                 if concurso in (None, nome):
-                    opcoes.saida(f'{prefixo}{nome}: sincronizaria com {configuracao.url}')
+                    destino = 'o open-notebook do app' if gerenciada else configuracao.url
+                    opcoes.saida(f'{prefixo}{nome}: enviaria para {destino}')
         return None
     try:
+        if gerenciada:
+            return sincronizar_gerenciada(contexto, candidatos, concurso)
         return sincronizar_notebooks(contexto, configuracao, candidatos, concurso)
     except OpenNotebookIndisponivelError as erro:
         if erro.status in (401, 403):
@@ -159,6 +178,38 @@ def sincronizar_notebooks(
     sincronizador = Sincronizador(
         cliente, EstadoSincronizacao.ler(contexto.projeto / ARQUIVO_ESTADO), embed=configuracao.embed
     )
+    return _sincronizar_candidatos(contexto, sincronizador, candidatos, concurso, configuracao.incluir_nome)
+
+
+def sincronizar_gerenciada(
+    contexto: Contexto, candidatos: list[str | None], concurso: str | None
+) -> RelatorioSincronizacao:
+    """O open-notebook do app: sem consentimento, com pseudônimo, notebooks com o nome da pasta do
+    projeto e achados só pelo ID, e os livros da biblioteca vinculados aos concursos associados."""
+    try:
+        cliente = estudo.cliente_gerenciado(contexto)
+    except ErroDoAmbiente as erro:
+        raise OpenNotebookIndisponivelError(erro.causa, erro.dica) from erro
+    sincronizador = Sincronizador(
+        cliente,
+        EstadoSincronizacao.ler(contexto.projeto / ARQUIVO_ESTADO),
+        embed=True,
+        instancia=INSTANCIA_GERENCIADA,
+        por_nome=False,
+        prefixo_nome=f'{contexto.raiz.name} · ',
+    )
+    livros = envio.sources_por_concurso(estudo.biblioteca(contexto))
+    return _sincronizar_candidatos(contexto, sincronizador, candidatos, concurso, False, livros)
+
+
+def _sincronizar_candidatos(
+    contexto: Contexto,
+    sincronizador: Sincronizador,
+    candidatos: list[str | None],
+    concurso: str | None,
+    incluir_nome: bool,
+    livros: dict[str, set[str]] | None = None,
+) -> RelatorioSincronizacao:
     limiar = configuracao_do_projeto(contexto).limiar_topico_baixo
     fontes = fontes_de_estudo(contexto)
     caderno = caderno_de_erros(contexto, candidatos)
@@ -171,10 +222,11 @@ def sincronizar_notebooks(
                 candidato,
                 limiar=limiar,
                 arquivo_taxonomia=contexto.taxonomia,
-                incluir_nome=configuracao.incluir_nome,
+                incluir_nome=incluir_nome,
                 concurso=concurso,
                 fontes=fontes,
                 caderno_de_erros=caderno.get(candidato),
+                livros=livros,
             )
     finally:
         sincronizador.gravar_estado()
@@ -191,10 +243,14 @@ def sincronizar_depois_da_analise(opcoes: Opcoes, candidatos: list[str | None]) 
     except ConfiguracaoInvalidaError as erro:
         logger.warning('open-notebook: %s; a sincronização foi pulada', erro)
         return
-    if not configuracao.ativa:
+    gerenciada = not configuracao.ativa and estudo.situacao_do_estudo(contexto).preparado
+    if not configuracao.ativa and not gerenciada:
         return
     try:
-        relatorio = sincronizar_notebooks(contexto, configuracao, candidatos, None)
+        if gerenciada:
+            relatorio = sincronizar_gerenciada(contexto, candidatos, None)
+        else:
+            relatorio = sincronizar_notebooks(contexto, configuracao, candidatos, None)
     except OpenNotebookIndisponivelError as erro:
         logger.warning(
             'open-notebook: %s; a sincronização foi pulada (%s)', erro.causa, erro.dica or DICA_INSTANCIA
@@ -229,12 +285,12 @@ def exigir_pci_ligado(configuracao: ConfiguracaoPciMcp) -> None:
 def aviso_pci(url: str, configuracao: ConfiguracaoPciMcp) -> str:
     return '\n'.join(
         [
-            f'O servidor MCP público do PCI Concursos em {url} vai receber só termos de busca:',
-            '- cargos, UF, cidade, região e termos de prova (do comando ou de [pci] no perfil do candidato).',
+            f'A busca de concursos consulta o PCI Concursos pela internet ({url}) e envia só termos de busca:',
+            '- cargos, UF, cidade, região e as palavras procuradas nas provas anteriores.',
             'Nome, CPF, inscrição e notas não saem do computador.',
-            f'As respostas ficam em .concurso/cache/ por {configuracao.ttl_horas:g} h; o servidor é beta, e o PCI '
-            'complementa, mas não substitui, o edital oficial.',
-            'Depois de cada análise, o radar de prazos consulta o PCI; `--offline` usa só o cache.',
+            f'As respostas ficam guardadas no computador por {configuracao.ttl_horas:g} h. A busca do PCI está em '
+            'teste e complementa, mas não substitui, o edital oficial.',
+            'Depois de cada análise, o radar de prazos consulta o PCI; sem internet, usa o que já está guardado.',
         ]
     )
 
@@ -280,6 +336,8 @@ def filtros_pci(
     if not (cargos or cidade or termo or regiao):
         cargos = list(alvos or configuracao.cargos)
         regiao = configuracao.regiao
+        if configuracao.cidade and uf == configuracao.uf.lower():
+            cidade = configuracao.cidade
     return {'cargos': cargos, 'uf': uf, 'cidade': cidade or '', 'regiao': regiao or '', 'termo': termo or ''}
 
 
@@ -354,6 +412,118 @@ def esquecer_interesse(opcoes: Opcoes, identificador: int) -> None:
     registro.esquecer(identificador)
     registro.gravar()
     opcoes.saida(f'interesse removido: {identificador}')
+
+
+def regiao_do_concurso(concurso: ConcursoPci) -> str:
+    """ "Sudeste · MG"; nos nacionais (UF `BR`), "Nacional — todas as regiões". O PCI não diz a cidade da prova."""
+    uf = (concurso.uf or '').strip().upper()
+    if uf == 'BR':
+        return NACIONAL
+    regiao = (
+        '-'.join(p.capitalize() for p in concurso.regiao.strip().lower().split('-'))
+        if concurso.regiao
+        else ''
+    )
+    return ' · '.join(p for p in (regiao or REGIAO_DA_UF.get(uf, ''), uf) if p)
+
+
+def gravar_filtros_pci(
+    contexto: Contexto, cargos: list[str], uf: str | None, cidade: str | None, regiao: str | None
+) -> ConfiguracaoPciMcp:
+    """ "Lembrar estes filtros": grava em `[pci_mcp]`; a cidade só vale com a UF e tem de ser dela."""
+    try:
+        uf = validar_uf(uf or '', 'UF')
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(str(erro), 'escolha a UF na lista') from erro
+    if regiao and regiao not in REGIOES:
+        raise ErroDoUsuario(f'região {regiao} é inválida', f'use uma de: {", ".join(REGIOES)}')
+    oficial = ''
+    if cidade and cidade.strip():
+        if not uf:
+            raise ErroDoUsuario(f'a cidade {cidade} precisa da UF', 'escolha a UF antes da cidade')
+        oficial = cidade_da_uf(cidade, uf)
+        if oficial is None:
+            raise ErroDoUsuario(
+                f'{cidade} não é uma cidade de {uf.upper()}', 'escolha a cidade na lista da UF'
+            )
+    return pci_mcp.gravar_configuracao(
+        contexto.config_global,
+        cargos=[c.strip() for c in cargos if c.strip()],
+        uf=uf,
+        cidade=oficial,
+        regiao=regiao or '',
+    )
+
+
+def situacao_do_cache(contexto: Contexto, agora: datetime | None = None) -> str | None:
+    """ "Atualizado há 3 horas", pela consulta mais recente guardada no cache; None sem cache."""
+    caminho = contexto.projeto / ARQUIVO_CACHE
+    try:
+        entradas = json.loads(caminho.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    instantes = []
+    for entrada in entradas.values() if isinstance(entradas, dict) else []:
+        try:
+            instantes.append(datetime.fromisoformat(entrada['obtido_em']))
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not instantes:
+        return None
+    horas = int(((agora or datetime.now()) - max(instantes)).total_seconds() // 3600)
+    if horas < 1:
+        return 'Atualizado agora há pouco'
+    if horas < 48:
+        return f'Atualizado há {horas} {"hora" if horas == 1 else "horas"}'
+    return f'Atualizado há {horas // 24} dias'
+
+
+def _pasta_vinculada(raiz_provas: Path, identificador: int) -> Path | None:
+    for pasta in listar_concursos(raiz_provas):
+        if (ler_dados(pasta).get('pci') or {}).get('id') == identificador:
+            return pasta
+    return None
+
+
+def _base_da_pasta(concurso: ConcursoPci) -> str:
+    """ "TRE-MG 2026 - Analista Judiciário" vira `tre_mg_2026`: o que vem antes do " - ", até 4 palavras."""
+    cabeca = re.split(r'\s+[-–]\s+', concurso.titulo.strip(), maxsplit=1)[0]
+    try:
+        return slug(' '.join(cabeca.split()[:4]))
+    except ConfiguracaoInvalidaError:
+        return f'concurso_pci_{concurso.id}'
+
+
+def adicionar_ao_projeto(opcoes: Opcoes, concursos: list[ConcursoPci], identificador: int) -> Path:
+    """Do card ao projeto num clique: acompanha o concurso e cria a pasta com o vínculo ao PCI, à espera do
+    edital e da prova. O título do PCI vale como nome "a confirmar" até o edital chegar. Já adicionado,
+    devolve a mesma pasta."""
+    escolhido = next((c for c in concursos if c.id == identificador), None)
+    if escolhido is None:
+        raise ErroDoUsuario(
+            f'o concurso {identificador} não está no resultado desta busca',
+            'busque de novo com os filtros que o mostram',
+        )
+    contexto = opcoes.contexto
+    if (
+        contexto.provas.is_dir()
+        and (existente := _pasta_vinculada(contexto.provas, identificador)) is not None
+    ):
+        return existente
+    pasta = proxima_pasta(contexto, _base_da_pasta(escolhido))
+    if opcoes.dry_run:
+        opcoes.saida(f'criaria {pasta} vinculada ao concurso {identificador} do PCI')
+        return pasta
+    registro = interesses(contexto)
+    if registro.obter(identificador) is None:
+        registro.registrar(escolhido)
+    registro.vincular(identificador, pasta.name)
+    registro.gravar()
+    pasta.mkdir(parents=True)
+    vinculo = {'id': identificador, 'titulo': escolhido.titulo, 'link': escolhido.link}
+    gravar_dados(pasta, {'nome': pasta.name, 'pci': vinculo})
+    opcoes.saida(f'{escolhido.titulo} adicionado ao projeto; falta o edital e os arquivos da prova')
+    return pasta
 
 
 @dataclass(frozen=True)
@@ -491,11 +661,84 @@ def importar_simulado(
         ) from erro
     if not cadastrado:
         return 1
+    revisar_simulado(contexto, pasta)
     opcoes.saida(
         f'simulado pronto em {pasta}; acrescente suas respostas com '
         f'`concurso-analise add <arquivo> --candidate <nome> --concurso {pasta.name}`'
     )
     return 0
+
+
+@dataclass
+class LoteDeSimulados:
+    importadas: list[int] = field(default_factory=list)
+    ja_importadas: list[int] = field(default_factory=list)
+    falhas: dict[int, str] = field(default_factory=dict)
+    nao_tentadas: list[int] = field(default_factory=list)
+
+    @property
+    def cancelado(self) -> bool:
+        return bool(self.nao_tentadas)
+
+    def resumo(self) -> str:
+        partes = [f'{len(self.importadas)} importada(s)']
+        if self.ja_importadas:
+            partes.append(f'{len(self.ja_importadas)} já estava(m) no projeto')
+        if self.falhas:
+            partes.append(f'{len(self.falhas)} com falha')
+        if self.nao_tentadas:
+            partes.append(f'{len(self.nao_tentadas)} não tentada(s) (cancelado)')
+        return '; '.join(partes)
+
+
+def ja_importada(raiz_provas: Path, prova: ProvaAnteriorPci) -> bool:
+    return bool(ler_dados(raiz_provas / nome_da_pasta(prova)).get('provas'))
+
+
+def importar_simulados(
+    opcoes: Opcoes,
+    provas: list[ProvaAnteriorPci],
+    identificadores: list[int],
+    alvo: ConcursoConfig | None,
+    esperar: Callable[..., dict[str, Path]] | None = None,
+) -> LoteDeSimulados:
+    """Uma prova por vez, cada uma com a página aberta e a espera na pasta de downloads. A falha de uma vira
+    aviso e o lote segue; cancelar a espera encerra o lote, e as que faltavam ficam como não tentadas."""
+    lote = LoteDeSimulados()
+    pedidas = [p for i in identificadores for p in provas if p.id == i]
+    for posicao, prova in enumerate(pedidas, start=1):
+        if ja_importada(opcoes.contexto.provas, prova):
+            lote.ja_importadas.append(prova.id)
+            continue
+        opcoes.saida(
+            f'Passo {posicao} de {len(pedidas)}: o navegador vai abrir a página da prova {prova.orgao} '
+            f'{prova.ano or ""}. Baixe a prova e o gabarito.'.replace('  ', ' ')
+        )
+        try:
+            codigo = importar_simulado(opcoes, provas, prova.id, alvo, esperar)
+        except ImportacaoCanceladaError:
+            lote.nao_tentadas = [p.id for p in pedidas[posicao - 1 :]]
+            break
+        except (ErroDoUsuario, ErroDoAmbiente) as erro:
+            logger.warning('prova %s: %s', prova.id, erro.causa)
+            lote.falhas[prova.id] = erro.causa
+            continue
+        if codigo == 0:
+            lote.importadas.append(prova.id)
+        else:
+            lote.falhas[prova.id] = 'o cadastro não terminou'
+    opcoes.saida(f'provas anteriores: {lote.resumo()}')
+    return lote
+
+
+def termos_previstos(contexto: Contexto, concurso: str | None) -> list[str]:
+    """Os termos que a busca usará sem termo digitado, para a tela mostrar antes de buscar."""
+    if not concurso:
+        return []
+    try:
+        return termos_automaticos(concurso_alvo(contexto, concurso))
+    except (ErroDoUsuario, ConfiguracaoInvalidaError, FileNotFoundError):
+        return []
 
 
 def radar_pci(opcoes: Opcoes, candidato: str | None, destino: Path) -> bool:

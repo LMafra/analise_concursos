@@ -1,8 +1,8 @@
 # AGENTS.md
 
-Ferramenta local de correção e análise de provas de concurso, com um comando só: `concurso-analise` (`src/concursos/cli/`), que gera `analises/<candidato>/<concurso>/`. Fase 1: correção por concurso. Fase 2: a análise evolutiva entre concursos (`src/concursos/analytics/` e `notebooks/`). Fase 3: o edital como fonte de verdade (regras, validação e catálogo de descobertas). Fase 4: um comando, multi-candidato, perfis de banca e de OCR, fallbacks, onboarding, `doctor`, LLM opcional e distribuição. Fase 5: a GUI em NiceGUI (`concurso-analise gui`, `src/concursos/gui/`) sobre a camada de aplicação (`src/concursos/aplicacao/`), o executável por sistema (`empacotamento/`) e o `tec-erros/` no mesmo repositório. Fase 6 (Windows e Linux): assinatura pela SignPath, WebView2 no instalador, AppImage verificado, atualizador por manifesto assinado e tokens de design com onboarding na GUI.
+Ferramenta local de correção e análise de provas de concurso, com um comando só: `concurso-analise` (`src/concursos/cli/`), que gera `analises/<candidato>/<concurso>/`. Fase 1: correção por concurso. Fase 2: a análise evolutiva entre concursos (`src/concursos/analytics/` e `notebooks/`). Fase 3: o edital como fonte de verdade (regras, validação e catálogo de descobertas). Fase 4: um comando, multi-candidato, perfis de banca e de OCR, fallbacks, onboarding, `doctor`, LLM opcional e distribuição. Fase 5: a GUI em NiceGUI (`concurso-analise gui`, `src/concursos/gui/`) sobre a camada de aplicação (`src/concursos/aplicacao/`), o executável por sistema (`empacotamento/`) e o `tec-erros/` no mesmo repositório. Fase 6 (Windows e Linux): assinatura pela SignPath, WebView2 no instalador, AppImage verificado, atualizador por manifesto assinado e tokens de design com onboarding na GUI. Fase 7: estudar com o open-notebook gerenciado pelo app (pacote de estudo, biblioteca de livros com página), dicionário de temas, telas de conferência, nome do concurso pelo edital e fluxos assistidos do PCI e do TEC.
 
-- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3), `docs/spec-fase4.md` (fase 4), `docs/spec-pci-mcp.md` (PCI Concursos), `docs/spec-fase5.md` (fase 5, com as decisões em `docs/decisoes-fase5.md`) e `docs/spec-fase6.md` (fase 6, com as decisões em `docs/decisoes-fase6.md`). Leia a da fase antes de mudar comportamento.
+- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3), `docs/spec-fase4.md` (fase 4), `docs/spec-pci-mcp.md` (PCI Concursos), `docs/spec-fase5.md` (fase 5, com as decisões em `docs/decisoes-fase5.md`) e `docs/spec-fase6.md` (fase 6, com as decisões em `docs/decisoes-fase6.md`) e `docs/spec-fase7.md` (fase 7, com as decisões em `docs/decisoes-fase7.md`). Leia a da fase antes de mudar comportamento.
 - Paridade: antes de um refactor que toca código das fases 1 a 3, rode `concurso-analise --force` e `scripts/paridade.py retrato analises/<candidato> <arquivo>`; depois, `comparar` não pode mostrar diferença.
 - Ponta a ponta: `scripts/smoke.py` roda onboarding, análise e idempotência num projeto temporário; rode-o pelo `uvx --from "$PWD"` ao mexer em dependências, CLI ou empacotamento.
 - Modelo de domínio, contratos de arquivo e fórmulas: `docs/modelo.md`. É a fonte única dos campos do `concurso.yaml`, do `candidato.yaml`, do `config.toml`, dos perfis, do `correcao.json`, do `edital_estruturado.json`, do template do `catalogo_edital.md` e do schema do parquet; atualize-o na mesma mudança que o código.
@@ -12,6 +12,8 @@ Ferramenta local de correção e análise de provas de concurso, com um comando 
 `provas/`, `analises/` e `.concurso/` têm CPF, nome e notas e ficam fora do git e da imagem Docker, assim como os `notebooks/*.ipynb` gerados. `test_sem_dado_pessoal_no_pacote` procura no pacote nomes, slugs, inscrições, CPF e caminhos de usuário; fixtures usam nomes fictícios.
 
 Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na configuração global e só recebe texto do edital; o open-notebook exige `enabled` e `consentimento` em `[open_notebook]` e recebe o candidato como pseudônimo, salvo `incluir_nome`; o PCI Concursos exige `enabled` em `[pci_mcp]` e só recebe termos de busca (cargo, UF, cidade, região, termo); o atualizador só consulta o GitHub no clique de "Verificar atualizações", no `upgrade` ou com `[atualizacao] verificar_ao_abrir` (no máximo uma vez por dia), e não envia dado nenhum. `--offline` e `--dry-run` desligam os quatro (no PCI, `--offline` fica no cache). O PDF de prova do PCI nunca é baixado pelo app (captcha e `robots.txt`): ele lê só a página HTML e nunca chama `/provas/link`; o download é do usuário, no navegador. A chave de API e a senha do open-notebook nunca vão para TOML.
+
+A instância gerenciada do open-notebook (fase 7) roda no próprio computador e não pede consentimento: livros e análises vão para ela sem tela, com o candidato como pseudônimo. Os processos dela (SurrealDB, API, worker, embeddings) escutam só em `127.0.0.1`, em portas aleatórias, com senha e token por sessão, e o app nunca chama `/api/config`. A IA só recebe trechos de livros com `[llm] consentimento_livros`, separado do consentimento do edital, e a chave vai por variável de ambiente, nunca para o banco do open-notebook. O pacote de estudo segue as regras do atualizador: baixado só com consentimento, conferido pela assinatura Ed25519 e atualizado só depois de uma confirmação. Embeddings servem só para buscar nos livros, nunca para classificar tópicos.
 
 ## Onde mora cada lógica
 
@@ -50,7 +52,9 @@ Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na conf
 | Radar de prazos (`radar_editais.md` e `.json`) | `integracoes/radar_pci.py` |
 | Página da prova anterior no PCI (nomes dos arquivos, só HTML) e download assistido pela pasta de downloads | `integracoes/pagina_pci.py`, `integracoes/download_assistido.py` |
 | Prova anterior como simulado (bloco `simulado:`, banca pela organizadora, edital emprestado, `provas_anteriores.md`) | `integracoes/simulado_pci.py` |
-| Prática no TEC (`[pratica]`): exportações do tec-erros, mesclagem, matéria e assunto → disciplina e tópico, `.concurso/pratica_tec.yaml` e `analises/<candidato>/pratica/` | `pratica_tec.py` |
+| Simulado focado (`consolidado/simulado_focado.md`) e a revisão de tópicos do simulado antes das respostas | `simulado_focado.py`, `aplicacao/simulados.py`, `pipeline.preparar_revisao` |
+| Prática no TEC (`[pratica]`): exportações do tec-erros, mesclagem, matéria e assunto → disciplina e tópico, `.concurso/pratica_tec.yaml` e `analises/<candidato>/pratica/` (com o `simulado_tec.html`) | `pratica_tec.py` |
+| Planilha do TEC (CSV ou XLSX): leitura, colunas por sinônimo, assinatura do cabeçalho e conversão para o contrato v1 com o hash do `nucleo.js` | `planilha_tec.py` |
 | Fontes de estudo: `biblioteca.yaml`, catálogo do `books`, busca nos notebooks de biblioteca e `recomendacoes_estudo.md` | `biblioteca.py` |
 | Citações de normas nos tópicos e leitura do clone do `ctresb/leis` (`[legislacao]`) | `legislacao.py` |
 | Relatório HTML por candidato e abertura no navegador | `relatorio_html.py` |
@@ -61,11 +65,23 @@ Nenhuma chamada de rede sem opt-in: o LLM exige provedor e consentimento na conf
 | Disciplina canônica e bloco | `analytics/taxonomia.py` e `.concurso/taxonomia.yaml` |
 | Regras do edital: identificação, cargo, pesos, distribuição, cortes, cronograma, desempate, metadados, fonte e confiança | `analytics/regras_edital.py` |
 | Registro versionado de pistas do edital (`VERSAO_CANDIDATOS`) | `analytics/pistas_edital.py` |
+| Nome mostrado do concurso (título, subtítulo, fonte, "a confirmar"), rótulo dos notebooks e pasta automática do cadastro | `analytics/nome_concurso.py`, `aplicacao/nomes.py`, `aplicacao/cadastro.py` |
 | Discrepâncias edital × prova × gabarito (`discrepancias_edital.csv`) | `analytics/validacao_edital.py` |
 | Catálogo de descobertas (`catalogo_edital.md`) | `analytics/catalogo_edital.py` |
 | Métricas de evolução: ranking, z-score, tendência, correlação, tópicos, meta, nota ponderada, gap para o corte, simulação | `analytics/evolucao.py` |
 | Respostas em texto, `relatorio_evolucao.md`, desempate e peculiaridades do edital | `analytics/insights.py` |
 | Gráficos (plotly no notebook, PNG com matplotlib) e resumo de tabelas | `analytics/visualizacao.py` |
+| Pacote de estudo: manifesto `estudo.json` (formato, assinatura, compatibilidade) | `estudo/manifesto.py` |
+| Pacote de estudo: escolha da release, download verificado, espaço em disco, instalação, backup e volta ao anterior | `estudo/instalacao.py` |
+| Processos do open-notebook gerenciado (SurrealDB, API, worker, embeddings): portas, senha, trava, saúde, parada por ociosidade | `estudo/supervisor.py` |
+| Montagem do pacote de estudo e servidor de embeddings (fora do pacote) | `empacotamento/estudo/` |
+| Livros: validação do arquivo, leitura por página (com OCR), índice FTS5 com radicais, fila em segundo plano e envio ao open-notebook | `livros/` |
+| Orquestração de Estudar (preparar, enviar, listar, remover, perguntar) | `aplicacao/estudo.py` |
+| Dicionário de temas (`.concurso/taxonomia_topicos.yaml`), expansão e métrica de ganho | `analytics/dicionario_topicos.py`, `aplicacao/dicionario.py` |
+| Telas de conferência (tópicos, edital a confirmar, taxonomia) e reanálise dos afetados | `aplicacao/conferencia.py` |
+| Nome do concurso (sigla, ano, cargo) pela cadeia de fontes | `analytics/regras_edital.py`, `nomes.py` |
+| Municípios do IBGE embutidos (regenerados por `scripts/atualizar_municipios.py`), região de cada UF e datas DD/MM/AAAA | `municipios.py`, `dados/municipios_ibge.json`, `datas.py` |
+| Planilha do TEC (CSV/XLSX) para o contrato v1 | `planilha_tec.py` |
 
 ## Perfis
 
@@ -138,6 +154,9 @@ Para acrescentar uma camada:
 - Cor, espaço e elevação só por `gui/tema.py`: nenhum hex, classe de cor do Quasar (`bg-red-1`, `text-grey-8`) ou `gap-*` fora dele (teste). O espaçamento vai por `style='gap: ...'`. Status sempre com ícone e texto, nunca só cor; o contraste dos tokens é testado (AA).
 - Abrir no navegador quando a janela nativa foi esperada nunca é silencioso: a `DecisaoJanela` decide o aviso.
 - Testes em `tests/gui/` com a fixture `user` do NiceGUI e a camada de aplicação falsa; pulados sem o extra `[gui]`.
+- Nenhum arquivo do usuário exige edição à mão: revisão de tópicos, edital a confirmar, taxonomia e dicionário têm tela, e salvar reanalisa os concursos afetados.
+- Vocabulário leigo: as telas e as mensagens ao usuário de `aplicacao/estudo.py`, `aplicacao/integracoes.py` e `planilha_tec.py` não dizem localhost, porta, servidor, Docker, API, source, notebook (sozinho), sincronizar, embedding nem terminal (teste). "open-notebook", "livros", "biblioteca" e "perguntar" podem. A exceção é a seção Avançado das Configurações.
+- O `biblioteca.yaml` é legado e opcional: a biblioteca de livros mora em `~/.concurso/biblioteca/`, e as disciplinas dos livros vêm da tela.
 
 ## Executável
 
@@ -148,6 +167,7 @@ Para acrescentar uma camada:
 - Assinatura pela SignPath, só dos binários próprios (`concurso-analise.exe`, `concurso-analise-cli.exe`, o setup); DLLs de terceiros e o desinstalador ficam sem assinatura. Sem o secret `SIGNPATH_API_TOKEN`, o build segue sem assinar.
 - O AppImage passa por `empacotamento/linux/verificar_bibliotecas.sh`: nada resolve fora do bundle além de `bibliotecas_do_sistema.txt`, e o Tesseract só usa o próprio carregador.
 - A release traz `atualizacao.json` e `atualizacao.json.sig` (Ed25519, `scripts/assinar_manifesto.py`); mudar o formato do manifesto exige manter o app antigo lendo a release nova.
+- O pacote de estudo (`empacotamento/estudo/`, workflow `estudo.yml`) é uma release própria, tag `estudo-v<open-notebook>-<n>`, com `estudo.json` e `estudo.json.sig` (mesma chave Ed25519). Uma versão nova do open-notebook só vira pacote com os testes de contrato (`tests/contrato_open_notebook/`) e o smoke verdes nos dois sistemas; se algo falhar, abre uma issue.
 - Antes de publicar uma release: o `release.yml` verde (`--smoke` e `scripts/smoke.py congelado` em máquina limpa em cada sistema, juntados no `RELATORIO-SMOKE.md` da release) e o checklist manual de `docs/release.md` (Windows Sandbox, VM Win10 sem WebView2 e Linux), registrado na descrição da release. A release nasce como rascunho.
 
 ## Código
@@ -162,7 +182,8 @@ Para acrescentar uma camada:
 ## Fora de escopo
 
 - Servidor web acessível pela rede, app mobile, servidor multiusuário e sincronização em nuvem. A GUI local, só em `127.0.0.1`, é da fase 5.
-- OCR treinado próprio, idiomas além do português, e LLM para classificar tópicos, ler a folha ou ler a prova.
+- OCR treinado próprio, idiomas além do português, e LLM ou embeddings para classificar tópicos, ler a folha ou ler a prova.
+- A interface web do open-notebook, o Ollama, o docling e o pacote de estudo no macOS.
 - Telemetria, mesmo opt-in, e atualização automática silenciosa (a atualização só começa depois de uma confirmação do usuário).
 - Calcular corte por escore padronizado ou por quantidade de classificados, e estimar colocação.
 - Marketplace de perfis, pacotes Homebrew, Chocolatey ou winget, `.msi`, Microsoft Store, publicar no PyPI, assinatura e notarização no macOS, WebView2 fixo e a extensão do TEC na Chrome Web Store.

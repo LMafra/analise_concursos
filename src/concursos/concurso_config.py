@@ -190,6 +190,9 @@ class ConcursoConfig:
     ignorar: tuple[str, ...] = ()
     historico: tuple[dict, ...] = ()
     simulado: SimuladoConfig | None = None
+    titulo: str | None = None
+    """O nome mostrado, corrigido pelo usuário; vence o do edital."""
+    pci_titulo: str | None = None
 
     def caminho(self, arquivo: str) -> Path:
         return self.pasta / arquivo
@@ -254,6 +257,17 @@ def ler_dados(pasta: Path) -> dict:
         return yaml.safe_load(caminho.read_text(encoding='utf-8')) or {}
     except yaml.YAMLError:
         return {}
+
+
+def vinculo_sem_provas(pasta: Path) -> dict | None:
+    """O bloco `pci` da pasta criada por "Adicionar ao meu projeto", enquanto ela não tem os arquivos da prova."""
+    try:
+        dados = ler_dados(pasta)
+    except ValueError:
+        return None
+    if not isinstance(dados, dict) or dados.get('provas') or not isinstance(dados.get('pci'), dict):
+        return None
+    return dados['pci']
 
 
 def gravar_dados(pasta: Path, dados: dict) -> None:
@@ -351,7 +365,17 @@ def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
         ignorar=tuple(dados.get('ignorar') or ()),
         historico=tuple(dados.get('historico') or ()),
         simulado=_montar_simulado(dados['simulado']) if dados.get('simulado') else None,
+        titulo=_texto_opcional(dados.get('titulo'), 'titulo'),
+        pci_titulo=_texto_opcional((dados.get('pci') or {}).get('titulo') or None, 'pci.titulo'),
     )
+
+
+def _texto_opcional(valor: object, campo: str) -> str | None:
+    if valor is None:
+        return None
+    if not isinstance(valor, str):
+        raise ConfiguracaoInvalidaError(f"{campo}: valor '{valor}' não é texto")
+    return valor.strip() or None
 
 
 def _montar_simulado(simulado: dict) -> SimuladoConfig:

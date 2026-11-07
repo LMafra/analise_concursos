@@ -4,12 +4,15 @@ from pathlib import Path
 from concursos import relatorio_html
 from concursos.analytics.consolidado import concursos_analisados
 from concursos.analytics.taxonomia import carregar_taxonomia
+from concursos.aplicacao.dicionario import dicionario_do_projeto
 from concursos.aplicacao.integracoes import radar_pci, sincronizar_depois_da_analise
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.pratica import (
     copiar_exportacao,
+    eh_planilha,
     exigir_configuracao_pratica,
     fontes_de_estudo,
+    importar_planilha,
     praticar,
     recomendar_estudo,
 )
@@ -22,10 +25,11 @@ from concursos.aplicacao.projeto import (
     migrar,
     pasta_do_candidato,
 )
+from concursos.aplicacao.simulados import gerar_simulado_focado
 from concursos.candidatos import completar_perfis, gravar_revisao
 from concursos.candidatos import pasta_do_candidato as pasta_de_respostas
 from concursos.config.contexto import Contexto
-from concursos.configuracao import configuracao_do_projeto
+from concursos.configuracao import ConfiguracaoGlobal, configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
 from concursos.erros import ErroDoUsuario
 from concursos.exportacao import FormatoExportacao, exportar_consolidado
@@ -35,6 +39,7 @@ from concursos.modelo import Etapa
 from concursos.pipeline import ARQUIVO_RESPOSTAS, analisar_todos, planejar
 from concursos.pratica_tec import textos_para_normas
 from concursos.respostas import RespostasInvalidasError
+from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
 from concursos.status import StatusConcurso, avaliar, listar_concursos
 
 TEXTO_DA_ETAPA = {
@@ -83,7 +88,8 @@ def analisar_candidato(
     destino = analises / candidato if candidato else analises
     if opcoes.dry_run:
         prefixo = f'{candidato}/' if candidato else ''
-        for nome, acao in planejar(provas, destino, opcoes.forcar, concurso, candidato):
+        extras = contexto.extras_do_manifesto
+        for nome, acao in planejar(provas, destino, opcoes.forcar, concurso, candidato, extras):
             opcoes.saida(f'{prefixo}{nome}: {acao}')
         praticar(opcoes, candidato, destino, None)
         return True
@@ -91,7 +97,9 @@ def analisar_candidato(
         completar_perfis(contexto.provas, candidato)
         if not opcoes.todos:
             lembrar_candidato(contexto, candidato)
-    configuracao = replace(configuracao_do_projeto(contexto), cliente_llm=cliente)
+    configuracao = replace(
+        configuracao_do_projeto(contexto), cliente_llm=cliente, dicionario=dicionario_do_projeto(contexto)
+    )
     taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else None
     fontes = fontes_de_estudo(contexto)
     antes = manifestos(destino)
@@ -105,6 +113,7 @@ def analisar_candidato(
         candidato,
         opcoes.ao_progresso,
         opcoes.ao_etapa,
+        contexto.extras_do_manifesto,
     )
     pratica = praticar(opcoes, candidato, destino, configuracao)
     textos = textos_para_normas(pratica) if pratica is not None else []
@@ -112,9 +121,17 @@ def analisar_candidato(
         opcoes, fontes, provas, destino, configuracao.limiar_topico_baixo, textos
     )
     radar = radar_pci(opcoes, candidato, destino)
+    focado = simulado_focado_mudou(opcoes, provas, destino, configuracao)
     indice = destino / relatorio_html.ARQUIVO_INDICE
     mudou_pratica = pratica is not None and pratica.mudou
-    if recomendacoes or mudou_pratica or radar or manifestos(destino) != antes or not indice.exists():
+    if (
+        recomendacoes
+        or mudou_pratica
+        or radar
+        or focado
+        or manifestos(destino) != antes
+        or not indice.exists()
+    ):
         relatorio_html.gerar_relatorio_html(
             provas, destino, contexto.taxonomia, configuracao.limiar_topico_baixo
         )
@@ -122,6 +139,15 @@ def analisar_candidato(
             relatorio_html.abrir_no_navegador(contexto.raiz / indice)
     opcoes.saida(f'relatório: {contexto.raiz / indice}')
     return sucesso
+
+
+def simulado_focado_mudou(
+    opcoes: Opcoes, provas: Path, destino: Path, configuracao: ConfiguracaoGlobal
+) -> bool:
+    arquivo = destino / ARQUIVO_SIMULADO_FOCADO
+    antes = arquivo.read_text(encoding='utf-8') if arquivo.exists() else None
+    gerar_simulado_focado(opcoes, provas, destino, configuracao.limiar_topico_baixo, configuracao)
+    return (arquivo.read_text(encoding='utf-8') if arquivo.exists() else None) != antes
 
 
 def manifestos(destino: Path) -> dict[str, int]:
@@ -165,6 +191,10 @@ def reaproveitar_csv(opcoes: Opcoes, concurso: str | None) -> None:
 
 
 def importar_pratica_e_analisar(opcoes: Opcoes, arquivo: Path | None = None) -> int:
+    """A planilha (CSV ou XLSX) vai pelas colunas reconhecidas ou lembradas e cria `[pratica]` se faltar."""
+    if arquivo is not None and eh_planilha(arquivo):
+        importar_planilha(opcoes, arquivo)
+        return analisar(opcoes)
     configuracao = exigir_configuracao_pratica(opcoes.contexto)
     if arquivo is not None:
         copiar_exportacao(opcoes, arquivo, configuracao.entrada)

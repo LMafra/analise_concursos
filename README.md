@@ -1,13 +1,10 @@
 <a id="readme-top"></a>
 
-<!-- BADGES -->
 [![Versão][versao-shield]][pyproject-url]
 [![Python][python-shield]][python-url]
 [![uv][uv-shield]][uv-url]
-[![Docker][docker-shield]](#sem-uv-docker)
 [![Plataformas][plataformas-shield]](#instalação-para-usuários-leigos)
 
-<!-- CABEÇALHO -->
 <br />
 <div align="center">
   <h3 align="center">Análise de Desempenho em Concursos</h3>
@@ -40,14 +37,25 @@
       <a href="#primeiros-passos">Primeiros passos</a>
       <ul>
         <li><a href="#instalação-para-usuários-leigos">Instalação para usuários leigos</a></li>
-        <li><a href="#pré-requisitos">Pré-requisitos</a></li>
-        <li><a href="#instalação">Instalação</a></li>
       </ul>
     </li>
     <li>
       <a href="#uso">Uso</a>
       <ul>
         <li><a href="#usar-pela-janela">Usar pela janela</a></li>
+        <li><a href="#dicionário-de-temas">Dicionário de temas</a></li>
+        <li><a href="#estudar-com-seus-livros-open-notebook">Estudar com seus livros (open-notebook)</a></li>
+        <li><a href="#encontrar-concursos">Encontrar concursos</a></li>
+        <li><a href="#importar-do-tec">Importar do TEC</a></li>
+        <li><a href="#privacidade">Privacidade</a></li>
+      </ul>
+    </li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li>
+      <a href="#desenvolvimento">Desenvolvimento</a>
+      <ul>
+        <li><a href="#pré-requisitos">Pré-requisitos</a></li>
+        <li><a href="#instalação">Instalação</a></li>
         <li><a href="#primeira-execução">Primeira execução</a></li>
         <li><a href="#comandos">Comandos</a></li>
         <li><a href="#organizar-as-provas">Organizar as provas</a></li>
@@ -57,18 +65,14 @@
         <li><a href="#configuração">Configuração</a></li>
         <li><a href="#edital-como-fonte-de-verdade">Edital como fonte de verdade</a></li>
         <li><a href="#llm-opcional">LLM opcional</a></li>
+        <li><a href="#integração-com-open-notebook">Integração com open-notebook</a></li>
+        <li><a href="#integração-com-o-pci-concursos">Integração com o PCI Concursos</a></li>
         <li><a href="#análise-evolutiva">Análise evolutiva</a></li>
         <li><a href="#problemas-comuns">Problemas comuns</a></li>
-        <li><a href="#privacidade">Privacidade</a></li>
+        <li><a href="#build-local-do-executável">Build local do executável</a></li>
       </ul>
     </li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li>
-      <a href="#contribuindo">Contribuindo</a>
-      <ul>
-        <li><a href="#desenvolvimento-build-local-do-executável">Desenvolvimento: build local do executável</a></li>
-      </ul>
-    </li>
+    <li><a href="#contribuindo">Contribuindo</a></li>
     <li><a href="#licença">Licença</a></li>
     <li><a href="#contato">Contato</a></li>
     <li><a href="#agradecimentos">Agradecimentos</a></li>
@@ -86,13 +90,13 @@ Ferramenta local que corrige suas provas de concurso e mostra **em quais discipl
 * Classifica cada questão numa disciplina e num tópico do conteúdo programático do edital.
 * Confere edital, prova e gabarito entre si, e cada valor lido do edital vem com trecho, documento e página.
 * Acompanha a evolução entre concursos em notebooks de análise.
+* Ajuda a estudar: guarda seus livros numa biblioteca pesquisável e responde perguntas com o trecho e a página de onde veio a resposta.
+* Encontra concursos abertos e provas anteriores para treinar, e importa a sua prática no TEC Concursos.
 * Tem uma janela para quem não usa terminal, com instalador para Windows, macOS e Linux que já traz tudo de que precisa (veja [Instalação para usuários leigos](#instalação-para-usuários-leigos)).
 
-Tudo roda na sua máquina: nenhum arquivo é enviado para lugar nenhum. O único acesso à rede é opcional, quando você liga um LLM para ajudar a ler editais (veja [LLM opcional](#llm-opcional)), o open-notebook ou o PCI Concursos, que só recebe termos de busca (veja [Integração com o PCI Concursos](#integração-com-o-pci-concursos)).
+Tudo roda na sua máquina: nenhum arquivo é enviado para lugar nenhum. O acesso à internet é sempre opcional e pedido antes: a IA para ler editais, a busca de concursos no PCI Concursos (que só recebe termos de busca) e o download único da biblioteca de estudo (veja [Privacidade](#privacidade)).
 
 Bancas com perfil embutido: Cebraspe (certo/errado, um erro anula um acerto), FGV, FCC, Vunesp, IBFC, Idecan, SELECON e Quadrix. Uma banca sem perfil usa o genérico, e o que o edital não disser fica para você confirmar (veja [Problemas comuns](#problemas-comuns)).
-
-<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
 ### Feito com
 
@@ -159,7 +163,7 @@ Depois de instalar, veja [Usar pela janela](#usar-pela-janela).
 
 #### Atualizar
 
-Em **Sobre**, clique em **Verificar atualizações**. Se houver versão nova, **Baixar e instalar** pede confirmação, baixa do GitHub e só usa o arquivo se a assinatura do manifesto da release e o SHA-256 conferirem. No Windows, o instalador continua sozinho e reabre o app; no Linux, o AppImage é trocado no mesmo lugar, e o app oferece reabrir. Os projetos e as análises não mudam. Pelo terminal, o mesmo é `concurso-analise upgrade --run`.
+Em **Sobre** (no menu ⋮ do canto da tela), clique em **Verificar atualizações**. Se houver versão nova, **Baixar e instalar** pede confirmação, baixa do GitHub e só usa o arquivo se a assinatura do manifesto da release e o SHA-256 conferirem. No Windows, o instalador continua sozinho e reabre o app; no Linux, o AppImage é trocado no mesmo lugar, e o app oferece reabrir. Os projetos e as análises não mudam. A biblioteca de estudo, se você a preparou, é conferida no mesmo clique, e seus livros continuam lá. Pelo terminal, o mesmo é `concurso-analise upgrade --run`.
 
 O app não consulta nada sozinho. Em **Configurações > Avançado**, você pode ligar o aviso de versão nova (uma consulta ao GitHub por dia, no máximo, com o aviso no cabeçalho) e escolher o canal: `stable` (padrão) ou `beta` (versões novas antes, que podem ter problemas). Quem tem a 0.5.0 ou anterior instala a primeira versão com o atualizador à mão, uma vez.
 
@@ -180,6 +184,135 @@ Assinatura de código gratuita fornecida pela [SignPath.io](https://about.signpa
 * **Como:** cada release sai do workflow [`release.yml`](.github/workflows/release.yml), a partir de uma tag deste repositório; nenhum binário é assinado fora do CI.
 * **Quem:** autores e revisores: [LMafra](https://github.com/LMafra). Aprovação de cada assinatura de release: [LMafra](https://github.com/LMafra).
 * **Privacidade:** o programa não envia nada pela rede sem que você ligue a integração na configuração (IA, open-notebook, PCI Concursos ou o aviso de atualização). Veja [Privacidade](#privacidade).
+
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
+<!-- USO -->
+## Uso
+
+### Usar pela janela
+
+No Windows e no macOS, o app abre numa janela própria; no Linux, no navegador. Nos dois casos, a tela só é acessível no seu computador.
+
+O menu do alto tem **Concursos**, **Estudar**, **Analisar**, **Resultados** e **Importar do TEC**. **Configurações** e **Sobre** ficam no menu ⋮, no canto.
+
+**1. Pasta do projeto.** Na primeira vez, o app pergunta onde guardar suas provas e análises. O padrão é `Documentos/Concursos`, e o app lembra a pasta nas próximas vezes. Em seguida, ele faz três perguntas (seu nome e os nomes das pastas, com padrões que você pode aceitar) e, se você quiser, confere o computador.
+
+![Tela de boas-vindas com o nome do candidato e as pastas do projeto](docs/img/gui-inicio.png)
+
+**2. Novo concurso.** Em **Concursos**, clique em **Novo concurso** e solte na área azul os arquivos que vieram da banca: edital, gabarito, caderno de prova e as suas respostas (a foto ou o PDF da folha, ou um arquivo de texto). O app detecta o papel de cada arquivo e pede só a sua confirmação; se ele errou, escolha o papel certo na lista. Você não digita o nome do concurso: ele vem do edital, como "TCU 2025 — Auditor". Sem edital, o nome fica "a confirmar", e **Corrigir nome** troca.
+
+![Tela de novo concurso com o gabarito e as respostas detectados](docs/img/gui-novo-concurso.png)
+
+Se a folha não puder ser lida, use **Digitar respostas** e marque a alternativa de cada questão.
+
+**3. Concursos.** A aba **Meus concursos** mostra a situação de cada concurso (`completo`, `incompleto` ou `desatualizado`) e se o gabarito é preliminar ou definitivo. Num concurso incompleto, **Resolver** diz o que falta e oferece acrescentar arquivos ou digitar as respostas. **Conferir** mostra o tema que o app deu a cada questão e os dados que ele leu do edital; corrija o que estiver errado e clique em **Salvar e refazer a análise**. As abas **Encontrar concursos** e **Provas anteriores** estão em [Encontrar concursos](#encontrar-concursos).
+
+![Lista de concursos com a situação e o gabarito](docs/img/gui-concursos.png)
+
+**4. Analisar.** A barra avança por concurso. O **Log detalhado** mostra o que o app decidiu sozinho, por exemplo quando o edital não traz a regra de correção e ele usa a da banca.
+
+![Análise em andamento, com o log detalhado aberto](docs/img/gui-analise.png)
+
+**5. Resultados.** O relatório aparece na própria tela, e **Abrir no navegador** o abre em tamanho cheio. As outras abas são **Tópicos para estudar** (os temas em que você mais perde pontos, com **Procurar nos meus livros**), **Simulado focado** (questões de provas anteriores nesses temas), **Prática no TEC** e **Exportar**.
+
+![Relatório do candidato dentro do app](docs/img/gui-resultados.png)
+
+**6. Configurações.** Os dois limiares da análise, o concurso que você vai prestar (`concurso-alvo`), a pasta do projeto, **Disciplinas e temas** (veja [Dicionário de temas](#dicionário-de-temas)) e a IA. A IA começa desligada; se você a ligar, a chave de acesso fica no cofre de senhas do sistema, nunca num arquivo, e você escolhe para que ela serve: ler editais e, se quiser, responder perguntas com base nos seus livros.
+
+![Configurações com os limiares e o concurso-alvo](docs/img/gui-configuracoes.png)
+
+**7. Sobre.** A versão, se o leitor de folhas e a biblioteca estão prontos, o registro de erros (para anexar a um relato de problema) e **Verificar atualizações**.
+
+Com mais de um candidato no projeto, a tela de concursos mostra o seletor de candidato e a opção **todos**, que gera o comparativo.
+
+No Linux, o menu tem **Fechar o app**: fechar só a aba do navegador deixa o app rodando.
+
+### Dicionário de temas
+
+Cada questão recebe um tema do conteúdo do edital, escolhido pelas palavras do enunciado. Quando a banca escreve de um jeito e o edital de outro, o tema pode sair errado: a questão fala de "acento grave", e o edital chama o tema de "Crase". O dicionário de temas ensina ao app essas palavras.
+
+1. Em **Configurações > Disciplinas e temas**, abra a aba **Dicionário de temas**.
+2. Clique em **Começar com o dicionário inicial**, ou em **Sugerir termos das minhas revisões**: o app propõe as palavras que se repetem nas questões que você já conferiu (em **Concursos > Conferir**) para um mesmo tema. Aceite as que fizerem sentido.
+3. Clique em **Testar ganho**. O app compara, nas questões que você conferiu, quantas recebem o tema certo com e sem o dicionário.
+4. Ligue **Usar o dicionário** e refaça a análise.
+
+Se o dicionário piorar a sugestão de tema em alguma questão, a tela avisa e oferece desligá-lo. Desligado, a análise fica exatamente como antes. Na mesma tela, a aba **Disciplinas** junta os nomes que concursos diferentes dão à mesma disciplina, para comparar a sua evolução entre eles.
+
+### Estudar com seus livros (open-notebook)
+
+A tela **Estudar** guarda seus livros numa biblioteca pesquisável e responde perguntas com o trecho e a página de onde veio a resposta. Por trás, o app usa o [open-notebook](https://github.com/lfnovo/open-notebook), um programa livre de estudo com documentos, que roda no seu próprio computador; você não precisa instalá-lo nem configurá-lo.
+
+1. Em **Estudar > Meus livros**, clique em **Preparar agora**. É um download único, de cerca de 360 MB, e você concorda com ele antes. Enquanto ele acontece, você já pode adicionar livros e buscar neles.
+2. Clique em **Adicionar livros** e escolha os arquivos: PDF, EPUB, Word (DOCX) ou TXT, até 300 MB cada. Páginas escaneadas são lidas pelo leitor de imagens do app. Um livro grande fica pesquisável aos poucos, e fechar o app não perde o trabalho: ele continua de onde parou.
+3. Em **Estudar > Perguntar**, escreva a pergunta e escolha onde procurar (todas as disciplinas ou uma só). A resposta lista os trechos encontrados, cada um com o arquivo e a página.
+
+Com a IA ligada em Configurações e a opção **Responder perguntas com base nos meus livros** marcada, a IA escreve uma resposta a partir desses trechos, que continuam aparecendo embaixo para você conferir. Só os trechos encontrados vão para a IA, e só com essa opção marcada.
+
+Em **Resultados > Tópicos para estudar**, **Procurar nos meus livros** abre a pergunta já filtrada pelo tema em que você perdeu pontos, e as recomendações de estudo passam a indicar os seus livros.
+
+Seus livros não saem do computador. Se você já usa um open-notebook seu, ligue-o em **Configurações > Avançado > Usar um open-notebook que já tenho** (detalhes em [Integração com open-notebook](#integração-com-open-notebook)).
+
+### Encontrar concursos
+
+Em **Concursos**, as abas **Encontrar concursos** e **Provas anteriores** consultam o [PCI Concursos](https://www.pciconcursos.com.br/). A consulta fica desligada até você concordar com o aviso, que diz o que é enviado: só os termos de busca, nunca seu nome, CPF ou notas.
+
+**Encontrar concursos.** Escolha o estado e, se quiser, a cidade, escreva o cargo e clique em **Buscar**. Cada resultado mostra o órgão, a região, os cargos e o fim das inscrições. Nele:
+
+* **Acompanhar** põe o concurso no radar de prazos, que avisa no relatório quando as inscrições estão para fechar;
+* **Adicionar ao meu projeto** cria o concurso na sua lista, com um clique; ele fica incompleto até você acrescentar o edital;
+* **Ver página** abre a página do concurso no navegador.
+
+**Lembrar estes filtros** guarda a busca para a próxima vez. As respostas ficam guardadas no computador por um dia; **Atualizar agora** consulta de novo. O PCI é colaborativo e pode não ter todos os editais: confira sempre o edital no site do órgão ou da banca.
+
+**Provas anteriores.** Escolha o seu concurso: o app mostra o termo que vai procurar (as primeiras palavras do cargo, com e sem a banca), e você pode trocá-lo. Cada prova encontrada pode virar um simulado, uma de cada vez ou com **Importar todas**. O PCI pede um captcha para baixar a prova, então o download é seu: o app abre a página no navegador, você baixa a prova e o gabarito, e o app os encontra na pasta de downloads e cadastra o simulado. **Cancelar** interrompe a espera, e uma prova que falha não para as outras.
+
+Os simulados ficam fora da sua evolução entre concursos e geram o **Simulado focado** em Resultados: as questões dessas provas nos temas em que você mais perde pontos.
+
+### Importar do TEC
+
+A tela **Importar do TEC** traz as questões que você resolve no [TEC Concursos](https://www.tecconcursos.com.br/) para a análise, e cruza os seus erros lá com os temas em que você perde pontos nas provas. Há dois caminhos:
+
+* **Planilha.** Exporte do TEC o seu histórico de questões em planilha (CSV ou Excel) e solte o arquivo na tela. O app mostra as colunas que reconheceu (disciplina, assunto, resultado, data) e as primeiras linhas; corrija o que estiver trocado e clique em **Importar e analisar**. O app lembra a escolha das colunas para a próxima planilha igual.
+* **Captura dos erros.** A extensão do Chrome (ou o userscript do Firefox no Android) que vem com o app registra as questões que você erra enquanto resolve, e exporta um arquivo para importar na mesma tela. **Como conseguir** explica a instalação.
+
+Um assunto do TEC que o app não sabe ligar a um tema do edital é perguntado na análise, uma vez. Depois da análise, **Ver prioridades** mostra os temas em que você erra nas provas e no TEC, e **Ver simulado com meus erros** abre uma lista com as questões que você mais errou, com o gabarito no fim.
+
+### Privacidade
+
+Tudo fica no seu computador: provas, notas, análises e livros. A janela do app só é acessível no próprio computador, e o app não manda estatísticas de uso nem se atualiza sem a sua confirmação.
+
+O app só usa a internet quando você liga, e cada opção mostra antes o que sai do computador:
+
+* **IA (opcional):** recebe o texto do edital para ajudar a ler as regras e, só se você marcar a opção, os trechos dos livros que respondem a uma pergunta. Nunca suas respostas ou seu nome.
+* **Busca de concursos e provas anteriores:** o PCI Concursos recebe só os termos de busca.
+* **Biblioteca de estudo:** um download único, quando você clica em **Preparar agora**.
+* **Atualizações:** só quando você clica em **Verificar atualizações**, ou uma vez por dia se você ligar o aviso de versão nova.
+
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
+<!-- ROADMAP -->
+## Roadmap
+
+- [x] Fase 1: correção da prova e desempenho por disciplina e tópico
+- [x] Fase 2: análise evolutiva entre concursos
+- [x] Fase 3: edital como fonte de verdade
+- [x] Fase 4: generalização e portabilidade (onboarding, CLI, imagem de contêiner, perfis de banca)
+- [x] Fase 5: janela (NiceGUI) e instaladores para Windows, macOS arm64 e Linux, com o Tesseract embutido
+- [x] Fase 6: assinatura no Windows (SignPath), WebView2 no instalador, AppImage verificado, atualizador por manifesto assinado e novo visual da janela
+- [x] Fase 7: estudar com os seus livros (open-notebook embutido), dicionário de temas, conferência na janela, nome do concurso pelo edital, busca de concursos e provas anteriores, e importação do TEC por planilha
+- [ ] Checklist de máquina limpa da fase 6 e primeira release com o atualizador
+- [ ] Escopo de cargo nos pesos e nas demais buscas do edital
+- [ ] Precedência completa com o `concurso.yaml` (total de questões e pesos)
+
+Veja [docs/pendencias.md](docs/pendencias.md) para o detalhe e a ordem sugerida de cada pendência.
+
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
+<!-- DESENVOLVIMENTO -->
+## Desenvolvimento
+
+Esta parte é para quem usa o app pelo terminal, quer entender os arquivos que ele grava ou vai mexer no código. Quem usa só a janela não precisa de nada daqui.
 
 ### Pré-requisitos
 
@@ -226,49 +359,6 @@ A imagem já traz o Tesseract em português. A pasta montada em `/dados` é o pr
 docker build -t concurso-analise .
 docker run --rm -it --user "$(id -u):$(id -g)" -v "$PWD:/dados" concurso-analise
 ```
-
-<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
-
-<!-- USO -->
-## Uso
-
-### Usar pela janela
-
-No Windows e no macOS, o app abre numa janela própria; no Linux, no navegador. Nos dois casos, a tela só é acessível no seu computador.
-
-**1. Pasta do projeto.** Na primeira vez, o app pergunta onde guardar suas provas e análises. O padrão é `Documentos/Concursos`, e o app lembra a pasta nas próximas vezes. Em seguida, ele faz três perguntas (seu nome e os nomes das pastas, com padrões que você pode aceitar) e, se você quiser, confere o ambiente.
-
-![Tela de boas-vindas com o nome do candidato e as pastas do projeto](docs/img/gui-inicio.png)
-
-**2. Novo concurso.** Dê um nome ao concurso e solte na área azul os arquivos que vieram da banca: edital, gabarito, caderno de prova e as suas respostas (a foto ou o PDF da folha, ou um arquivo de texto). O app detecta o papel de cada arquivo e pede só a sua confirmação; se ele errou, escolha o papel certo na lista.
-
-![Tela de novo concurso com o gabarito e as respostas detectados](docs/img/gui-novo-concurso.png)
-
-Se a folha não puder ser lida, use **Digitar respostas** e marque a alternativa de cada questão.
-
-**3. Concursos.** A lista mostra a situação de cada concurso (`completo`, `incompleto` ou `desatualizado`) e se o gabarito é preliminar ou definitivo. Num concurso incompleto, **Resolver** diz o que falta e oferece acrescentar arquivos ou digitar as respostas.
-
-![Lista de concursos com a situação e o gabarito](docs/img/gui-concursos.png)
-
-**4. Analisar.** A barra avança por concurso. O **Log detalhado** mostra o que o app decidiu sozinho, por exemplo quando o edital não traz a regra de correção e ele usa a da banca.
-
-![Análise em andamento, com o log detalhado aberto](docs/img/gui-analise.png)
-
-**5. Resultados.** O relatório aparece na própria tela, e **Abrir no navegador** o abre em tamanho cheio. As outras abas trazem as recomendações de estudo, a prática no TEC e a exportação do consolidado.
-
-![Relatório do candidato dentro do app](docs/img/gui-resultados.png)
-
-**6. Configurações.** Os dois limiares da análise, o concurso que você vai prestar (`concurso-alvo`) e a pasta do projeto. A leitura de editais por IA começa desligada; se você a ligar, a chave fica no cofre de senhas do sistema, nunca num arquivo.
-
-![Configurações com os limiares e o concurso-alvo](docs/img/gui-configuracoes.png)
-
-**7. Integrações.** Descobrir concursos e provas anteriores no PCI Concursos, sincronizar com o open-notebook e importar a prática no TEC. Cada integração fica desligada até você concordar, e a tela mostra antes o que sai do computador.
-
-![Integração com o PCI Concursos desligada, com o aviso do que é enviado](docs/img/gui-integracoes.png)
-
-Com mais de um candidato no projeto, a tela de concursos mostra o seletor de candidato e a opção **todos**, que gera o comparativo. A tela **Sobre** mostra a versão e onde fica o log, para anexar a um relato de problema.
-
-No Linux, o menu tem **Fechar o app**: fechar só a aba do navegador deixa o app rodando.
 
 ### Primeira execução
 
@@ -488,7 +578,7 @@ Provedores: OpenAI, OpenRouter, Gemini, Ollama (local, sem chave) e Anthropic. A
 
 ### Integração com open-notebook
 
-Opcional e desligada por padrão. Com uma instância local do [open-notebook](https://github.com/lfnovo/open-notebook) (testada com a 1.15), o app cria um notebook por concurso e um consolidado, envia os relatórios e CSVs como fontes e grava uma nota de resumo montada localmente, sem LLM. Assim você conversa com as suas análises no chat do open-notebook.
+Para um open-notebook seu; o da tela Estudar é preparado e gerenciado pelo app. Opcional e desligada por padrão. Com uma instância local do [open-notebook](https://github.com/lfnovo/open-notebook) (testada com a 1.15), o app cria um notebook por concurso e um consolidado, envia os relatórios e CSVs como fontes e grava uma nota de resumo montada localmente, sem LLM. Assim você conversa com as suas análises no chat do open-notebook.
 
 ```sh
 docker compose up -d                                   # na pasta do open-notebook
@@ -644,53 +734,11 @@ Os notebooks são scripts [jupytext](https://jupytext.readthedocs.io/) em `noteb
 
 **Eu usava a versão anterior (`concursos analisar`).** Na primeira execução, o `concurso-analise` migra o projeto para o layout com candidatos, sem reprocessar nada. Antes, copia tudo o que vai mudar para `~/.concurso/backup-<data>/`. `--dry-run` lista o que seria migrado.
 
-### Privacidade
+### Dados pessoais no repositório
 
-`provas/`, `analises/` e `.concurso/` ficam fora do git (`.gitignore`) e fora da imagem Docker (`.dockerignore`), por conterem dados pessoais (nome, CPF, notas). Nenhum arquivo é enviado para fora da máquina; o LLM, se ligado, só recebe texto do edital. O open-notebook, se ligado, recebe os relatórios e CSVs da análise, com o candidato como pseudônimo. O PCI Concursos, se ligado, só recebe termos de busca.
+`provas/`, `analises/` e `.concurso/` ficam fora do git (`.gitignore`) e fora da imagem Docker (`.dockerignore`), por conterem dados pessoais (nome, CPF, notas). O open-notebook próprio, se ligado, recebe os relatórios e CSVs da análise, com o candidato como pseudônimo. A janela é servida só em `127.0.0.1`, e o open-notebook embutido também escuta só em `127.0.0.1`, em portas escolhidas pelo app.
 
-A janela do app é servida só em `127.0.0.1`: nenhum outro computador da rede a acessa. O executável não manda telemetria nem se atualiza sozinho.
-
-<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
-
-<!-- ROADMAP -->
-## Roadmap
-
-- [x] Fase 1: correção da prova e desempenho por disciplina e tópico
-- [x] Fase 2: análise evolutiva entre concursos
-- [x] Fase 3: edital como fonte de verdade
-- [x] Fase 4: generalização e portabilidade (onboarding, CLI, Docker, perfis de banca)
-- [x] Fase 5: janela (NiceGUI) e instaladores para Windows, macOS arm64 e Linux, com o Tesseract embutido
-- [x] Fase 6: assinatura no Windows (SignPath), WebView2 no instalador, AppImage verificado, atualizador por manifesto assinado e novo visual da janela
-- [ ] Checklist de máquina limpa da fase 6 e primeira release com o atualizador
-- [ ] Escopo de cargo nos pesos e nas demais buscas do edital
-- [ ] Precedência completa com o `concurso.yaml` (total de questões e pesos)
-- [ ] Nome oficial e cargo nas discrepâncias e no notebook 05
-
-Veja [docs/pendencias.md](docs/pendencias.md) para o detalhe e a ordem sugerida de cada pendência.
-
-<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
-
-<!-- CONTRIBUINDO -->
-## Contribuindo
-
-1. Crie uma branch a partir do `main` (`git checkout -b feature/minha-mudanca`)
-2. Instale as dependências e os hooks:
-   ```sh
-   uv sync --all-groups
-   uv run pre-commit install
-   ```
-3. Rode os testes, o lint e o teste ponta a ponta:
-   ```sh
-   uv run pytest
-   uv run ruff check . && uv run ruff format --check .
-   uv run python scripts/smoke.py uvx --from "$PWD" concurso-analise   # ponta a ponta num projeto temporário
-   ```
-4. Faça o commit (`git commit -m 'feat: minha mudança'`) e o push (`git push origin feature/minha-mudanca`)
-5. Abra um pull request
-
-O pre-commit roda ruff e pytest antes de cada commit. O workflow de CI (`.github/workflows/ci.yml`) cobre Ubuntu, macOS e Windows com Python 3.11 e 3.12. As especificações estão em `docs/spec*.md`, e o modelo de domínio, em [docs/modelo.md](docs/modelo.md). As regras para agentes estão em [AGENTS.md](AGENTS.md).
-
-### Desenvolvimento: build local do executável
+### Build local do executável
 
 O executável é uma pasta do PyInstaller (`empacotamento/concurso-analise.spec`) com o Python, o Tesseract e o modelo `por` do `tessdata_fast`. Os scripts de `empacotamento/` são os mesmos do workflow de release (`.github/workflows/release.yml`); a saída vai para `dist/`, e o Tesseract baixado, para `empacotamento/construcao/`, ambos fora do git. A captura do TEC entra no pacote se você a gerar antes com `node tec-erros/scripts/build.mjs` (Node 22).
 
@@ -743,6 +791,28 @@ Num build de desenvolvimento sem o Tesseract embutido, `CONCURSO_SMOKE_SEM_OCR=1
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
+<!-- CONTRIBUINDO -->
+## Contribuindo
+
+1. Crie uma branch a partir do `main` (`git checkout -b feature/minha-mudanca`)
+2. Instale as dependências e os hooks:
+   ```sh
+   uv sync --all-groups
+   uv run pre-commit install
+   ```
+3. Rode os testes, o lint e o teste ponta a ponta:
+   ```sh
+   uv run pytest
+   uv run ruff check . && uv run ruff format --check .
+   uv run python scripts/smoke.py uvx --from "$PWD" concurso-analise   # ponta a ponta num projeto temporário
+   ```
+4. Faça o commit (`git commit -m 'feat: minha mudança'`) e o push (`git push origin feature/minha-mudanca`)
+5. Abra um pull request
+
+O pre-commit roda ruff e pytest antes de cada commit. O workflow de CI (`.github/workflows/ci.yml`) cobre Ubuntu, macOS e Windows com Python 3.11 e 3.12. As especificações estão em `docs/spec*.md`, e o modelo de domínio, em [docs/modelo.md](docs/modelo.md). As regras para agentes estão em [AGENTS.md](AGENTS.md).
+
+<p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
+
 <!-- LICENÇA -->
 ## Licença
 
@@ -775,7 +845,6 @@ Link do projeto: [https://github.com/LMafra/analise_concursos](https://github.co
 [pyproject-url]: pyproject.toml
 [python-shield]: https://img.shields.io/badge/python-3.11%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white
 [uv-shield]: https://img.shields.io/badge/uv-gerenciador-DE5FE9?style=for-the-badge&logo=uv&logoColor=white
-[docker-shield]: https://img.shields.io/badge/docker-dispon%C3%ADvel-2496ED?style=for-the-badge&logo=docker&logoColor=white
 [plataformas-shield]: https://img.shields.io/badge/plataformas-Windows%20%7C%20macOS%20%7C%20Linux-555?style=for-the-badge
 [relatorio-screenshot]: docs/img/relatorio.png
 [python-badge]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white

@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from concursos import manifesto
+from concursos.biblioteca import ARQUIVO_MAPA
 from concursos.candidatos import (
     ARQUIVO_CANDIDATO,
     PASTA_CANDIDATOS,
@@ -23,6 +24,8 @@ from concursos.candidatos import (
 from concursos.concurso_config import ARQUIVO_CONFIG, ConfiguracaoInvalidaError
 from concursos.config.contexto import ARQUIVO_TAXONOMIA, Contexto, gravar_no_config_projeto, ler_toml
 from concursos.configuracao import carregar_configuracao_global
+from concursos.livros import envio, fila
+from concursos.livros.fila import PastasBiblioteca
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +153,9 @@ def executar_migracao(migracao: Migracao, contexto: Contexto) -> Path | None:
         gravar_no_config_projeto(contexto, 'candidato', {'ultimo': migracao.candidato})
         gravar_perfil_global(contexto.home, migracao.candidato)
         for movimento in atualizados:
-            manifesto.gravar(movimento.concurso, movimento.destino, migracao.candidato)
+            manifesto.gravar(
+                movimento.concurso, movimento.destino, migracao.candidato, contexto.extras_do_manifesto
+            )
     except OSError as erro:
         raise MigracaoError(f'migração interrompida ({erro}); o backup completo está em {backup}') from erro
     _avisar(migracao, backup)
@@ -230,7 +235,6 @@ def _sem_os_campos_do_candidato(texto: str, restante: dict) -> str:
 
 
 def _fazer_backup(migracao: Migracao, contexto: Contexto) -> Path:
-    pasta = _pasta_nova(contexto.home / f'backup-{datetime.now():%Y%m%d-%H%M%S}')
     arquivos: dict[str, Path] = {}
     for nome, caminho in (
         ('raiz', migracao.config_legada),
@@ -246,6 +250,12 @@ def _fazer_backup(migracao: Migracao, contexto: Contexto) -> Path:
     for movimento in migracao.movimentos:
         for caminho in sorted(p for p in movimento.origem.rglob('*') if p.is_file()):
             arquivos[f'analises/{caminho.relative_to(contexto.analises).as_posix()}'] = caminho
+    return _backup_verificado(contexto.home / f'backup-{datetime.now():%Y%m%d-%H%M%S}', arquivos)
+
+
+def _backup_verificado(base: Path, arquivos: dict[str, Path]) -> Path:
+    """Copia os arquivos e confere cada hash; qualquer falha levanta MigracaoError antes de mudar algo."""
+    pasta = _pasta_nova(base)
     try:
         hashes = {chave: manifesto.hash_arquivo(caminho) for chave, caminho in arquivos.items()}
         for chave, caminho in arquivos.items():
@@ -316,3 +326,60 @@ def _avisar(migracao: Migracao, backup: Path) -> None:
     for legado in (migracao.config_legada, migracao.taxonomia_legada):
         if legado:
             logger.warning('%s encontrado depois da migração; migrado para a pasta .concurso/', legado.name)
+
+
+SECAO_MIGRACAO_BIBLIOTECA = 'migracao_biblioteca'
+
+
+def migrar_biblioteca_yaml(contexto: Contexto) -> Path | None:
+    """Uma vez por projeto: os livros da biblioteca do app cuja disciplina é uma categoria do
+    `biblioteca.yaml` passam para a disciplina mapeada, com backup verificado. O `biblioteca.yaml` fica
+    onde está, como legado opcional. Devolve a pasta do backup, quando houve troca."""
+    arquivo = contexto.projeto / ARQUIVO_MAPA
+    if not arquivo.exists() or ler_toml(contexto.config_projeto).get(SECAO_MIGRACAO_BIBLIOTECA):
+        return None
+    pastas = PastasBiblioteca.do_home(contexto.home)
+    trocas = _trocas_de_disciplina(arquivo, pastas) if pastas.banco.exists() else {}
+    backup = None
+    if trocas:
+        conexao = fila.conectar(pastas)
+        try:
+            conexao.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+        finally:
+            conexao.close()
+        backup = _backup_verificado(
+            contexto.home / f'backup-biblioteca-{datetime.now():%Y%m%d-%H%M%S}',
+            {ARQUIVO_MAPA: arquivo, pastas.banco.name: pastas.banco},
+        )
+        for sha, disciplina in trocas.items():
+            envio.mudar_disciplina(None, pastas, sha, disciplina)
+        logger.info(
+            'biblioteca: %d livros com a disciplina do biblioteca.yaml; backup em %s', len(trocas), backup
+        )
+    gravar_no_config_projeto(
+        contexto, SECAO_MIGRACAO_BIBLIOTECA, {'feita': f'{datetime.now():%Y-%m-%d}', 'livros': len(trocas)}
+    )
+    return backup
+
+
+def _trocas_de_disciplina(arquivo: Path, pastas: PastasBiblioteca) -> dict[str, str]:
+    try:
+        dados = yaml.safe_load(arquivo.read_text(encoding='utf-8')) or {}
+    except yaml.YAMLError:
+        return {}
+    mapa = dados.get('disciplinas') if isinstance(dados, dict) else None
+    disciplina_da_categoria = {}
+    for disciplina, categorias in (mapa or {}).items() if isinstance(mapa, dict) else ():
+        for categoria in [categorias] if isinstance(categorias, str) else categorias or []:
+            disciplina_da_categoria.setdefault(str(categoria), str(disciplina))
+    conexao = fila.conectar(pastas)
+    try:
+        livros = fila.listar(conexao)
+    finally:
+        conexao.close()
+    return {
+        livro.sha: disciplina_da_categoria[livro.disciplina]
+        for livro in livros
+        if livro.disciplina in disciplina_da_categoria
+        and disciplina_da_categoria[livro.disciplina] != livro.disciplina
+    }

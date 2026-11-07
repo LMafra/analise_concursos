@@ -19,14 +19,17 @@ from concursos.gui.estado import ESTADO, projeto_inicial
 from concursos.gui.paginas import (
     analise,
     concursos,
+    conferir,
     configuracoes,
+    disciplinas_e_temas,
+    estudar,
     inicio,
-    integracoes,
     novo_concurso,
     projeto,
     respostas,
     resultados,
     sobre,
+    tec,
 )
 from concursos.gui.tema import Tom
 from concursos.modelo import DecisaoJanela
@@ -38,12 +41,30 @@ logger = logging.getLogger('concursos')
 
 MENU: list[tuple[str, str, str]] = [
     ('/', 'Concursos', 'list'),
+    ('/estudar', 'Estudar', 'menu_book'),
     ('/analise', 'Analisar', 'play_arrow'),
     ('/resultados', 'Resultados', 'insights'),
-    ('/integracoes', 'Integrações', 'hub'),
+    ('/tec', 'Importar do TEC', 'school'),
+]
+UTILITARIO: list[tuple[str, str, str]] = [
     ('/configuracoes', 'Configurações', 'settings'),
     ('/sobre', 'Sobre', 'info'),
 ]
+ENDERECOS_ANTIGOS = {
+    'descobrir': '/?aba=encontrar',
+    'provas': '/?aba=provas',
+    'notebook': '/configuracoes?secao=avancado',
+    'tec': '/tec',
+}
+
+
+def integracoes_antigas(aba: str | None = None) -> None:
+    ui.navigate.to(ENDERECOS_ANTIGOS.get(aba or '', ENDERECOS_ANTIGOS['descobrir']))
+
+
+def descobrir_antigo() -> None:
+    ui.navigate.to(ENDERECOS_ANTIGOS['descobrir'])
+
 
 ROTAS: dict[str, Callable[..., None]] = {
     '/': concursos.pagina,
@@ -52,9 +73,14 @@ ROTAS: dict[str, Callable[..., None]] = {
     '/respostas': respostas.pagina,
     '/analise': analise.pagina,
     '/resultados': resultados.pagina,
-    '/integracoes': integracoes.pagina,
+    '/estudar': estudar.pagina,
+    '/tec': tec.pagina,
+    '/integracoes': integracoes_antigas,
+    '/descobrir': descobrir_antigo,
     '/projeto': projeto.pagina,
     '/configuracoes': configuracoes.pagina,
+    '/conferir': conferir.pagina,
+    '/disciplinas': disciplinas_e_temas.pagina,
     '/sobre': sobre.pagina,
 }
 
@@ -69,13 +95,28 @@ def raiz() -> None:
     with ui.header().classes('items-center flex-wrap').style(tema.gap('xs')):
         ui.label('concurso-analise').classes('text-lg font-bold mr-4')
         for caminho, nome, icone in MENU:
-            ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props('flat')
+            ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props('flat').mark(
+                f'menu-{caminho.strip("/") or "concursos"}'
+            )
         ui.space()
         ui.button(icon='new_releases', on_click=lambda: ui.navigate.to('/sobre')).props(
             'flat dense no-caps'
         ).bind_text_from(
             ESTADO, 'novidade', lambda n: f'Versão {n.versao} disponível' if n else ''
         ).bind_visibility_from(ESTADO, 'novidade', backward=bool).mark('chip-atualizacao')
+        with (
+            ui.button(icon='more_vert').props('flat round aria-label="Mais opções"').mark('menu-utilitario'),
+            ui.menu(),
+        ):
+            for caminho, nome, icone in UTILITARIO:
+                with (
+                    ui.menu_item(on_click=lambda c=caminho: ui.navigate.to(c)).mark(
+                        f'menu-{caminho.strip("/")}'
+                    ),
+                    ui.row().classes('items-center').style(tema.gap('sm')),
+                ):
+                    ui.icon(icone)
+                    ui.label(nome)
         if ESTADO.no_navegador:
             ui.button('Fechar o app', icon='power_settings_new', on_click=fechar_app).props('flat').mark(
                 'fechar-app'

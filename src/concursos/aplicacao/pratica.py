@@ -1,13 +1,20 @@
+import json
 import logging
 import shutil
+from dataclasses import dataclass, replace
+from datetime import datetime
 from pathlib import Path
 
+from concursos import planilha_tec
 from concursos.analytics.taxonomia import carregar_taxonomia
+from concursos.aplicacao import estudo
 from concursos.aplicacao.opcoes import Opcoes
-from concursos.aplicacao.projeto import curto
+from concursos.aplicacao.projeto import curto, pasta_do_candidato
 from concursos.biblioteca import (
     BuscaBiblioteca,
+    BuscaLocal,
     FontesDeEstudo,
+    MapaBiblioteca,
     gravar_recomendacoes,
     indexar_biblioteca,
     ler_fontes_de_estudo,
@@ -23,12 +30,18 @@ from concursos.integracoes.open_notebook import (
     OpenNotebookIndisponivelError,
     ler_configuracao,
 )
+from concursos.modelo import EstadoLivro
 from concursos.pratica_tec import (
     ARQUIVO_ESCOLHAS,
+    ARQUIVO_RESUMO,
+    ARQUIVO_SIMULADO,
+    PASTA_PRATICA,
     ConfiguracaoPratica,
     ExportacaoInvalidaError,
     ResultadoPratica,
+    gravar_escolhas,
     importar_pratica,
+    ler_escolhas,
     ler_exportacao,
     ler_pratica,
     textos_do_caderno,
@@ -73,18 +86,22 @@ def validar_exportacao(arquivo: Path) -> None:
             ) from erro
 
 
-def importar_exportacoes(opcoes: Opcoes, arquivos: list[Path]) -> list[Path]:
-    """Valida todos antes de copiar o primeiro; sem `[pratica]`, a GUI cria a seção com a pasta padrão."""
-    for arquivo in arquivos:
-        validar_exportacao(arquivo)
+def entrada_da_pratica(opcoes: Opcoes) -> Path:
+    """A pasta das exportações; sem `[pratica]`, cria a seção com a pasta padrão."""
     contexto = opcoes.contexto
     configuracao = configuracao_pratica(contexto)
-    if configuracao is None:
-        if not opcoes.dry_run:
-            gravar_no_config_projeto(contexto, SECAO_PRATICA, {'entrada_tec': ENTRADA_PADRAO})
-        entrada = contexto.raiz / ENTRADA_PADRAO
-    else:
-        entrada = configuracao.entrada
+    if configuracao is not None:
+        return configuracao.entrada
+    if not opcoes.dry_run:
+        gravar_no_config_projeto(contexto, SECAO_PRATICA, {'entrada_tec': ENTRADA_PADRAO})
+    return contexto.raiz / ENTRADA_PADRAO
+
+
+def importar_exportacoes(opcoes: Opcoes, arquivos: list[Path]) -> list[Path]:
+    """Valida todos antes de copiar o primeiro."""
+    for arquivo in arquivos:
+        validar_exportacao(arquivo)
+    entrada = entrada_da_pratica(opcoes)
     for arquivo in arquivos:
         copiar_exportacao(opcoes, arquivo, entrada)
     return [entrada / arquivo.name for arquivo in arquivos]
@@ -100,6 +117,113 @@ def copiar_exportacao(opcoes: Opcoes, arquivo: Path, entrada: Path) -> None:
     if arquivo.resolve() != destino.resolve():
         shutil.copy2(arquivo, destino)
     opcoes.saida(f'exportação copiada para {destino}')
+
+
+@dataclass(frozen=True)
+class PrevisaoPlanilha:
+    arquivo: Path
+    cabecalho: list[str]
+    mapeamento: dict[str, str | None]
+    lembrado: bool
+    amostra: list[dict[str, str]]
+
+    @property
+    def faltando(self) -> list[str]:
+        return planilha_tec.faltando(self.mapeamento)
+
+
+def _ler_planilha(arquivo: Path) -> planilha_tec.Planilha:
+    try:
+        return planilha_tec.ler_planilha(arquivo)
+    except planilha_tec.PlanilhaInvalidaError as erro:
+        raise ErroDoUsuario(
+            str(erro), 'exporte a planilha de novo, em .csv ou .xlsx, com o cabeçalho na primeira linha'
+        ) from erro
+
+
+def prever_planilha(contexto: Contexto, arquivo: Path) -> PrevisaoPlanilha:
+    """As colunas que o app reconheceu (ou as conferidas da última vez, para os mesmos cabeçalhos)."""
+    planilha = _ler_planilha(arquivo)
+    lembrado = ler_escolhas(contexto.projeto / ARQUIVO_ESCOLHAS).planilhas.get(
+        planilha_tec.assinatura(planilha.cabecalho)
+    )
+    detectado = planilha_tec.detectar_colunas(planilha.cabecalho)
+    if lembrado:
+        detectado = {campo: lembrado.get(campo) for campo in planilha_tec.CAMPOS}
+    return PrevisaoPlanilha(arquivo, planilha.cabecalho, detectado, bool(lembrado), planilha.linhas[:3])
+
+
+def importar_planilha(
+    opcoes: Opcoes,
+    arquivo: Path,
+    mapeamento: dict[str, str | None] | None = None,
+    agora: datetime | None = None,
+) -> Path:
+    """Converte a planilha para uma exportação do tec-erros na pasta da prática e lembra o mapeamento."""
+    contexto = opcoes.contexto
+    planilha = _ler_planilha(arquivo)
+    mapeamento = mapeamento or prever_planilha(contexto, arquivo).mapeamento
+    if faltando := planilha_tec.faltando(mapeamento):
+        nomes = ', '.join(planilha_tec.ROTULOS[c] for c in faltando)
+        raise ErroDoUsuario(
+            f'{arquivo.name}: falta a coluna de {nomes}',
+            'escolha as colunas na tela Importar do TEC, ou dê esse nome ao cabeçalho da planilha',
+        )
+    agora = agora or datetime.now().astimezone()
+    try:
+        conversao = planilha_tec.converter(planilha, mapeamento, arquivo.name, agora)
+    except planilha_tec.PlanilhaInvalidaError as erro:
+        raise ErroDoUsuario(str(erro), 'escolha as colunas na tela Importar do TEC') from erro
+    if conversao.linhas == conversao.ignoradas:
+        raise ErroDoUsuario(
+            f'{arquivo.name}: nenhuma linha com disciplina e resultado reconhecido',
+            'confira a coluna Resultado: use certo/errado, C/E, sim/não ou 1/0',
+        )
+    entrada = entrada_da_pratica(opcoes)
+    destino = entrada / planilha_tec.nome_da_exportacao(arquivo, agora)
+    resumo = (
+        f'{arquivo.name}: {conversao.erradas} erro(s) em {conversao.linhas - conversao.ignoradas} questão(ões)'
+        + (
+            f'; {conversao.ignoradas} linha(s) sem disciplina ou resultado ignorada(s)'
+            if conversao.ignoradas
+            else ''
+        )
+    )
+    if opcoes.dry_run:
+        opcoes.saida(f'{resumo}; gravaria {destino}')
+        return destino
+    entrada.mkdir(parents=True, exist_ok=True)
+    destino.write_text(json.dumps(conversao.exportacao, ensure_ascii=False, indent=2), encoding='utf-8')
+    escolhas = ler_escolhas(contexto.projeto / ARQUIVO_ESCOLHAS)
+    escolhas.planilhas[planilha_tec.assinatura(planilha.cabecalho)] = {
+        campo: coluna for campo, coluna in mapeamento.items() if coluna
+    }
+    gravar_escolhas(contexto.projeto / ARQUIVO_ESCOLHAS, escolhas)
+    opcoes.saida(f'{resumo}; gravado em {destino}')
+    return destino
+
+
+@dataclass(frozen=True)
+class SaidasDaPratica:
+    resumo: str | None
+    simulado: Path | None
+
+
+def saidas_da_pratica(contexto: Contexto) -> SaidasDaPratica:
+    """O resumo com as prioridades e o simulado com os erros, da última análise do candidato escolhido."""
+    try:
+        pasta = pasta_do_candidato(contexto) / PASTA_PRATICA
+    except ErroDoUsuario:
+        return SaidasDaPratica(None, None)
+    resumo, simulado = pasta / ARQUIVO_RESUMO, pasta / ARQUIVO_SIMULADO
+    return SaidasDaPratica(
+        resumo.read_text(encoding='utf-8') if resumo.is_file() else None,
+        simulado if simulado.is_file() else None,
+    )
+
+
+def eh_planilha(arquivo: Path) -> bool:
+    return arquivo.suffix.lower() in planilha_tec.EXTENSOES
 
 
 def praticar(
@@ -132,6 +256,7 @@ def praticar(
             configuracao_analise.concurso_alvo,
             opcoes.interacao,
             fracos,
+            configuracao_analise.dicionario,
         )
     except ConfiguracaoInvalidaError as erro:
         raise ErroDoUsuario(str(erro), f'corrija ou apague {contexto.projeto / ARQUIVO_ESCOLHAS}') from erro
@@ -150,15 +275,31 @@ def caderno_de_erros(contexto: Contexto, candidatos: list[str | None]) -> dict[s
     return {dono: textos_do_caderno(lido)} if lido.pratica.erros else {}
 
 
+LIVRO_LIDO = {EstadoLivro.LIDO, EstadoLivro.ENVIANDO, EstadoLivro.PRONTO}
+
+
 def fontes_de_estudo(contexto: Contexto) -> FontesDeEstudo:
     try:
-        return ler_fontes_de_estudo(
+        fontes = ler_fontes_de_estudo(
             contexto.projeto, contexto.raiz, contexto.taxonomia, contexto.config_global
         )
     except ConfiguracaoInvalidaError as erro:
         raise ErroDoUsuario(
             str(erro), 'corrija o .concurso/biblioteca.yaml ou a seção [legislacao] e rode de novo'
         ) from erro
+    if not livros_do_app(contexto):
+        return fontes
+    mapa = fontes.mapa or MapaBiblioteca({})
+    return replace(fontes, mapa=replace(mapa, por_disciplina=True))
+
+
+def livros_do_app(contexto: Contexto) -> dict[str, dict[str, str]]:
+    """Os livros lidos da biblioteca do app, por disciplina (sha → nome)."""
+    por_disciplina: dict[str, dict[str, str]] = {}
+    for livro in estudo.listar_livros(contexto):
+        if livro.estado in LIVRO_LIDO and livro.disciplina:
+            por_disciplina.setdefault(livro.disciplina, {})[livro.sha] = livro.nome
+    return por_disciplina
 
 
 def recomendar_estudo(
@@ -180,9 +321,14 @@ def recomendar_estudo(
     return gravar_recomendacoes(destino, resultado)
 
 
-def busca_na_biblioteca(opcoes: Opcoes, fontes: FontesDeEstudo) -> BuscaBiblioteca | None:
-    """A camada do open-notebook só entra ligada, com consentimento e rede; senão, fica o catálogo."""
-    if not opcoes.rede or fontes.mapa is None:
+def busca_na_biblioteca(opcoes: Opcoes, fontes: FontesDeEstudo) -> BuscaBiblioteca | BuscaLocal | None:
+    """Os livros do app, pelo índice local, vêm primeiro. O open-notebook externo só entra ligado, com
+    consentimento e rede; senão, fica o catálogo."""
+    if fontes.mapa is None:
+        return None
+    if livros := livros_do_app(opcoes.contexto):
+        return BuscaLocal(estudo.biblioteca(opcoes.contexto).banco, livros)
+    if not opcoes.rede:
         return None
     try:
         configuracao = ler_configuracao(opcoes.contexto.config_global)

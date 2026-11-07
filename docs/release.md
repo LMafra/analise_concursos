@@ -35,12 +35,13 @@ Só os binários próprios são assinados; DLLs de terceiros e o desinstalador f
 
 ## Gerar uma versão
 
-1. Suba `version` no `pyproject.toml` (PEP 440; `b` e `rc` viram prerelease) e, se quiser notas próprias, escreva `docs/release-v<versão>.md`.
-2. Crie e envie a tag `v<versão>`. O `release.yml` gera o instalador do Windows, o AppImage e o DMG, roda o gate de máquina limpa de cada sistema e, depois da aprovação no environment `release`, cria a release como rascunho com os artefatos, o `atualizacao.json` e o `.sig`, o `RELATORIO-SMOKE.md` e o `SHA256SUMS`.
-3. Confira o `RELATORIO-SMOKE.md`: uma seção por sistema, todas com `smoke: ok`.
-4. Rode o checklist de máquina limpa (abaixo) sobre os artefatos do rascunho e registre data, versão e resultado na descrição da release.
-5. Publique o rascunho (prerelease para `b` e `rc`). A release não vira "latest" sozinha.
-6. Teste a atualização de ponta a ponta: rode o workflow `atualizacao` com `de` = a tag anterior que já tem o atualizador, `esperada` = a versão nova e o canal. Só depois promova a release a "latest".
+1. Confira que há um pacote de estudo publicado (release `estudo-v*`, do `estudo.yml`) com `app_minimo` menor ou igual à versão nova. Numa tag `v*`, o `release.yml` falha sem ele: o gate de máquina limpa baixa o mais novo e roda `scripts/smoke.py estudo` com o executável (instala a biblioteca do arquivo, envia um PDF com uma página escaneada ao open-notebook e pergunta).
+2. Suba `version` no `pyproject.toml` (PEP 440; `b` e `rc` viram prerelease) e, se quiser notas próprias, escreva `docs/release-v<versão>.md`.
+3. Crie e envie a tag `v<versão>`. O `release.yml` gera o instalador do Windows, o AppImage e o DMG, roda o gate de máquina limpa de cada sistema e, depois da aprovação no environment `release`, cria a release como rascunho com os artefatos, o `atualizacao.json` e o `.sig`, o `RELATORIO-SMOKE.md` e o `SHA256SUMS`.
+4. Confira o `RELATORIO-SMOKE.md`: uma seção por sistema, todas com `smoke: ok` e, no Windows e no Linux, a linha da biblioteca.
+5. Rode o checklist de máquina limpa (abaixo) sobre os artefatos do rascunho e registre data, versão e resultado na descrição da release.
+6. Publique o rascunho (prerelease para `b` e `rc`). A release não vira "latest" sozinha.
+7. Teste a atualização de ponta a ponta: rode o workflow `atualizacao` com `de` = a tag anterior que já tem o atualizador, `esperada` = a versão nova e o canal. Só depois promova a release a "latest".
 
 Para só gerar os instaladores, sem tag e sem release: `gh workflow run release.yml --ref <branch>` e baixe os artefatos da execução (`gh run download`).
 
@@ -57,8 +58,18 @@ O roteiro do Windows (9 passos) está em "Checklist manual" de [docs/spec-fase6.
 
 No Windows, confira também o modo Escuro e o Claro em Configurações > Aparência, e que o Tab percorre os botões com o contorno de foco visível.
 
+Biblioteca (fase 7), no Windows Sandbox e na VM Win10, com o PDF de `python scripts/smoke.py fixture livro.pdf` (uma página de texto e uma escaneada):
+
+1. Estudar > Meus livros > **Preparar agora**: o aviso diz o tamanho do download, a barra avança e a tela diz que a biblioteca está pronta. O Windows Defender não põe nada em quarentena nem pede confirmação (o `surreal.exe` e o `python.exe` do pacote ficam em `%USERPROFILE%\.concurso\open-notebook\`).
+2. **Adicionar livros** com o PDF: o livro passa por "Lendo página…" até "Pronto para perguntas", sem nenhuma janela de console abrindo.
+3. Estudar > Perguntar: "autarquia" traz o trecho da página 2, e "licitacao", o da página 3 (lida pelo OCR).
+4. Nenhuma tela mostra localhost, porta, servidor, Docker, API, source, sincronizar, embedding ou terminal, fora de Configurações > Avançado.
+5. Sobre > **Verificar atualizações do app e da biblioteca** responde sem erro.
+6. Feche o app: o Gerenciador de Tarefas não mostra mais `surreal.exe` nem o `python.exe` do pacote.
+
 Linux:
 
-1. `--smoke` e `doctor` nos dois contêineres, sem `python3` nem `tesseract`; `scripts/smoke.py congelado` no host.
+1. `--smoke` e `doctor` nos dois contêineres, sem `python3` nem `tesseract`; `scripts/smoke.py congelado` e `scripts/smoke.py estudo <pacote> <AppImage>` no host.
 2. A GUI com `HOME` vazio: os passos 5, 6 e 8 do roteiro do Windows.
 3. No desktop: integrar o AppImage, abrir pelo menu (ícone e nome certos), atualizar pela GUI a partir da versão anterior e aceitar "Reabrir agora?".
+4. Os passos 1 a 6 da biblioteca, acima; no 6, `pgrep -f open-notebook` não acha nada depois de fechar o app.

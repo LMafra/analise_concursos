@@ -1,0 +1,59 @@
+versao: 1
+direito_administrativo:
+  atos_administrativos:
+    termos: [ato administrativo, ato discricionário, ato vinculado, revogação, anulação, convalidação, motivação]
+    expressoes: [poder de polícia, autoexecutoriedade, presunção de legitimidade, teoria dos motivos determinantes]
+  licitacoes:
+    termos: [licitação, pregão, concorrência, dispensa de licitação, inexigibilidade, contratação direta]
+    expressoes: [Lei 14.133, agente de contratação, estudo técnico preliminar, termo de referência]
+  poderes:
+    termos: [poder hierárquico, poder disciplinar, poder regulamentar, abuso de poder, desvio de finalidade]
+    expressoes: [excesso de poder, poder normativo]
+  improbidade:
+    termos: [improbidade administrativa, enriquecimento ilícito, dano ao erário]
+    expressoes: [Lei 8.429, ato de improbidade]
+  responsabilidade_civil:
+    termos: [responsabilidade objetiva, risco administrativo, ação regressiva, nexo causal]
+    expressoes: [teoria do risco integral, culpa exclusiva da vítima]
+direito_constitucional:
+  direitos_garantias:
+    termos: [habeas corpus, mandado de segurança, habeas data, mandado de injunção, ação popular]
+    expressoes: [direitos fundamentais, remédios constitucionais, cláusula pétrea]
+  poder_legislativo:
+    termos: [processo legislativo, emenda constitucional, medida provisória, lei complementar, sanção, veto]
+    expressoes: [Congresso Nacional, comissão parlamentar de inquérito]
+  controle_constitucionalidade:
+    termos: [ação direta de inconstitucionalidade, arguição de descumprimento, controle difuso, controle concentrado]
+    expressoes: [ADI, ADPF, ação declaratória de constitucionalidade]
+  organizacao_estado:
+    termos: [competência privativa, competência concorrente, competência comum, intervenção federal]
+    expressoes: [entes federativos, autonomia municipal]
+lingua_portuguesa:
+  concordancia:
+    termos: [concordância verbal, concordância nominal, sujeito composto, verbo haver impessoal]
+    expressoes: [faz dois anos, haja vista]
+  crase:
+    termos: [crase, acento grave]
+    expressoes: [à medida que, às vezes, fusão da preposição]
+  regencia:
+    termos: [regência verbal, regência nominal, transitivo direto, transitivo indireto]
+    expressoes: [complemento verbal]
+  pontuacao:
+    termos: [vírgula, ponto e vírgula, dois pontos, travessão]
+    expressoes: [emprego da vírgula, aposto explicativo]
+  colocacao_pronominal:
+    termos: [próclise, ênclise, mesóclise, pronome oblíquo]
+    expressoes: [colocação do pronome]
+raciocinio_logico:
+  proposicoes:
+    termos: [proposição, conectivo, tabela verdade, tautologia, contradição, contingência]
+    expressoes: [condicional, bicondicional, negação de proposição]
+  equivalencias:
+    termos: [equivalência lógica, contrapositiva, leis de De Morgan]
+    expressoes: [é equivalente a, negação da condicional]
+  argumentacao:
+    termos: [silogismo, premissa, conclusão, argumento válido, falácia]
+    expressoes: [argumento dedutivo]
+  conjuntos:
+    termos: [conjunto, interseção, união, diagrama de Venn, complementar]
+    expressoes: [elementos em comum]

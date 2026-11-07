@@ -38,6 +38,7 @@ from concursos.analytics.insights import (
     desempate_por_concurso,
     destaque_do_ranking,
     peculiaridades_do_edital,
+    rotulos_dos_concursos,
 )
 from concursos.analytics.visualizacao import barras_gap_por_disciplina, resumir
 from concursos.configuracao import configuracao_do_projeto
@@ -46,8 +47,11 @@ consolidado = carregar_consolidado()
 regras = regras_por_concurso()
 cortes = cortes_por_concurso(regras)
 alvo = configuracao_do_projeto().concurso_alvo
+rotulos = rotulos_dos_concursos(regras)
+mostrados = [rotulos[alvo]] if alvo in rotulos else list(rotulos.values())
 Markdown(
-    f'Concurso-alvo: {alvo or "nenhum (todos os concursos)"}; {len(cortes)} concursos com cortes no edital.'
+    f'Concurso-alvo: {alvo or "nenhum (todos os concursos)"}; {len(cortes)} concursos com cortes no edital.\n\n'
+    + '\n'.join(f'- {rotulo}' for rotulo in mostrados)
 )
 
 # %% [markdown]

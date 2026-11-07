@@ -1,5 +1,6 @@
 from dataclasses import dataclass, fields, replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -8,6 +9,9 @@ from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.config.contexto import Contexto, ler_toml, resolver_contexto
 from concursos.llm import ClienteLlm
 from concursos.perfis import PerfilOcr
+
+if TYPE_CHECKING:
+    from concursos.analytics.dicionario_topicos import Dicionario
 
 
 @dataclass(frozen=True)
@@ -18,9 +22,10 @@ class ConfiguracaoGlobal:
     incluir_simulados: bool = False
     perfil_calibrado: PerfilOcr | None = None
     cliente_llm: ClienteLlm | None = None
+    dicionario: 'Dicionario | None' = None
 
 
-_FORA_DO_ARQUIVO = {'perfil_calibrado', 'cliente_llm'}
+_FORA_DO_ARQUIVO = {'perfil_calibrado', 'cliente_llm', 'dicionario'}
 
 
 def configuracao_do_projeto(contexto: Contexto | None = None) -> ConfiguracaoGlobal:

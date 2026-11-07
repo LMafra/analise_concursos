@@ -8,7 +8,7 @@ from concursos.candidatos import candidatos_existentes, slug
 from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, carregar_concurso
 from concursos.config.contexto import Contexto, gravar_no_config_projeto, ler_toml
 from concursos.erros import ErroDoAmbiente, ErroDoUsuario
-from concursos.migracao import MigracaoError, executar_migracao, planejar_migracao
+from concursos.migracao import MigracaoError, executar_migracao, migrar_biblioteca_yaml, planejar_migracao
 from concursos.status import listar_concursos
 
 
@@ -83,6 +83,14 @@ def concurso_do_arquivo(raiz_provas: Path, arquivo: Path, concurso: str | None) 
     )
 
 
+def proxima_pasta(contexto: Contexto, base: str) -> Path:
+    """`provas/<base>` ou, se já existir, `<base>_2`, `<base>_3`…"""
+    pasta, numero = contexto.provas / base, 2
+    while pasta.exists():
+        pasta, numero = contexto.provas / f'{base}_{numero}', numero + 1
+    return pasta
+
+
 def concurso_alvo(contexto: Contexto, nome: str) -> ConcursoConfig:
     pasta = contexto.provas / nome
     if not pasta.is_dir():
@@ -97,6 +105,8 @@ def migrar(opcoes: Opcoes) -> Opcoes:
     """Passa para o layout multi-candidato o que estiver no formato das fases 1 a 3."""
     contexto = opcoes.contexto
     try:
+        if not opcoes.dry_run:
+            migrar_biblioteca_yaml(contexto)
         migracao = planejar_migracao(contexto)
         if migracao.vazia:
             return opcoes

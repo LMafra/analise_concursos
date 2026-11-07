@@ -11,7 +11,7 @@ import typer
 
 from concursos import doctor as diagnostico
 from concursos import onboarding, relatorio_html
-from concursos.aplicacao import analise, cadastro, integracoes, projeto
+from concursos.aplicacao import analise, cadastro, dicionario, estudo, integracoes, projeto
 from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao.inicio import executar_onboarding
 from concursos.aplicacao.opcoes import Opcoes
@@ -30,7 +30,7 @@ from concursos.integracoes.pci_mcp import REGIOES
 from concursos.integracoes.simulado_pci import formatar_provas
 from concursos.integracoes.sincronizacao_pci import como_json
 from concursos.integracoes.sincronizacao_pci import formatar_tabela as tabela_pci
-from concursos.modelo import CanalAtualizacao
+from concursos.modelo import CanalAtualizacao, OndeProcurar
 from concursos.status import formatar_tabela
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,22 @@ pci_app = typer.Typer(
     rich_markup_mode=None,
 )
 app.add_typer(pci_app, name='pci')
+estudo_app = typer.Typer(
+    help='estudar com seus livros: prepara o open-notebook no computador',
+    no_args_is_help=True,
+    rich_markup_mode=None,
+)
+app.add_typer(estudo_app, name='estudo')
+livros_app = typer.Typer(
+    help='seus livros: adicionar, listar e remover da biblioteca', no_args_is_help=True, rich_markup_mode=None
+)
+app.add_typer(livros_app, name='livros')
+dicionario_app = typer.Typer(
+    help='dicionário de temas: termos que ajudam a achar o tópico do edital de cada questão',
+    no_args_is_help=True,
+    rich_markup_mode=None,
+)
+app.add_typer(dicionario_app, name='dicionario')
 
 
 Forcar = Annotated[bool, typer.Option('--force', help='reprocessa mesmo sem mudanças')]
@@ -256,6 +272,12 @@ def discover(
     esquecer: Annotated[
         int | None, typer.Option('--forget', help='deixa de acompanhar o concurso (pelo id)')
     ] = None,
+    adicionar: Annotated[
+        int | None,
+        typer.Option(
+            '--add', help='cria a pasta do concurso (pelo id) no projeto, à espera do edital e da prova'
+        ),
+    ] = None,
     candidato: Candidato = None,
 ) -> int:
     opcoes: Opcoes = ctx.obj
@@ -268,6 +290,8 @@ def discover(
     typer.echo(como_json(concursos) if json_ else tabela_pci(concursos))
     if registrar is not None:
         integracoes.registrar_interesse(opcoes, concursos, registrar)
+    if adicionar is not None:
+        integracoes.adicionar_ao_projeto(opcoes, concursos, adicionar)
     return 0
 
 
@@ -323,6 +347,12 @@ def pci_provas(
     baixar: Annotated[
         int | None, typer.Option('--download', help='id da prova: abre a página e importa o que você baixar')
     ] = None,
+    todas: Annotated[
+        bool,
+        typer.Option(
+            '--import-all', help='importa todas as provas da lista, uma por vez, como no --download'
+        ),
+    ] = False,
     refresh: Refresh = False,
     json_: ComoJson = False,
     candidato: Candidato = None,
@@ -336,6 +366,11 @@ def pci_provas(
         typer.echo(formatar_provas(resultado.provas))
     if baixar is not None:
         return integracoes.importar_simulado(opcoes, resultado.provas, baixar, resultado.alvo)
+    if todas:
+        lote = integracoes.importar_simulados(
+            opcoes, resultado.provas, [p.id for p in resultado.provas], resultado.alvo
+        )
+        return 1 if lote.falhas else 0
     return 0
 
 
@@ -395,6 +430,7 @@ def upgrade(
         typer.Option('--canal', help='stable ou beta (padrão: o de [atualizacao] no config.toml global)'),
     ] = None,
 ) -> int:
+    estudo.avisar_atualizacao_da_biblioteca(ctx.obj)
     if atualizacao.no_executavel():
         return atualizacao.atualizar_executavel(ctx.obj, canal=canal, executar=executar)
     comando = ['tool', 'upgrade', 'concurso-analise']
@@ -457,7 +493,10 @@ def notebook_disable(ctx: typer.Context) -> int:
 def pratica_import(
     ctx: typer.Context,
     arquivo: Annotated[
-        Path | None, typer.Argument(help='tec-erros-*.json ou caderno-estado.json (sem ele, só analisa)')
+        Path | None,
+        typer.Argument(
+            help='tec-erros-*.json, caderno-estado.json ou planilha .csv/.xlsx (sem ele, só analisa)'
+        ),
     ] = None,
     candidato: Candidato = None,
     nao_abrir: NaoAbrir = False,
@@ -481,3 +520,184 @@ def notebook_sync(
         return 0
     typer.echo(relatorio.formatar())
     return 0 if relatorio.sucesso else 1
+
+
+@estudo_app.command('preparar', help='baixa e instala o open-notebook do app (ou instala de --arquivo)')
+def estudo_preparar(
+    ctx: typer.Context,
+    arquivo: Annotated[
+        Path | None, typer.Option('--arquivo', help='pacote estudo-<versão>-<sistema> já baixado')
+    ] = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    situacao = estudo.situacao_do_estudo(opcoes.contexto)
+    if not situacao.disponivel_no_sistema:
+        raise ErroDoUsuario(situacao.mensagem, 'use o app no Windows ou no Linux')
+    consentiu = opcoes.sim or arquivo is not None
+    if not consentiu and not opcoes.dry_run:
+        typer.echo(situacao.mensagem)
+        if not onboarding.interativo(False):
+            raise ErroDoUsuario(
+                'preparar a biblioteca exige confirmação, e não há terminal para perguntar',
+                'confirme com `concurso-analise --yes estudo preparar`',
+            )
+        consentiu = typer.confirm('preparar agora?', default=False)
+        if not consentiu:
+            typer.echo('nada foi baixado')
+            return 0
+
+    def mostrar(texto: str, _fracao: float) -> None:
+        typer.echo(texto)
+
+    estudo.preparar_estudo(opcoes, consentiu=consentiu, arquivo=arquivo, progresso=mostrar)
+    return 0
+
+
+@estudo_app.command('status', help='diz se a biblioteca está preparada e qual versão')
+def estudo_status(ctx: typer.Context) -> int:
+    situacao = estudo.situacao_do_estudo(ctx.obj.contexto)
+    versao = f' (versão {situacao.versao})' if situacao.versao else ''
+    typer.echo(f'{situacao.mensagem}{versao}')
+    return 0
+
+
+@livros_app.command('add', help='adiciona um livro (PDF, EPUB, DOCX ou TXT) ou todos os de uma pasta')
+def livros_add(
+    ctx: typer.Context,
+    caminho: Annotated[Path, typer.Argument(help='arquivo ou pasta')],
+    disciplina: Annotated[str | None, typer.Option('--disciplina', help='padrão: Geral')] = None,
+    concurso: Annotated[
+        list[str] | None, typer.Option('--concurso', help='nome do concurso associado (pode repetir)')
+    ] = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    if not caminho.exists():
+        raise ErroDoUsuario(f'{caminho} não existe', 'confira o caminho do livro ou da pasta')
+    arquivos = estudo.arquivos_da_pasta(caminho) if caminho.is_dir() else [caminho]
+    if not arquivos:
+        raise ErroDoUsuario(f'{caminho} não tem livros', 'a pasta precisa ter PDF, EPUB, DOCX ou TXT')
+    resultados = estudo.adicionar_livros(opcoes, arquivos, disciplina=disciplina, concursos=concurso or ())
+    for resultado in resultados:
+        if resultado.erro:
+            typer.echo(f'{resultado.nome}: {resultado.erro}')
+    if not opcoes.dry_run:
+        typer.echo('lendo os livros…')
+        estudo.esperar_trabalho(opcoes.contexto)
+        preparado = estudo.situacao_do_estudo(opcoes.contexto).preparado
+        for livro in estudo.listar_livros(opcoes.contexto):
+            typer.echo(f'{livro.nome}: {estudo.situacao_do_livro(livro, preparado)}')
+    return 1 if any(r.erro for r in resultados) else 0
+
+
+@livros_app.command('list', help='lista os livros da biblioteca e a etapa de cada um')
+def livros_list(ctx: typer.Context) -> int:
+    livros = estudo.listar_livros(ctx.obj.contexto)
+    if not livros:
+        typer.echo('sua biblioteca está vazia')
+    preparado = estudo.situacao_do_estudo(ctx.obj.contexto).preparado
+    for livro in livros:
+        situacao = estudo.situacao_do_livro(livro, preparado)
+        typer.echo(f'{livro.sha[:12]}  {livro.disciplina}  {livro.nome}: {situacao}')
+    return 0
+
+
+@livros_app.command('remove', help='remove um livro pelo começo do código mostrado em `livros list`')
+def livros_remove(ctx: typer.Context, codigo: Annotated[str, typer.Argument(help='começo do código')]) -> int:
+    opcoes: Opcoes = ctx.obj
+    achados = [livro for livro in estudo.listar_livros(opcoes.contexto) if livro.sha.startswith(codigo)]
+    if len(achados) != 1:
+        raise ErroDoUsuario(
+            f'{len(achados)} livros começam com {codigo}', 'use mais caracteres do código de `livros list`'
+        )
+    if opcoes.dry_run:
+        typer.echo(f'removeria {achados[0].nome}')
+        return 0
+    estudo.remover_livro(opcoes.contexto, achados[0].sha)
+    typer.echo(f'{achados[0].nome} removido')
+    return 0
+
+
+@livros_app.command('ask', help='procura nos livros e mostra os trechos com a página (e a resposta da IA)')
+def livros_ask(
+    ctx: typer.Context,
+    pergunta: Annotated[str, typer.Argument(help='o que procurar')],
+    onde: Annotated[
+        OndeProcurar, typer.Option('--onde', help='livros, analises ou tudo')
+    ] = OndeProcurar.LIVROS,
+    disciplina: Annotated[
+        str | None, typer.Option('--disciplina', help='só os livros desta disciplina')
+    ] = None,
+) -> int:
+    resposta = estudo.perguntar(ctx.obj, pergunta, onde=onde, disciplina=disciplina)
+    for aviso in resposta.avisos:
+        typer.echo(aviso)
+    if resposta.resposta_ia:
+        typer.echo(f'{estudo.TITULO_IA}:\n{resposta.resposta_ia}')
+        if resposta.livros_citados:
+            typer.echo(f'livros citados: {", ".join(resposta.livros_citados)}')
+    for trecho in resposta.trechos:
+        onde_esta = f'p. {trecho.pagina}' if trecho.de_livro else trecho.secao
+        typer.echo(f'{trecho.nome}, {onde_esta}: {trecho.texto}')
+    return 0
+
+
+@dicionario_app.command('iniciar', help='começa com o dicionário inicial e liga o dicionário')
+def dicionario_iniciar(ctx: typer.Context) -> int:
+    opcoes: Opcoes = ctx.obj
+    if opcoes.dry_run:
+        typer.echo(f'gravaria {opcoes.contexto.dicionario} e ligaria o dicionário')
+        return 0
+    novas = dicionario.iniciar(opcoes.contexto)
+    typer.echo(f'{novas} tópico(s) acrescentado(s) a {opcoes.contexto.dicionario}; dicionário ligado')
+    return 0
+
+
+@dicionario_app.command('sugerir', help='sugere termos tirados das suas revisões de tópico')
+def dicionario_sugerir(
+    ctx: typer.Context,
+    aceitar: Annotated[
+        list[str] | None,
+        typer.Option('--aceitar', help='aceita a sugestão pela chave mostrada (pode repetir)'),
+    ] = None,
+    recusar: Annotated[
+        list[str] | None,
+        typer.Option('--recusar', help='recusa a sugestão pela chave mostrada (pode repetir)'),
+    ] = None,
+) -> int:
+    opcoes: Opcoes = ctx.obj
+    sugestoes = {s.chave: s for s in dicionario.sugestoes(opcoes.contexto)}
+    escolhidas = [(c, dicionario.aceitar) for c in aceitar or []] + [
+        (c, dicionario.recusar) for c in recusar or []
+    ]
+    if desconhecidas := [c for c, _ in escolhidas if c not in sugestoes]:
+        raise ErroDoUsuario(
+            f'sugestão desconhecida: {desconhecidas[0]}', 'use uma chave listada por `dicionario sugerir`'
+        )
+    for chave, acao in escolhidas:
+        if opcoes.dry_run:
+            typer.echo(f'gravaria {chave}')
+        else:
+            acao(opcoes.contexto, sugestoes.pop(chave))
+    if not escolhidas:
+        if not sugestoes:
+            typer.echo('nenhuma sugestão: revise mais tópicos das questões e tente de novo')
+        for chave, sugestao in sugestoes.items():
+            typer.echo(f'{chave}  ({sugestao.n} questões; {", ".join(sugestao.concursos)})')
+    return 0
+
+
+@dicionario_app.command('avaliar', help='mede se o dicionário melhora a sugestão de tópico nas suas revisões')
+def dicionario_avaliar(ctx: typer.Context) -> int:
+    opcoes: Opcoes = ctx.obj
+    if opcoes.dry_run:
+        typer.echo(f'mediria o ganho e gravaria {opcoes.contexto.projeto / dicionario.ARQUIVO_GANHO}')
+        return 0
+    ganho = dicionario.avaliar(opcoes.contexto)
+    geral = ganho.geral
+    typer.echo(
+        f'acerto: {100 * geral.taxa_antes:.0f}% -> {100 * geral.taxa_depois:.0f}% (n={geral.n}); '
+        f'corrigidas {len(ganho.corrigidas)}, quebradas {len(ganho.quebradas)}'
+    )
+    if ganho.alerta:
+        typer.echo('atenção: o dicionário piorou a sugestão; desligue-o ou revise os termos')
+    return 0

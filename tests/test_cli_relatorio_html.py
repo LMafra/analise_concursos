@@ -89,7 +89,7 @@ def test_indice_diz_o_que_o_app_decidiu_sozinho_e_a_origem(projeto):
     assert 'alfa: regra de correção do perfil da banca' in html
     assert 'regra do perfil da banca (0,50)' in html
     assert 'Avisos' in html
-    assert re.search(r'Gerado por concurso-analise \d[\w.+]* em \d{4}-\d{2}-\d{2}', html)
+    assert re.search(r'Gerado por concurso-analise \d[\w.+]* em \d{2}/\d{2}/\d{4}', html)
 
 
 def test_html_funciona_sem_rede(projeto):
@@ -186,3 +186,19 @@ def test_export_grava_o_consolidado_do_candidato(projeto, formato, capsys):
 
 def test_export_formato_invalido(projeto):
     assert main(['export', '--format', 'xlsx']) != 0
+
+
+def test_nome_sem_edital_aparece_a_confirmar_e_o_corrigido_vence(projeto):
+    assert main(['--candidate', 'alice']) == 0
+    html = indice(projeto).read_text(encoding='utf-8')
+    assert 'a confirmar' in html
+    assert 'alfa: nome do concurso: alfa (da pasta do concurso); a confirmar em Concursos' in html
+
+    pasta = projeto / 'provas' / 'alfa'
+    dados = yaml.safe_load((pasta / 'concurso.yaml').read_text(encoding='utf-8'))
+    (pasta / 'concurso.yaml').write_text(yaml.safe_dump({**dados, 'titulo': 'Alfa 2025'}), encoding='utf-8')
+    assert main(['--candidate', 'alice']) == 0
+
+    html = indice(projeto).read_text(encoding='utf-8')
+    assert '>Alfa 2025</a>' in html
+    assert 'nome do concurso' not in html

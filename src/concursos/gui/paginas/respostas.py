@@ -3,12 +3,12 @@ import logging
 from nicegui import run, ui
 
 from concursos.aplicacao import cadastro
+from concursos.aplicacao.nomes import opcoes_de_concurso
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.gui import tema
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.textos import mostrar_erro, rotulo
-from concursos.status import listar_concursos
 
 logger = logging.getLogger('concursos')
 
@@ -24,8 +24,7 @@ class FormularioDeRespostas:
 
     def __init__(self, concurso: str | None) -> None:
         self.contexto = ESTADO.contexto()
-        provas = self.contexto.provas
-        nomes = [p.name for p in listar_concursos(provas)] if provas.is_dir() else []
+        nomes = opcoes_de_concurso(self.contexto)
         self.marcadas: dict[int, ui.toggle] = {}
         with ui.column().classes('w-full max-w-4xl').style(tema.gap('md')):
             ui.label('Digitar as suas respostas').classes('text-2xl font-bold')
@@ -39,7 +38,7 @@ class FormularioDeRespostas:
                 ui.select(
                     nomes,
                     label='Concurso',
-                    value=concurso if concurso in nomes else nomes[0],
+                    value=concurso if concurso in nomes else next(iter(nomes)),
                     on_change=lambda: self.questoes.refresh(),
                 ),
                 'concurso',

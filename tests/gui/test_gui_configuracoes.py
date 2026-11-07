@@ -73,6 +73,22 @@ async def test_desmarcar_desliga_a_ia(user: User, projeto, home_isolada):
     assert llm['provedor'] == 'nenhum'
 
 
+async def test_ia_nos_livros_so_com_a_ia_ligada_e_comeca_desmarcada(user: User, projeto, home_isolada):
+    await user.open('/configuracoes')
+    await user.should_not_see(marker='ia-livros')
+    user.find(marker='usar-ia').click()
+    elemento(user, 'provedor-ia').value = 'ollama'
+    user.find(marker='ligar-ia').click()
+
+    await user.should_see(marker='ia-livros')
+    assert elemento(user, 'ia-livros').value is False
+    await user.should_see(marker='aviso-ia-livros')
+    elemento(user, 'ia-livros').value = True
+
+    llm = tomllib.loads((home_isolada / 'config.toml').read_text(encoding='utf-8'))['llm']
+    assert llm['consentimento_livros'] is True
+
+
 async def test_tema_comeca_no_do_sistema_e_grava_a_escolha(user: User, projeto, home_isolada):
     await user.open('/configuracoes')
     assert elemento(user, 'tema-gui').value == 'sistema'

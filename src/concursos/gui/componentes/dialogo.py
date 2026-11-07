@@ -17,3 +17,12 @@ class Dialogo(ui.dialog):
                 ui.label(titulo).classes('text-lg font-bold')
                 self.corpo = ui.column().classes('w-full').style(tema.gap('sm'))
                 self.acoes = ui.row().classes('w-full justify-end').style(tema.gap('sm'))
+
+
+def ver_texto(titulo: str, texto: str) -> None:
+    """Um markdown longo num diálogo com "Fechar"."""
+    with ui.dialog() as dialogo, ui.card().classes('w-full max-w-3xl'):
+        ui.label(titulo).classes('text-lg font-bold')
+        ui.markdown(texto).classes('w-full')
+        ui.button('Fechar', on_click=dialogo.close).props('flat')
+    dialogo.open()

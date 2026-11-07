@@ -33,6 +33,11 @@ class ServidorOpenNotebook:
     pedidos: list[Pedido] = field(default_factory=list)
     falhas: dict[tuple[str, str], int] = field(default_factory=dict)
     """(método, regex do caminho) → status devolvido no lugar da resposta."""
+    modelos: dict[str, dict] = field(default_factory=dict)
+    padroes: dict[str, str | None] = field(default_factory=dict)
+    resposta_ask: str = 'Resposta [source:source:0001].'
+    status_sources: dict[str, str] = field(default_factory=dict)
+    reprocessados: list[str] = field(default_factory=list)
     _contador: int = 0
 
     def __post_init__(self) -> None:
@@ -122,7 +127,55 @@ class ServidorOpenNotebook:
         if partes[:2] == ['api', 'notes']:
             return self._notas(metodo, partes[2:], consulta, corpo)
         if caminho == '/api/search' and metodo == 'POST':
-            return 200, self._buscar(json.loads(corpo))
+            pedido = json.loads(corpo)
+            if pedido.get('type') == 'vector' and not self.padroes.get('default_embedding_model'):
+                return 400, {'detail': 'Vector search requires an embedding model.'}
+            return 200, self._buscar(pedido)
+        if caminho == '/api/search/ask/simple' and metodo == 'POST':
+            pedido = json.loads(corpo)
+            for papel in ('strategy_model', 'answer_model', 'final_answer_model'):
+                self.modelos[pedido[papel]]
+            return 200, {'answer': self.resposta_ask, 'question': pedido['question']}
+        if caminho == '/api/embed' and metodo == 'POST':
+            pedido = json.loads(corpo)
+            if not self.padroes.get('default_embedding_model'):
+                return 400, {'detail': 'No embedding model configured.'}
+            self.sources[pedido['item_id']]
+            self.reprocessados.append(pedido['item_id'])
+            return 200, {
+                'success': True,
+                'message': 'queued',
+                'item_id': pedido['item_id'],
+                'item_type': 'source',
+            }
+        if caminho == '/api/models/defaults':
+            if metodo == 'PUT':
+                self.padroes.update(json.loads(corpo))
+            return 200, dict(self.padroes)
+        if partes[:2] == ['api', 'models']:
+            return self._modelos(metodo, partes[2:], consulta, corpo)
+        return 404, {'detail': 'Not found'}
+
+    def _modelos(self, metodo: str, resto: list[str], consulta: dict, corpo: bytes) -> tuple[int, object]:
+        if not resto and metodo == 'GET':
+            tipo = consulta.get('type')
+            return 200, [m for m in self.modelos.values() if not tipo or m['type'] == tipo]
+        if not resto and metodo == 'POST':
+            dados = json.loads(corpo)
+            if any(
+                (m['name'].lower(), m['provider'], m['type'])
+                == (dados['name'].lower(), dados['provider'], dados['type'])
+                for m in self.modelos.values()
+            ):
+                return 400, {'detail': 'already exists'}
+            modelo = self._novo(
+                'model', {k: dados.get(k) for k in ('name', 'provider', 'type', 'credential')}
+            )
+            self.modelos[modelo['id']] = modelo
+            return 200, modelo
+        if len(resto) == 1 and metodo == 'DELETE':
+            del self.modelos[resto[0]]
+            return 200, {'message': 'deleted'}
         return 404, {'detail': 'Not found'}
 
     def _notebooks(self, metodo: str, resto: list[str], corpo: bytes) -> tuple[int, object]:
@@ -173,7 +226,8 @@ class ServidorOpenNotebook:
             return 200, source
         source = self.sources[resto[0]]
         if len(resto) == 2 and resto[1] == 'status':
-            return 200, {'status': 'completed', 'message': 'ok', 'processing_info': None, 'command_id': None}
+            status = self.status_sources.get(source['id'], 'completed')
+            return 200, {'status': status, 'message': 'ok', 'processing_info': None, 'command_id': None}
         if metodo == 'GET':
             return 200, source
         if metodo == 'PUT':

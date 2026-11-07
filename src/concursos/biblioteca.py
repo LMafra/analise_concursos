@@ -1,5 +1,6 @@
-"""Fontes de estudo para os tópicos fracos: o mapa disciplina → estante, o catálogo do projeto `books`, a
-busca de texto nos notebooks de biblioteca do open-notebook e as normas do clone do `ctresb/leis`.
+"""Fontes de estudo para os tópicos fracos: os livros da biblioteca do app, o mapa disciplina → estante, o
+catálogo do projeto `books`, a busca de texto nos notebooks de biblioteca do open-notebook e as normas do
+clone do `ctresb/leis`.
 
 Tudo aqui é sugestão: nada troca o tópico ou a disciplina de uma questão.
 """
@@ -22,6 +23,7 @@ from concursos.arquivos import gravar_se_mudou
 from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.integracoes.open_notebook import ClienteOpenNotebook, OpenNotebookIndisponivelError
 from concursos.legislacao import avisos_da_norma, extrair_citacoes, ler_repositorio, normas_citadas
+from concursos.livros import indice as indice_livros
 from concursos.modelo import FonteRecomendacao
 from concursos.texto import abreviar
 from concursos.topicos import palavras_chave
@@ -39,6 +41,7 @@ TITULO_NOTA = 'concurso-analise: recomendações de estudo'
 _SEPARADORES_DE_CONSULTA = re.compile(r'[.:;()]')
 _ROTULO_DA_FONTE = {
     FonteRecomendacao.LEGISLACAO: 'legislação',
+    FonteRecomendacao.LIVROS: 'meus livros',
     FonteRecomendacao.OPEN_NOTEBOOK: 'open-notebook',
     FonteRecomendacao.CATALOGO: 'catálogo',
 }
@@ -50,9 +53,12 @@ class MapaBiblioteca:
 
     disciplinas: dict[str, tuple[str, ...]]
     catalogo: Path | None = None
+    por_disciplina: bool = False
+    """Com os livros da biblioteca do app, a própria disciplina também é categoria."""
 
     def categorias(self, disciplina: str) -> tuple[str, ...]:
-        return self.disciplinas.get(disciplina, ())
+        mapeadas = self.disciplinas.get(disciplina, ())
+        return tuple(dict.fromkeys((*mapeadas, disciplina))) if self.por_disciplina else mapeadas
 
     @property
     def todas_as_categorias(self) -> list[str]:
@@ -210,6 +216,10 @@ class BuscaBiblioteca:
     cliente: ClienteOpenNotebook
     indice: IndiceBiblioteca
 
+    @property
+    def conhecidas(self) -> set[str]:
+        return set(self.indice.notebooks)
+
     def livros(self, categorias: tuple[str, ...], topico: str) -> list[Recomendacao]:
         ids = [self.indice.notebooks[c] for c in categorias if c in self.indice.notebooks][
             :MAXIMO_NOTEBOOKS_BUSCA
@@ -233,6 +243,38 @@ class BuscaBiblioteca:
                 f'relevância {_numero(relevancia)}',
             )
             for source_id, (relevancia, titulo) in ordenados
+        ]
+
+
+@dataclass
+class BuscaLocal:
+    """Os livros da biblioteca do app, pelo índice local: não precisa do open-notebook aberto."""
+
+    banco: Path
+    por_disciplina: dict[str, dict[str, str]]
+    """disciplina → sha → nome do livro."""
+
+    @property
+    def conhecidas(self) -> set[str]:
+        return set(self.por_disciplina)
+
+    def livros(self, categorias: tuple[str, ...], topico: str) -> list[Recomendacao]:
+        nomes = {sha: nome for c in categorias for sha, nome in self.por_disciplina.get(c, {}).items()}
+        if not nomes or not self.banco.exists():
+            return []
+        melhores: dict[str, tuple[float, int]] = {}
+        conexao = indice_livros.abrir(self.banco)
+        try:
+            for consulta in consultas_do_topico(topico):
+                for trecho in indice_livros.buscar(conexao, consulta, shas=list(nomes)):
+                    if trecho.relevancia > melhores.get(trecho.sha, (float('-inf'), 0))[0]:
+                        melhores[trecho.sha] = (trecho.relevancia, trecho.pagina)
+        finally:
+            conexao.close()
+        ordenados = sorted(melhores.items(), key=lambda par: (-par[1][0], nomes[par[0]]))[:LIVROS_POR_TOPICO]
+        return [
+            Recomendacao(nomes[sha], 'Meus livros', FonteRecomendacao.LIVROS, f'p. {pagina}')
+            for sha, (_relevancia, pagina) in ordenados
         ]
 
 
@@ -308,7 +350,7 @@ def recomendar(
     limiar: float,
     mapa: MapaBiblioteca | None,
     repositorio: Path | None,
-    busca: BuscaBiblioteca | None = None,
+    busca: BuscaBiblioteca | BuscaLocal | None = None,
     avisos: list[str] | None = None,
     textos_pratica: Sequence[str] = (),
 ) -> ResultadoRecomendacoes:
@@ -323,7 +365,7 @@ def recomendar(
         else:
             avisos.append(f'biblioteca: catálogo {mapa.catalogo} não encontrado')
     if mapa is not None:
-        conhecidas = set(catalogo) | (set(busca.indice.notebooks) if busca else set())
+        conhecidas = set(catalogo) | (busca.conhecidas if busca else set())
         avisos += validar_categorias(mapa, conhecidas)
     if repositorio is not None and not repositorio.is_dir():
         avisos.append(f'legislação: {repositorio} não existe; clone o ctresb/leis ou corrija [legislacao]')

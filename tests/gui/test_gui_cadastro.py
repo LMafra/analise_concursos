@@ -1,7 +1,8 @@
 import asyncio
+from datetime import date
 
 import yaml
-from concurso_sintetico import ARQUIVOS_SIMPLES, config_simples, criar_concurso
+from concurso_sintetico import ARQUIVOS_SIMPLES, EDITAL_TCU, config_simples, criar_concurso
 from nicegui import ui
 from nicegui.testing.user import User
 
@@ -57,70 +58,67 @@ async def test_soltar_arquivos_mostra_o_papel_detectado_e_trocar_muda_o_cadastro
         cadastro, 'cadastrar_envio', lambda opcoes, nome, papeis, candidato: chamadas.append((nome, papeis))
     )
     await user.open('/novo')
-    user.find(marker='nome-concurso').type('alfa')
     await soltar(user, **{'gabarito.txt': GABARITO_FGV, 'minhas.txt': '1 A\n2 C\n'})
 
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
     await user.should_see('Detectamos: suas respostas digitadas. Confirma?')
     next(iter(user.find(marker='papel-minhas.txt').elements)).value = Papel.IGNORADO.value
     user.find(marker='cadastrar').click()
 
     await esperar(lambda: chamadas)
     nome, papeis = chamadas[0]
-    assert nome == 'alfa'
+    assert nome is None
     assert {caminho.name: papel for caminho, papel in papeis.items()} == {
         'gabarito.txt': Papel.GABARITO,
         'minhas.txt': Papel.IGNORADO,
     }
 
 
-async def test_nome_do_concurso_parece_campo_obrigatorio_e_ja_tem_o_foco(user: User, projeto):
+async def test_envio_nao_pede_nome_e_mostra_o_nome_detectado_no_edital(user: User, projeto):
     await user.open('/novo')
+    await user.should_see(marker='soltar')
+    await user.should_not_see(marker='nome-concurso')
 
-    campo = next(iter(user.find(marker='nome-concurso').elements))
-    assert campo.props['label'] == 'Nome do concurso (obrigatório)'
-    assert campo.props.get('outlined') is True
-    assert campo.props.get('autofocus') is True
+    await soltar(user, **{'edital.txt': EDITAL_TCU, 'gabarito.txt': GABARITO_FGV})
+    await user.should_see(novo_concurso.SEM_NOME_DETECTADO, retries=60)
+    next(iter(user.find(marker='papel-edital.txt').elements)).value = Papel.EDITAL.value
+
+    await user.should_see(
+        'Detectamos: TCU 2025 — Auditor Federal de Controle Externo (do edital)', retries=60
+    )
+
+
+async def test_sem_edital_explica_que_o_nome_fica_a_confirmar(user: User, projeto):
+    await user.open('/novo')
+    await soltar(user, **{'gabarito.txt': GABARITO_FGV})
+
+    await user.should_see(novo_concurso.SEM_NOME_DETECTADO, retries=60)
 
 
 async def test_arquivo_de_nome_longo_fica_na_mesma_linha_do_papel(user: User, projeto):
     await user.open('/novo')
     nome_longo = 'analista-de-gestao-tecnologia-da-informacaocns014-tipo-1.txt'
     await soltar(user, **{nome_longo: GABARITO_FGV})
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
 
     linha = next(iter(user.find(marker=f'linha-{nome_longo}').elements))
     assert 'no-wrap' in linha.classes
-
-
-async def test_cadastrar_sem_nome_pede_o_nome_sem_tentar_cadastrar(user: User, projeto, monkeypatch):
-    chamadas: list[str] = []
-    monkeypatch.setattr(cadastro, 'cadastrar_envio', lambda opcoes, nome, *_: chamadas.append(nome))
-    await user.open('/novo')
-    await soltar(user, **{'gabarito.txt': GABARITO_FGV})
-    await user.should_see('Detectamos: gabarito. Confirma?')
-
-    user.find(marker='cadastrar').click()
-
-    await user.should_see('Dê um nome ao concurso antes de cadastrar (ex.: tcu_2025).')
-    assert chamadas == []
 
 
 async def test_cadastro_pergunta_em_dialogo_e_grava_com_as_respostas_na_pasta_do_candidato(
     user: User, projeto
 ):
     await user.open('/novo')
-    user.find(marker='nome-concurso').type('alfa')
     user.find(marker='candidato-envio').clear().type('Ana Teste')
     await soltar(user, **{'gabarito.txt': GABARITO_FGV, 'minhas.txt': '1 A\n2 C\n'})
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
     user.find(marker='cadastrar').click()
 
     await user.should_see('Gravar concurso.yaml?', retries=60)
     user.find(marker='sim').click()
 
     await user.should_see(marker='cadastrado', retries=60)
-    pasta = projeto / 'provas' / 'alfa'
+    pasta = projeto / 'provas' / f'concurso_{date.today():%Y%m%d}'
     assert yaml.safe_load((pasta / 'concurso.yaml').read_text(encoding='utf-8'))['banca'] == 'fgv'
     assert (pasta / 'candidatos' / 'ana_teste' / 'minhas.txt').is_file()
     assert not any((projeto / '.concurso' / 'envios').iterdir())
@@ -128,9 +126,8 @@ async def test_cadastro_pergunta_em_dialogo_e_grava_com_as_respostas_na_pasta_do
 
 async def test_recusar_no_dialogo_nao_grava_nada(user: User, projeto):
     await user.open('/novo')
-    user.find(marker='nome-concurso').type('alfa')
     await soltar(user, **{'gabarito.txt': GABARITO_FGV})
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
     user.find(marker='cadastrar').click()
 
     await user.should_see('Gravar concurso.yaml?', retries=60)
@@ -138,7 +135,7 @@ async def test_recusar_no_dialogo_nao_grava_nada(user: User, projeto):
 
     await user.should_see('Nada foi gravado.', retries=60)
     await esperar(lambda: not ESTADO.ocupado)
-    assert not (projeto / 'provas' / 'alfa').exists()
+    assert not any((projeto / 'provas').iterdir())
 
 
 async def test_escolha_em_dialogo_volta_para_a_thread_do_cadastro(user: User, projeto, monkeypatch):
@@ -150,9 +147,8 @@ async def test_escolha_em_dialogo_volta_para_a_thread_do_cadastro(user: User, pr
 
     monkeypatch.setattr(cadastro, 'cadastrar_envio', cadastrar_falso)
     await user.open('/novo')
-    user.find(marker='nome-concurso').type('alfa')
     await soltar(user, **{'gabarito.txt': GABARITO_FGV})
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
     user.find(marker='cadastrar').click()
 
     await user.should_see('Qual é a banca?', retries=60)
@@ -170,9 +166,8 @@ async def test_cancelar_a_pergunta_cancela_o_cadastro(user: User, projeto, monke
 
     monkeypatch.setattr(cadastro, 'cadastrar_envio', cadastrar_falso)
     await user.open('/novo')
-    user.find(marker='nome-concurso').type('alfa')
     await soltar(user, **{'gabarito.txt': GABARITO_FGV})
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
     user.find(marker='cadastrar').click()
 
     await user.should_see('Qual é a banca?', retries=60)
@@ -221,3 +216,20 @@ async def test_com_dois_candidatos_todos_analisa_com_todos(user: User, projeto, 
 
     await user.should_see('Análise concluída.', retries=60)
     assert chamadas[0].todos is True
+
+
+async def test_corrigir_nome_grava_o_titulo_e_some_o_a_confirmar(user: User, projeto):
+    criar_concurso(projeto / 'provas', 'alfa', config_simples('alfa'), ARQUIVOS_SIMPLES)
+    await user.open('/')
+    await user.should_see(marker='a-confirmar-alfa')
+
+    user.find(marker='corrigir-nome-alfa').click()
+    user.find(marker='novo-nome').clear().type('Alfa 2025')
+    user.find(marker='salvar-nome').click()
+
+    await esperar(
+        lambda: 'titulo' in yaml.safe_load((projeto / 'provas' / 'alfa' / 'concurso.yaml').read_text())
+    )
+    await user.open('/')
+    await user.should_see('Alfa 2025')
+    await user.should_not_see(marker='a-confirmar-alfa')

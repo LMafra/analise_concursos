@@ -171,3 +171,35 @@ def test_indice_ganha_a_secao_pratica_no_tec(projeto):
 
     indice = (projeto / 'analises' / 'zuleica' / 'index.html').read_text(encoding='utf-8')
     assert 'Prática no TEC' in indice and 'Erros repetidos' in indice
+
+
+def test_import_de_planilha_cria_a_secao_e_analisa(projeto, tmp_path):
+    planilha = tmp_path / 'downloads' / 'historico.csv'
+    planilha.parent.mkdir()
+    planilha.write_text(
+        'Disciplina;Assunto;Questão;Resultado\nConhecimentos;Assunto qualquer;#4321;Errado\n'
+        'Conhecimentos;Assunto qualquer;#4322;Certo\n',
+        encoding='utf-8',
+    )
+
+    assert main(['--yes', '--no-open', 'pratica', 'import', str(planilha), '--candidate', 'zuleica']) == 0
+
+    assert '[pratica]' in (projeto / '.concurso' / 'config.toml').read_text(encoding='utf-8')
+    assert [p.name.startswith('tec-erros-planilha-historico-') for p in (projeto / 'tec').iterdir()] == [True]
+    assert erros_tec(projeto).read_text(encoding='utf-8').splitlines()[1].startswith('q4321,')
+
+
+def test_simulado_com_os_erros_tem_o_gabarito_no_fim(projeto):
+    com_pratica(projeto)
+    dados = json.loads(json.dumps(EXPORTACAO))
+    dados['erros'][0] |= {'gab': 'C', 'marc': 'E', 'enun': 'Texto <com> marcação'}
+    exportacao(projeto / 'tec', dados=dados)
+
+    assert main(['--yes', '--no-open', '--candidate', 'zuleica']) == 0
+
+    pagina = (projeto / 'analises' / 'zuleica' / PASTA_PRATICA / 'simulado_tec.html').read_text(
+        encoding='utf-8'
+    )
+    assert 'Texto &lt;com&gt; marcação' in pagina
+    assert pagina.index('Texto &lt;com&gt;') < pagina.index('<h2>Gabarito</h2>')
+    assert 'Questão 1: C (você marcou E)' in pagina

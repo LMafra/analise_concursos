@@ -1,4 +1,6 @@
+from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from nicegui.testing.user import User
@@ -15,6 +17,10 @@ NOVIDADE = atualizacao.Novidade(
     plataforma='linux-x86_64',
     artefato=Artefato('concurso-analise-9.0.0-linux-x86_64.AppImage', 'a' * 64, 250_000_000),
     url='https://github.com/LMafra/analise_concursos/releases/download/v9.0.0/x',
+)
+
+PACOTE = SimpleNamespace(
+    manifesto=SimpleNamespace(versao='1.16.0-1'), artefato=SimpleNamespace(tamanho=360_000_000)
 )
 
 
@@ -114,3 +120,57 @@ async def test_avancado_grava_canal_e_aviso_que_comecam_desligados(user: User, p
     await user.should_see('Preferência de atualização gravada.')
     preferencias = atualizacao.ler_preferencias(Path(home_isolada) / 'config.toml')
     assert preferencias == atualizacao.Preferencias(CanalAtualizacao.BETA, True)
+
+
+@pytest.fixture
+def biblioteca_pronta(monkeypatch):
+    from concursos.aplicacao import sobre
+
+    original = sobre.resumo_do_app
+    monkeypatch.setattr(
+        sobre,
+        'resumo_do_app',
+        lambda home: replace(original(home), biblioteca='pronta', biblioteca_pronta=True),
+    )
+    return sobre
+
+
+async def test_com_biblioteca_um_clique_confere_o_app_e_a_biblioteca(
+    user: User, executavel, biblioteca_pronta, monkeypatch
+):
+    monkeypatch.setattr(atualizacao, 'verificar', lambda canal: None)
+    monkeypatch.setattr(biblioteca_pronta, 'biblioteca_nova', lambda home: PACOTE)
+    instalados = []
+    monkeypatch.setattr(
+        biblioteca_pronta,
+        'atualizar_biblioteca',
+        lambda home, progresso: instalados.append(home) or '1.16.0-1',
+    )
+
+    await user.open('/sobre')
+    await user.should_see('Verificar atualizações do app e da biblioteca')
+    user.find(marker='verificar-atualizacoes').click()
+
+    await user.should_see('Biblioteca: versão 1.16.0-1 disponível.')
+    user.find(marker='instalar-biblioteca').click()
+    await user.should_see('Atualizar a biblioteca para a 1.16.0-1?')
+    assert instalados == []
+    user.find(marker='confirmar-biblioteca').click()
+
+    await user.should_see('Biblioteca atualizada para a 1.16.0-1; seus livros continuam lá.')
+    assert len(instalados) == 1
+
+
+async def test_fora_do_executavel_com_biblioteca_confere_so_a_biblioteca(
+    user: User, biblioteca_pronta, monkeypatch
+):
+    monkeypatch.setattr(
+        atualizacao, 'verificar', lambda canal: pytest.fail('consultou o app fora do executável')
+    )
+    monkeypatch.setattr(biblioteca_pronta, 'biblioteca_nova', lambda home: None)
+
+    await user.open('/sobre')
+    await user.should_see(marker='atualizar-pelo-uv')
+    user.find(marker='verificar-atualizacoes').click()
+
+    await user.should_see('A biblioteca já está na versão mais nova.')

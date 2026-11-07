@@ -1,15 +1,18 @@
+import contextlib
 import filecmp
 import shutil
 import tempfile
 import time
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
 
+from concursos.analytics.nome_concurso import titulo_pelo_edital
+from concursos.analytics.regras_edital import Identificacao, identificar_edital
 from concursos.aplicacao.integracoes import interesses as ler_interesses
 from concursos.aplicacao.opcoes import Opcoes
-from concursos.aplicacao.projeto import concurso_alvo, concurso_do_arquivo, exigir_provas
+from concursos.aplicacao.projeto import concurso_alvo, concurso_do_arquivo, exigir_provas, proxima_pasta
 from concursos.cadastro import cadastrar
 from concursos.candidatos import adicionar_arquivo, gravar_perfil_global, pasta_do_candidato, slug
 from concursos.concurso_config import ARQUIVO_CONFIG, ConfiguracaoInvalidaError, gravar_dados, ler_dados
@@ -18,6 +21,7 @@ from concursos.deteccao import ArquivoDetectado, Papel, classificar_arquivo
 from concursos.erros import ErroDoUsuario
 from concursos.integracoes.sincronizacao_pci import Interesses
 from concursos.respostas import RespostasInvalidasError, ler_respostas_csv
+from concursos.texto import extrair_paginas
 
 PAPEIS_DO_CANDIDATO = frozenset({Papel.RESPOSTAS, Papel.FOLHA})
 PASTA_ENVIOS = 'envios'
@@ -99,14 +103,65 @@ def detectar_envio(pasta: Path) -> list[ArquivoDetectado]:
     return [classificar_arquivo(caminho, pasta) for caminho in sorted(pasta.iterdir()) if caminho.is_file()]
 
 
+@dataclass(frozen=True)
+class NomeDetectado:
+    titulo: str
+    origem: str
+
+
+def identificar_envio(papeis: Mapping[Path, Papel]) -> Identificacao | None:
+    """A identificação rápida do edital enviado (sem OCR nem IA); None sem edital legível."""
+    editais = sorted(a for a, p in papeis.items() if p is Papel.EDITAL)
+    documentos = {}
+    for arquivo in editais:
+        try:
+            documentos[arquivo.name] = extrair_paginas(arquivo, ocr=False)
+        except (OSError, UnicodeDecodeError, ValueError):
+            continue
+    return identificar_edital(documentos) if documentos else None
+
+
+def nome_detectado(papeis: Mapping[Path, Papel]) -> NomeDetectado | None:
+    identificacao = identificar_envio(papeis)
+    titulo = titulo_pelo_edital(asdict(identificacao)) if identificacao else None
+    return NomeDetectado(titulo, 'do edital') if titulo else None
+
+
+def pasta_automatica(contexto: Contexto, identificacao: Identificacao | None) -> Path:
+    """`sigla_ano` pelo edital (`tcu_2025`, depois `tcu_2025_2`); sem sigla, `concurso_AAAAMMDD`."""
+    base = f'concurso_{date.today():%Y%m%d}'
+    if identificacao is not None and identificacao.sigla.valor:
+        partes = [identificacao.sigla.valor, identificacao.ano.valor]
+        with contextlib.suppress(ConfiguracaoInvalidaError):
+            base = slug(' '.join(str(p) for p in partes if p))
+    return proxima_pasta(contexto, base)
+
+
+def corrigir_titulo(opcoes: Opcoes, concurso: str, titulo: str) -> None:
+    """Grava o nome escolhido pelo usuário (`titulo`), que vence o do edital; vazio, volta ao do edital."""
+    pasta = concurso_alvo(opcoes.contexto, concurso).pasta
+    dados = ler_dados(pasta)
+    novos = {k: v for k, v in dados.items() if k != 'titulo'}
+    if titulo.strip():
+        novos['titulo'] = titulo.strip()
+    if opcoes.dry_run:
+        opcoes.saida(f'gravaria o nome {titulo.strip() or "do edital"} em {pasta.name}')
+        return
+    if novos != dados:
+        gravar_dados(pasta, novos)
+
+
 def cadastrar_envio(
-    opcoes: Opcoes, concurso: str, papeis: Mapping[Path, Papel], candidato: str | None
+    opcoes: Opcoes, concurso: str | None, papeis: Mapping[Path, Papel], candidato: str | None
 ) -> Path | None:
     """Copia para o concurso os arquivos da prova e cadastra com os papéis confirmados; as respostas e a
-    folha vão para a pasta do candidato. Recusado ou com falha, a pasta fica como estava; devolve None
-    se o usuário recusar."""
+    folha vão para a pasta do candidato. Sem `concurso`, a pasta é a automática, pelo edital. Recusado ou
+    com falha, a pasta fica como estava; devolve None se o usuário recusar."""
     contexto = opcoes.contexto
-    pasta = pasta_do_concurso(contexto, concurso)
+    if concurso is None:
+        pasta = pasta_automatica(contexto, identificar_envio(papeis))
+    else:
+        pasta = pasta_do_concurso(contexto, concurso)
     da_prova = {a: p for a, p in papeis.items() if p not in PAPEIS_DO_CANDIDATO | {Papel.IGNORADO}}
     do_candidato = sorted(a for a, p in papeis.items() if p in PAPEIS_DO_CANDIDATO)
     nome = candidato or contexto.candidato

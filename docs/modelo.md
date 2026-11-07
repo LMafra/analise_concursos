@@ -182,7 +182,7 @@ Nível e escolaridade são opcionais e ficam `nao_informado` quando ausentes.
 O módulo `concursos.analytics.regras_edital` lê do texto do edital e dos anexos (sem OCR e sem LLM) o que vai além do conteúdo programático e da regra de correção. O resultado é gravado no `edital_estruturado.json`. Cada valor é um **campo** com:
 
 - `valor`;
-- `fonte`: `retificacao`, `edital`, `config`, `perfil`, `default`, `descoberta` ou `llm`;
+- `fonte`: `retificacao`, `edital`, `config`, `perfil`, `default`, `descoberta`, `llm` ou `pci` (só no nome do concurso, pelo título do PCI);
 - `trecho_origem`, `documento_origem` e `pagina_origem`, sempre preenchidos quando a fonte é `retificacao`, `edital` ou `descoberta`;
 - `confianca_extracao`, de 0 a 1;
 - `camada`, só no JSON: `heuristica` (fontes `retificacao`, `edital` e `descoberta`), `llm`, `perfil`, `config` ou `nenhuma` (`default`).
@@ -198,14 +198,14 @@ A precedência é retificação, depois edital, depois configuração, depois pe
 - `fator_penalidade`: regra de correção no default;
 - `nota_corte`: nenhum corte calculável fora da discursiva.
 
-O arquivo traz um cabeçalho, a lista do que foi extraído (ou "Nada foi extraído do edital") e, para cada campo, um comentário e a chave vazia. Já existindo, só ganha as chaves que faltam; o que o usuário escreveu fica. Na próxima análise, os valores preenchidos entram como se estivessem no `concurso.yaml` (fonte `config`; `fator_penalidade` e `nota_corte` dentro de `correcao`), e o `concurso.yaml` vence quando os dois trazem o campo. Chave desconhecida ou valor inválido param a análise com o nome do arquivo.
+O arquivo traz um cabeçalho, a lista do que foi extraído (ou "Nada foi extraído do edital") e, para cada campo, um comentário e a chave vazia. Já existindo, só ganha as chaves que faltam; o que o usuário escreveu fica. O usuário preenche os valores pela tela de conferência ("Conferir" no card do concurso, aba "Dados do edital"); ver [Conferência pela tela](#conferência-pela-tela). Na próxima análise, os valores preenchidos entram como se estivessem no `concurso.yaml` (fonte `config`; `fator_penalidade` e `nota_corte` dentro de `correcao`), e o `concurso.yaml` vence quando os dois trazem o campo. Chave desconhecida ou valor inválido param a análise com o nome do arquivo.
 
 **Retificações.** Há duas formas de um valor sair com fonte `retificacao`:
 
 - **PDF de retificação:** o arquivo é declarado em `edital.retificacoes` e lido só pelas regras do edital (o conteúdo programático e a correção não o veem). A busca percorre as retificações da mais recente para a mais antiga, e só depois o edital e os anexos. O valor encontrado numa retificação vence o do edital, campo a campo, com o trecho e o documento da retificação. A ordem dos cortes continua a do edital.
 - **Nota inline no edital consolidado:** a frase do trecho é seguida da nota "(Retificado por meio do Edital nº …)", antes do próximo subitem e com no máximo um fim de frase entre as duas. O documento de origem continua sendo o edital.
 
-**Identificação** (`identificacao`). Tem os campos `nome_oficial` (o órgão na capa), `edital` (a linha "EDITAL Nº …" da capa), `cargo`, `especialidade`, `vagas`, `cadastro_reserva` e `teto_classificados`, mais `cargo_casado` (lógico) e `cargos_do_edital` (lista). O cargo vem do edital:
+**Identificação** (`identificacao`). Tem os campos `nome_oficial` (o órgão na capa), `edital` (a linha "EDITAL Nº …" da capa), `cargo`, `especialidade`, `vagas`, `cadastro_reserva` e `teto_classificados`, mais `cargo_casado` (lógico), `cargos_do_edital` (lista), `sigla` e `ano`. O cargo vem do edital:
 
 - **Lista de cargos:** as linhas "CARGO N: …" ou "EMPREGO N: …" (Cebraspe), os blocos temáticos (CPNU), o cargo da capa ("PARA O CARGO DE …", edital de um cargo só) ou os cargos citados no preâmbulo ("vagas para o cargo de Analista de Gestão", FGV).
 - **Casamento:**
@@ -366,6 +366,7 @@ incluir_simulados = false  # true: os simulados do PCI entram no consolidado e n
 - **`[candidato] ultimo`:** o último candidato analisado; vale quando não há `--candidate` nem `CONCURSO_CANDIDATO`.
 - **`[migracao]`:** o registro da migração das fases 1 a 3 (`versao = 4`, `candidato`, `backup`, `data`).
 - **`[pratica]`:** a prática no TEC (opcional); veja "Prática no TEC (tec-erros)".
+- **`[dicionario]`:** `usar` (booleano; sem a chave, o dicionário vale quando o arquivo existe) e o resumo do último teste de ganho, gravado pelo app: `antes` e `depois` (taxas de 0 a 1), `n`, `data` (ISO) e `alerta`; veja "Dicionário de temas".
 - **`incluir_simulados`:** booleano; veja "PCI Concursos opcional".
 
 ## Onboarding (fase 4)
@@ -389,7 +390,7 @@ Roda no comando sem subcomando quando o projeto não tem `config.toml`, e sempre
 - **Calibração:** detecta a grade da folha de amostra sem perfil, deduz o número de alternativas do espaçamento entre as colunas de bolhas (maior entre itens do que dentro de um item) e mede a tinta das 5 primeiras questões da primeira coluna. As respostas digitadas (letra ou `-`, sem diferença de caixa) separam as bolhas em marcadas e vazias: `vazio` e `cheio` são as medianas de cada grupo, e `limiar_marcada` fica no meio entre a marcada mais fraca e a vazia mais forte, na escala de 0 a 1 entre `vazio` e `cheio` (limitado a 0,05 a 0,95). Reprova, sem gravar nada, quando uma letra digitada não existe na grade, quando uma bolha digitada tem menos tinta que uma não digitada, ou quando todas estão em branco; no wizard interativo, mostra o erro com a `dica:` e pergunta de novo; por flag ou variável, para com código 1.
 - **Perfil calibrado:** `./.concurso/folha_calibrada.yaml` (`id: calibrado`, `alternativas`, `vazio`, `cheio`, `limiar_marcada`) e a imagem `./.concurso/calibracao.png`. Na leitura, os limiares dele substituem os padrão da detecção automática (sem `template` ou quando o perfil da folha falha); o perfil de OCR do `template` continua vindo antes.
 - **LLM:** ao escolher um provedor pela primeira vez, o wizard diz o que vai para ele (só o texto do edital e dos anexos) e pede concordância; sem ela, fica `nenhum`. Sem a chave, diz qual variável definir; com a chave só na variável, oferece guardá-la no keyring.
-- **O que grava:** no projeto, `[pastas]` (relativas à raiz quando dentro dela) e `[candidato] ultimo`; o perfil global `~/.concurso/candidatos/<slug>.toml` com o nome digitado; e, na configuração global `~/.concurso/config.toml`, `[candidatos] conhecidos` (lista de slugs) e `[llm]` (`provedor`, `url`, `modelo`, `variavel_chave`, `consentimento`). A chave de API nunca vai para o TOML.
+- **O que grava:** no projeto, `[pastas]` (relativas à raiz quando dentro dela) e `[candidato] ultimo`; o perfil global `~/.concurso/candidatos/<slug>.toml` com o nome digitado; e, na configuração global `~/.concurso/config.toml`, `[candidatos] conhecidos` (lista de slugs) e `[llm]` (`provedor`, `url`, `modelo`, `variavel_chave`, `consentimento` e, na fase 7, `consentimento_livros`). A chave de API nunca vai para o TOML.
 
 ## LLM opcional (fase 4)
 
@@ -459,6 +460,7 @@ timeout = 30              # segundos por consulta
 ttl_horas = 24            # validade do cache
 cargos = ["analista"]     # reserva dos cargos-alvo do candidato
 uf = "mg"                 # sigla de 2 letras, ou vazio
+cidade = ""               # nome oficial de um município da UF (lista do IBGE), ou vazio
 regiao = ""               # norte | nordeste | centro-oeste | sudeste | sul, ou vazio
 dias_alerta = 15          # o radar mostra o que fecha ou abre nesse prazo
 pasta_downloads = ""      # vazio: ~/Downloads (no WSL, a Downloads do usuário do Windows)
@@ -474,11 +476,21 @@ uf = "df"
 
 - **Campos:** desconhecidos ou de tipo errado levantam `ConfiguracaoInvalidaError`; o `doctor` mostra `✗` com a seção a corrigir e nunca consulta o servidor.
 - **Cache** `.concurso/cache/pci_mcp.json`: `{"<sha256>": {"ferramenta", "argumentos", "obtido_em", "data_atual", "resposta"}}`. A chave é o sha256 da ferramenta e dos argumentos normalizados (sem vazios, sem acento, minúsculas, chaves ordenadas). Respostas vazias entram; `isError` não. Gravado só quando muda.
-- **Interesses** `.concurso/interesses_pci.yaml`: `interesses: [{id, titulo, uf, inicio, fim, link, registrado_em, concurso?}]`, gravado por `discover --register ID` e limpo por `discover --forget ID`; `concurso` é a pasta vinculada por `add <pasta> --pci ID`.
+- **Filtros lembrados:** "Lembrar estes filtros", na tela Encontrar, grava `cargos`, `uf`, `cidade` e `regiao` em `[pci_mcp]` por `gravar_filtros_pci`. A cidade exige a UF e tem de ser dela; ela é gravada com o nome oficial do IBGE. Numa busca sem filtro, a cidade lembrada só vale na UF dela.
+- **Municípios** `src/concursos/dados/municipios_ibge.json`: `{"<UF>": [nomes em ordem alfabética]}`, a lista do IBGE embutida no pacote (5.571 nomes, 27 UFs). O app não a consulta pela rede; `scripts/atualizar_municipios.py` a regenera à mão antes de uma release.
+- **Datas:** toda exibição ao usuário (GUI, `radar_editais.md`, `index.html`, tabela do `discover`) usa DD/MM/AAAA por `datas.data_br`. O cache, os interesses e o `radar_editais.json` continuam em ISO.
+- **Interesses** `.concurso/interesses_pci.yaml`: `interesses: [{id, titulo, uf, inicio, fim, link, registrado_em, concurso?}]`, gravado por `discover --register ID` e limpo por `discover --forget ID`; `concurso` é a pasta vinculada por `add <pasta> --pci ID` ou por `adicionar_ao_projeto`.
+- **Adicionar ao meu projeto** (`discover --add ID`, ou o botão do card na tela Encontrar): `adicionar_ao_projeto` acompanha o concurso e cria `provas/<sigla_ano>/` (o título do PCI antes do " - ", até 4 palavras, com `_2`, `_3`… se já existir) com um `concurso.yaml` só com `nome` e `pci`. A pasta fica INCOMPLETA ("falta o edital e os arquivos da prova") até o envio dos arquivos, que preserva o bloco `pci`. Até lá, o nome mostrado é o título do PCI, a confirmar (`nomes.nome_sem_cadastro`). Adicionar de novo devolve a mesma pasta.
+- **Situação do cache:** a tela Encontrar mostra "Atualizado há N horas" pelo maior `obtido_em` do cache (`situacao_do_cache`); "Atualizar agora" refaz a busca com `refresh`.
+- **Região no card:** `regiao_do_concurso` dá "Sudeste · MG" (a região do PCI ou a da UF) e, com UF `BR`, "Nacional — todas as regiões". O PCI não informa a cidade da prova.
 - **`pci:` no `concurso.yaml`:** `{id, titulo, link}` do concurso PCI vinculado. `pci.termos_provas` (lista) substitui os termos automáticos de `pci provas`.
 - **`simulado:` no `concurso.yaml`:** marca uma prova anterior do PCI como simulado. Campos: `fonte` (`pci` ou `manual`, padrão `manual`), `id_pci` (int), `ano_original` (int), `organizadora`, `orgao`, `descricao`, `link`, `concurso_alvo` (pasta do alvo) e `cargo_alvo` (o cargo usado para ler o edital emprestado). O `edital` aponta para o do alvo (`../<alvo>/<arquivo>`), só para os tópicos: a correção vem do `concurso.yaml` e do perfil da banca da prova, e as regras do edital do alvo não são extraídas. O manifesto inclui o hash do edital de fora da pasta. `data_prova` é o dia em que o candidato resolveu (o `add` das respostas grava hoje, quando falta).
 - **Simulados e consolidado:** com `incluir_simulados = false` (padrão), ficam fora de `desempenho_geral.csv`, do comparativo, do parquet e de `contar_questoes(raiz_analises, raiz_provas)`. O schema do parquet não muda. No `index.html`, aparecem na seção "Simulados (provas anteriores do PCI)", fora da tabela de concursos.
 - **`analises/<candidato>/<alvo>/provas_anteriores.md`:** a lista de `pci provas <alvo>` (id, ano, órgão, cargo, banca e página), gravada só quando muda.
+- **Importação em lote** (`pci provas <alvo> --import-all`, ou "Importar selecionadas" e "Importar todas" na tela): `importar_simulados` importa uma prova por vez, com a mesma espera do `--download`. A falha de uma vira aviso e o lote segue; cancelar a espera encerra o lote, e as que faltavam ficam como não tentadas. Uma prova cuja pasta já tem `provas` no `concurso.yaml` não é aberta de novo. O código de saída é 1 se alguma falhou.
+- **Revisão do simulado antes das respostas:** logo depois do cadastro, `pipeline.preparar_revisao` classifica as questões da prova importada pelo edital emprestado e grava só `revisao/questoes_revisado.csv` (a análise continua exigindo as respostas). Um simulado sem a revisão é classificado na próxima análise.
+- **Simulado focado** `analises/<candidato>/consolidado/simulado_focado.md`: depois de cada análise, só se o projeto tem simulados. Na ordem dos tópicos fracos persistentes (`topicos_fracos`), até 5 questões por tópico e 30 no total, tiradas das revisões dos simulados (a correção manual vence a sugestão; as questões já acertadas pelo candidato ficam fora; `nao_mapeado` nunca entra). O tópico casa pelo texto normalizado e, quando a questão tem disciplina, também pela disciplina. Aparece no `index.html` e na tela Provas anteriores ("Ver"). Gravado só quando muda.
+- **Termo previsto:** `termos_previstos(contexto, alvo)` devolve os `termos_automaticos` do alvo, e a tela os mostra no campo Termo antes da busca.
 - **Radar** (depois de cada análise, com `enabled`): entram os concursos dos cargos-alvo abertos com `dias_ate_fim <= dias_alerta` e os que ainda não abriram com `dias_ate_inicio <= dias_alerta`, mais os interesses até o `fim`, juntados pelo `id` e ordenados pelo prazo. Os dias vêm do PCI, relativos ao `meta.data_atual`. Grava, só quando muda:
   - `analises/<candidato>/radar_editais.json`: `{data_referencia, dias_alerta, cargos, itens: [{id, titulo, uf, inicio, fim, situacao, dias_ate_fim, link, interesse, concurso}]}`, lido pelo `status` e pelo `doctor`, que não falam com o PCI;
   - `analises/<candidato>/radar_editais.md`: a seção "Editais que fecham em breve" do `index.html`.
@@ -486,9 +498,11 @@ uf = "df"
 
 ## Fontes de estudo: biblioteca e legislação
 
-Opcionais e independentes; sem `.concurso/biblioteca.yaml` e sem `[legislacao]`, nenhuma saída muda. São sugestões: não trocam o tópico nem a disciplina de nenhuma questão.
+Opcionais e independentes; sem livros na biblioteca do app, sem `.concurso/biblioteca.yaml` e sem `[legislacao]`, nenhuma saída muda. São sugestões: não trocam o tópico nem a disciplina de nenhuma questão.
 
-`.concurso/biblioteca.yaml` (projeto, fora do git), disciplina canônica → categorias `<main> › <sub>` da estante do projeto `books`:
+**Livros do app (fase 7).** Com algum livro lido (`lido`, `enviando` ou `pronto`) na biblioteca do app, a própria disciplina de cada livro também é categoria (`MapaBiblioteca.por_disciplina`), mesmo sem `biblioteca.yaml`, e a busca de recomendações usa o índice local dos livros (`BuscaLocal`, sem abrir o open-notebook). Sem livros do app, a busca no open-notebook externo segue como antes.
+
+**`biblioteca.yaml` (legado, opcional).** `.concurso/biblioteca.yaml` (projeto, fora do git), disciplina canônica → categorias `<main> › <sub>` da estante do projeto `books`. Uma migração única (`migracao.migrar_biblioteca_yaml`, chamada antes da análise) passa os livros do app cuja disciplina é uma categoria do arquivo para a disciplina mapeada, com backup verificado em `~/.concurso/backup-biblioteca-<data>/` (o `biblioteca.yaml`, o `biblioteca.sqlite` e o `hashes.json`), e registra `[migracao_biblioteca] feita` e `livros` no `config.toml` do projeto. O arquivo fica onde está:
 
 ```yaml
 catalogo: ../books/Bookshelf/README.md   # relativo à raiz do projeto; opcional
@@ -515,6 +529,7 @@ repositorio = "~/projects/leis"
 | Fonte | Camada | Detalhe |
 |---|---|---|
 | `legislacao` | normas citadas no próprio tópico, do clone | trecho citado, `fonte` oficial, arquivo e avisos da norma |
+| `livros` | o índice local dos livros do app da disciplina, por trechos do tópico; até `LIVROS_POR_TOPICO` (3), origem `Meus livros` | a página do melhor trecho (`p. N`) |
 | `open_notebook` | `POST /api/search` `type=text` nos notebooks `Biblioteca — <categoria>` mapeados, por trechos do tópico; até `LIVROS_POR_TOPICO` (3) | relevância (a busca não devolve trecho) |
 | `catalogo` | sem rede, com erro ou sem resultado: os livros das categorias mapeadas, primeiro os que dividem palavras com o tópico | — |
 
@@ -539,6 +554,7 @@ open_notebook = false   # true: o caderno de erros vai ao open-notebook (enuncia
 ```
 
 - **Comando:** `concurso-analise pratica import [arquivo]` valida o arquivo (`app` e `v`; campo desconhecido é aviso), copia para `entrada_tec` e roda a análise; sem arquivo, só analisa. A análise padrão lê a pasta sempre que a seção existe. `--dry-run` não copia nem grava.
+- **Planilha** (`planilha_tec`): o arquivo pode ser também a planilha `.csv` ou `.xlsx` que o usuário exportou do TEC; o app não acessa o TEC. O CSV é lido em utf-8 (com ou sem BOM) ou, se falhar, em latin-1, com o separador (`;`, `,` ou tabulação) que mais aparece na primeira linha; o XLSX, pela primeira aba, com o openpyxl. `detectar_colunas` acha cada campo (`materia`, `assunto`, `enunciado`, `resultado`, `data`, `banca`, `orgao`, `ano`, `gabarito`, `marcada`) pelo nome do cabeçalho (sinônimo exato, depois prefixo; uma coluna por campo); `materia` e `resultado` são obrigatórios, e o resultado aceita certo/errado, C/E, sim/não, 1/0. Na GUI, o usuário confere as colunas em selects; o mapeamento fica nas escolhas, em `planilhas`, pela `assinatura` do cabeçalho (sem acento e sem caixa), e a mesma planilha já vem conferida. A conversão grava `tec-erros-planilha-<nome do arquivo>-<AAAA-MM-DD>.json` em `entrada_tec` (contrato v1, `dev = "planilha"`), criando `[pratica]` se faltar: cada linha errada vira um erro de `origem = historico`, com `id = q<número>` quando a coluna da questão é só o número e, senão, `h` + o FNV-1a de 32 bits dos 600 primeiros caracteres do enunciado, o mesmo do `nucleo.js` (a questão da planilha e a da captura se juntam); cada matéria vira um caderno `planilha:<arquivo>:<matéria>` com `tot`, `res`, `ac`, `er` e a data mais recente. Linha sem matéria ou com resultado desconhecido é ignorada e contada no resumo; sem nenhuma linha reconhecida, nada é gravado.
 - **Mesclagem** (`pratica_tec`, as mesmas regras de `core/nucleo.js`): por `id` ou pela impressão digital `fp` (enunciado sem acento, minúsculo, espaços simples, 300 caracteres); `ds` é a união dos eventos (data e hora locais) e `v = len(ds)`, ou 1 sem evento; um registro de histórico (`OrigemErroTec.HISTORICO`) nunca soma ao tempo real; campo vazio é preenchido, `com` fica com o texto mais longo, `d` é a menor data; sem mudança, o registro (e o `t`) fica como estava. Cadernos: vence o de maior `res` e, no empate, o de maior `t`. Arquivo inválido é aviso e os outros seguem.
 - **`caderno-estado.json`** (exportado pelo `caderno.html`, na mesma pasta): `removidos` saem das tabelas; `aliases`, `materias` e `cadernos` são sugestões que o app aproveita.
 - **Disciplina:** a matéria do TEC casa com um nome da `.concurso/taxonomia.yaml` (sem diferença de acento, caixa e palavras vazias) ou com `materias` das escolhas; sem casamento, a disciplina fica vazia e o aviso pede para acrescentá-la em `nomes:`.
@@ -550,6 +566,7 @@ open_notebook = false   # true: o caderno de erros vai ao open-notebook (enuncia
 aliases: {"Simples Nacional": "Simples Nacional: regime único", "Assunto alheio": null}
 materias: {"Direito Tributário": "Legislação Tributária"}
 cadernos: {"c87654321": {"modo": "daqui", "base": {"res": 2, "ac": 0, "er": 2}}}
+planilhas: {"3f9a0c21b7d4e815": {"materia": "Disciplina", "resultado": "Acertou?", "enunciado": "Questão"}}  # só com planilha importada
 ```
 
 Saídas em `analises/<candidato>/pratica/`, com `gravar_se_mudou`; o parquet, o `correcao.json` e os CSVs das fases 1 a 3 não mudam:
@@ -560,6 +577,7 @@ Saídas em `analises/<candidato>/pratica/`, com `gravar_se_mudou`; o parquet, o 
 | `cadernos_tec.csv` | `id`, `caderno`, `materia_tec`, `disciplina`, `modo`, `total`, `resolvidas`, `acertos`, `erros` (já descontada a base), `percentual`, `amostra_insuficiente` (n < `N_MINIMO_TOPICO`) |
 | `desempenho_pratica_por_disciplina.csv` | `disciplina`, `n`, `acertos`, `erros`, `percentual`, `amostra_insuficiente`, `cadernos`, `erros_registrados`, `repetidos` (v ≥ 2) |
 | `resumo_pratica.md` | a seção "Prática no TEC" do `index.html` |
+| `simulado_tec.html` | página para refazer os erros: os dos tópicos fracos da prova (até `MAXIMO_SIMULADO_POR_TOPICO`, 10, por tópico e `MAXIMO_SIMULADO`, 40, no total), dos mais repetidos para os menos, ou, sem cruzamento, os `MAXIMO_REPETIDOS` mais repetidos; enunciado, alternativas e origem, com o gabarito (e a resposta marcada) só no fim; gravada só com algum erro |
 
 - **Seção "Prática no TEC":** a prioridade de revisão (tópico fraco de `calcular_achados(...).fracos` com erro repetido no TEC no mesmo tópico, comparando por `chave_de_palavras`, com o percentual ajustado e o n da prova), os até `MAXIMO_REPETIDOS` (20) erros repetidos, os cadernos e o desempenho por disciplina; n < `N_MINIMO_TOPICO` sai como "amostra insuficiente (n = …)".
 - **open-notebook:** só com `[pratica] open_notebook = true` e a sincronização ligada, o notebook `Caderno de erros — <rótulo>` (chave `<slug>/_caderno_de_erros`) recebe uma source por disciplina, `concurso-analise: caderno de erros/<disciplina>`, com assunto, banca, enunciado, alternativas, a resposta marcada, o gabarito e o comentário do professor. Esse conteúdo é do TEC: se a instância usa um provedor de IA na nuvem, o chat dela o envia para lá.
@@ -672,6 +690,7 @@ O arquivo é gerado por `concursos adicionar` e pode ser editado à mão. Os cam
 
 ```yaml
 nome: tcu_25
+titulo: TCU 2025 — AUFC        # opcional: o nome corrigido pelo usuário ("Corrigir nome"); vence o do edital
 banca: cebraspe                # cebraspe | fgv | selecon | quadrix
 formato: certo_errado          # multipla_escolha | certo_errado
 pontuacao: cebraspe            # simples | cebraspe (padrão: simples)
@@ -738,7 +757,7 @@ Todo arquivo da pasta precisa aparecer no `concurso.yaml` (num campo ou em `igno
 
 ## Taxonomia de disciplinas
 
-A taxonomia fica em `./.concurso/taxonomia.yaml`. É escrita e revisada à mão. Ela mapeia cada nome de disciplina, como aparece nos `questoes.csv`, para uma **disciplina canônica**. Assim, a mesma matéria é comparada entre editais que usam nomes diferentes:
+A taxonomia fica em `./.concurso/taxonomia.yaml`. É gravada pela tela Configurações > "Disciplinas e temas" (ver [Conferência pela tela](#conferência-pela-tela)), e editá-la à mão continua valendo. Ela mapeia cada nome de disciplina, como aparece nos `questoes.csv`, para uma **disciplina canônica**. Assim, a mesma matéria é comparada entre editais que usam nomes diferentes:
 
 ```yaml
 Raciocínio Lógico:
@@ -783,7 +802,7 @@ O arquivo `provas/<concurso>/revisao/questoes_revisado.csv` é criado na primeir
 - `enunciado` (trecho);
 - `disciplina`, `topico` (para o usuário preencher).
 
-Células não vazias em `disciplina` e `topico` têm prioridade sobre a sugestão. Editar o arquivo dispara o reprocessamento.
+Células não vazias em `disciplina` e `topico` têm prioridade sobre a sugestão. Editar o arquivo dispara o reprocessamento. A tela de conferência grava as duas colunas das questões escolhidas (`topicos.gravar_revisao_editada`), sem mexer nas outras linhas nem nas colunas; "Nenhum" grava `topico = nao_mapeado`.
 
 ## Contratos de saída
 
@@ -798,14 +817,15 @@ Por concurso, em `analises/<concurso>/`:
 - **`questoes.csv`:** colunas:
   - `questao`, `prova`, `disciplina`;
   - `topico_sugerido`, `score`, `topico`, `revisado`;
-  - `gabarito`, `anulada`, `resposta`, `resultado`.
+  - `gabarito`, `anulada`, `resposta`, `resultado`;
+  - só com o [dicionário de temas](#dicionário-de-temas) ligado, no fim: `score_tfidf`, `topico_tfidf` (a sugestão sem o dicionário) e `score_expandido` (igual a `score`). O parquet não muda.
 - **`diff_gabarito.csv`** (após a troca de gabarito): colunas:
   - `prova`, `questao`;
   - `gabarito_preliminar`, `gabarito_definitivo`;
   - `mudanca` (`alterada | anulada`);
   - `resposta`, `acerto_antes`, `acerto_depois`.
 - **`edital_estruturado.json`:** `fonte`, `cargo` e `conhecimentos[].disciplinas[].topicos[]`. Cada tópico tem `numero`, `nome`, `descricao` e `peso`. Quando há PDF do edital, o arquivo ganha as [regras do edital](#regras-do-edital-fase-3) (`identificacao`, `avisos` e os blocos descritos lá). Cada parte grava só as próprias chaves e preserva as outras.
-- **`discrepancias_edital.csv`:** uma linha por divergência entre o edital e a prova, com as colunas `item, esperado_edital, observado_prova, diferenca, severidade, acao_sugerida`. A `severidade` é `info`, `warn` ou `error`; a `diferenca` fica vazia quando não é numérica. Só existe quando há PDF do edital, e fica só com o cabeçalho quando tudo confere.
+- **`discrepancias_edital.csv`:** uma linha por divergência entre o edital e a prova, com as colunas `item, esperado_edital, observado_prova, diferenca, severidade, acao_sugerida, nome_oficial, cargo`. `nome_oficial` e `cargo` (com a especialidade depois de " – ", quando houver) vêm da identificação do edital e se repetem em toda linha. A `severidade` é `info`, `warn` ou `error`; a `diferenca` fica vazia quando não é numérica. Só existe quando há PDF do edital, e fica só com o cabeçalho quando tudo confere.
 - **`catalogo_edital.md`:** o catálogo de descobertas do edital (template em "Regras do edital"). Só existe quando há PDF do edital.
 - **`correcao.json`:** lista de configurações de correção (uma por variante; uma só quando o concurso não tem variantes). Campos:
   - `modelo`, `fator_penalidade`, `nota_maxima`, `nota_corte`;
@@ -865,7 +885,7 @@ No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_htm
 
 Sai com 2 se algum item tem `✗`, senão com 0.
 
-**`upgrade`.** Instalado pelo `uv`, só imprime `uv tool upgrade concurso-analise`; com `--run`, executa-o pelo `uv` do PATH (sem ele, sai com 2 e a `dica:` de instalação). No executável (fase 6), consulta o manifesto do canal (`--canal stable|beta`, padrão o de `[atualizacao]`) e diz se há versão nova; com `--run`, baixa, confere e aplica (ver "Atualizador"). Com `--dry-run` ou `--offline`, não consulta nada. A ferramenta nunca se atualiza sem um pedido.
+**`upgrade`.** Instalado pelo `uv`, só imprime `uv tool upgrade concurso-analise`; com `--run`, executa-o pelo `uv` do PATH (sem ele, sai com 2 e a `dica:` de instalação). No executável (fase 6), consulta o manifesto do canal (`--canal stable|beta`, padrão o de `[atualizacao]`) e diz se há versão nova; com `--run`, baixa, confere e aplica (ver "Atualizador"). Com `--dry-run` ou `--offline`, não consulta nada. A ferramenta nunca se atualiza sem um pedido. Nos dois casos, com a biblioteca preparada, o `upgrade` também procura o pacote de estudo mais novo (`estudo.avisar_atualizacao_da_biblioteca`) e só informa: instalar é o `estudo preparar`. Sem biblioteca, nada é consultado para ela.
 
 **Idempotência.** Uma execução sem mudança nas entradas não altera nenhum `mtime` em `analises/`, nem com `--dry-run`: as saídas por concurso dependem do manifesto, o `index.html` só é regerado quando algo foi reprocessado, e o consolidado (`desempenho_geral.csv`, `comparativo_concursos.md`) só é regravado quando o conteúdo muda.
 
@@ -885,9 +905,11 @@ canal = "stable"                     # ou "beta"
 verificar_ao_abrir = false           # consulta o GitHub ao abrir a GUI, no máximo 1 vez a cada 24 h
 ```
 
-**Resultados e configurações pela GUI.** O relatório aparece num `iframe`: a pasta `analises/<candidato>/` é servida em `/_analises/<hash do caminho>/`, só em `127.0.0.1` e sem cache, e "Abrir no navegador" usa o mesmo `abrir_no_navegador` da CLI (no WSL, o navegador do Windows). As abas de recomendações e de prática mostram `consolidado/recomendacoes_estudo.md` e `pratica/resumo_pratica.md` (com as tabelas da prática), ou explicam por que ainda não existem. A tela de configurações grava `[analise]` pelo `gravar_analise`; a IA começa desmarcada, ligar grava `[llm]` com `consentimento = true` e a chave vai para `llm.guardar_chave` (keyring ou `~/.concurso/.env` com permissão 600), e desmarcar grava `provedor = "nenhum"`.
+**Resultados e configurações pela GUI.** O relatório aparece num `iframe`: a pasta `analises/<candidato>/` é servida em `/_analises/<hash do caminho>/`, só em `127.0.0.1` e sem cache, e "Abrir no navegador" usa o mesmo `abrir_no_navegador` da CLI (no WSL, o navegador do Windows). As abas de Resultados são Relatório, Tópicos para estudar (os botões "Procurar nos meus livros" de cada tópico fraco e `consolidado/recomendacoes_estudo.md`), Simulado focado (`consolidado/simulado_focado.md` e o botão que abre `pratica/simulado_tec.html`), Prática no TEC (`pratica/resumo_pratica.md` com as tabelas da prática) e Exportar; cada uma explica por que ainda está vazia. A tela de configurações grava `[analise]` pelo `gravar_analise`; a IA começa desmarcada, ligar grava `[llm]` com `consentimento = true` e a chave ("Chave de acesso") vai para `llm.guardar_chave` (keyring ou `~/.concurso/.env` com permissão 600), e desmarcar grava `provedor = "nenhum"`. Com a IA ligada, "Responder perguntas com base nos meus livros" (desmarcado no começo, com o texto do que é enviado) grava `consentimento_livros` em `[llm]`, o mesmo consentimento de Estudar > Perguntar.
 
-**Integrações pela GUI.** A tela Integrações tem quatro abas. Desligada, cada integração mostra só o texto de `aplicacao.integracoes.aviso_*` e o botão "Concordo e ligar", e nenhuma consulta é feita. Descobrir concursos e Provas anteriores chamam o PCI por `descobrir` e `provas_anteriores`; "Acompanhar no radar" grava em `.concurso/interesses_pci.yaml` pelo `registrar_interesse`. "Importar como simulado" roda `importar_simulado` numa thread, com a espera na pasta de downloads interrompida pelo botão Cancelar (`espera_cancelavel`); o app continua sem pedir o link do PDF ao PCI. A aba open-notebook grava `[open_notebook]` com `enabled` e `consentimento` e sincroniza com um botão. A aba Prática no TEC valida todas as exportações soltas antes de copiar a primeira; sem `[pratica]`, ela grava `entrada_tec = "tec"`. A instalação da captura usa o `dist/` do `tec-erros/` (no executável, a pasta `tec-erros/` do `_MEIPASS`); sem ele, a aba aponta para as instruções do repositório.
+**Navegação (fase 7).** O menu principal tem Concursos (`/`, com as abas Meus concursos, Encontrar concursos e Provas anteriores, escolhidas por `?aba=lista|encontrar|provas`), Estudar, Analisar, Resultados e Importar do TEC (`/tec`); Configurações e Sobre ficam no menu utilitário (ícone ⋮). Os endereços antigos redirecionam: `/integracoes` e `/descobrir` para `/?aba=encontrar`, `?aba=provas` para `/?aba=provas`, `?aba=tec` para `/tec` e `?aba=notebook` para `/configuracoes?secao=avancado`. O Sobre mostra a versão, o sistema, o leitor de folhas e a biblioteca (`aplicacao.sobre.resumo_do_app`, sem projeto aberto e sem rede). As telas e as mensagens ao usuário de `aplicacao/estudo.py`, `aplicacao/integracoes.py` e `planilha_tec.py` passam pelo `tests/gui/test_vocabulario.py`: nenhum localhost, porta, servidor, Docker, API, source, notebook sozinho, sincronizar, embedding ou terminal, salvo no Avançado das Configurações.
+
+**Integrações pela GUI.** Desligado, o PCI mostra só o texto de `aplicacao.integracoes.aviso_pci` e o botão "Concordo e ligar", e nenhuma consulta é feita; ligar ou desligar refaz o painel no lugar. Encontrar concursos e Provas anteriores chamam o PCI por `descobrir` e `provas_anteriores`; na primeira, UF e cidade são selects (a cidade, só com a UF), e "Acompanhar" grava em `.concurso/interesses_pci.yaml` pelo `registrar_interesse`. "Importar como simulado" roda `importar_simulado` numa thread, com a espera na pasta de downloads interrompida pelo botão Cancelar (`espera_cancelavel`); o app continua sem pedir o link do PDF ao PCI. Em Configurações > Avançado, "Usar um open-notebook que já tenho" mostra o `aviso_open_notebook`, grava `[open_notebook]` com `enabled` e `consentimento` e envia as análises com um botão. A tela Importar do TEC valida todas as exportações soltas antes de copiar a primeira; sem `[pratica]`, ela grava `entrada_tec = "tec"`. Uma planilha solta mostra as colunas reconhecidas (`prever_planilha`) em selects, com as primeiras linhas, e "Importar e analisar" chama `importar_planilha` e pede a análise; o assunto sem tópico é perguntado na análise, pelo `InteracaoGui`. Com a prática já analisada, "Ver prioridades" mostra o `resumo_pratica.md` e "Ver simulado com meus erros" abre o `simulado_tec.html` (`saidas_da_pratica`). A instalação da captura usa o `dist/` do `tec-erros/` (no executável, a pasta `tec-erros/` do `_MEIPASS`); sem ele, a tela aponta para as instruções do repositório.
 
 **Executável.** O build do PyInstaller (`empacotamento/concurso-analise.spec`, onedir) gera dois executáveis na mesma pasta: `concurso-analise` (janela, sem console no Windows) e `concurso-analise-cli` (console). Os dois rodam `concursos.empacotado.principal`: sem argumentos, a GUI; com argumentos, a CLI; com `--smoke`, a conferência do pacote (versão, perfis, Tesseract com `por` e a GUI respondendo em `127.0.0.1`), que sai com 0 ou 1. Dentro de `_internal/` ficam `tesseract/bin` e `tesseract/tessdata` (o executável põe o primeiro no `PATH` e o segundo em `TESSDATA_PREFIX`), `tec-erros/` (o `dist/` da captura) e `LICENSES/`. O `doctor` e a tela Sobre mostram o Tesseract como embutido. `CONCURSO_SMOKE_SEM_OCR=1` dispensa o Tesseract no `--smoke`, só para builds de desenvolvimento. No Windows sem WebView2, a GUI abre no navegador, com aviso (veja **Janela**). No Linux, `tesseract/bin/tesseract` é um wrapper que roda o binário com o carregador e as bibliotecas que vieram com ele (`tesseract/lib`), e o executável devolve o `LD_LIBRARY_PATH` original aos processos que abre; no macOS, a árvore do Tesseract fica em `concurso-analise.app/Contents/Frameworks/tesseract`, com as dylibs relocadas para `@executable_path/../lib`.
 
@@ -908,7 +930,7 @@ Artefatos da release: `concurso-analise-<versão>-windows-x64-setup.exe`, `concu
 
 ## Fase 6: atualizador, janela, etapas e tema
 
-**Atualizador.** `concursos.atualizador` e `concursos.aplicacao.atualizador`, usados pelo Sobre da GUI e pelo `upgrade` do executável. O canal `stable` lê `https://github.com/LMafra/analise_concursos/releases/latest/download/atualizacao.json` e `.sig`; o `beta` lê `https://api.github.com/repos/LMafra/analise_concursos/releases?per_page=10` e usa a primeira release que não é rascunho. Cada release traz:
+**Atualizador.** `concursos.atualizador` e `concursos.aplicacao.atualizador`, usados pelo Sobre da GUI e pelo `upgrade` do executável. Com a biblioteca preparada, o botão do Sobre vira "Verificar atualizações do app e da biblioteca" (fora do executável, "da biblioteca"): o mesmo clique chama `aplicacao.sobre.biblioteca_nova` e, confirmado, `atualizar_biblioteca`, que instala o pacote novo e para o open-notebook em uso; o próximo uso sobe o novo, com o backup e a volta ao anterior do supervisor. O canal `stable` lê `https://github.com/LMafra/analise_concursos/releases/latest/download/atualizacao.json` e `.sig`; o `beta` lê `https://api.github.com/repos/LMafra/analise_concursos/releases?per_page=10` e usa a primeira release que não é rascunho. Cada release traz:
 
 ```json
 {
@@ -955,3 +977,133 @@ Espaço `xs` 4 px, `sm` 8, `md` 16, `lg` 24, `xl` 32; raio 8 px (cartão) e 12 p
 **Onboarding (fase 6).** A tela `/inicio` é um assistente de 4 passos (nome; pasta, com as pastas de provas e análises em "Avançado"; opcionais desmarcados: IA para editais e aviso de versão nova; primeiro resultado: exemplo ou cadastro). Grava pelas mesmas `onboarding.aplicar` e `onboarding.gravar`; o aviso de versão nova grava `[atualizacao] verificar_ao_abrir`, e "Pular" no passo 3 não grava nenhum dos dois. A calibração da folha fica em Configurações (`aplicacao.inicio.salvar_calibracao`, que grava o mesmo `./.concurso/folha_calibrada.yaml`; a análise seguinte pela GUI é forçada, para reler as folhas), e o `doctor` fica no Sobre ("Conferir o ambiente"). Projeto sem concursos, sem relatório, sem recomendações ou sem prática mostra um estado vazio com a próxima ação.
 
 Artefatos da release a partir da fase 6: os da fase 5, mais `atualizacao.json`, `atualizacao.json.sig` e `RELATORIO-SMOKE.md` (o resultado dos gates de cada sistema). O `--smoke` também imprime `partida: <s>` (falha acima de `CONCURSO_SMOKE_LIMITE_PARTIDA`, se definida) e confere o OCR numa imagem gerada.
+
+## Fase 7: estudar com o open-notebook
+
+**Pacote de estudo.** Uma release própria por versão, tag `estudo-v<versao>`, com `<versao> = <open-notebook>-<revisao>` (ex.: `estudo-v1.15.1-1`). Anexos: `estudo-<versao>-windows-x64.zip`, `estudo-<versao>-linux-x86_64.tar.xz`, `estudo.json` e `estudo.json.sig` (Ed25519 sobre os bytes exatos, com as mesmas `atualizador.CHAVES_PUBLICAS`). Montado por `empacotamento/estudo/montar.py` a partir de `empacotamento/estudo/versao.toml`. `scripts/smoke.py estudo <pacote> [comando]` confere um pacote de ponta a ponta (instalação do arquivo, PDF com uma página escaneada enviado, pergunta com trecho e página, sem o aviso de open-notebook fora); roda no `estudo.yml` e, com o executável, no gate de máquina limpa do `release.yml`.
+
+```json
+{
+  "formato": 1,
+  "versao": "1.15.1-1",
+  "open_notebook": "1.15.1",
+  "app_minimo": "0.7.0b1",
+  "canal": "beta",
+  "publicado_em": "2026-11-06",
+  "modelo": {"nome": "paraphrase-multilingual-MiniLM-L12-v2", "revisao": "<commit do HF>", "dimensoes": 384},
+  "artefatos": {
+    "windows-x64": {"arquivo": "estudo-1.15.1-1-windows-x64.zip", "sha256": "<64 hex>", "tamanho": 400000000, "tamanho_extraido": 1100000000},
+    "linux-x86_64": {"arquivo": "estudo-1.15.1-1-linux-x86_64.tar.xz", "sha256": "<64 hex>", "tamanho": 300000000, "tamanho_extraido": 1200000000}
+  }
+}
+```
+
+- `versao` segue `^\d+\.\d+\.\d+-\d+$`; `arquivo`, `^estudo-\d+\.\d+\.\d+-\d+-(windows-x64\.zip|linux-x86_64\.tar\.xz)$`, e precisa ser do sistema da chave. `canal` é `beta` quando `app_minimo` é pré-release. Um app usa o pacote só se a versão dele é pelo menos `app_minimo` (PEP 440).
+- Conteúdo, na raiz `estudo-<versao>/`: `python/` (Python 3.12 standalone com o ambiente travado do open-notebook, onnxruntime e tokenizers), `open-notebook/` (código da tag, sem `frontend/`), `bin/surreal[.exe]` (SurrealDB 2.x), `modelo/` (`model_optimized.onnx`, `tokenizer.json`), `tiktoken/` (cache do `o200k_base`), `servidor_embeddings.py`, `LICENSES/` (MIT do open-notebook, BSL 1.1 do SurrealDB, Apache-2.0 do modelo, PSF) e `estudo.toml` (`versao`, `open_notebook`, `surreal`, `modelo`, `dimensoes`, `tiktoken`).
+- `servidor_embeddings.py`: `POST /v1/embeddings` no formato da OpenAI (`input` texto ou lista de até 2048 textos; corpo de até 8 MB), `GET /health` e `GET /v1/models`; só em `127.0.0.1`, com `Authorization: Bearer <EMBEDDINGS_TOKEN>`; vetores de 384 dimensões, mean pooling normalizado, até 128 tokens por texto. Imprime `porta=<n>` na primeira linha.
+
+**Instalação na máquina do usuário** (`~/.concurso/open-notebook/`): `pacote/<versao>/estudo-<versao>/` (os 2 pacotes mais recentes), `dados/` (pasta de trabalho dos processos, com `banco/` do SurrealDB e as migrations), `backups/<versao>-<data>/` (os 2 mais recentes, verificados arquivo a arquivo), `instalado.json` e `.trava` (instância única).
+
+```json
+{"atual": "1.15.1-1", "anterior": null, "ultima_partida": "1.15.1-1"}
+```
+
+- `ultima_partida` diferente de `atual` pede um backup do banco antes de subir; se a partida da versão nova falhar, o app volta para `anterior`.
+- Processos, todos em `127.0.0.1` e em portas livres: `surreal start --bind 127.0.0.1:<p1> rocksdb:dados/banco` (usuário `concurso`, senha derivada da chave de cifra, porque o SurrealDB grava o usuário na primeira partida), `servidor_embeddings.py --porta <p2>`, a API (`uvicorn api.main:app --host 127.0.0.1 --port <p3>`) e o worker (`surreal_commands.cli.worker --import-modules commands`). A senha da API (`OPEN_NOTEBOOK_PASSWORD`) e o token dos embeddings são novos a cada sessão. A chave de cifra (`OPEN_NOTEBOOK_ENCRYPTION_KEY`) fica no keyring como `CONCURSO_OPEN_NOTEBOOK_CIFRA`. A chave da IA vai só por variável de ambiente da API e do worker.
+- Os embeddings são registrados como modelo `openai_compatible` do tipo `embedding`, sem credencial (`OPENAI_COMPATIBLE_BASE_URL_EMBEDDING` e `OPENAI_COMPATIBLE_API_KEY_EMBEDDING` apontam para o nosso servidor), e marcados como `default_embedding_model`.
+- Saída dos processos: `~/.concurso/logs/open-notebook-<processo>.log`. Três partidas seguidas com falha deixam a busca no índice local até o app reabrir; 10 min sem uso param os processos.
+
+**Biblioteca local** (`~/.concurso/biblioteca/`): `arquivos/<sha256>.<ext>` (os originais) e `biblioteca.sqlite`, com a tabela `livros` e o índice FTS5 `busca`.
+
+| Coluna de `livros` | Conteúdo |
+|---|---|
+| `sha` | SHA-256 do arquivo (chave; o mesmo conteúdo enviado de novo só atualiza `disciplina` e `concursos`) |
+| `nome` | nome do arquivo sem extensão |
+| `extensao` | `.pdf`, `.epub`, `.docx` ou `.txt` |
+| `tamanho` | bytes (até 300 MB) |
+| `disciplina` | escolhida no envio; `Geral` sem escolha |
+| `concursos` | lista JSON dos `nome` de concurso associados |
+| `estado` | `EstadoLivro`: `na_fila`, `lendo`, `lido`, `enviando`, `pronto`, `erro` |
+| `pagina`, `paginas` | última página lida e total (a leitura retoma de `pagina + 1`) |
+| `paginas_sem_texto` | páginas que ficaram sem texto (sem Tesseract ou OCR vazio) |
+| `erro` | mensagem para o usuário |
+| `adicionado_em` | ISO, segundos |
+| `source_id`, `notebook_id` | o source no open-notebook e o notebook `Biblioteca — <disciplina>` |
+
+- `busca` (FTS5, `unicode61 remove_diacritics 2`): `sha` e `pagina` (não indexadas), `texto` da página e `radicais` (snowball português). A consulta casa cada radical em `radicais` ou como prefixo em `texto`, e os termos do dicionário como frase; o trecho vem de `snippet` em `texto`, com o destaque entre `«` e `»`. `meta.versao_indice` diferente de `VERSAO_INDICE` refaz os radicais.
+- Página: no PDF, a página do arquivo (OCR nas páginas com menos de 20 caracteres); no EPUB, o item da ordem de leitura; no DOCX, as quebras de página gravadas; no TXT, o form feed. Sem quebra, blocos de 3000 caracteres.
+- `notebooks_biblioteca` (`disciplina`, `notebook_id`): o notebook `Biblioteca — <disciplina>` de cada disciplina no open-notebook do app, compartilhado entre os projetos (achado pelo ID e, sem ele, pelo nome).
+
+**Envio ao open-notebook do app.** Cada livro lido vira um source de texto (`async_processing` e `embed` ligados) com o título do arquivo e o texto de cada página precedido por `[p. N]`. O estado passa a `enviando` e, quando `GET /api/sources/{id}/status` devolve `completed`, a `pronto`; `failed` vira `erro`. Trocar a disciplina move o vínculo do source para o notebook da nova disciplina; remover apaga o source.
+
+**Sincronização com o open-notebook do app.** Sem `[open_notebook] enabled` e com o pacote de estudo instalado, a análise sincroniza sozinha, sem consentimento, com o candidato como pseudônimo. Em `.concurso/open_notebook.json`, a instância se chama `gerenciada` (a porta muda a cada sessão). Os notebooks do projeto levam o nome da pasta do projeto na frente (`Meus concursos · tcu_2025 — candidato 1`) e são achados só pelo ID guardado; `Legislação` é compartilhado e também é achado pelo nome. Os livros com o concurso entre os `concursos` são vinculados ao notebook dele.
+
+**Perguntar** (`estudo.perguntar`, `concurso-analise livros ask`). `OndeProcurar`: `livros`, `analises` ou `tudo`; a disciplina filtra os livros.
+
+- Livros: o open-notebook do app aponta os livros (busca `vector` e `text` nos notebooks `Biblioteca — <disciplina>`), e o índice local acha os trechos com página dentro deles, seguidos dos melhores trechos do índice. Com o open-notebook fora (ou sem o pacote de estudo), só o índice local, com o aviso "A busca continua nos seus livros".
+- Análises: os parágrafos dos `*.md` em `analises/<candidato>/` com mais termos da pergunta, com a seção (o último título) em que estão.
+- Cada trecho leva o nome do arquivo, a página (livro) ou a seção (análise) e o caminho para "Abrir arquivo". Sem nada, o aviso "Não achei isso nos seus livros".
+- IA: só com `[llm] consentimento_livros = true` na configuração global, separado do `consentimento` do edital, e fora do `--offline`. A chave vai por variável de ambiente na partida da API e do worker (`OPENAI_COMPATIBLE_BASE_URL_LLM` e `OPENAI_COMPATIBLE_API_KEY_LLM`; na Anthropic, `ANTHROPIC_API_KEY`), nunca no banco; mudar a IA sobe os processos de novo. O modelo (`[llm] modelo`) é registrado sem credencial, como `openai_compatible` (ou `anthropic`), e usado nas três funções do `POST /api/search/ask/simple`. A resposta aparece como "Resposta da IA — confira nos trechos"; os `[source:<id>]` viram "Livros citados" e os trechos desses livros vêm primeiro.
+- Sugestões: uma por tópico fraco persistente (`biblioteca.topicos_fracos`), "Revisar <tópico> nos seus livros"; em Resultados, os mesmos tópicos abrem `/estudar?aba=perguntar&pergunta=<tópico>`.
+
+## Conferência pela tela
+
+Nenhum arquivo de entrada exige edição à mão: `aplicacao/conferencia.py` grava cada um e a GUI chama.
+
+- **Pendências (`pendencias(contexto, concurso)`):** as questões sem revisão cuja sugestão é `nao_mapeado` ou tem `score` abaixo de `SCORE_BAIXO` (0,05), mais os campos vazios do `edital_a_confirmar.yaml`. O card do concurso mostra "Conferir (N)".
+- **Tópicos (`topicos_para_conferir`, `opcoes_de_topico`, `gravar_topicos`):** as opções são os tópicos do `edital_estruturado.json` do concurso (da pasta do candidato ou de qualquer `analises/**/<concurso>/`); sem ele, as sugestões do próprio CSV. A gravação usa `topicos.gravar_revisao_editada` e devolve se o arquivo mudou.
+- **Dados do edital (`campos_a_confirmar`, `gravar_campos`):** o tipo de cada campo é `TipoCampo` (`data`, `inteiro`, `numero`): `data_prova` aceita `DD/MM/AAAA` ou `AAAA-MM-DD` e grava ISO; `alternativas` é inteiro de 2 a 10; `fator_penalidade` é número de 0 a 10 (aceita vírgula); `nota_corte` é número a partir de 0. Vazio esvazia a chave. `edital_a_confirmar.gravar_valores` troca só a linha `campo:` e preserva os comentários; se `carregar_concurso` recusar o resultado, o arquivo volta ao que era e a tela mostra o erro.
+- **Disciplinas (`taxonomia`, `gravar_taxonomia`, `juntar_disciplinas`, `separar_disciplina`):** os grupos vêm da `taxonomia.yaml`; os nomes soltos são os da coluna `disciplina` dos `questoes.csv` das análises que a taxonomia não conhece. Um nome só pode estar em uma disciplina, e o bloco é `geral` ou `especifico`. Grava com `gravar_se_mudou`.
+- **Reanálise (`reanalisar_afetados(opcoes, concurso)`):** a análise de sempre (`aplicacao.analise.analisar`), com o concurso conferido ou todos (taxonomia). Quem não mudou é pulado pelo manifesto.
+- **Manifesto:** além dos arquivos da pasta do concurso (já com `revisao/` e `edital_a_confirmar.yaml`), entram os de `Contexto.extras_do_manifesto` (`.concurso/taxonomia.yaml`), cada um só quando existe, para não invalidar os manifestos gravados antes dele. Com o dicionário de temas ligado, entra também `.concurso/taxonomia_topicos.yaml`.
+
+## Dicionário de temas
+
+Opcional; sem `.concurso/taxonomia_topicos.yaml` (ou com `[dicionario] usar = false`), a sugestão de tópico e as saídas são as de antes, byte a byte. O arquivo é gravado pela tela Configurações > "Disciplinas e temas" > "Dicionário de temas" ou pelo `dicionario iniciar|sugerir|avaliar`; editá-lo à mão continua valendo.
+
+```yaml
+versao: 1
+lingua_portuguesa:            # slug da disciplina (canônica ou do edital)
+  crase:                      # slug do tópico
+    nomes: [Emprego do sinal indicativo de crase]   # opcional: nomes exatos de tópicos do edital
+    termos: [crase, acento grave]
+    expressoes: [à medida que, às vezes]
+    origem: [tcu_25]          # concursos de onde o termo foi tirado (aceito de uma sugestão)
+recusados: [lingua_portuguesa/crase/fusao]
+```
+
+- **Validação (`ler_dicionario`):** campo desconhecido, versão diferente de 1 ou termo vazio ou com mais de 6 palavras é `ErroDoUsuario` (código 1), com o caminho do campo.
+- **Casamento com o edital:** a disciplina casa pelo slug, pelo nome canônico da `taxonomia.yaml` ou pelas palavras-chave (uma contida na outra); o tópico casa por `nomes` (palavras-chave iguais) ou, sem `nomes`, quando as palavras do slug estão no nome do tópico.
+- **Expansão:** a questão que cita um termo (palavra inteira, sem acento, caixa nem plural simples) ganha a marca `tema_<disciplina>_<topico>`, no máximo 3, as dos termos mais longos primeiro, e só das disciplinas permitidas para ela; o documento do tópico casado ganha só a marca. Um termo que já nomeia outro tópico da mesma disciplina no edital não marca nada, e a questão que o cita fica sem marcas da disciplina: o edital decide sozinho. A versão expandida decide `topico_sugerido` e `score`; a sem dicionário fica em `topico_tfidf` e `score_tfidf`.
+- **Prática no TEC e livros:** o mesmo dicionário entra na ligação dos assuntos do TEC aos tópicos e, na busca nos livros, acrescenta em OR os outros termos dos temas que a pergunta cita.
+- **Ganho (`avaliar_ganho`, `.concurso/ganho_dicionario.md`):** a verdade são as linhas da revisão com `topico` preenchido; o texto é o `enunciado` da revisão, e o edital, o `edital_estruturado.json`. A sugestão roda sem e com o dicionário, e as entradas cuja `origem` inclui o concurso ficam fora da avaliação dele. O relatório traz o acerto antes e depois (com n e Δ em p.p.), as corrigidas e as quebradas, o número de scores abaixo de 0,05 e a tabela por disciplina (n < 5 marcado como amostra insuficiente). O alerta liga quando há mais quebradas que corrigidas ou quando uma disciplina com n ≥ 5 cai, e a tela oferece desligar o dicionário.
+- **Sugestões (`sugerir_termos`):** palavras (mais de 3 letras, fora das vazias) e pares de palavras que se repetem em ao menos 2 questões revisadas para o mesmo tópico, que não são termo dele, não estão em `recusados` e não estão só no nome do tópico; até 5 por tópico, dos mais frequentes e mais exclusivos do tópico para os outros. Aceitar grava o termo (par de palavras vai para `expressoes`) com a `origem`; recusar grava a chave `disciplina/topico/termo` em `recusados`.
+- **Dicionário inicial (`concursos/dicionarios/inicial.yaml`):** Direito Administrativo, Direito Constitucional, Língua Portuguesa e Raciocínio Lógico; "Começar com o dicionário inicial" acrescenta só os tópicos que o projeto ainda não tem e liga o dicionário.
+
+## Nome do concurso
+
+A pasta (`provas/<id>`, o `nome` do `concurso.yaml`) é o identificador e nunca é renomeada. No cadastro pela tela, ela é automática: `sigla_ano` pela leitura rápida do edital (sem OCR nem IA), com `_2`, `_3` se já existir; sem edital, `concurso_AAAAMMDD`. O `add <pasta>` continua aceitando uma pasta explícita.
+
+O nome mostrado (`nome_do_concurso`, em `analytics/nome_concurso.py`) tem título e subtítulo:
+
+- **Título:** "SIGLA ANO — Cargo" ("TCU 2025 — Auditor Federal de Controle Externo"). Com a sigla tirada só das iniciais, o nome oficial fica no lugar dela.
+- **Subtítulo:** o nome oficial, sem a sigla do fim, e o edital curto ("Tribunal de Contas da União, Edital nº 1/2025").
+
+**Sigla e ano (`identificacao.sigla`, `identificacao.ano`).**
+
+- **Sigla:** antes do número na linha do edital ("EDITAL ENAP Nº 114/2025") ou depois do travessão ("EDITAL Nº 1 – TCU/AUFC", sem os prefixos de processo `PSS`, `PS`, `PSE` e `CP`). Senão, entre parênteses ou depois do travessão no fim do nome oficial. Senão, as iniciais das palavras com maiúscula do nome oficial, sem de/da/do, com confiança 0,3 (`CONFIANCA_SIGLA_PELAS_INICIAIS`).
+- **Ano:** o "nº X/AAAA" da linha do edital, senão o último "DE AAAA" dela, senão o ano de `data_prova` (fonte `config`).
+
+**Precedência do nome**, com `fonte` e `confianca`:
+
+1. `titulo` do `concurso.yaml` (fonte `config`, confiança 1);
+2. a retificação mais recente;
+3. o edital;
+4. `pci.titulo` (fonte `pci`, confiança 0,6);
+5. a IA, quando ligada, com trecho literal;
+6. o nome do arquivo do edital ou do caderno, quando não é genérico (`edital`, `prova`, `caderno`, `gabarito`, `anexo`, `retificacao`);
+7. a pasta.
+
+Abaixo do edital, o nome leva o selo "a confirmar" na tela e no `index.html`, e "O que o app decidiu sozinho" diz de onde ele veio. "Corrigir nome" grava `titulo`; vazio, apaga o campo e volta ao do edital.
+
+**Rótulo dos notebooks (`rotulo_do_concurso`):** "slug: nome oficial — cargo"; sem nome oficial ou cargo, só o slug.

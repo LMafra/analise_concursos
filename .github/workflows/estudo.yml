@@ -1,0 +1,174 @@
+# Pacote de estudo (fase 7): o open-notebook travado, o SurrealDB, os embeddings e o modelo, por sistema.
+# Por dia, procura uma release nova do open-notebook; se houver (ou se rodado à mão), monta nos dois
+# sistemas, roda os testes de contrato e o smoke, e só então publica a release `estudo-v<versao>` com o
+# `estudo.json` assinado. Qualquer falha numa execução agendada abre uma issue; o pacote anterior fica.
+name: estudo
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+    inputs:
+      publicar:
+        description: 'publicar a release se tudo passar'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: '1'
+  NO_COLOR: '1'
+  UV_VERSION: '0.13.0'
+
+jobs:
+  detectar:
+    runs-on: ubuntu-latest
+    outputs:
+      montar: ${{ steps.upstream.outputs.montar }}
+      tag: ${{ steps.upstream.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: '3.12'
+      - name: Release nova do open-notebook?
+        id: upstream
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          uv sync --frozen --no-dev --no-install-project
+          tag=$(uv run --no-sync python empacotamento/estudo/montar.py upstream)
+          if [ -n "$tag" ]; then
+            uv run --no-sync python empacotamento/estudo/montar.py atualizar "$tag"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ -n "$tag" ] || [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo "montar=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "montar=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Upstream: ${tag:-sem release nova}" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: versao
+          path: empacotamento/estudo/versao.toml
+
+  montar:
+    needs: detectar
+    if: needs.detectar.outputs.montar == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            sistema: linux-x86_64
+          - os: windows-latest
+            sistema: windows-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: versao
+          path: empacotamento/estudo
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: '3.12'
+          enable-cache: true
+      - name: Montar
+        run: |
+          uv sync --frozen --extra gui --extra llm --extra pci
+          uv run --no-sync python empacotamento/estudo/montar.py montar ${{ matrix.sistema }} dist/estudo
+          ls -l dist/estudo | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Testes de contrato com o open-notebook real
+        run: |
+          pacote=$(ls dist/estudo/estudo-*-${{ matrix.sistema }}.* | grep -v '\.extraido$')
+          ESTUDO_PACOTE="$pacote" uv run --no-sync pytest -m open_notebook_real tests/contrato_open_notebook -v
+      - name: Smoke do pacote
+        run: |
+          pacote=$(ls dist/estudo/estudo-*-${{ matrix.sistema }}.* | grep -v '\.extraido$')
+          uv run --no-sync python scripts/smoke.py estudo "$pacote" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: estudo-${{ matrix.sistema }}
+          path: dist/estudo/
+          if-no-files-found: error
+
+  publicar:
+    needs: [detectar, montar]
+    if: needs.detectar.outputs.tag != '' || inputs.publicar
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: versao
+          path: empacotamento/estudo
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: estudo-*
+          path: dist/estudo
+          merge-multiple: true
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: '3.12'
+      - name: Manifesto assinado
+        env:
+          CHAVE_ATUALIZACAO: ${{ secrets.CHAVE_ATUALIZACAO }}
+        run: |
+          uv sync --frozen --no-dev --no-install-project
+          uv run --no-sync python empacotamento/estudo/montar.py manifesto dist/estudo
+          uv run --no-sync python scripts/assinar_manifesto.py assinar-estudo dist/estudo
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          versao=$(uv run --no-sync python empacotamento/estudo/montar.py versao)
+          canal=$(python3 -c "import json; print(json.load(open('dist/estudo/estudo.json'))['canal'])")
+          previa=$([ "$canal" = beta ] && echo --prerelease || echo)
+          gh release create "estudo-v$versao" $previa --latest=false \
+            --title "Pacote de estudo $versao" \
+            --notes "open-notebook $(echo "$versao" | cut -d- -f1), montado e conferido pelo estudo.yml." \
+            dist/estudo/estudo-*.zip dist/estudo/estudo-*.tar.xz dist/estudo/estudo.json dist/estudo/estudo.json.sig
+          du -h dist/estudo/estudo-* | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: PR com o versao.toml novo
+        if: needs.detectar.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.detectar.outputs.tag }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git switch -c "estudo/open-notebook-$TAG"
+          git add empacotamento/estudo/versao.toml
+          git commit -m "chore(estudo): open-notebook $TAG"
+          git push origin HEAD
+          gh pr create --fill --title "chore(estudo): open-notebook $TAG"
+
+  falha:
+    needs: [detectar, montar, publicar]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Abrir issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.detectar.outputs.tag }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "Pacote de estudo: open-notebook ${TAG:-atual} não passou nos testes" \
+            --body "O workflow estudo.yml falhou: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. O pacote anterior continua publicado."

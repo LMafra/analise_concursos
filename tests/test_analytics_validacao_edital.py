@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -10,12 +11,13 @@ from concursos.analytics.regras_edital import (
     Cronograma,
     Distribuicao,
     FonteRegra,
+    Identificacao,
     Pesos,
     RegrasEdital,
     TipoPeso,
 )
 from concursos.analytics.taxonomia import DisciplinaCanonica
-from concursos.analytics.validacao_edital import validar_edital
+from concursos.analytics.validacao_edital import ARQUIVO_DISCREPANCIAS, gravar_discrepancias, validar_edital
 from concursos.concurso_config import PesoItens, validar_dados
 from concursos.modelo import Bloco
 
@@ -172,3 +174,31 @@ def test_data_da_configuracao_diferente_da_do_edital_e_info():
     assert data['severidade'] == 'info'
     assert validar_edital(mesma, regras).empty
     assert validar_edital(validar_dados(Path('sintetico'), dados), regras).empty
+
+
+def _identificado(regras: RegrasEdital) -> RegrasEdital:
+    identificacao = Identificacao(
+        nome_oficial=Campo('Tribunal de Contas da União', FonteRegra.EDITAL),
+        cargo=Campo('Auditor Federal', FonteRegra.EDITAL),
+        especialidade=Campo('Tecnologia da Informação', FonteRegra.EDITAL),
+    )
+    return replace(regras, identificacao=identificacao)
+
+
+def test_nome_oficial_e_cargo_em_toda_linha():
+    cfg = config({'cb': {'gabarito': 'g.txt', 'itens': [1, 4]}})
+    tabela = validar_edital(cfg, _identificado(edital(total=12)), questoes(('cb', 'Língua Portuguesa', 4)))
+
+    assert len(tabela) > 0
+    assert set(tabela['nome_oficial']) == {'Tribunal de Contas da União'}
+    assert set(tabela['cargo']) == {'Auditor Federal – Tecnologia da Informação'}
+
+
+def test_arquivo_so_com_cabecalho_tem_nome_oficial_e_cargo(tmp_path):
+    cfg = config({'cb': {'gabarito': 'g.txt', 'itens': [1, 4]}})
+    tabela = validar_edital(cfg, _identificado(RegrasEdital()))
+    gravar_discrepancias(tabela, tmp_path)
+
+    cabecalho = (tmp_path / ARQUIVO_DISCREPANCIAS).read_text().splitlines()[0].split(',')
+    assert tabela.empty
+    assert cabecalho[-2:] == ['nome_oficial', 'cargo']
