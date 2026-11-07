@@ -456,7 +456,7 @@ wheels = [
 
 [[package]]
 name = "concurso-analise"
-version = "0.7.0b1"
+version = "0.7.0b2"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
