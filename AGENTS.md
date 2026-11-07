@@ -2,8 +2,8 @@
 
 Ferramenta local de correção e análise de provas de concurso, com um comando só: `concurso-analise` (`src/concursos/cli/`), que gera `analises/<candidato>/<concurso>/`. Fase 1: correção por concurso. Fase 2: a análise evolutiva entre concursos (`src/concursos/analytics/` e `notebooks/`). Fase 3: o edital como fonte de verdade (regras, validação e catálogo de descobertas). Fase 4: um comando, multi-candidato, perfis de banca e de OCR, fallbacks, onboarding, `doctor`, LLM opcional e distribuição. Fase 5: a GUI em NiceGUI (`concurso-analise gui`, `src/concursos/gui/`) sobre a camada de aplicação (`src/concursos/aplicacao/`), o executável por sistema (`empacotamento/`) e o `tec-erros/` no mesmo repositório. Fase 6 (Windows e Linux): assinatura pela SignPath, WebView2 no instalador, AppImage verificado, atualizador por manifesto assinado e tokens de design com onboarding na GUI. Fase 7: estudar com o open-notebook gerenciado pelo app (pacote de estudo, biblioteca de livros com página), dicionário de temas, telas de conferência, nome do concurso pelo edital e fluxos assistidos do PCI e do TEC.
 
-- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3), `docs/spec-fase4.md` (fase 4), `docs/spec-pci-mcp.md` (PCI Concursos), `docs/spec-fase5.md` (fase 5, com as decisões em `docs/decisoes-fase5.md`) e `docs/spec-fase6.md` (fase 6, com as decisões em `docs/decisoes-fase6.md`) e `docs/spec-fase7.md` (fase 7, com as decisões em `docs/decisoes-fase7.md`). Leia a da fase antes de mudar comportamento.
-- Paridade: antes de um refactor que toca código das fases 1 a 3, rode `concurso-analise --force` e `scripts/paridade.py retrato analises/<candidato> <arquivo>`; depois, `comparar` não pode mostrar diferença.
+- Specs: `docs/spec.md` (fase 1), `docs/spec-fase2.md` (fase 2), `docs/spec-fase3.md` (fase 3), `docs/spec-fase4.md` (fase 4), `docs/spec-pci-mcp.md` (PCI Concursos), `docs/spec-fase5.md` (fase 5, com as decisões em `docs/decisoes-fase5.md`) e `docs/spec-fase6.md` (fase 6, com as decisões em `docs/decisoes-fase6.md`) e `docs/spec-fase7.md` (fase 7, com as decisões em `docs/decisoes-fase7.md`), além de `docs/spec-linguagem.md` (linguagem leiga e painel do `index.html`, com as decisões em `docs/decisoes-linguagem.md`). Leia a da fase antes de mudar comportamento.
+- Paridade: antes de um refactor que toca código das fases 1 a 3, rode `concurso-analise --force` e `scripts/paridade.py retrato analises/<candidato> <arquivo>`; depois, `comparar --esperadas scripts/paridade_esperadas.toml` só aceita as diferenças registradas ali, cada uma com o motivo; uma mudança intencional de saída entra no arquivo na mesma mudança.
 - Ponta a ponta: `scripts/smoke.py` roda onboarding, análise e idempotência num projeto temporário; rode-o pelo `uvx --from "$PWD"` ao mexer em dependências, CLI ou empacotamento.
 - Modelo de domínio, contratos de arquivo e fórmulas: `docs/modelo.md`. É a fonte única dos campos do `concurso.yaml`, do `candidato.yaml`, do `config.toml`, dos perfis, do `correcao.json`, do `edital_estruturado.json`, do template do `catalogo_edital.md` e do schema do parquet; atualize-o na mesma mudança que o código.
 
@@ -25,6 +25,8 @@ A instância gerenciada do open-notebook (fase 7) roda no próprio computador e 
 | GUI: `ui.run` em `127.0.0.1`, estado do projeto, `InteracaoGui`, progresso e log, páginas e componentes | `gui/` |
 | Tokens de design (cor, tipografia, espaço, elevação) e `aplicar_tema` | `gui/tema.py` |
 | Janela nativa ou navegador (WebView2, `--browser`, Linux) | `janela.py` |
+| Painel do `index.html`: status de cada prova (`FAIXA_NO_LIMITE`), cards, pontos fortes, fracos priorizados, evolução em frase e ações sugeridas | `analytics/painel.py` |
+| Vocabulário leigo: selos, rótulos de arquivo (`rotulo_do_arquivo`), termos técnicos proibidos, tradução de avisos gravados e de erros de validação (`erro_para_a_tela`) | `linguagem.py` |
 | Atualizador: manifesto, assinatura Ed25519, download verificado, aplicação por sistema | `atualizador.py`, `aplicacao/atualizador.py` |
 | Concurso de exemplo do onboarding (`~/.concurso/exemplo/`) | `exemplo.py`, `aplicacao/exemplo.py` |
 | Executável: launcher, spec do PyInstaller, hook, Tesseract embutido, instaladores | `empacotamento/` (fora do pacote) |
@@ -140,7 +142,7 @@ Para acrescentar uma camada:
 ## CLI
 
 - A CLI só lê flags, monta `Opcoes` (com `saida=typer.echo`) e chama `aplicacao/`; a orquestração não mora em `cli/comandos.py`.
-- Erro do usuário: `ErroDoUsuario(causa, dica)`, código 1; do ambiente: `ErroDoAmbiente`, código 2 (ambos em `erros.py`). Na tela, no máximo `erro:` e `dica:`; o traceback vai só para o log em `~/.concurso/logs/`.
+- Erro do usuário: `ErroDoUsuario(causa, dica, detalhe)`, código 1; do ambiente: `ErroDoAmbiente`, código 2 (ambos em `erros.py`). Aviso: `avisar(logger, texto, dica, detalhe)`. Na tela, `erro:` ou `aviso:`, `dica:` e, quando houver, `detalhe:` (o nome de arquivo, o campo, a mensagem da biblioteca); o traceback vai só para o log em `~/.concurso/logs/`. Erro de validação passa por `linguagem.erro_para_a_tela` na fronteira da CLI e da GUI.
 - Toda pergunta tem padrão e é pulada sem TTY, com `CI` ou com `--yes`. `--dry-run` não grava nada, nem configuração.
 - Reexecutar sem mudança não altera nenhum `mtime` em `analises/`; grave saídas regeneradas a cada execução com `gravar_se_mudou`.
 
@@ -156,6 +158,7 @@ Para acrescentar uma camada:
 - Testes em `tests/gui/` com a fixture `user` do NiceGUI e a camada de aplicação falsa; pulados sem o extra `[gui]`.
 - Nenhum arquivo do usuário exige edição à mão: revisão de tópicos, edital a confirmar, taxonomia e dicionário têm tela, e salvar reanalisa os concursos afetados.
 - Vocabulário leigo: as telas e as mensagens ao usuário de `aplicacao/estudo.py`, `aplicacao/integracoes.py` e `planilha_tec.py` não dizem localhost, porta, servidor, Docker, API, source, notebook (sozinho), sincronizar, embedding nem terminal (teste). "open-notebook", "livros", "biblioteca" e "perguntar" podem. A exceção é a seção Avançado das Configurações.
+- Erro na tela: `erro:` e `dica:` à vista; o `detalhe` fica num "Ver detalhes técnicos" fechado (`gui/textos.py`). Nome de arquivo na tela passa por `rotulo_do_arquivo`, e nenhum botão tem termo técnico (testes).
 - O `biblioteca.yaml` é legado e opcional: a biblioteca de livros mora em `~/.concurso/biblioteca/`, e as disciplinas dos livros vêm da tela.
 
 ## Executável
@@ -169,6 +172,13 @@ Para acrescentar uma camada:
 - A release traz `atualizacao.json` e `atualizacao.json.sig` (Ed25519, `scripts/assinar_manifesto.py`); mudar o formato do manifesto exige manter o app antigo lendo a release nova.
 - O pacote de estudo (`empacotamento/estudo/`, workflow `estudo.yml`) é uma release própria, tag `estudo-v<open-notebook>-<n>`, com `estudo.json` e `estudo.json.sig` (mesma chave Ed25519). Uma versão nova do open-notebook só vira pacote com os testes de contrato (`tests/contrato_open_notebook/`) e o smoke verdes nos dois sistemas; se algo falhar, abre uma issue.
 - Antes de publicar uma release: o `release.yml` verde (`--smoke` e `scripts/smoke.py congelado` em máquina limpa em cada sistema, juntados no `RELATORIO-SMOKE.md` da release) e o checklist manual de `docs/release.md` (Windows Sandbox, VM Win10 sem WebView2 e Linux), registrado na descrição da release. A release nasce como rascunho.
+
+## Linguagem leiga
+
+- Toda mensagem nova de erro, aviso, rótulo da GUI ou texto de relatório usa o mapa de `docs/spec-linguagem.md`; um termo novo entra antes no mapa. Os testes de jargão (`tests/test_linguagem_leiga.py`, `tests/gui/test_vocabulario.py`) garantem a parte automática.
+- O mapa vale para HTML, GUI e CLI. O técnico fica no apêndice "Detalhes técnicos" (`<details>`), no `detalhe:` ou no log; nenhum dado técnico some.
+- O que fica gravado (avisos do `edital_estruturado.json`, CSVs, parquet) não muda; a tradução acontece só na apresentação.
+- Snapshots (`syrupy`): uma seção do `index.html` por `.html` e os textos da CLI e da GUI no `.ambr`; atualize com `--snapshot-update` e revise o diff.
 
 ## Código
 

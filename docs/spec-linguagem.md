@@ -219,7 +219,7 @@ Estático, sem JavaScript, sem link absoluto, `max-width: 64rem`, system-ui.
    - Ponto mais fraco: a disciplina com mais tópicos fracos, "3 tópicos abaixo do esperado".
    - Tendência geral: ícone + "Leve queda", "veja Estou evoluindo?".
 4. **Como estou saindo** (`<h2>`): tabela com `<caption>`, uma linha por prova: concurso (link para `<pasta>/relatorio.html`, sempre na primeira célula), data, nota pela regra, selo de status, quanto falta ("faltam 6,7 p.p." ou "+17,8 p.p. de folga"). Embaixo, "Simulados que você fez", quando houver.
-5. **Meus pontos fortes** (`<h2>`): até 5 disciplinas, "Você vai bem em X: acertou 10 de 12; descontado o chute, 78%." Sem dados: "Ainda não há dados suficientes para apontar pontos fortes. Faça mais um concurso."
+5. **Meus pontos fortes** (`<h2>`): até 5 disciplinas, "Você vai bem em X: acertou 10 de 12; descontado o chute, 78%." Questões sem disciplina identificada (`nao_mapeado`) ficam de fora. Sem dados: "Ainda não há questões suficientes com a disciplina identificada para apontar pontos fortes (são precisas pelo menos 5 por disciplina). Cadastre o edital de cada concurso, que traz as disciplinas, ou faça mais um concurso."
 6. **Meus pontos a melhorar** (`<h2>`): um `<h3>` por disciplina ("Língua Portuguesa: 3 tópicos abaixo do esperado"), os tópicos em lista e a sugestão do grupo ("Considere revisar Língua Portuguesa antes do próximo concurso."). Disciplina que também é forte: "mesmo indo bem no geral, 1 tópico ficou abaixo".
 7. **Estou evoluindo?** (`<h2>`): a frase-resposta, a situação por disciplina (melhorando, estável, precisa de atenção) e as 3 figuras, cada uma com `<figure>`, `alt` e `<figcaption>`:
    - `evolucao_zscore.png`: "Cada ponto é um concurso. Linha subindo = melhora; linha descendo = piora. Só aparecem disciplinas com pelo menos 3 concursos."
@@ -256,12 +256,12 @@ Moram em `analytics/painel.py`, com teste.
 
 - **Snapshots** (`syrupy`, grupo dev): cada seção do `index.html` como `.html` (`SingleFileSnapshotExtension`), com data e versão mascaradas e nomes fictícios; textos da CLI e da GUI no `.ambr` padrão.
 - **Jargão na parte principal** (`tests/test_linguagem_leiga.py`):
-  - `index.html` antes do `<details>`: sem "p <", "slope", "z-score", "Spearman", "ρ", "MCP", "embedding", "TF-IDF", "ajustado ao acaso", "score", "similaridade", "fator".
+  - `index.html` antes do `<details>`: sem "p <", "slope", "z-score", "Spearman", "ρ", "MCP", "embedding", "TF-IDF", "ajustado ao acaso", "score", "similaridade", "fator", `nao_mapeado` (a lista é `linguagem.TERMOS_TECNICOS_DO_RELATORIO`).
   - `relatorio.html` antes do `<details>`: sem "score", "similaridade", "TF-IDF", `confianca_ocr`, `nota_liquida`.
-  - Primeiro argumento de `ErroDoUsuario`, `ErroDoAmbiente` e `avisar` (por AST, sem o prefixo, só as partes literais de f-string): sem YAML, MCP, cache, OCR, Tesseract, SHA-256, manifesto, "perfil da banca", "fator", CSV, PATH. A lista `PENDENTES` guarda os arquivos ainda não migrados e termina vazia.
+  - Primeiro argumento de `ErroDoUsuario`, `ErroDoAmbiente` e `avisar` (por AST, sem o prefixo, só as partes literais de f-string): sem YAML, MCP, cache, OCR, Tesseract, SHA-256, manifesto, "perfil da banca", "fator", CSV, PATH, "modo mínimo", `nao_mapeado`, endpoint, LLM (a lista é `linguagem.TERMOS_TECNICOS_DA_MENSAGEM`). A lista `PENDENTES`, que guardou os arquivos durante a migração, foi removida. Os erros de validação (`ConfiguracaoInvalidaError`, `PerfilInvalidoError`, `TaxonomiaInvalidaError`, `FileNotFoundError`) chegam à tela por `linguagem.erro_para_a_tela`, com causa leiga e o texto do validador no `detalhe:`.
 - **Presença:** os 5 cards e um selo por prova.
 - **Acessibilidade:** contraste AA dos selos; ícone com `aria-hidden`; `<caption>` e `th scope="col"`; títulos sem pular nível; `alt` e `<figcaption>`; `<nav>` com âncoras.
 - **Formatter:** aviso com e sem `dica` e `detalhe`, em modo normal, `--quiet` e `--verbose`; nunca imprime "None".
 - **Tradução de avisos:** cada aviso que o código produz tem padrão em `linguagem.traduzir_aviso`.
-- **GUI:** nenhum `ui.button` com "open-notebook", "MCP", "embedding", "cache", "TF-IDF", "LLM", "CSV", "limiar"; todo nome de arquivo na tela vem de `rotulo_do_arquivo`.
+- **GUI:** nenhum `ui.button` com "open-notebook", "MCP", "embedding", "cache", "TF-IDF", "LLM", "CSV", "limiar"; todo nome de arquivo na tela vem de `rotulo_do_arquivo` (`tests/gui/test_rotulos_de_arquivo.py`); o detalhe técnico de um erro fica num "Ver detalhes técnicos" fechado.
 - **Paridade:** `scripts/paridade.py comparar --esperadas scripts/paridade_esperadas.toml` sai com 0 depois da mudança.
