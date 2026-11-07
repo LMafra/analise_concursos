@@ -123,16 +123,20 @@ def lista_de_concursos() -> bool:
                         with ui.expansion('Resolver').props('dense').classes('max-w-md'):
                             for motivo in item.motivos:
                                 ui.label(motivo).classes('text-sm')
-                            acoes_do_concurso(item.nome, nome)
+                            acoes_do_concurso(item.nome, nome, sem_edital(item))
                     else:
-                        acoes_do_concurso(item.nome, nome)
+                        acoes_do_concurso(item.nome, nome, sem_edital(item))
     return True
 
 
+def sem_edital(item) -> bool:
+    return item.config is None or item.config.edital is None
+
+
 def nome_mostrado(item) -> NomeDoConcurso | None:
-    if item.config is None:
-        return None
     try:
+        if item.config is None:
+            return nomes.nome_sem_cadastro(ESTADO.contexto().provas / item.nome)
         return nomes.nome_no_projeto(ESTADO.contexto(), item.config)
     except Exception:  # noqa: BLE001
         logger.debug('falha ao montar o nome do concurso', exc_info=True)
@@ -166,7 +170,7 @@ def corrigir_nome(concurso: str, atual: str) -> None:
     dialogo.open()
 
 
-def acoes_do_concurso(nome: str, mostrado: NomeDoConcurso | None = None) -> None:
+def acoes_do_concurso(nome: str, mostrado: NomeDoConcurso | None = None, falta_edital: bool = False) -> None:
     try:
         pendentes = conferencia.pendencias(ESTADO.contexto(), nome).total
     except Exception:  # noqa: BLE001
@@ -178,7 +182,7 @@ def acoes_do_concurso(nome: str, mostrado: NomeDoConcurso | None = None) -> None
             on_click=lambda: ui.navigate.to(f'/conferir?concurso={nome}'),
         ).props('flat dense').mark(f'conferir-{nome}')
         ui.button(
-            'Acrescentar arquivos',
+            'Adicionar o edital e a prova' if falta_edital else 'Acrescentar arquivos',
             icon='upload_file',
             on_click=lambda: ui.navigate.to(f'/novo?concurso={nome}'),
         ).props('flat dense').mark(f'acrescentar-{nome}')

@@ -7,7 +7,7 @@ from concursos.aplicacao.opcoes import Opcoes
 from concursos.gui import tema
 from concursos.gui.componentes.consentimento import texto_do_aviso
 from concursos.gui.estado import ESTADO
-from concursos.gui.paginas.descobrir import PainelDescobrir, PainelProvasAnteriores
+from concursos.gui.paginas.encontrar import PainelEncontrar, PainelProvasAnteriores
 from concursos.gui.paginas.pratica_tec import PainelTec
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.textos import mostrar_erro, rotulo
@@ -15,7 +15,7 @@ from concursos.gui.textos import mostrar_erro, rotulo
 logger = logging.getLogger('concursos')
 
 ABAS = {
-    'descobrir': 'Descobrir concursos',
+    'descobrir': 'Encontrar concursos',
     'provas': 'Provas anteriores',
     'notebook': 'open-notebook',
     'tec': 'Prática no TEC',
@@ -34,7 +34,7 @@ def pagina(aba: str | None = None) -> None:
             guias = {chave: ui.tab(titulo) for chave, titulo in ABAS.items()}
         with ui.tab_panels(abas, value=guias.get(aba or '', guias['descobrir'])).classes('w-full'):
             for chave, montar in (
-                ('descobrir', lambda: PainelDescobrir('descobrir')),
+                ('descobrir', lambda: PainelEncontrar('descobrir')),
                 ('provas', lambda: PainelProvasAnteriores('provas')),
                 ('notebook', PainelNotebook),
                 ('tec', PainelTec),

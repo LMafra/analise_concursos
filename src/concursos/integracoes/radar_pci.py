@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 
 from concursos.arquivos import gravar_se_mudou
+from concursos.datas import data_br
 from concursos.integracoes.pci_mcp import ConcursoPci
 from concursos.integracoes.sincronizacao_pci import situacao
 
@@ -138,7 +139,7 @@ def formatar_radar(radar: Radar) -> str:
     linhas = [
         '# Editais que fecham em breve',
         '',
-        f'Prazos do PCI Concursos em {radar.data_referencia}, para {alvo} e os concursos registrados com '
+        f'Prazos do PCI Concursos em {data_br(radar.data_referencia)}, para {alvo} e os concursos registrados com '
         f'`discover --register`; alerta de {radar.dias_alerta} dias. O PCI é um complemento colaborativo: '
         'confira o edital no site do órgão ou da banca.',
         '',
@@ -156,7 +157,9 @@ def formatar_radar(radar: Radar) -> str:
     for item in radar.itens:
         titulo = _celula(item.titulo or str(item.id))
         nome = f'[{titulo}]({item.link})' if item.link else titulo
-        periodo = f'{item.inicio or "?"} a {item.fim or "?"}' if item.inicio or item.fim else '-'
+        periodo = (
+            f'{data_br(item.inicio) or "?"} a {data_br(item.fim) or "?"}' if item.inicio or item.fim else '-'
+        )
         acompanhado = ('sim' + (f' ({item.concurso})' if item.concurso else '')) if item.interesse else '-'
         linhas.append(f'| {nome} | {item.uf or "?"} | {periodo} | {item.situacao} | {acompanhado} |')
     linhas.append('')
@@ -191,9 +194,9 @@ def ler_radar(destino: Path) -> Radar | None:
 
 def resumo_radar(radar: Radar) -> str:
     if not radar.itens:
-        return f'nenhum edital abre ou fecha em até {radar.dias_alerta} dias (PCI em {radar.data_referencia})'
+        return f'nenhum edital abre ou fecha em até {radar.dias_alerta} dias (PCI em {data_br(radar.data_referencia)})'
     primeiro = radar.itens[0]
     return (
-        f'{len(radar.itens)} edital(is) no radar (PCI em {radar.data_referencia}); o mais próximo: '
+        f'{len(radar.itens)} edital(is) no radar (PCI em {data_br(radar.data_referencia)}); o mais próximo: '
         f'{primeiro.titulo} ({primeiro.situacao})'
     )

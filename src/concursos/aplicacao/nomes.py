@@ -3,10 +3,16 @@ pela leitura rápida do edital (sem OCR nem IA)."""
 
 import json
 from dataclasses import asdict
+from pathlib import Path
 
-from concursos.analytics.nome_concurso import NomeDoConcurso, nome_do_concurso
-from concursos.analytics.regras_edital import identificar_edital
-from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, carregar_concurso
+from concursos.analytics.nome_concurso import CONFIANCA_PCI, NomeDoConcurso, nome_do_concurso
+from concursos.analytics.regras_edital import FonteRegra, identificar_edital
+from concursos.concurso_config import (
+    ConcursoConfig,
+    ConfiguracaoInvalidaError,
+    carregar_concurso,
+    vinculo_sem_provas,
+)
 from concursos.config.contexto import Contexto
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
 from concursos.status import listar_concursos
@@ -49,6 +55,14 @@ def nome_no_projeto(contexto: Contexto, config: ConcursoConfig) -> NomeDoConcurs
     return nome_do_concurso(config, identificacao_do_concurso(contexto, config))
 
 
+def nome_sem_cadastro(pasta: Path) -> NomeDoConcurso | None:
+    """A pasta criada pelo Encontrar, ainda sem os arquivos da prova: o título do PCI, "a confirmar"."""
+    titulo = (vinculo_sem_provas(pasta) or {}).get('titulo')
+    if not titulo:
+        return None
+    return NomeDoConcurso(titulo, '', FonteRegra.PCI, CONFIANCA_PCI, True, 'do título no PCI Concursos')
+
+
 def opcoes_de_concurso(contexto: Contexto) -> dict[str, str]:
     """`{pasta: nome mostrado}` de cada concurso, para os selects; a pasta sem `concurso.yaml` aparece pelo
     próprio nome."""
@@ -59,5 +73,6 @@ def opcoes_de_concurso(contexto: Contexto) -> dict[str, str]:
         try:
             opcoes[pasta.name] = nome_no_projeto(contexto, carregar_concurso(pasta)).titulo
         except (ConfiguracaoInvalidaError, FileNotFoundError):
-            opcoes[pasta.name] = pasta.name
+            sem_cadastro = nome_sem_cadastro(pasta)
+            opcoes[pasta.name] = sem_cadastro.titulo if sem_cadastro else pasta.name
     return opcoes

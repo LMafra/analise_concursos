@@ -259,6 +259,17 @@ def ler_dados(pasta: Path) -> dict:
         return {}
 
 
+def vinculo_sem_provas(pasta: Path) -> dict | None:
+    """O bloco `pci` da pasta criada por "Adicionar ao meu projeto", enquanto ela não tem os arquivos da prova."""
+    try:
+        dados = ler_dados(pasta)
+    except ValueError:
+        return None
+    if not isinstance(dados, dict) or dados.get('provas') or not isinstance(dados.get('pci'), dict):
+        return None
+    return dados['pci']
+
+
 def gravar_dados(pasta: Path, dados: dict) -> None:
     texto = yaml.safe_dump(dados, allow_unicode=True, sort_keys=False)
     (pasta / ARQUIVO_CONFIG).write_text(texto, encoding='utf-8')

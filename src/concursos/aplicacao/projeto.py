@@ -83,6 +83,14 @@ def concurso_do_arquivo(raiz_provas: Path, arquivo: Path, concurso: str | None) 
     )
 
 
+def proxima_pasta(contexto: Contexto, base: str) -> Path:
+    """`provas/<base>` ou, se já existir, `<base>_2`, `<base>_3`…"""
+    pasta, numero = contexto.provas / base, 2
+    while pasta.exists():
+        pasta, numero = contexto.provas / f'{base}_{numero}', numero + 1
+    return pasta
+
+
 def concurso_alvo(contexto: Contexto, nome: str) -> ConcursoConfig:
     pasta = contexto.provas / nome
     if not pasta.is_dir():

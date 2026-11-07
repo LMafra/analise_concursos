@@ -32,6 +32,7 @@ from concursos.biblioteca import ARQUIVO_RECOMENDACOES
 from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso, ler_dados
 from concursos.consolidado import MINIMO_CONCURSOS, PASTA_CONSOLIDADO
 from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO
+from concursos.datas import data_br
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
 from concursos.integracoes.radar_pci import ARQUIVO_RADAR
 from concursos.pipeline import ARQUIVO_RESPOSTAS
@@ -125,7 +126,7 @@ def gerar_relatorio_html(
             _evolucao(raiz_provas, raiz_analises, arquivo_taxonomia, limiar_topico_baixo),
             *_recomendacoes(raiz_analises),
             *_pratica(raiz_analises),
-            f'<footer>Gerado por concurso-analise {_versao()} em {datetime.now():%Y-%m-%d %H:%M} a partir de '
+            f'<footer>Gerado por concurso-analise {_versao()} em {datetime.now():%d/%m/%Y %H:%M} a partir de '
             f'{escape(str(raiz_provas))}.</footer>',
         ]
     )
@@ -204,7 +205,7 @@ def _tabela_de_concursos(concursos: list[ConcursoNoIndice]) -> str:
         nivel, classe_do_nivel = _NIVEIS_DO_EDITAL.get(concurso.nivel_edital or '', ('sem edital', 'info'))
         linhas.append(
             f'<tr><td>{_celula_do_nome(concurso)}</td>'
-            f'<td>{escape(concurso.data_prova or "sem data")}</td>'
+            f'<td>{escape(data_br(concurso.data_prova) or "sem data")}</td>'
             f'<td>{concurso.acertos} de {concurso.total}</td>'
             f'<td>{_percentual_pela_regra(concurso)}</td>'
             f'<td><span class="selo {classe_do_nivel}">{escape(nivel)}</span></td>'
@@ -256,7 +257,7 @@ def _tabela_de_simulados(simulados: list[tuple[ConcursoNoIndice, dict]]) -> list
             original_html = f'<a href="{escape(link)}">{original_html}</a>'
         linhas.append(
             f'<tr><td><a href="{escape(concurso.nome)}/{ARQUIVO_RELATORIO_HTML}">{escape(concurso.nome)}</a></td>'
-            f'<td>{escape(concurso.data_prova or "sem data")}</td>'
+            f'<td>{escape(data_br(concurso.data_prova) or "sem data")}</td>'
             f'<td>{original_html}</td>'
             f'<td>{concurso.acertos} de {concurso.total}</td>'
             f'<td>{_percentual_pela_regra(concurso)}</td></tr>'

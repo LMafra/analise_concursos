@@ -78,7 +78,7 @@ A instância gerenciada do open-notebook (fase 7) roda no próprio computador e 
 | Dicionário de temas (`.concurso/taxonomia_topicos.yaml`), expansão e métrica de ganho | `analytics/dicionario_topicos.py`, `aplicacao/dicionario.py` |
 | Telas de conferência (tópicos, edital a confirmar, taxonomia) e reanálise dos afetados | `aplicacao/conferencia.py` |
 | Nome do concurso (sigla, ano, cargo) pela cadeia de fontes | `analytics/regras_edital.py`, `nomes.py` |
-| Municípios do IBGE embutidos e datas DD/MM/AAAA | `dados/municipios_ibge.json`, `datas.py` |
+| Municípios do IBGE embutidos (regenerados por `scripts/atualizar_municipios.py`), região de cada UF e datas DD/MM/AAAA | `municipios.py`, `dados/municipios_ibge.json`, `datas.py` |
 | Planilha do TEC (CSV/XLSX) para o contrato v1 | `planilha_tec.py` |
 
 ## Perfis

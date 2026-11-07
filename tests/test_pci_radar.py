@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import date
 from pathlib import Path
 
@@ -156,6 +157,10 @@ def test_radar_depois_da_analise_no_indice_status_e_doctor(
     assert [item['id'] for item in radar['itens']] == [1]
     indice = (destino / 'index.html').read_text(encoding='utf-8')
     assert 'Editais que fecham em breve' in indice and 'Câmara Alfa' in indice
+    markdown = (destino / ARQUIVO_RADAR).read_text(encoding='utf-8')
+    assert re.search(r'\d{2}/\d{2}/\d{4}', markdown) and not re.search(r'\d{4}-\d{2}-\d{2}', markdown)
+    assert not re.search(r'\d{4}-\d{2}-\d{2}', indice.split('Editais que fecham em breve')[1])
+    assert re.match(r'\d{4}-\d{2}-\d{2}$', radar['data_referencia'])
     capsys.readouterr()
 
     transporte.chamadas.clear()

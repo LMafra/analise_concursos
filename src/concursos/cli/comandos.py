@@ -272,6 +272,12 @@ def discover(
     esquecer: Annotated[
         int | None, typer.Option('--forget', help='deixa de acompanhar o concurso (pelo id)')
     ] = None,
+    adicionar: Annotated[
+        int | None,
+        typer.Option(
+            '--add', help='cria a pasta do concurso (pelo id) no projeto, à espera do edital e da prova'
+        ),
+    ] = None,
     candidato: Candidato = None,
 ) -> int:
     opcoes: Opcoes = ctx.obj
@@ -284,6 +290,8 @@ def discover(
     typer.echo(como_json(concursos) if json_ else tabela_pci(concursos))
     if registrar is not None:
         integracoes.registrar_interesse(opcoes, concursos, registrar)
+    if adicionar is not None:
+        integracoes.adicionar_ao_projeto(opcoes, concursos, adicionar)
     return 0
 
 

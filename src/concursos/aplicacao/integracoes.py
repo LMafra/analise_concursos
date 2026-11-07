@@ -1,4 +1,6 @@
+import json
 import logging
+import re
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -16,14 +18,16 @@ from concursos.aplicacao.projeto import (
     escolher_candidato,
     exigir_provas,
     pasta_do_candidato,
+    proxima_pasta,
 )
 from concursos.cadastro import cadastrar
-from concursos.candidatos import alvos_pci
-from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError
+from concursos.candidatos import alvos_pci, slug
+from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, gravar_dados, ler_dados
 from concursos.config.contexto import Contexto
 from concursos.configuracao import configuracao_do_projeto
 from concursos.erros import ErroDoAmbiente, ErroDoUsuario
 from concursos.integracoes import download_assistido, pci_mcp
+from concursos.integracoes.cache_pci import ARQUIVO_CACHE
 from concursos.integracoes.open_notebook import (
     DICA_INSTANCIA,
     ClienteOpenNotebook,
@@ -61,10 +65,13 @@ from concursos.integracoes.sincronizacao_notebook import (
 )
 from concursos.integracoes.sincronizacao_pci import Interesses, sessao_pci
 from concursos.livros import envio
+from concursos.municipios import REGIAO_DA_UF, cidade_da_uf
+from concursos.status import listar_concursos
 
 logger = logging.getLogger(__name__)
 
 INSTANCIA_GERENCIADA = 'gerenciada'
+NACIONAL = 'Nacional — todas as regiões'
 
 
 # open-notebook
@@ -326,6 +333,8 @@ def filtros_pci(
     if not (cargos or cidade or termo or regiao):
         cargos = list(alvos or configuracao.cargos)
         regiao = configuracao.regiao
+        if configuracao.cidade and uf == configuracao.uf.lower():
+            cidade = configuracao.cidade
     return {'cargos': cargos, 'uf': uf, 'cidade': cidade or '', 'regiao': regiao or '', 'termo': termo or ''}
 
 
@@ -400,6 +409,118 @@ def esquecer_interesse(opcoes: Opcoes, identificador: int) -> None:
     registro.esquecer(identificador)
     registro.gravar()
     opcoes.saida(f'interesse removido: {identificador}')
+
+
+def regiao_do_concurso(concurso: ConcursoPci) -> str:
+    """ "Sudeste · MG"; nos nacionais (UF `BR`), "Nacional — todas as regiões". O PCI não diz a cidade da prova."""
+    uf = (concurso.uf or '').strip().upper()
+    if uf == 'BR':
+        return NACIONAL
+    regiao = (
+        '-'.join(p.capitalize() for p in concurso.regiao.strip().lower().split('-'))
+        if concurso.regiao
+        else ''
+    )
+    return ' · '.join(p for p in (regiao or REGIAO_DA_UF.get(uf, ''), uf) if p)
+
+
+def gravar_filtros_pci(
+    contexto: Contexto, cargos: list[str], uf: str | None, cidade: str | None, regiao: str | None
+) -> ConfiguracaoPciMcp:
+    """ "Lembrar estes filtros": grava em `[pci_mcp]`; a cidade só vale com a UF e tem de ser dela."""
+    try:
+        uf = validar_uf(uf or '', 'UF')
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(str(erro), 'escolha a UF na lista') from erro
+    if regiao and regiao not in REGIOES:
+        raise ErroDoUsuario(f'região {regiao} é inválida', f'use uma de: {", ".join(REGIOES)}')
+    oficial = ''
+    if cidade and cidade.strip():
+        if not uf:
+            raise ErroDoUsuario(f'a cidade {cidade} precisa da UF', 'escolha a UF antes da cidade')
+        oficial = cidade_da_uf(cidade, uf)
+        if oficial is None:
+            raise ErroDoUsuario(
+                f'{cidade} não é uma cidade de {uf.upper()}', 'escolha a cidade na lista da UF'
+            )
+    return pci_mcp.gravar_configuracao(
+        contexto.config_global,
+        cargos=[c.strip() for c in cargos if c.strip()],
+        uf=uf,
+        cidade=oficial,
+        regiao=regiao or '',
+    )
+
+
+def situacao_do_cache(contexto: Contexto, agora: datetime | None = None) -> str | None:
+    """ "Atualizado há 3 horas", pela consulta mais recente guardada no cache; None sem cache."""
+    caminho = contexto.projeto / ARQUIVO_CACHE
+    try:
+        entradas = json.loads(caminho.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    instantes = []
+    for entrada in entradas.values() if isinstance(entradas, dict) else []:
+        try:
+            instantes.append(datetime.fromisoformat(entrada['obtido_em']))
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not instantes:
+        return None
+    horas = int(((agora or datetime.now()) - max(instantes)).total_seconds() // 3600)
+    if horas < 1:
+        return 'Atualizado agora há pouco'
+    if horas < 48:
+        return f'Atualizado há {horas} {"hora" if horas == 1 else "horas"}'
+    return f'Atualizado há {horas // 24} dias'
+
+
+def _pasta_vinculada(raiz_provas: Path, identificador: int) -> Path | None:
+    for pasta in listar_concursos(raiz_provas):
+        if (ler_dados(pasta).get('pci') or {}).get('id') == identificador:
+            return pasta
+    return None
+
+
+def _base_da_pasta(concurso: ConcursoPci) -> str:
+    """ "TRE-MG 2026 - Analista Judiciário" vira `tre_mg_2026`: o que vem antes do " - ", até 4 palavras."""
+    cabeca = re.split(r'\s+[-–]\s+', concurso.titulo.strip(), maxsplit=1)[0]
+    try:
+        return slug(' '.join(cabeca.split()[:4]))
+    except ConfiguracaoInvalidaError:
+        return f'concurso_pci_{concurso.id}'
+
+
+def adicionar_ao_projeto(opcoes: Opcoes, concursos: list[ConcursoPci], identificador: int) -> Path:
+    """Do card ao projeto num clique: acompanha o concurso e cria a pasta com o vínculo ao PCI, à espera do
+    edital e da prova. O título do PCI vale como nome "a confirmar" até o edital chegar. Já adicionado,
+    devolve a mesma pasta."""
+    escolhido = next((c for c in concursos if c.id == identificador), None)
+    if escolhido is None:
+        raise ErroDoUsuario(
+            f'o concurso {identificador} não está no resultado desta busca',
+            'busque de novo com os filtros que o mostram',
+        )
+    contexto = opcoes.contexto
+    if (
+        contexto.provas.is_dir()
+        and (existente := _pasta_vinculada(contexto.provas, identificador)) is not None
+    ):
+        return existente
+    pasta = proxima_pasta(contexto, _base_da_pasta(escolhido))
+    if opcoes.dry_run:
+        opcoes.saida(f'criaria {pasta} vinculada ao concurso {identificador} do PCI')
+        return pasta
+    registro = interesses(contexto)
+    if registro.obter(identificador) is None:
+        registro.registrar(escolhido)
+    registro.vincular(identificador, pasta.name)
+    registro.gravar()
+    pasta.mkdir(parents=True)
+    vinculo = {'id': identificador, 'titulo': escolhido.titulo, 'link': escolhido.link}
+    gravar_dados(pasta, {'nome': pasta.name, 'pci': vinculo})
+    opcoes.saida(f'{escolhido.titulo} adicionado ao projeto; falta o edital e os arquivos da prova')
+    return pasta
 
 
 @dataclass(frozen=True)

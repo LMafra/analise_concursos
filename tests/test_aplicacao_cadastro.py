@@ -114,3 +114,27 @@ def test_opcoes_de_concurso_mostram_o_nome_e_a_pasta_sem_cadastro_pelo_nome(raiz
         'rascunho': 'rascunho',
         'tcu_2025': 'TCU 2025 — Auditor Federal de Controle Externo',
     }
+
+
+def test_nome_corrigido_sobrevive_a_um_novo_cadastro(raiz, tmp_path):
+    pasta = cadastro.cadastrar_envio(opcoes(raiz, Roteiro()), None, _envio(tmp_path, 'a'), None)
+    cadastro.corrigir_titulo(opcoes(raiz), pasta.name, 'Meu TCU')
+    caderno = tmp_path / 'caderno.txt'
+    caderno.write_text('Questão 1\nQuestão 2\n', encoding='utf-8')
+
+    cadastro.cadastrar_envio(opcoes(raiz, Roteiro()), pasta.name, {caderno: Papel.PROVA}, None)
+
+    assert yaml.safe_load((pasta / 'concurso.yaml').read_text(encoding='utf-8'))['titulo'] == 'Meu TCU'
+
+
+def test_pasta_do_encontrar_recebe_os_arquivos_e_guarda_o_vinculo_ao_pci(raiz, tmp_path):
+    pasta = raiz / 'provas' / 'tre_mg_2026'
+    pasta.mkdir()
+    vinculo = {'id': 42, 'titulo': 'TRE-MG 2026 - Analista Judiciário', 'link': 'https://x/42'}
+    (pasta / 'concurso.yaml').write_text(yaml.safe_dump({'nome': 'tre_mg_2026', 'pci': vinculo}))
+
+    cadastro.cadastrar_envio(opcoes(raiz, Roteiro()), 'tre_mg_2026', _envio(tmp_path, 'a'), None)
+
+    dados = yaml.safe_load((pasta / 'concurso.yaml').read_text(encoding='utf-8'))
+    assert dados['pci'] == vinculo
+    assert dados['provas']

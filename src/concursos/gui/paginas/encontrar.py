@@ -7,6 +7,7 @@ from concursos.aplicacao import integracoes
 from concursos.aplicacao.nomes import opcoes_de_concurso
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.resultados import abrir_no_navegador
+from concursos.datas import data_br
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.consentimento import consentimento
@@ -16,6 +17,7 @@ from concursos.gui.progresso import Andamento
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
 from concursos.integracoes.pci_mcp import REGIOES, DatasInscricao
+from concursos.municipios import municipios, ufs
 
 logger = logging.getLogger('concursos')
 
@@ -30,12 +32,13 @@ COMO_IMPORTAR = (
 def prazo(datas: DatasInscricao) -> str:
     if not datas.fim:
         return datas.texto or 'sem data'
+    fim = data_br(datas.fim)
     dias = datas.dias_ate_fim
     if dias is None:
-        return datas.fim
+        return fim
     if dias < 0:
-        return f'{datas.fim} (encerradas)'
-    return f'{datas.fim} ({dias} {"dia" if dias == 1 else "dias"})'
+        return f'{fim} (encerradas)'
+    return f'{fim} ({dias} {"dia" if dias == 1 else "dias"})'
 
 
 def lista(texto: str | None) -> list[str]:
@@ -44,6 +47,10 @@ def lista(texto: str | None) -> list[str]:
 
 def ou_nada(texto: str | None) -> str | None:
     return (texto or '').strip() or None
+
+
+def escolhido(valor: str | None) -> str | None:
+    return None if valor in (None, '', QUALQUER) else valor
 
 
 def ligar_pci(aba: str) -> None:
@@ -74,24 +81,67 @@ def pci_ligado(aba: str) -> bool:
     return True
 
 
-class PainelDescobrir:
+class PainelEncontrar:
     def __init__(self, aba: str) -> None:
         self.concursos = []
         if not pci_ligado(aba):
             return
+        configuracao = integracoes.configuracao_pci(ESTADO.contexto())
+        uf = configuracao.uf.upper()
         ui.label(
             'Sem filtro, a busca usa os cargos e a UF do seu perfil. Separe vários cargos por vírgula.'
         ).classes('text-sm ca-texto-suave')
         with ui.row().classes('w-full items-end').style(tema.gap('sm')):
-            self.cargo = rotulo(ui.input('Cargo'), 'cargo').classes('min-w-64').mark('filtro-cargo')
-            self.uf = rotulo(ui.input('UF', placeholder='ex.: DF'), 'UF').classes('w-24').mark('filtro-uf')
-            self.cidade = rotulo(ui.input('Cidade'), 'cidade').classes('min-w-48').mark('filtro-cidade')
+            self.cargo = (
+                rotulo(ui.input('Cargo', value=', '.join(configuracao.cargos)), 'cargo')
+                .classes('min-w-64')
+                .mark('filtro-cargo')
+            )
+            self.uf = (
+                rotulo(
+                    ui.select([QUALQUER, *ufs()], label='UF', value=uf or QUALQUER, on_change=self.trocar_uf),
+                    'UF',
+                )
+                .classes('w-28')
+                .mark('filtro-uf')
+            )
+            self.cidade = (
+                rotulo(
+                    ui.select(
+                        municipios(uf),
+                        label='Cidade',
+                        value=configuracao.cidade if configuracao.cidade in municipios(uf) else None,
+                        with_input=True,
+                        clearable=True,
+                    ),
+                    'cidade',
+                )
+                .classes('min-w-48')
+                .mark('filtro-cidade')
+            )
+            self.cidade.set_enabled(bool(uf))
             self.regiao = (
-                rotulo(ui.select([QUALQUER, *REGIOES], label='Região', value=QUALQUER), 'região')
+                rotulo(
+                    ui.select(
+                        [QUALQUER, *REGIOES],
+                        label='Região',
+                        value=configuracao.regiao if configuracao.regiao in REGIOES else QUALQUER,
+                    ),
+                    'região',
+                )
                 .classes('min-w-40')
                 .mark('filtro-regiao')
             )
             self.botao = ui.button('Buscar', icon='search', on_click=self.buscar).mark('buscar-pci')
+            self.lembrar = ui.checkbox('Lembrar estes filtros').mark('lembrar-filtros')
+        with ui.row().classes('items-center').style(tema.gap('sm')):
+            self.atualizado = ui.label().classes('text-sm ca-texto-suave').mark('situacao-cache')
+            self.atualizar = (
+                ui.button('Atualizar agora', icon='refresh', on_click=lambda: self.buscar(refresh=True))
+                .props('flat dense')
+                .mark('atualizar-pci')
+            )
+        self.mostrar_cache()
         self.resultado = ui.column().classes('w-full').style(tema.gap('sm'))
         ui.separator()
         ui.label('Acompanhando no radar de prazos').classes('text-lg font-bold')
@@ -100,16 +150,41 @@ class PainelDescobrir:
             ui.label(linha).classes('text-sm')
         ui.button('Desligar o PCI', on_click=lambda: desligar_pci(aba)).props('flat').mark('desligar-pci')
 
-    async def buscar(self) -> None:
+    def trocar_uf(self, evento) -> None:
+        uf = escolhido(evento.value)
+        self.cidade.set_options(municipios(uf), value=None)
+        self.cidade.set_enabled(uf is not None)
+
+    def mostrar_cache(self) -> None:
+        try:
+            texto = integracoes.situacao_do_cache(ESTADO.contexto())
+        except Exception:  # noqa: BLE001
+            logger.debug('falha ao ler o cache do PCI', exc_info=True)
+            texto = None
+        self.atualizado.set_text(texto or '')
+        self.atualizado.set_visibility(texto is not None)
+        self.atualizar.set_visibility(texto is not None)
+
+    def filtros(self) -> dict:
+        return {
+            'cargos': lista(self.cargo.value),
+            'uf': escolhido(self.uf.value),
+            'cidade': escolhido(self.cidade.value),
+            'regiao': escolhido(self.regiao.value),
+        }
+
+    async def buscar(self, refresh: bool = False) -> None:
+        filtros = self.filtros()
+        if self.lembrar.value:
+            try:
+                integracoes.gravar_filtros_pci(ESTADO.contexto(), **filtros)
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+                return
         self.botao.disable()
         try:
             self.concursos = await run.io_bound(
-                integracoes.descobrir,
-                Opcoes(ESTADO.contexto()),
-                cargos=lista(self.cargo.value),
-                uf=ou_nada(self.uf.value),
-                cidade=ou_nada(self.cidade.value),
-                regiao=None if self.regiao.value == QUALQUER else self.regiao.value,
+                integracoes.descobrir, Opcoes(ESTADO.contexto()), refresh=refresh, **filtros
             )
         except Exception as erro:  # noqa: BLE001
             logger.debug('falha na busca do PCI pela GUI', exc_info=True)
@@ -117,6 +192,7 @@ class PainelDescobrir:
             return
         finally:
             self.botao.enable()
+        self.mostrar_cache()
         self.mostrar()
 
     def mostrar(self) -> None:
@@ -129,21 +205,28 @@ class PainelDescobrir:
                 with ui.card().classes('w-full').mark(f'concurso-{concurso.id}'):
                     ui.label(concurso.titulo).classes('font-bold')
                     detalhes = ' · '.join(
-                        p for p in (concurso.uf, concurso.cargos_resumo, concurso.vagas_salario) if p
+                        p for p in (integracoes.regiao_do_concurso(concurso), concurso.cargos_resumo) if p
                     )
-                    ui.label(detalhes).classes('text-sm')
+                    ui.label(detalhes).classes('text-sm').mark(f'regiao-{concurso.id}')
+                    if concurso.vagas_salario:
+                        ui.label(concurso.vagas_salario).classes('text-sm')
                     ui.label(f'Inscrições até {prazo(concurso.datas)}').classes('text-sm')
                     with ui.row():
                         ui.button(
-                            'Abrir',
+                            'Ver página',
                             icon='open_in_new',
                             on_click=lambda c=concurso: abrir_no_navegador(c.link),
                         ).props('flat').mark(f'abrir-{concurso.id}')
                         ui.button(
-                            'Acompanhar no radar',
+                            'Acompanhar',
                             icon='notifications',
                             on_click=lambda c=concurso: self.acompanhar(c.id),
                         ).props('outline').mark(f'acompanhar-{concurso.id}')
+                        ui.button(
+                            'Adicionar ao meu projeto',
+                            icon='library_add',
+                            on_click=lambda c=concurso: self.adicionar(c.id),
+                        ).mark(f'adicionar-{concurso.id}')
 
     def acompanhar(self, identificador: int) -> None:
         mensagens: list[str] = []
@@ -157,6 +240,18 @@ class PainelDescobrir:
         ui.notify(' '.join(mensagens), type='positive')
         self.acompanhados.refresh()
 
+    def adicionar(self, identificador: int) -> None:
+        mensagens: list[str] = []
+        try:
+            integracoes.adicionar_ao_projeto(
+                Opcoes(ESTADO.contexto(), saida=mensagens.append), self.concursos, identificador
+            )
+        except Exception as erro:  # noqa: BLE001
+            mostrar_erro(erro)
+            return
+        ui.notify('Concurso adicionado. Falta o edital e os arquivos da prova.', type='positive')
+        ui.navigate.to('/')
+
     @ui.refreshable_method
     def acompanhados(self) -> None:
         try:
@@ -165,13 +260,13 @@ class PainelDescobrir:
             mostrar_erro(erro)
             return
         if not itens:
-            ui.label('Nenhum ainda. Use "Acompanhar no radar" num resultado da busca.').classes('text-sm')
+            ui.label('Nenhum ainda. Use "Acompanhar" num resultado da busca.').classes('text-sm')
             return
         for item in itens:
             with ui.row().classes('items-center').style(tema.gap('sm')).mark(f'interesse-{item["id"]}'):
                 ui.label(item['titulo'])
                 if item.get('fim'):
-                    ui.label(f'inscrições até {item["fim"]}').classes('text-sm ca-texto-suave')
+                    ui.label(f'inscrições até {data_br(item["fim"])}').classes('text-sm ca-texto-suave')
                 ui.button('Deixar de acompanhar', on_click=lambda i=item['id']: self.esquecer(i)).props(
                     'flat dense'
                 ).mark(f'esquecer-{item["id"]}')

@@ -12,7 +12,7 @@ from concursos.analytics.nome_concurso import titulo_pelo_edital
 from concursos.analytics.regras_edital import Identificacao, identificar_edital
 from concursos.aplicacao.integracoes import interesses as ler_interesses
 from concursos.aplicacao.opcoes import Opcoes
-from concursos.aplicacao.projeto import concurso_alvo, concurso_do_arquivo, exigir_provas
+from concursos.aplicacao.projeto import concurso_alvo, concurso_do_arquivo, exigir_provas, proxima_pasta
 from concursos.cadastro import cadastrar
 from concursos.candidatos import adicionar_arquivo, gravar_perfil_global, pasta_do_candidato, slug
 from concursos.concurso_config import ARQUIVO_CONFIG, ConfiguracaoInvalidaError, gravar_dados, ler_dados
@@ -134,10 +134,7 @@ def pasta_automatica(contexto: Contexto, identificacao: Identificacao | None) ->
         partes = [identificacao.sigla.valor, identificacao.ano.valor]
         with contextlib.suppress(ConfiguracaoInvalidaError):
             base = slug(' '.join(str(p) for p in partes if p))
-    pasta, numero = contexto.provas / base, 2
-    while pasta.exists():
-        pasta, numero = contexto.provas / f'{base}_{numero}', numero + 1
-    return pasta
+    return proxima_pasta(contexto, base)
 
 
 def corrigir_titulo(opcoes: Opcoes, concurso: str, titulo: str) -> None:

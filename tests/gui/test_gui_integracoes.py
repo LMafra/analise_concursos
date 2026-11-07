@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -51,7 +52,7 @@ async def abrir_aba(user: User, aba: str) -> None:
 async def test_pci_desligado_mostra_o_aviso_e_nao_consulta(user: User, projeto, monkeypatch):
     monkeypatch.setattr(integracoes, 'descobrir', proibido)
 
-    await abrir_aba(user, 'Descobrir concursos')
+    await abrir_aba(user, 'Encontrar concursos')
 
     await user.should_see(marker='aviso-pci')
     await user.should_see('só termos de busca')
@@ -59,34 +60,123 @@ async def test_pci_desligado_mostra_o_aviso_e_nao_consulta(user: User, projeto, 
 
 
 async def test_ligar_pci_grava_enabled(user: User, projeto):
-    await abrir_aba(user, 'Descobrir concursos')
+    await abrir_aba(user, 'Encontrar concursos')
     user.find(marker='ligar-pci').click()
 
     await user.should_see(marker='buscar-pci')
     assert ler_toml(ESTADO.contexto().config_global)['pci_mcp']['enabled'] is True
 
 
-async def test_descobrir_mostra_prazo_e_link_e_acompanhar_registra_no_radar(user: User, projeto, monkeypatch):
-    ligar_pci()
+def elemento(user: User, marca: str):
+    (achado,) = user.find(marker=marca).elements
+    return achado
+
+
+def busca_falsa(monkeypatch, resultado=(SEFAZ,)) -> list[dict]:
     filtros: list[dict] = []
 
-    def descobrir_falso(opcoes, cargos=None, uf=None, cidade=None, regiao=None, termo=None):
-        filtros.append({'cargos': cargos, 'uf': uf, 'cidade': cidade, 'regiao': regiao})
-        return [SEFAZ]
+    def descobrir_falso(opcoes, cargos=None, uf=None, cidade=None, regiao=None, termo=None, refresh=False):
+        filtros.append({'cargos': cargos, 'uf': uf, 'cidade': cidade, 'regiao': regiao, 'refresh': refresh})
+        return list(resultado)
 
     monkeypatch.setattr(integracoes, 'descobrir', descobrir_falso)
-    await abrir_aba(user, 'Descobrir concursos')
+    return filtros
+
+
+async def test_encontrar_mostra_regiao_prazo_e_acompanhar_registra_no_radar(user: User, projeto, monkeypatch):
+    ligar_pci()
+    filtros = busca_falsa(monkeypatch)
+    await abrir_aba(user, 'Encontrar concursos')
     user.find(marker='filtro-cargo').type('Auditor, Analista')
-    user.find(marker='filtro-uf').type('df')
+    elemento(user, 'filtro-uf').value = 'DF'
+    elemento(user, 'filtro-cidade').value = 'Brasília'
     user.find(marker='buscar-pci').click()
 
     await user.should_see('SEFAZ-DF abre 50 vagas')
+    await user.should_see('Centro-Oeste · DF · Auditor')
     await user.should_see('20/11/2026 (15 dias)')
-    assert filtros == [{'cargos': ['Auditor', 'Analista'], 'uf': 'df', 'cidade': None, 'regiao': None}]
+    assert filtros == [
+        {
+            'cargos': ['Auditor', 'Analista'],
+            'uf': 'DF',
+            'cidade': 'Brasília',
+            'regiao': None,
+            'refresh': False,
+        }
+    ]
     user.find(marker='acompanhar-101').click()
 
     await user.should_see(marker='interesse-101')
     assert Interesses.do_projeto(ESTADO.contexto().projeto).obter(101)['titulo'] == SEFAZ.titulo
+
+
+async def test_cidade_so_fica_ativa_com_uf_e_mostra_os_municipios_dela(user: User, projeto):
+    ligar_pci()
+    await abrir_aba(user, 'Encontrar concursos')
+    cidade = elemento(user, 'filtro-cidade')
+    assert not cidade.enabled
+
+    elemento(user, 'filtro-uf').value = 'MG'
+    assert cidade.enabled and 'Belo Horizonte' in cidade.options and 'Brasília' not in cidade.options
+    cidade.value = 'Belo Horizonte'
+    elemento(user, 'filtro-uf').value = 'SP'
+    assert cidade.value is None and 'Campinas' in cidade.options
+
+
+async def test_nacional_aparece_como_todas_as_regioes(user: User, projeto, monkeypatch):
+    ligar_pci()
+    nacional = replace(SEFAZ, id=102, titulo='INB abre vagas', uf='BR', cargos_resumo='Vários cargos')
+    busca_falsa(monkeypatch, (nacional,))
+    await abrir_aba(user, 'Encontrar concursos')
+    user.find(marker='buscar-pci').click()
+
+    await user.should_see('Nacional — todas as regiões · Vários cargos')
+
+
+async def test_lembrar_os_filtros_grava_e_preenche_na_volta(user: User, projeto, monkeypatch):
+    ligar_pci()
+    busca_falsa(monkeypatch)
+    await abrir_aba(user, 'Encontrar concursos')
+    user.find(marker='filtro-cargo').type('Auditor')
+    elemento(user, 'filtro-uf').value = 'MG'
+    elemento(user, 'filtro-cidade').value = 'Belo Horizonte'
+    elemento(user, 'lembrar-filtros').value = True
+    user.find(marker='buscar-pci').click()
+    await user.should_see('SEFAZ-DF abre 50 vagas')
+
+    secao = ler_toml(ESTADO.contexto().config_global)['pci_mcp']
+    assert (secao['cargos'], secao['uf'], secao['cidade']) == (['Auditor'], 'mg', 'Belo Horizonte')
+    await abrir_aba(user, 'Encontrar concursos')
+    assert elemento(user, 'filtro-uf').value == 'MG'
+    assert elemento(user, 'filtro-cidade').value == 'Belo Horizonte'
+    assert elemento(user, 'filtro-cargo').value == 'Auditor'
+
+
+async def test_situacao_do_cache_e_atualizar_agora(user: User, projeto, monkeypatch):
+    ligar_pci()
+    filtros = busca_falsa(monkeypatch)
+    monkeypatch.setattr(integracoes, 'situacao_do_cache', lambda contexto: 'Atualizado há 3 horas')
+    await abrir_aba(user, 'Encontrar concursos')
+
+    await user.should_see('Atualizado há 3 horas')
+    user.find(marker='atualizar-pci').click()
+    await user.should_see('SEFAZ-DF abre 50 vagas')
+    assert filtros[-1]['refresh'] is True
+
+
+async def test_adicionar_ao_projeto_cria_o_concurso_incompleto_na_lista(user: User, projeto, monkeypatch):
+    ligar_pci()
+    busca_falsa(monkeypatch)
+    await abrir_aba(user, 'Encontrar concursos')
+    user.find(marker='buscar-pci').click()
+    await user.should_see('SEFAZ-DF abre 50 vagas')
+    user.find(marker='adicionar-101').click()
+
+    await user.should_see('SEFAZ-DF abre 50 vagas')
+    await user.should_see('a confirmar')
+    await user.should_see('Adicionar o edital e a prova')
+    (pasta,) = [p for p in ESTADO.contexto().provas.iterdir() if p.is_dir()]
+    assert pasta.name.startswith('sefaz_df')
 
 
 async def test_importar_simulado_pode_ser_cancelado(user: User, projeto, monkeypatch, tmp_path):

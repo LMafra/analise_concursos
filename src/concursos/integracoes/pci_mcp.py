@@ -43,6 +43,7 @@ class ConfiguracaoPciMcp:
     ttl_horas: float = 24
     cargos: tuple[str, ...] = ()
     uf: str = ''
+    cidade: str = ''
     regiao: str = ''
     dias_alerta: int = 15
     pasta_downloads: str = ''

@@ -82,6 +82,7 @@ def test_discover_junta_cargos_sem_repetir_e_usa_o_cache_na_segunda(projeto, tra
     saida = capsys.readouterr().out
     assert saida.count('Prefeitura Beta') == 1
     assert 'Câmara Alfa' in saida and 'Tribunal Gama' in saida and 'fecha em 15 dias' in saida
+    assert '/2026 a ' in saida and '2026-' not in saida
     assert len(transporte.chamadas) == 2
     assert main(['discover', '--cargo', 'analista', '--cargo', 'auditor', '--uf', 'mg']) == 0
     assert len(transporte.chamadas) == 2
@@ -157,6 +158,16 @@ def test_register_e_forget_mexem_so_nos_interesses(projeto, transporte, capsys):
     assert main(['discover', '--forget', '2']) == 0
     assert yaml.safe_load(arquivo.read_text(encoding='utf-8'))['interesses'] == []
     assert main(['discover', '--forget', '2']) == 1
+
+
+def test_discover_add_cria_a_pasta_a_espera_do_edital(projeto, transporte, capsys):
+    ligar()
+    assert main(['discover', '--cargo', 'analista', '--add', '2']) == 0
+    (pasta,) = (projeto / 'provas').iterdir()
+    assert ler_dados(pasta)['pci']['id'] == 2
+    assert 'falta o edital' in capsys.readouterr().out
+    assert main(['discover', '--cargo', 'analista', '--add', '2']) == 0
+    assert len(list((projeto / 'provas').iterdir())) == 1
 
 
 def test_add_pci_vincula_a_pasta_ao_interesse(projeto, transporte):

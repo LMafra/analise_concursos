@@ -9,6 +9,7 @@ from concursos.concurso_config import (
     ConcursoConfig,
     ConfiguracaoInvalidaError,
     carregar_concurso,
+    vinculo_sem_provas,
 )
 from concursos.perfis import ids_de_ocr
 
@@ -40,6 +41,9 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
     """Sem candidato, as respostas vêm do `concurso.yaml` (layout das fases 1 a 3)."""
     if not (pasta / ARQUIVO_CONFIG).exists():
         motivo = f'{ARQUIVO_CONFIG} ausente; rode `concurso-analise add {pasta}`'
+        return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
+    if vinculo_sem_provas(pasta) is not None:
+        motivo = f'falta o edital e os arquivos da prova; adicione-os à pasta e rode `concurso-analise add {pasta}`'
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
     try:
         config = carregar_concurso(pasta)

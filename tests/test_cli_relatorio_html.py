@@ -89,7 +89,7 @@ def test_indice_diz_o_que_o_app_decidiu_sozinho_e_a_origem(projeto):
     assert 'alfa: regra de correção do perfil da banca' in html
     assert 'regra do perfil da banca (0,50)' in html
     assert 'Avisos' in html
-    assert re.search(r'Gerado por concurso-analise \d[\w.+]* em \d{4}-\d{2}-\d{2}', html)
+    assert re.search(r'Gerado por concurso-analise \d[\w.+]* em \d{2}/\d{2}/\d{4}', html)
 
 
 def test_html_funciona_sem_rede(projeto):

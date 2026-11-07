@@ -12,6 +12,7 @@ import yaml
 
 from concursos.arquivos import gravar_se_mudou
 from concursos.concurso_config import ConfiguracaoInvalidaError
+from concursos.datas import data_br
 from concursos.integracoes import pci_mcp
 from concursos.integracoes.cache_pci import ARQUIVO_CACHE, CachePci
 from concursos.integracoes.pci_mcp import ClientePciMcp, ConcursoPci, ConfiguracaoPciMcp
@@ -68,7 +69,7 @@ def ordenar(concursos: list[ConcursoPci]) -> list[ConcursoPci]:
 def _periodo(concurso: ConcursoPci) -> str:
     datas = concurso.datas
     if datas.inicio or datas.fim:
-        return f'{datas.inicio or "?"} a {datas.fim or "?"}'
+        return f'{data_br(datas.inicio) or "?"} a {data_br(datas.fim) or "?"}'
     return datas.texto or '-'
 
 
@@ -86,7 +87,7 @@ def formatar_tabela(concursos: list[ConcursoPci]) -> str:
             f'    {concurso.link or "-"}',
         ]
     linhas.append(
-        f'{len(concursos)} concurso(s); prazos do PCI em {referencia or "?"}. O PCI é um complemento: '
+        f'{len(concursos)} concurso(s); prazos do PCI em {data_br(referencia) or "?"}. O PCI é um complemento: '
         'confira o edital no site do órgão ou da banca.'
     )
     return '\n'.join(linhas)
