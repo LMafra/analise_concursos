@@ -6,6 +6,7 @@ from nicegui import events, run, ui
 from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao import dicionario, ia, inicio
 from concursos.aplicacao.cadastro import nova_pasta_de_envio
+from concursos.aplicacao.nomes import opcoes_de_concurso
 from concursos.aplicacao.preferencias import (
     PreferenciasAnalise,
     gravar_analise,
@@ -24,7 +25,6 @@ from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
 from concursos.modelo import CanalAtualizacao, TemaGui
-from concursos.status import listar_concursos
 
 logger = logging.getLogger('concursos')
 
@@ -68,7 +68,7 @@ def controle_de_limiar(titulo: str, valor: float, explicacao: str, marca: str) -
 def secao_da_analise() -> None:
     contexto = ESTADO.contexto()
     atuais = ler_analise(contexto)
-    nomes = [p.name for p in listar_concursos(contexto.provas)] if contexto.provas.is_dir() else []
+    nomes = opcoes_de_concurso(contexto)
     with cartao('Análise', icone='analytics'):
         confianca = controle_de_limiar(
             'Limiar de confiança da leitura',
@@ -79,7 +79,7 @@ def secao_da_analise() -> None:
         topico = controle_de_limiar(
             'Limiar de tópico fraco', atuais.limiar_topico_baixo, EXPLICACAO_TOPICO, 'limiar-topico'
         )
-        opcoes = [SEM_ALVO, *nomes]
+        opcoes = {SEM_ALVO: SEM_ALVO, **nomes}
         alvo = (
             rotulo(
                 ui.select(

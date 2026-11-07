@@ -10,6 +10,7 @@ from concursos.aplicacao.projeto import ocr_disponivel
 from concursos.deteccao import ArquivoDetectado, Papel
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
+from concursos.gui.componentes.situacao import situacao
 from concursos.gui.estado import ESTADO
 from concursos.gui.interacao import InteracaoCanceladaError, InteracaoGui
 from concursos.gui.paginas.projeto import exigir_projeto
@@ -29,6 +30,9 @@ NOME_DO_PAPEL = {
     Papel.IGNORADO: 'ignorar',
     Papel.DESCONHECIDO: 'não reconhecido (o app pergunta)',
 }
+SEM_NOME_DETECTADO = (
+    'O nome do concurso vem do edital. Sem ele, o nome fica a confirmar, e você pode corrigi-lo depois.'
+)
 AVISO_SEM_OCR = (
     'O Tesseract não está instalado: PDFs escaneados (sem texto) não são lidos, e o concurso segue em modo '
     'mínimo. A folha de respostas é lida sem ele; se ela não for lida, digite as suas respostas.'
@@ -48,27 +52,12 @@ class TelaDeEnvio:
         self.contexto = ESTADO.contexto()
         self.envio: Path | None = None
         self.papeis: dict[Path, Papel] = {}
+        self.concurso = concurso
         self.andamento = Andamento()
         with ui.column().classes('w-full max-w-3xl').style(tema.gap('md')) as self.recipiente:
             ui.label(f'Acrescentar arquivos a {concurso}' if concurso else 'Novo concurso').classes(
                 'text-2xl font-bold'
             )
-            self.nome = (
-                rotulo(
-                    ui.input(
-                        'Nome do concurso (obrigatório)',
-                        value=concurso or '',
-                        placeholder='ex.: tcu_2025',
-                    ).props('outlined hint="letras, números e _; vira o nome da pasta do concurso"'),
-                    'nome do concurso',
-                )
-                .classes('w-full')
-                .mark('nome-concurso')
-            )
-            if concurso:
-                self.nome.disable()
-            else:
-                self.nome.props('autofocus')
             ui.label(
                 'Solte aqui o edital, o gabarito, o caderno de prova e as suas respostas (ou a foto/PDF da folha).'
             )
@@ -84,6 +73,7 @@ class TelaDeEnvio:
                 .mark('soltar')
             )
             self.tabela = ui.column().classes('w-full').style(tema.gap('xs'))
+            self.detectado = ui.column().classes('w-full').mark('nome-detectado')
             self.candidato = (
                 rotulo(
                     ui.input(
@@ -121,6 +111,22 @@ class TelaDeEnvio:
         detectados = await run.io_bound(cadastro.detectar_envio, self.envio)
         self.papeis = {d.caminho: self.papeis.get(d.caminho, d.papel) for d in detectados}
         self.mostrar_tabela(detectados)
+        await self.detectar_nome()
+
+    async def detectar_nome(self) -> None:
+        if self.concurso:
+            return
+        detectado = await run.io_bound(cadastro.nome_detectado, dict(self.papeis))
+        self.detectado.clear()
+        with self.detectado:
+            if detectado:
+                situacao(f'Detectamos: {detectado.titulo} ({detectado.origem})', Tom.SUCESSO, icone='badge')
+            else:
+                situacao(SEM_NOME_DETECTADO, Tom.INFO, icone='badge')
+
+    async def trocar_papel(self, caminho: Path, papel: Papel) -> None:
+        self.papeis[caminho] = papel
+        await self.detectar_nome()
 
     def mostrar_tabela(self, detectados: list[ArquivoDetectado]) -> None:
         self.tabela.clear()
@@ -146,7 +152,7 @@ class TelaDeEnvio:
                         ui.select(
                             opcoes,
                             value=self.papeis[caminho].value,
-                            on_change=lambda e, c=caminho: self.papeis.__setitem__(c, Papel(e.value)),
+                            on_change=lambda e, c=caminho: self.trocar_papel(c, Papel(e.value)),
                         ),
                         f'papel de {caminho.name}',
                     ).classes('w-56').mark(f'papel-{caminho.name}')
@@ -156,9 +162,6 @@ class TelaDeEnvio:
             return
         if not self.papeis:
             ui.notify('Solte pelo menos o gabarito antes de cadastrar.', type='warning')
-            return
-        if not (self.nome.value or '').strip():
-            ui.notify('Dê um nome ao concurso antes de cadastrar (ex.: tcu_2025).', type='warning')
             return
         ESTADO.ocupado = True
         self.botao.disable()
@@ -172,7 +175,7 @@ class TelaDeEnvio:
             pasta = await run.io_bound(
                 cadastro.cadastrar_envio,
                 opcoes,
-                self.nome.value or '',
+                self.concurso,
                 dict(self.papeis),
                 (self.candidato.value or '').strip() or None,
             )
@@ -197,7 +200,7 @@ class TelaDeEnvio:
         self.tabela.clear()
         with (
             self.resultado,
-            aviso(f'Concurso {pasta.name} cadastrado.', tom=Tom.SUCESSO).mark('cadastrado'),
+            aviso('Concurso cadastrado.', tom=Tom.SUCESSO).mark('cadastrado'),
             ui.row().style(tema.gap('sm')),
         ):
             ui.button('Ver concursos', on_click=lambda: ui.navigate.to('/'))

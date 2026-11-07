@@ -1,16 +1,15 @@
 # Pendências
 
-O que ainda está aberto, conferido contra o código. Três itens da fase 3 não foram desenvolvidos (o código confirma que o comportamento pedido não existe), e algumas conferências cabem ao usuário ou dependem de ambiente que o CI não reproduz.
+O que ainda está aberto, conferido contra o código. Dois itens da fase 3 não foram desenvolvidos (o código confirma que o comportamento pedido não existe), e algumas conferências cabem ao usuário ou dependem de ambiente que o CI não reproduz.
 
 | Item | Fase | Tipo | Prioridade |
 | --- | --- | --- | --- |
-| [Nome oficial e cargo nas discrepâncias e no notebook 05](#issue-12) | 3 | Não feito | Baixa |
 | [Escopo de cargo nos pesos e nas demais buscas](#issue-13) | 3 | Não feito | Alta |
 | [Precedência completa com a configuração](#issue-14) | 3 | Não feito | Média |
 | [Trecho de origem conferido à mão contra o PDF](#verificacao-fase2) | 2 | Conferência à mão | Baixa |
 | [Checklist de máquina limpa e primeira release com atualizador](#verificacao-fase6) | 5 e 6 | Conferência à mão | Alta |
 
-A prioridade dos itens da fase 3 segue o risco de número errado na análise: a 13 pode ler o peso de outro cargo num edital com vários cargos; a 14 deixa de usar um valor que o usuário declarou e cai no padrão; a 12 é só de apresentação.
+A prioridade dos itens da fase 3 segue o risco de número errado na análise: a 13 pode ler o peso de outro cargo num edital com vários cargos; a 14 deixa de usar um valor que o usuário declarou e cai no padrão.
 
 ## Ordem sugerida
 
@@ -24,37 +23,6 @@ Para a 13 e a 14, valem as regras de [AGENTS.md](../AGENTS.md):
 - se um valor já validado nos nove `edital_estruturado.json` reais mudar, a mudança vira proposta (status `proposto`, com o diff estimado) e não é aplicada em silêncio (regra 11 da spec da fase 3);
 - `correcao.py` não importa `regras_edital`, e o `correcao.json`, os CSVs das fases 1 e 2 e o parquet mantêm schema e valores;
 - `docs/modelo.md` muda na mesma entrega.
-
----
-
-<a id="issue-12"></a>
-
-## 12: Nome oficial e cargo nas discrepâncias e no notebook 05
-
-### O que falta
-
-A decisão "Rótulos" de `docs/spec-fase3.md` pede nome oficial e cargo no catálogo, nas discrepâncias, no notebook novo e no cabeçalho do relatório. Hoje só o catálogo e o relatório os mostram.
-
-- `COLUNAS_DISCREPANCIAS`, em `src/concursos/analytics/validacao_edital.py`, tem só `item`, `esperado_edital`, `observado_prova`, `diferenca`, `severidade` e `acao_sugerida`.
-- `src/concursos/analytics/insights.py` não tem função que monte o rótulo do concurso.
-- `notebooks/05_corte_e_peso.py` identifica os concursos só pelo slug.
-
-### Comportamento esperado
-
-- `discrepancias_edital.csv` ganha as colunas `nome_oficial` e `cargo` (com a especialidade, quando houver), vindas da `identificacao` do edital estruturado, em todas as linhas, inclusive no arquivo só com cabeçalho.
-- Uma função testada em `insights` recebe `regras_por_concurso` e devolve o rótulo `slug: nome oficial — cargo` de cada concurso. Sem nome oficial ou cargo, o rótulo é o slug, sem texto inventado.
-- O notebook 05 exibe os rótulos na célula de carregamento (só o alvo, quando há `concurso_alvo`). A coluna de concurso das tabelas continua sendo o slug.
-
-### Critérios de aceite
-
-- [ ] Teste: o CSV de discrepâncias sai com `nome_oficial` e `cargo` em todas as linhas, inclusive no arquivo só com cabeçalho.
-- [ ] Teste: o rótulo junta slug, nome oficial e cargo, e cai no slug quando falta a identificação.
-- [ ] Notebook 05 exibe os rótulos e roda do zero (`scripts/rodar_notebooks.sh notebooks/05_corte_e_peso.py`).
-- [ ] `docs/modelo.md` atualizado; `uv run pytest` e `ruff` verdes.
-
-### Riscos
-
-Baixo. O CSV é da fase 3, então a regra de schema estável não se aplica a ele. A paridade deve mostrar diferença só em `discrepancias_edital.csv`.
 
 ---
 

@@ -36,3 +36,10 @@ def config_simples(nome: str) -> dict:
         'provas': {'unica': {'gabarito': 'gabarito.txt', 'itens': [1, 2]}},
         'respostas': {'arquivo': 'respostas.txt'},
     }
+
+
+EDITAL_TCU = """TRIBUNAL DE CONTAS DA UNIÃO (TCU)
+CONCURSO PÚBLICO PARA O CARGO DE AUDITOR FEDERAL DE CONTROLE EXTERNO
+EDITAL Nº 1 – TCU/AUFC, DE 24 DE OUTUBRO DE 2025
+O Presidente do Tribunal de Contas da União torna pública a realização de concurso público.
+"""

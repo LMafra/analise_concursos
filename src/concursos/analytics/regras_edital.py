@@ -35,6 +35,7 @@ CONFIANCA_LISTA_DE_CARGOS = 0.9
 CONFIANCA_CARGO_UNICO = 0.85
 CONFIANCA_NOME_DO_CARGO = 0.75
 CONFIANCA_CAPA = 0.8
+CONFIANCA_SIGLA_PELAS_INICIAIS = 0.3
 _COBERTURA_MINIMA_CARGO = 0.75
 _JANELA_DE_CARGO = 600
 _JANELA_DE_ITEM = 4000
@@ -52,6 +53,7 @@ class FonteRegra(StrEnum):
     DEFAULT = 'default'
     DESCOBERTA = 'descoberta'
     LLM = 'llm'
+    PCI = 'pci'
 
 
 @dataclass(frozen=True)
@@ -77,6 +79,8 @@ class Identificacao:
     teto_classificados: Campo = field(default_factory=Campo)
     cargo_casado: bool = False
     cargos_do_edital: tuple[str, ...] = ()
+    sigla: Campo = field(default_factory=Campo)
+    ano: Campo = field(default_factory=Campo)
 
 
 class EscopoCorte(StrEnum):
@@ -199,6 +203,7 @@ CAMADA_DA_FONTE = {
     FonteRegra.RETIFICACAO: 'heuristica',
     FonteRegra.DESCOBERTA: 'heuristica',
     FonteRegra.LLM: 'llm',
+    FonteRegra.PCI: 'pci',
     FonteRegra.PERFIL: 'perfil',
     FonteRegra.CONFIG: 'config',
     FonteRegra.DEFAULT: 'nenhuma',
@@ -473,9 +478,10 @@ def _identificar(config: ConcursoConfig, docs: _Documentos) -> tuple[Identificac
     )  # fmt: skip
     teto = docs.primeiro(_TETO, escopo)
     reserva = docs.primeiro(_CADASTRO_DE_RESERVA)
+    orgao, linha_do_edital = _orgao(docs), _linha_do_edital(docs)
     identificacao = Identificacao(
-        nome_oficial=_orgao(docs),
-        edital=_linha_do_edital(docs),
+        nome_oficial=orgao,
+        edital=linha_do_edital,
         cargo=cargo,
         especialidade=campo_especialidade,
         vagas=vagas,
@@ -483,6 +489,8 @@ def _identificar(config: ConcursoConfig, docs: _Documentos) -> tuple[Identificac
         teto_classificados=teto.campo(int(teto.match['valor']), CONFIANCA_NOME_DO_CARGO) if teto else Campo(),
         cargo_casado=escolhido is not None,
         cargos_do_edital=tuple(c.nome for c in cargos),
+        sigla=_sigla(orgao, linha_do_edital),
+        ano=_ano(linha_do_edital, config.data_prova),
     )
     return identificacao, escopo, avisos
 
@@ -606,6 +614,88 @@ def _linha_do_edital(docs: _Documentos) -> Campo:
             achado = _Achado(re.search(_sem_espacos(linha[:20]), doc.texto.texto), doc)
             return achado.campo(linha, CONFIANCA_CAPA, linha)
     return Campo()
+
+
+_SIGLA_ANTES_DO_NUMERO = re.compile(r'^EDITAL\s+(?P<sigla>(?!N[º°.o])\S+)\s+(?:N[º°.o]|DE\s)', re.IGNORECASE)
+_TRAVESSAO = re.compile(r'\s+[–-]\s+')
+_SIGLA_NO_FIM_DO_NOME = re.compile(r'(?:\((?P<parenteses>[^()]{2,20})\)|\s[–-]\s(?P<travessao>\S{2,20}))\s*$')
+_TOKEN_DE_SIGLA = re.compile(r'[A-Za-zÀ-ÿ0-9.&-]+')
+_NAO_E_SIGLA = {'RETIFICADO', 'RETIFICACAO', 'CONCURSO', 'PUBLICO', 'ABERTURA', 'NORMATIVO', 'EDITAL', 'DE'}
+_PROCESSOS_GENERICOS = {'PSS', 'PS', 'PSE', 'CP'}
+_ANO_DO_NUMERO = re.compile(r'N[º°.o]\s*\d[\d.]*/(?P<ano>(?:19|20)\d{2})\b', re.IGNORECASE)
+_ANO_POR_EXTENSO = re.compile(r'\bDE\s+(?P<ano>(?:19|20)\d{2})\b', re.IGNORECASE)
+
+
+def _parece_sigla(texto: str) -> bool:
+    tokens = texto.split()
+    return (
+        0 < len(tokens) <= 2
+        and all(_TOKEN_DE_SIGLA.fullmatch(t) for t in tokens)
+        and sum(c.isupper() for c in texto) >= 2
+        and not any(normalizar(t).upper() in _NAO_E_SIGLA for t in tokens)
+    )
+
+
+def _sigla_da_linha(linha: str) -> str | None:
+    """A sigla da linha do edital: antes do número ("EDITAL ENAP Nº 114/2025") ou depois do travessão
+    ("EDITAL Nº 1 – TCU/AUFC"); "PSS/AgSUS" vira "AgSUS"."""
+    if match := _SIGLA_ANTES_DO_NUMERO.match(linha):
+        candidata = match['sigla']
+    elif len(partes := _TRAVESSAO.split(linha)) > 1:
+        candidata = partes[1].split(',')[0].strip()
+    else:
+        return None
+    partes = [p for p in candidata.split('/') if p and p.upper() not in _PROCESSOS_GENERICOS]
+    return next((p for p in partes if _parece_sigla(p)), None)
+
+
+def _sigla(orgao: Campo, edital: Campo) -> Campo:
+    """Pela linha do edital; senão, entre parênteses ou depois do travessão no fim do nome oficial; senão,
+    as iniciais do nome oficial, com confiança baixa."""
+    if edital.valor and (sigla := _sigla_da_linha(edital.valor)):
+        return replace(edital, valor=sigla)
+    if not orgao.valor:
+        return Campo()
+    for texto in (orgao.valor, *(orgao.trecho_origem or '').splitlines()):
+        if (match := _SIGLA_NO_FIM_DO_NOME.search(texto.strip())) and _parece_sigla(
+            sigla := (match['parenteses'] or match['travessao']).strip()
+        ):
+            return replace(orgao, valor=sigla)
+    iniciais = ''.join(
+        p[0] for p in orgao.valor.split() if p[0].isupper() and normalizar(p).upper() not in _PALAVRAS_VAZIAS
+    )
+    if len(iniciais) < 2:
+        return Campo()
+    return replace(orgao, valor=iniciais.upper(), confianca_extracao=CONFIANCA_SIGLA_PELAS_INICIAIS)
+
+
+def _ano(edital: Campo, data_prova: date | None) -> Campo:
+    """Pelo "Nº X/AAAA" ou pelo último "DE AAAA" da linha do edital; senão, pela data da prova."""
+    linha = edital.valor or ''
+    if match := _ANO_DO_NUMERO.search(linha):
+        return replace(edital, valor=int(match['ano']))
+    if anos := _ANO_POR_EXTENSO.findall(linha):
+        return replace(edital, valor=int(anos[-1]))
+    if data_prova:
+        return Campo(data_prova.year, FonteRegra.CONFIG, confianca_extracao=1.0)
+    return Campo()
+
+
+def identificar_edital(documentos: dict[str, list[str]]) -> Identificacao:
+    """Nome oficial, linha do edital, sigla, ano e o cargo (só quando o edital tem um), sem o `concurso.yaml`:
+    serve ao cadastro, antes de existir a pasta do concurso."""
+    docs = _Documentos(documentos)
+    orgao, linha = _orgao(docs), _linha_do_edital(docs)
+    cargos = _cargos_do_edital(docs)
+    cargo = cargos[0].achado.campo(cargos[0].nome, cargos[0].confianca) if len(cargos) == 1 else Campo()
+    return Identificacao(
+        nome_oficial=orgao,
+        edital=linha,
+        cargo=cargo,
+        cargos_do_edital=tuple(c.nome for c in cargos),
+        sigla=_sigla(orgao, linha),
+        ano=_ano(linha, None),
+    )
 
 
 def _titulo_com_siglas(linha: str) -> str:

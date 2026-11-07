@@ -364,7 +364,7 @@ async def test_projeto_vazio_oferece_criar_o_primeiro_concurso(user: User, proje
 
     user.find(marker='sem-concursos-acao').click()
 
-    await user.should_see(marker='nome-concurso')
+    await user.should_see(marker='soltar')
 
 
 async def test_situacao_do_concurso_tem_icone_e_texto(user: User, projeto):

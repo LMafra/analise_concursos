@@ -4,6 +4,7 @@ import threading
 from nicegui import run, ui
 
 from concursos.aplicacao import integracoes
+from concursos.aplicacao.nomes import opcoes_de_concurso
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.gui import tema
@@ -15,7 +16,6 @@ from concursos.gui.progresso import Andamento
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
 from concursos.integracoes.pci_mcp import REGIOES, DatasInscricao
-from concursos.status import listar_concursos
 
 logger = logging.getLogger('concursos')
 
@@ -192,16 +192,14 @@ class PainelProvasAnteriores:
         if not pci_ligado(aba):
             return
         contexto = ESTADO.contexto()
-        nomes = [p.name for p in listar_concursos(contexto.provas)] if contexto.provas.is_dir() else []
+        opcoes = {SEM_ALVO: SEM_ALVO, **opcoes_de_concurso(contexto)}
         ui.label(
             'Busque pelo concurso-alvo (o cargo e o órgão do concurso.yaml dele) ou por um termo livre.'
         ).classes('text-sm ca-texto-suave')
         with ui.column().classes('w-full').style(tema.gap('sm')) as self.recipiente:
             with ui.row().classes('w-full items-end').style(tema.gap('sm')):
                 self.alvo = (
-                    rotulo(
-                        ui.select([SEM_ALVO, *nomes], label='Concurso-alvo', value=SEM_ALVO), 'concurso-alvo'
-                    )
+                    rotulo(ui.select(opcoes, label='Concurso-alvo', value=SEM_ALVO), 'concurso-alvo')
                     .classes('min-w-48')
                     .mark('alvo-provas')
                 )

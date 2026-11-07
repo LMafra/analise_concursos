@@ -190,6 +190,9 @@ class ConcursoConfig:
     ignorar: tuple[str, ...] = ()
     historico: tuple[dict, ...] = ()
     simulado: SimuladoConfig | None = None
+    titulo: str | None = None
+    """O nome mostrado, corrigido pelo usuário; vence o do edital."""
+    pci_titulo: str | None = None
 
     def caminho(self, arquivo: str) -> Path:
         return self.pasta / arquivo
@@ -351,7 +354,17 @@ def _montar(pasta: Path, dados: dict) -> ConcursoConfig:
         ignorar=tuple(dados.get('ignorar') or ()),
         historico=tuple(dados.get('historico') or ()),
         simulado=_montar_simulado(dados['simulado']) if dados.get('simulado') else None,
+        titulo=_texto_opcional(dados.get('titulo'), 'titulo'),
+        pci_titulo=_texto_opcional((dados.get('pci') or {}).get('titulo') or None, 'pci.titulo'),
     )
+
+
+def _texto_opcional(valor: object, campo: str) -> str | None:
+    if valor is None:
+        return None
+    if not isinstance(valor, str):
+        raise ConfiguracaoInvalidaError(f"{campo}: valor '{valor}' não é texto")
+    return valor.strip() or None
 
 
 def _montar_simulado(simulado: dict) -> SimuladoConfig:

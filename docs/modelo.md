@@ -182,7 +182,7 @@ Nível e escolaridade são opcionais e ficam `nao_informado` quando ausentes.
 O módulo `concursos.analytics.regras_edital` lê do texto do edital e dos anexos (sem OCR e sem LLM) o que vai além do conteúdo programático e da regra de correção. O resultado é gravado no `edital_estruturado.json`. Cada valor é um **campo** com:
 
 - `valor`;
-- `fonte`: `retificacao`, `edital`, `config`, `perfil`, `default`, `descoberta` ou `llm`;
+- `fonte`: `retificacao`, `edital`, `config`, `perfil`, `default`, `descoberta`, `llm` ou `pci` (só no nome do concurso, pelo título do PCI);
 - `trecho_origem`, `documento_origem` e `pagina_origem`, sempre preenchidos quando a fonte é `retificacao`, `edital` ou `descoberta`;
 - `confianca_extracao`, de 0 a 1;
 - `camada`, só no JSON: `heuristica` (fontes `retificacao`, `edital` e `descoberta`), `llm`, `perfil`, `config` ou `nenhuma` (`default`).
@@ -205,7 +205,7 @@ O arquivo traz um cabeçalho, a lista do que foi extraído (ou "Nada foi extraí
 - **PDF de retificação:** o arquivo é declarado em `edital.retificacoes` e lido só pelas regras do edital (o conteúdo programático e a correção não o veem). A busca percorre as retificações da mais recente para a mais antiga, e só depois o edital e os anexos. O valor encontrado numa retificação vence o do edital, campo a campo, com o trecho e o documento da retificação. A ordem dos cortes continua a do edital.
 - **Nota inline no edital consolidado:** a frase do trecho é seguida da nota "(Retificado por meio do Edital nº …)", antes do próximo subitem e com no máximo um fim de frase entre as duas. O documento de origem continua sendo o edital.
 
-**Identificação** (`identificacao`). Tem os campos `nome_oficial` (o órgão na capa), `edital` (a linha "EDITAL Nº …" da capa), `cargo`, `especialidade`, `vagas`, `cadastro_reserva` e `teto_classificados`, mais `cargo_casado` (lógico) e `cargos_do_edital` (lista). O cargo vem do edital:
+**Identificação** (`identificacao`). Tem os campos `nome_oficial` (o órgão na capa), `edital` (a linha "EDITAL Nº …" da capa), `cargo`, `especialidade`, `vagas`, `cadastro_reserva` e `teto_classificados`, mais `cargo_casado` (lógico), `cargos_do_edital` (lista), `sigla` e `ano`. O cargo vem do edital:
 
 - **Lista de cargos:** as linhas "CARGO N: …" ou "EMPREGO N: …" (Cebraspe), os blocos temáticos (CPNU), o cargo da capa ("PARA O CARGO DE …", edital de um cargo só) ou os cargos citados no preâmbulo ("vagas para o cargo de Analista de Gestão", FGV).
 - **Casamento:**
@@ -676,6 +676,7 @@ O arquivo é gerado por `concursos adicionar` e pode ser editado à mão. Os cam
 
 ```yaml
 nome: tcu_25
+titulo: TCU 2025 — AUFC        # opcional: o nome corrigido pelo usuário ("Corrigir nome"); vence o do edital
 banca: cebraspe                # cebraspe | fgv | selecon | quadrix
 formato: certo_errado          # multipla_escolha | certo_errado
 pontuacao: cebraspe            # simples | cebraspe (padrão: simples)
@@ -810,7 +811,7 @@ Por concurso, em `analises/<concurso>/`:
   - `mudanca` (`alterada | anulada`);
   - `resposta`, `acerto_antes`, `acerto_depois`.
 - **`edital_estruturado.json`:** `fonte`, `cargo` e `conhecimentos[].disciplinas[].topicos[]`. Cada tópico tem `numero`, `nome`, `descricao` e `peso`. Quando há PDF do edital, o arquivo ganha as [regras do edital](#regras-do-edital-fase-3) (`identificacao`, `avisos` e os blocos descritos lá). Cada parte grava só as próprias chaves e preserva as outras.
-- **`discrepancias_edital.csv`:** uma linha por divergência entre o edital e a prova, com as colunas `item, esperado_edital, observado_prova, diferenca, severidade, acao_sugerida`. A `severidade` é `info`, `warn` ou `error`; a `diferenca` fica vazia quando não é numérica. Só existe quando há PDF do edital, e fica só com o cabeçalho quando tudo confere.
+- **`discrepancias_edital.csv`:** uma linha por divergência entre o edital e a prova, com as colunas `item, esperado_edital, observado_prova, diferenca, severidade, acao_sugerida, nome_oficial, cargo`. `nome_oficial` e `cargo` (com a especialidade depois de " – ", quando houver) vêm da identificação do edital e se repetem em toda linha. A `severidade` é `info`, `warn` ou `error`; a `diferenca` fica vazia quando não é numérica. Só existe quando há PDF do edital, e fica só com o cabeçalho quando tudo confere.
 - **`catalogo_edital.md`:** o catálogo de descobertas do edital (template em "Regras do edital"). Só existe quando há PDF do edital.
 - **`correcao.json`:** lista de configurações de correção (uma por variante; uma só quando o concurso não tem variantes). Campos:
   - `modelo`, `fator_penalidade`, `nota_maxima`, `nota_corte`;
@@ -1062,3 +1063,31 @@ recusados: [lingua_portuguesa/crase/fusao]
 - **Ganho (`avaliar_ganho`, `.concurso/ganho_dicionario.md`):** a verdade são as linhas da revisão com `topico` preenchido; o texto é o `enunciado` da revisão, e o edital, o `edital_estruturado.json`. A sugestão roda sem e com o dicionário, e as entradas cuja `origem` inclui o concurso ficam fora da avaliação dele. O relatório traz o acerto antes e depois (com n e Δ em p.p.), as corrigidas e as quebradas, o número de scores abaixo de 0,05 e a tabela por disciplina (n < 5 marcado como amostra insuficiente). O alerta liga quando há mais quebradas que corrigidas ou quando uma disciplina com n ≥ 5 cai, e a tela oferece desligar o dicionário.
 - **Sugestões (`sugerir_termos`):** palavras (mais de 3 letras, fora das vazias) e pares de palavras que se repetem em ao menos 2 questões revisadas para o mesmo tópico, que não são termo dele, não estão em `recusados` e não estão só no nome do tópico; até 5 por tópico, dos mais frequentes e mais exclusivos do tópico para os outros. Aceitar grava o termo (par de palavras vai para `expressoes`) com a `origem`; recusar grava a chave `disciplina/topico/termo` em `recusados`.
 - **Dicionário inicial (`concursos/dicionarios/inicial.yaml`):** Direito Administrativo, Direito Constitucional, Língua Portuguesa e Raciocínio Lógico; "Começar com o dicionário inicial" acrescenta só os tópicos que o projeto ainda não tem e liga o dicionário.
+
+## Nome do concurso
+
+A pasta (`provas/<id>`, o `nome` do `concurso.yaml`) é o identificador e nunca é renomeada. No cadastro pela tela, ela é automática: `sigla_ano` pela leitura rápida do edital (sem OCR nem IA), com `_2`, `_3` se já existir; sem edital, `concurso_AAAAMMDD`. O `add <pasta>` continua aceitando uma pasta explícita.
+
+O nome mostrado (`nome_do_concurso`, em `analytics/nome_concurso.py`) tem título e subtítulo:
+
+- **Título:** "SIGLA ANO — Cargo" ("TCU 2025 — Auditor Federal de Controle Externo"). Com a sigla tirada só das iniciais, o nome oficial fica no lugar dela.
+- **Subtítulo:** o nome oficial, sem a sigla do fim, e o edital curto ("Tribunal de Contas da União, Edital nº 1/2025").
+
+**Sigla e ano (`identificacao.sigla`, `identificacao.ano`).**
+
+- **Sigla:** antes do número na linha do edital ("EDITAL ENAP Nº 114/2025") ou depois do travessão ("EDITAL Nº 1 – TCU/AUFC", sem os prefixos de processo `PSS`, `PS`, `PSE` e `CP`). Senão, entre parênteses ou depois do travessão no fim do nome oficial. Senão, as iniciais das palavras com maiúscula do nome oficial, sem de/da/do, com confiança 0,3 (`CONFIANCA_SIGLA_PELAS_INICIAIS`).
+- **Ano:** o "nº X/AAAA" da linha do edital, senão o último "DE AAAA" dela, senão o ano de `data_prova` (fonte `config`).
+
+**Precedência do nome**, com `fonte` e `confianca`:
+
+1. `titulo` do `concurso.yaml` (fonte `config`, confiança 1);
+2. a retificação mais recente;
+3. o edital;
+4. `pci.titulo` (fonte `pci`, confiança 0,6);
+5. a IA, quando ligada, com trecho literal;
+6. o nome do arquivo do edital ou do caderno, quando não é genérico (`edital`, `prova`, `caderno`, `gabarito`, `anexo`, `retificacao`);
+7. a pasta.
+
+Abaixo do edital, o nome leva o selo "a confirmar" na tela e no `index.html`, e "O que o app decidiu sozinho" diz de onde ele veio. "Corrigir nome" grava `titulo`; vazio, apaga o campo e volta ao do edital.
+
+**Rótulo dos notebooks (`rotulo_do_concurso`):** "slug: nome oficial — cargo"; sem nome oficial ou cargo, só o slug.

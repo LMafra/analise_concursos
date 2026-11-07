@@ -7,6 +7,7 @@ from urllib.parse import quote
 from nicegui import events, run, ui
 
 from concursos.aplicacao import cadastro, estudo
+from concursos.aplicacao.nomes import opcoes_de_concurso
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.datas import data_br
 from concursos.gui import tema
@@ -158,7 +159,7 @@ class MeusLivros:
             with ui.row().classes('w-full items-end').style(tema.gap('md')):
                 self.concursos = rotulo(
                     ui.select(
-                        estudo.concursos_do_projeto(self.contexto),
+                        opcoes_de_concurso(self.contexto),
                         multiple=True,
                         label='Concurso (opcional)',
                         value=[],

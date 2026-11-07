@@ -63,6 +63,7 @@ A instância gerenciada do open-notebook (fase 7) roda no próprio computador e 
 | Disciplina canônica e bloco | `analytics/taxonomia.py` e `.concurso/taxonomia.yaml` |
 | Regras do edital: identificação, cargo, pesos, distribuição, cortes, cronograma, desempate, metadados, fonte e confiança | `analytics/regras_edital.py` |
 | Registro versionado de pistas do edital (`VERSAO_CANDIDATOS`) | `analytics/pistas_edital.py` |
+| Nome mostrado do concurso (título, subtítulo, fonte, "a confirmar"), rótulo dos notebooks e pasta automática do cadastro | `analytics/nome_concurso.py`, `aplicacao/nomes.py`, `aplicacao/cadastro.py` |
 | Discrepâncias edital × prova × gabarito (`discrepancias_edital.csv`) | `analytics/validacao_edital.py` |
 | Catálogo de descobertas (`catalogo_edital.md`) | `analytics/catalogo_edital.py` |
 | Métricas de evolução: ranking, z-score, tendência, correlação, tópicos, meta, nota ponderada, gap para o corte, simulação | `analytics/evolucao.py` |

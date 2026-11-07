@@ -25,6 +25,10 @@ from concursos.analytics.evolucao import (
     topicos_fracos_persistentes,
     zscore_por_disciplina,
 )
+from concursos.analytics.nome_concurso import NomeDoConcurso as NomeDoConcurso
+from concursos.analytics.nome_concurso import nome_do_concurso as nome_do_concurso
+from concursos.analytics.nome_concurso import rotulo_do_concurso as rotulo_do_concurso
+from concursos.analytics.nome_concurso import rotulos_dos_concursos as rotulos_dos_concursos
 from concursos.analytics.pistas_edital import CANDIDATOS, Impacto
 from concursos.analytics.regras_edital import NAO_CALCULAVEIS, EscopoCorte, StatusExtracao, UnidadeCorte
 from concursos.analytics.visualizacao import (

@@ -25,6 +25,7 @@ from concursos.analytics.consolidado import (
 from concursos.analytics.correcao import ARQUIVO_CORRECAO, NotaFinal, notas_pela_regra_gravadas
 from concursos.analytics.evolucao import comparar_percentual_e_gap
 from concursos.analytics.insights import gravar_relatorio_evolucao
+from concursos.analytics.nome_concurso import NomeDoConcurso, nome_do_concurso
 from concursos.analytics.validacao_edital import ARQUIVO_DISCREPANCIAS
 from concursos.analytics.visualizacao import rotulo_com_variante
 from concursos.biblioteca import ARQUIVO_RECOMENDACOES
@@ -83,6 +84,7 @@ class ConcursoNoIndice:
     data_prova: str | None
     nivel_edital: str | None
     notas: tuple[NotaFinal, ...] = ()
+    nome_mostrado: NomeDoConcurso | None = None
 
 
 def gerar_relatorio_html(
@@ -113,7 +115,10 @@ def gerar_relatorio_html(
                 ]
             ),
             '<h2>O que o app decidiu sozinho</h2>',
-            _lista([texto for pasta in pastas for texto in _decisoes(pasta)], 'Nenhuma decisão automática.'),
+            _lista(
+                [texto for pasta in pastas for texto in _decisoes(pasta, raiz_provas / pasta.name)],
+                'Nenhuma decisão automática.',
+            ),
             '<h2>Avisos</h2>',
             _lista([texto for pasta in pastas for texto in _avisos(pasta)], 'Nenhum aviso.'),
             '<h2>Evolução</h2>',
@@ -165,8 +170,12 @@ def _resumo(pasta: Path, pasta_provas: Path) -> ConcursoNoIndice:
     somas = desempenho[['total', 'acertos', 'anuladas']].sum().to_frame().T
     correcao = _correcao(pasta)
     notas = ()
+    estruturado = _json(pasta / ARQUIVO_EDITAL_ESTRUTURADO)
+    nome = None
     if (pasta_provas / ARQUIVO_CONFIG).exists():
-        notas = tuple(notas_pela_regra_gravadas(pasta, carregar_concurso(pasta_provas).formato))
+        config = carregar_concurso(pasta_provas)
+        notas = tuple(notas_pela_regra_gravadas(pasta, config.formato))
+        nome = nome_do_concurso(config, estruturado.get('identificacao'))
     return ConcursoNoIndice(
         nome=pasta.name,
         total=int(somas['total'].iloc[0]),
@@ -175,8 +184,9 @@ def _resumo(pasta: Path, pasta_provas: Path) -> ConcursoNoIndice:
         fonte=correcao.get('fonte'),
         confianca=correcao.get('confianca'),
         data_prova=correcao.get('data_prova'),
-        nivel_edital=(_json(pasta / ARQUIVO_EDITAL_ESTRUTURADO).get('confianca_edital') or {}).get('nivel'),
+        nivel_edital=(estruturado.get('confianca_edital') or {}).get('nivel'),
         notas=notas,
+        nome_mostrado=nome,
     )
 
 
@@ -193,7 +203,7 @@ def _tabela_de_concursos(concursos: list[ConcursoNoIndice]) -> str:
         confianca = f' ({_numero(concurso.confianca, 2)})' if concurso.confianca is not None else ''
         nivel, classe_do_nivel = _NIVEIS_DO_EDITAL.get(concurso.nivel_edital or '', ('sem edital', 'info'))
         linhas.append(
-            f'<tr><td><a href="{escape(concurso.nome)}/{ARQUIVO_RELATORIO_HTML}">{escape(concurso.nome)}</a></td>'
+            f'<tr><td>{_celula_do_nome(concurso)}</td>'
             f'<td>{escape(concurso.data_prova or "sem data")}</td>'
             f'<td>{concurso.acertos} de {concurso.total}</td>'
             f'<td>{_percentual_pela_regra(concurso)}</td>'
@@ -206,6 +216,18 @@ def _tabela_de_concursos(concursos: list[ConcursoNoIndice]) -> str:
         'edital; anulada vale ponto) sobre a nota máxima.</p>'
     )
     return '\n'.join(linhas)
+
+
+def _celula_do_nome(concurso: ConcursoNoIndice) -> str:
+    """O nome do edital como link e, embaixo, o subtítulo; o selo "a confirmar" quando o nome não veio do
+    edital nem do usuário."""
+    nome = concurso.nome_mostrado
+    link = f'<a href="{escape(concurso.nome)}/{ARQUIVO_RELATORIO_HTML}">{escape(nome.titulo if nome else concurso.nome)}</a>'
+    if nome is None:
+        return link
+    selo = ' <span class="selo alerta">a confirmar</span>' if nome.a_confirmar else ''
+    subtitulo = f'<br><span class="nota">{escape(nome.subtitulo)}</span>' if nome.subtitulo else ''
+    return f'{link}{selo}{subtitulo}'
 
 
 def _simulado(pasta_provas: Path) -> dict:
@@ -268,8 +290,13 @@ def _percentual_pela_regra(concurso: ConcursoNoIndice) -> str:
     )
 
 
-def _decisoes(pasta: Path) -> list[str]:
+def _decisoes(pasta: Path, pasta_provas: Path) -> list[str]:
     decisoes = []
+    if (pasta_provas / ARQUIVO_CONFIG).exists():
+        identificacao = _json(pasta / ARQUIVO_EDITAL_ESTRUTURADO).get('identificacao')
+        nome = nome_do_concurso(carregar_concurso(pasta_provas), identificacao)
+        if nome.a_confirmar:
+            decisoes.append(f'nome do concurso: {nome.titulo} ({nome.origem}); a confirmar em Concursos')
     correcao = _correcao(pasta)
     regra = f'{correcao.get("modelo")}, fator {correcao.get("fator_penalidade", 0):g}'
     if correcao.get('fonte') == 'perfil':

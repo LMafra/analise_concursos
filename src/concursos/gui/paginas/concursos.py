@@ -1,7 +1,11 @@
+import logging
+
 from nicegui import ui
 
 from concursos import onboarding
-from concursos.aplicacao import analise, conferencia
+from concursos.analytics.nome_concurso import NomeDoConcurso
+from concursos.aplicacao import analise, cadastro, conferencia, nomes
+from concursos.aplicacao.opcoes import Opcoes
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.estado_vazio import estado_vazio
@@ -11,6 +15,8 @@ from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
 from concursos.status import Situacao
+
+logger = logging.getLogger('concursos')
 
 EXPLICACAO_GABARITO = (
     'preliminar: a banca ainda pode mudar respostas; definitivo: o gabarito final, depois dos recursos'
@@ -94,9 +100,20 @@ def lista_de_concursos() -> bool:
         return False
     with ui.list().props('bordered separator').classes('w-full max-w-4xl'):
         for item in situacoes:
+            nome = nome_mostrado(item)
             with ui.item():
                 with ui.item_section():
-                    ui.item_label(item.nome).classes('font-bold')
+                    with ui.row().classes('items-center').style(tema.gap('sm')):
+                        ui.item_label(nome.titulo if nome else item.nome).classes('font-bold').mark(
+                            f'nome-{item.nome}'
+                        )
+                        if nome and nome.a_confirmar:
+                            with situacao('a confirmar', Tom.ALERTA, icone='help').mark(
+                                f'a-confirmar-{item.nome}'
+                            ):
+                                ui.tooltip(f'Nome {nome.origem}. Use "Corrigir nome" se não estiver certo.')
+                    if nome and nome.subtitulo:
+                        ui.item_label(nome.subtitulo).props('caption')
                     with ui.row().classes('items-center').style(tema.gap('sm')):
                         situacao(item.situacao.value, TOM_DA_SITUACAO.get(item.situacao, Tom.INFO))
                         with ui.label(f'gabarito: {item.gabarito}').classes('text-sm'):
@@ -106,13 +123,50 @@ def lista_de_concursos() -> bool:
                         with ui.expansion('Resolver').props('dense').classes('max-w-md'):
                             for motivo in item.motivos:
                                 ui.label(motivo).classes('text-sm')
-                            acoes_do_concurso(item.nome)
+                            acoes_do_concurso(item.nome, nome)
                     else:
-                        acoes_do_concurso(item.nome)
+                        acoes_do_concurso(item.nome, nome)
     return True
 
 
-def acoes_do_concurso(nome: str) -> None:
+def nome_mostrado(item) -> NomeDoConcurso | None:
+    if item.config is None:
+        return None
+    try:
+        return nomes.nome_no_projeto(ESTADO.contexto(), item.config)
+    except Exception:  # noqa: BLE001
+        logger.debug('falha ao montar o nome do concurso', exc_info=True)
+        return None
+
+
+def corrigir_nome(concurso: str, atual: str) -> None:
+    with ui.dialog() as dialogo, ui.card().classes('w-96'):
+        ui.label('Corrigir nome').classes('text-lg font-bold')
+        ui.label(
+            'O nome que você escrever vale no lugar do que veio do edital. Vazio, volta ao do edital.'
+        ).classes('text-sm')
+        campo = (
+            rotulo(ui.input('Nome do concurso', value=atual), 'nome do concurso')
+            .classes('w-full')
+            .mark('novo-nome')
+        )
+
+        def salvar() -> None:
+            try:
+                cadastro.corrigir_titulo(Opcoes(ESTADO.contexto()), concurso, campo.value or '')
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+                return
+            dialogo.close()
+            ui.navigate.to('/')
+
+        with ui.row().style(tema.gap('sm')):
+            ui.button('Salvar', icon='check', on_click=salvar).mark('salvar-nome')
+            ui.button('Cancelar', on_click=dialogo.close).props('flat')
+    dialogo.open()
+
+
+def acoes_do_concurso(nome: str, mostrado: NomeDoConcurso | None = None) -> None:
     try:
         pendentes = conferencia.pendencias(ESTADO.contexto(), nome).total
     except Exception:  # noqa: BLE001
@@ -131,6 +185,11 @@ def acoes_do_concurso(nome: str) -> None:
         ui.button(
             'Digitar respostas', icon='edit', on_click=lambda: ui.navigate.to(f'/respostas?concurso={nome}')
         ).props('flat dense').mark(f'digitar-{nome}')
+        ui.button(
+            'Corrigir nome',
+            icon='badge',
+            on_click=lambda: corrigir_nome(nome, mostrado.titulo if mostrado else nome),
+        ).props('flat dense').mark(f'corrigir-nome-{nome}')
 
 
 def pedir_analise() -> None:
