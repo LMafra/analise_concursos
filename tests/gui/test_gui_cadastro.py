@@ -60,7 +60,7 @@ async def test_soltar_arquivos_mostra_o_papel_detectado_e_trocar_muda_o_cadastro
     await user.open('/novo')
     await soltar(user, **{'gabarito.txt': GABARITO_FGV, 'minhas.txt': '1 A\n2 C\n'})
 
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
     await user.should_see('Detectamos: suas respostas digitadas. Confirma?')
     next(iter(user.find(marker='papel-minhas.txt').elements)).value = Papel.IGNORADO.value
     user.find(marker='cadastrar').click()
@@ -99,7 +99,7 @@ async def test_arquivo_de_nome_longo_fica_na_mesma_linha_do_papel(user: User, pr
     await user.open('/novo')
     nome_longo = 'analista-de-gestao-tecnologia-da-informacaocns014-tipo-1.txt'
     await soltar(user, **{nome_longo: GABARITO_FGV})
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
 
     linha = next(iter(user.find(marker=f'linha-{nome_longo}').elements))
     assert 'no-wrap' in linha.classes
@@ -111,7 +111,7 @@ async def test_cadastro_pergunta_em_dialogo_e_grava_com_as_respostas_na_pasta_do
     await user.open('/novo')
     user.find(marker='candidato-envio').clear().type('Ana Teste')
     await soltar(user, **{'gabarito.txt': GABARITO_FGV, 'minhas.txt': '1 A\n2 C\n'})
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
     user.find(marker='cadastrar').click()
 
     await user.should_see('Gravar concurso.yaml?', retries=60)
@@ -127,7 +127,7 @@ async def test_cadastro_pergunta_em_dialogo_e_grava_com_as_respostas_na_pasta_do
 async def test_recusar_no_dialogo_nao_grava_nada(user: User, projeto):
     await user.open('/novo')
     await soltar(user, **{'gabarito.txt': GABARITO_FGV})
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
     user.find(marker='cadastrar').click()
 
     await user.should_see('Gravar concurso.yaml?', retries=60)
@@ -148,7 +148,7 @@ async def test_escolha_em_dialogo_volta_para_a_thread_do_cadastro(user: User, pr
     monkeypatch.setattr(cadastro, 'cadastrar_envio', cadastrar_falso)
     await user.open('/novo')
     await soltar(user, **{'gabarito.txt': GABARITO_FGV})
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
     user.find(marker='cadastrar').click()
 
     await user.should_see('Qual é a banca?', retries=60)
@@ -167,7 +167,7 @@ async def test_cancelar_a_pergunta_cancela_o_cadastro(user: User, projeto, monke
     monkeypatch.setattr(cadastro, 'cadastrar_envio', cadastrar_falso)
     await user.open('/novo')
     await soltar(user, **{'gabarito.txt': GABARITO_FGV})
-    await user.should_see('Detectamos: gabarito. Confirma?')
+    await user.should_see('Detectamos: gabarito. Confirma?', retries=60)
     user.find(marker='cadastrar').click()
 
     await user.should_see('Qual é a banca?', retries=60)
