@@ -36,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
         return CODIGO_USUARIO
     except ErroDoUsuario as erro:
         logger.debug('erro do usuário', exc_info=True)
-        mostrar_erro(erro.causa, erro.dica)
+        mostrar_erro(erro.causa, erro.dica, erro.detalhe)
         return erro.codigo
     except (ValueError, FileNotFoundError) as erro:
         logger.debug('erro nos dados', exc_info=True)

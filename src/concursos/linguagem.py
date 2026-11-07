@@ -77,6 +77,10 @@ TERMOS_TECNICOS_DA_MENSAGEM = (
     'fator',
     'CSV',
     'PATH',
+    'modo mínimo',
+    'nao_mapeado',
+    'endpoint',
+    'LLM',
 )
 
 
