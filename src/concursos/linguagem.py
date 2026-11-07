@@ -66,6 +66,7 @@ TERMOS_TECNICOS_DO_RELATORIO = (
     'score',
     'similaridade',
     'fator',
+    'nao_mapeado',
 )
 TERMOS_TECNICOS_DA_MENSAGEM = (
     'YAML',

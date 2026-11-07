@@ -534,8 +534,9 @@ def _pontos_fortes(painel: Painel, consolidado: pd.DataFrame) -> list[str]:
     if not ha_amostra_por_disciplina(consolidado):
         return [
             titulo,
-            '<p>Ainda não há questões suficientes por disciplina para apontar pontos fortes (são precisas '
-            f'pelo menos {N_MINIMO_TOPICO}). Faça mais um concurso.</p>',
+            '<p>Ainda não há questões suficientes com a disciplina identificada para apontar pontos fortes '
+            f'(são precisas pelo menos {N_MINIMO_TOPICO} por disciplina). Cadastre o edital de cada concurso, '
+            'que traz as disciplinas, ou faça mais um concurso.</p>',
         ]
     return [
         titulo,

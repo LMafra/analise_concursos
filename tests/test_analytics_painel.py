@@ -119,6 +119,17 @@ def test_pontos_fortes_sao_disciplinas_acima_do_limiar_com_n_suficiente():
     assert fortes[0].frase == 'Você vai bem em Português: acertou 10 de 10; descontado o chute, 100%.'
 
 
+def test_questoes_sem_disciplina_identificada_nao_sao_ponto_forte():
+    sem_disciplina = consolidado(
+        concurso(
+            'alfa', ['acerto'] * 10, ordem=1, disciplinas=['nao_mapeado'] * 10, topicos=['nao_mapeado'] * 10
+        )
+    )
+
+    assert pontos_fortes(sem_disciplina, LIMIAR) == []
+    assert not ha_amostra_por_disciplina(sem_disciplina)
+
+
 def test_pontos_fortes_vazio_com_amostra_pequena():
     pequeno = consolidado(concurso('alfa', ['acerto'] * 4, ordem=1))
 

@@ -10,6 +10,7 @@ import pandas as pd
 from concursos.analytics.consolidado import N_MINIMO_TOPICO
 from concursos.analytics.evolucao import MINIMO_PONTOS_TENDENCIA, TENDENCIA, Correlacao
 from concursos.analytics.insights import P_SIGNIFICATIVO
+from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.linguagem import percentual, plural
 from concursos.modelo import Resultado
 
@@ -158,17 +159,23 @@ class PontoForte:
         )
 
 
+def _validas_com_disciplina(consolidado: pd.DataFrame) -> pd.DataFrame:
+    return consolidado[
+        ~consolidado['anulada'].astype(bool) & consolidado['disciplina_canonica'].ne(TOPICO_NAO_MAPEADO)
+    ]
+
+
 def ha_amostra_por_disciplina(consolidado: pd.DataFrame) -> bool:
     """Alguma disciplina com n ≥ `N_MINIMO_TOPICO` questões não anuladas: sem isso, nenhuma pode ser forte."""
     if consolidado.empty:
         return False
-    validas = consolidado[~consolidado['anulada'].astype(bool)]
+    validas = _validas_com_disciplina(consolidado)
     return bool((validas.groupby('disciplina_canonica').size() >= N_MINIMO_TOPICO).any())
 
 
 def pontos_fortes(consolidado: pd.DataFrame, limiar: float, maximo: int = MAXIMO_FORTES) -> list[PontoForte]:
     """Disciplinas com n ≥ `N_MINIMO_TOPICO` e percentual ajustado (sem anuladas) ≥ limiar."""
-    validas = consolidado[~consolidado['anulada'].astype(bool)]
+    validas = _validas_com_disciplina(consolidado)
     if validas.empty:
         return []
     tabela = (
