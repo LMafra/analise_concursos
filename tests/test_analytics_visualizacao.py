@@ -213,7 +213,11 @@ def test_exporta_o_painel_com_as_tres_versoes(tmp_path):
     figura = exportar_painel_correcao(COMPARACAO, caminho)
 
     assert caminho.read_bytes().startswith(PNG)
-    assert [barras.get_label() for barras in figura.axes[0].containers] == ['bruto', 'corrigido', 'ajustado']
+    assert [barras.get_label() for barras in figura.axes[0].containers] == [
+        'só os acertos',
+        'pela regra de correção',
+        'descontado o chute',
+    ]
     assert len(figura.axes[0].containers[0]) == len(COMPARACAO)
 
 

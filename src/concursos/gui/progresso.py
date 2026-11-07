@@ -3,6 +3,7 @@ import threading
 from collections import deque
 from dataclasses import dataclass
 
+from concursos.erros import FormatoComDica
 from concursos.modelo import Etapa
 
 
@@ -54,7 +55,7 @@ class HandlerDoPainel(logging.Handler):
     def __init__(self, andamento: Andamento, nivel: int = logging.INFO) -> None:
         super().__init__(nivel)
         self.andamento = andamento
-        self.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s', '%H:%M:%S'))
+        self.setFormatter(FormatoComDica('%(asctime)s %(levelname)s %(message)s', '%H:%M:%S'))
 
     def emit(self, record: logging.LogRecord) -> None:
         try:

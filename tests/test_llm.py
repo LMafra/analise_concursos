@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 import tomli_w
 import yaml
+from conftest import log_completo
 
 from concursos.cli import main
 from concursos.llm import ARQUIVO_ENV, guardar_chave
@@ -134,7 +135,9 @@ def test_campo_do_llm_aparece_no_indice_e_no_log(projeto, servidor, caplog):
     indice = (projeto / 'analises' / 'ana' / 'index.html').read_text(encoding='utf-8')
     assert 'alternativas da prova: 4 (LLM' in indice
     assert 'data da prova: 2025-01-02 (LLM' in indice
-    assert 'alternativas' in caplog.text and 'LLM' in caplog.text
+    assert 'Número de alternativas: a IA' in caplog.text and 'alternativas veio do LLM' in log_completo(
+        caplog
+    )
 
 
 def test_com_todos_os_candidatos_o_edital_vai_ao_provedor_uma_vez(projeto, servidor):
@@ -167,7 +170,8 @@ def test_sem_chave_avisa_qual_variavel_definir_e_segue_sem_llm(projeto, servidor
     with caplog.at_level(logging.WARNING):
         assert main(['analyze', '--no-open']) == 0
 
-    assert 'OPENAI_API_KEY' in caplog.text and 'dica:' in caplog.text
+    assert 'sem a chave de acesso' in caplog.text
+    assert 'OPENAI_API_KEY' in log_completo(caplog) and 'dica:' in log_completo(caplog)
     assert servidor.corpos == []
 
 
@@ -204,7 +208,7 @@ def test_sem_keyring_a_chave_vai_para_env_600_com_aviso(tmp_path, monkeypatch, c
     caminho = tmp_path / ARQUIVO_ENV
     assert onde == str(caminho)
     assert (caminho.stat().st_mode & 0o777) == 0o600
-    assert 'texto plano' in caplog.text
+    assert 'sem criptografia' in caplog.text and 'texto plano' in log_completo(caplog)
 
 
 class Terminal(io.StringIO):

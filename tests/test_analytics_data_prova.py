@@ -80,4 +80,4 @@ def test_sem_data_em_nenhuma_fonte_o_concurso_fica_sem_data_e_avisa(caplog):
         [cfg] = resolver_correcao(concurso(), {'edital.pdf': [INSCRICOES]})
 
     assert (cfg.data_prova, cfg.fonte_data) == (None, None)
-    assert 'sintetico: data da prova não encontrada' in caplog.text
+    assert 'sintetico: não encontrei a data da prova' in caplog.text

@@ -12,6 +12,8 @@ from typing import Any, Protocol
 
 from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.config.contexto import gravar_secao, ler_toml
+from concursos.datas import data_br
+from concursos.erros import avisar
 from concursos.integracoes.cache_pci import CachePci, argumentos_normalizados
 
 logger = logging.getLogger(__name__)
@@ -28,8 +30,10 @@ FERRAMENTAS = (
     'pesquisar_provas',
 )
 DICA_INSTALAR = "instale o extra: `uv tool install 'concurso-analise[pci]'` (ou `uv sync --extra pci`)"
-DICA_SERVIDOR = 'o PCI pode estar fora do ar; rode de novo mais tarde ou use `--offline` para ficar no cache'
-DICA_FORMATO = 'o servidor do PCI mudou o formato; a integração foi testada com o servidor 1.0.0'
+DICA_SERVIDOR = 'o site do PCI pode estar fora do ar; tente de novo mais tarde.'
+DICA_FORMATO = 'atualize o app; o PCI mudou a forma de responder (o app foi testado com a versão 1.0.0 dele).'
+CAUSA_FORMATO = 'O PCI respondeu num formato que o app não conhece.'
+CAUSA_FORA_DO_AR = 'Não consegui falar com o PCI.'
 _UF = re.compile(r'^[a-z]{2}$')
 
 
@@ -108,10 +112,11 @@ def gravar_configuracao(config_global: Path, **valores: Any) -> ConfiguracaoPciM
 
 
 class PciMcpErro(RuntimeError):
-    def __init__(self, causa: str, dica: str | None = None) -> None:
+    def __init__(self, causa: str, dica: str | None = None, detalhe: str | None = None) -> None:
         super().__init__(causa)
         self.causa = causa
         self.dica = dica
+        self.detalhe = detalhe
 
 
 class PciMcpIndisponivelError(PciMcpErro):
@@ -130,19 +135,24 @@ def interpretar(ferramenta: str, is_error: bool, texto: str) -> dict:
     if is_error:
         motivo = texto.removeprefix('Erro ao executar a tool:').strip()
         raise PciMcpParametroError(
-            f'o PCI recusou a consulta {ferramenta}: {motivo}',
-            'confira os filtros (ex.: a UF tem 2 letras, como "sp")',
+            f'O PCI recusou a busca: {motivo}',
+            'confira os filtros (a UF tem 2 letras, como "sp").',
+            f'ferramenta {ferramenta}',
         )
     try:
         dados = json.loads(texto)
     except json.JSONDecodeError as erro:
-        raise PciMcpFormatoError(f'{ferramenta}: a resposta não é JSON', DICA_FORMATO) from erro
+        raise PciMcpFormatoError(
+            CAUSA_FORMATO, DICA_FORMATO, f'{ferramenta}: a resposta não é JSON'
+        ) from erro
     if (
         not isinstance(dados, dict)
         or not isinstance(dados.get('meta'), dict)
         or not isinstance(dados.get('data'), list)
     ):
-        raise PciMcpFormatoError(f'{ferramenta}: a resposta não tem `meta` e `data`', DICA_FORMATO)
+        raise PciMcpFormatoError(
+            CAUSA_FORMATO, DICA_FORMATO, f'{ferramenta}: a resposta não tem `meta` e `data`'
+        )
     return dados
 
 
@@ -189,7 +199,9 @@ class TransporteSdk:
             from mcp import Client
         except ImportError as erro:
             raise PciMcpIndisponivelError(
-                'o cliente MCP (pacote `mcp`) não está instalado', DICA_INSTALAR
+                'Falta um componente do app para buscar no PCI.',
+                DICA_INSTALAR,
+                'o cliente MCP (pacote `mcp`) não está instalado',
             ) from erro
         self._portal_cm = start_blocking_portal()
         self._portal = self._portal_cm.__enter__()
@@ -201,7 +213,7 @@ class TransporteSdk:
             self._cliente_cm = None
             self.fechar()
             raise PciMcpIndisponivelError(
-                f'não consegui abrir a sessão com o PCI ({_causa(erro)})', DICA_SERVIDOR
+                CAUSA_FORA_DO_AR, DICA_SERVIDOR, f'abrir a sessão MCP: {_causa(erro)}'
             ) from erro
         return self._cliente
 
@@ -224,7 +236,7 @@ class TransporteSdk:
                 resultado = self._portal.call(cliente.list_tools)
             except Exception as erro:
                 raise PciMcpIndisponivelError(
-                    f'o PCI não listou as ferramentas ({_causa(erro)})', DICA_SERVIDOR
+                    CAUSA_FORA_DO_AR, DICA_SERVIDOR, f'listar as ferramentas: {_causa(erro)}'
                 ) from erro
             self._ferramentas = frozenset(ferramenta.name for ferramenta in resultado.tools)
         return self._ferramentas
@@ -235,7 +247,7 @@ class TransporteSdk:
             resultado = self._portal.call(cliente.call_tool, ferramenta, argumentos)
         except Exception as erro:
             raise PciMcpIndisponivelError(
-                f'a consulta {ferramenta} ao PCI falhou ({_causa(erro)})', DICA_SERVIDOR
+                CAUSA_FORA_DO_AR, DICA_SERVIDOR, f'consulta {ferramenta}: {_causa(erro)}'
             ) from erro
         texto = ''.join(getattr(parte, 'text', '') for parte in resultado.content)
         return interpretar(ferramenta, bool(resultado.is_error), texto)
@@ -287,7 +299,7 @@ class ProvaAnteriorPci:
 def _id(item: Any, ferramenta: str) -> int:
     valor = item.get('id') if isinstance(item, dict) else None
     if isinstance(valor, bool) or not isinstance(valor, int):
-        raise PciMcpFormatoError(f'{ferramenta}: item sem `id` numérico', DICA_FORMATO)
+        raise PciMcpFormatoError(CAUSA_FORMATO, DICA_FORMATO, f'{ferramenta}: item sem `id` numérico')
     return valor
 
 
@@ -360,10 +372,10 @@ class ClientePciMcp:
         self.falhas = 0
         self._avisados: set[str] = set()
 
-    def _avisar(self, chave: str, mensagem: str, *args: Any) -> None:
+    def _avisar(self, chave: str, texto: str, detalhe: str | None = None) -> None:
         if chave not in self._avisados:
             self._avisados.add(chave)
-            logger.warning(mensagem, *args)
+            avisar(logger, texto, detalhe=detalhe)
 
     def resumo(self) -> str:
         return f'PCI: {self.consultas} consultas, {self.do_cache} do cache, {self.falhas} falhas'
@@ -380,24 +392,20 @@ class ClientePciMcp:
                 self.do_cache += 1
                 self._avisar(
                     f'offline:{ferramenta}:{argumentos}',
-                    'PCI: sem rede; usando o cache de %s para %s %s',
-                    guardada.obtido_em,
-                    ferramenta,
-                    argumentos,
+                    f'PCI: sem internet; usei o resultado guardado da busca de {data_br(guardada.obtido_em)}.',
+                    f'cache de {guardada.obtido_em} para {ferramenta} {argumentos}',
                 )
                 return guardada.resposta
             self._avisar(
                 f'sem-cache:{ferramenta}:{argumentos}',
-                'PCI: sem rede e sem cache para %s %s',
-                ferramenta,
-                argumentos,
+                'PCI: sem internet e sem resultado guardado desta busca; ela ficou de fora.',
+                f'sem rede e sem cache para {ferramenta} {argumentos}',
             )
             return None
         if self.consultas >= self.maximo:
             self._avisar(
                 'limite',
-                'PCI: limite de %d consultas por execução atingido; o resto fica para a próxima execução',
-                self.maximo,
+                f'PCI: cheguei ao limite de {self.maximo} consultas de uma vez; o resto fica para a próxima.',
             )
             return guardada.resposta if guardada else None
         inicio = time.monotonic()
@@ -405,8 +413,8 @@ class ClientePciMcp:
             if ferramenta not in self.transporte.ferramentas():
                 self._avisar(
                     f'ferramenta:{ferramenta}',
-                    'PCI: o servidor não tem mais a ferramenta %s; o recurso que a usa foi pulado',
-                    ferramenta,
+                    'PCI: o site não oferece mais esta busca; pulei o que dependia dela.',
+                    f'o servidor não tem mais a ferramenta {ferramenta}',
                 )
                 return None
             self.consultas += 1
@@ -418,7 +426,12 @@ class ClientePciMcp:
             self.falhas += 1
             if not guardada:
                 raise
-            logger.warning('PCI: %s; usando o cache vencido de %s', erro.causa, guardada.obtido_em)
+            avisar(
+                logger,
+                f'PCI: {erro.causa} Usei o resultado guardado da busca de {data_br(guardada.obtido_em)}.',
+                erro.dica,
+                f'{erro.detalhe or erro.causa}; usando o cache vencido de {guardada.obtido_em}',
+            )
             return guardada.resposta
         logger.debug('PCI: %s %s em %.2fs', ferramenta, argumentos, time.monotonic() - inicio)
         self.cache.guardar(ferramenta, argumentos, resposta)
@@ -440,7 +453,8 @@ class ClientePciMcp:
         if cidade:
             if not uf:
                 raise PciMcpParametroError(
-                    'a busca por cidade precisa da UF', 'use, por exemplo, `--uf sp --cidade campinas`'
+                    'A busca por cidade precisa da UF.',
+                    'escolha a UF junto com a cidade (na linha de comando, `--uf sp --cidade campinas`).',
                 )
             consultas.append(('buscar_por_cidade', {'uf': uf, 'cidade': cidade}))
         if termo:

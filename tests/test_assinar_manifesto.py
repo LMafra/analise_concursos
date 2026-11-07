@@ -70,7 +70,7 @@ def test_conferir_pega_artefato_trocado(script, chave, tmp_path):
     script.assinar('0.6.0', pasta, chave, '2026-12-01')
     (pasta / 'concurso-analise-0.6.0-windows-x64-setup.exe').write_bytes(b'outro')
 
-    with pytest.raises(Exception, match='SHA-256'):
+    with pytest.raises(Exception, match='diferente do publicado'):
         script.conferir(pasta)
 
 
@@ -100,7 +100,7 @@ def test_assina_o_manifesto_do_pacote_de_estudo(script, chave, tmp_path):
 
     manifesto.conferir_assinatura((pasta / manifesto.ARQUIVO_MANIFESTO).read_bytes(), assinatura.read_bytes())
     arquivos[0].write_bytes(b'trocado')
-    with pytest.raises(Exception, match='SHA-256'):
+    with pytest.raises(Exception, match='diferente do publicado'):
         script.assinar_estudo(pasta, chave)
 
 

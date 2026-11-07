@@ -14,6 +14,7 @@ from concursos.concurso_config import (
     ler_dados,
 )
 from concursos.deteccao import ArquivoDetectado, Papel, arquivo_do_sistema, classificar_arquivo
+from concursos.erros import avisar
 from concursos.gabarito import GabaritoInvalidoError, cargo_do_gabarito, carregar_gabarito
 from concursos.modelo import Pontuacao, Resultado, StatusGabarito
 from concursos.texto import normalizar
@@ -117,8 +118,11 @@ def questoes_preliminares(destino: Path) -> pd.DataFrame | None:
         return None
     tabela = pd.read_csv(snapshots[0], keep_default_na=False, dtype={'prova': str, 'gabarito': str})
     if not set(tabela.columns) >= _COLUNAS_PRELIMINAR:
-        logger.warning(
-            '%s: snapshot sem gabarito por questão; o diff de gabarito não será gerado', snapshots[0]
+        avisar(
+            logger,
+            'O histórico mais antigo do gabarito não tem a resposta de cada questão; não mostro o que mudou '
+            'no gabarito.',
+            detalhe=f'{snapshots[0]}: snapshot sem gabarito por questão; o diff de gabarito não será gerado',
         )
         return None
     return tabela

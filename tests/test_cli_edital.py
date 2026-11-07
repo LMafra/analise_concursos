@@ -1,7 +1,7 @@
 import json
 import logging
 
-from conftest import analisar, criar_concurso, ler_csv
+from conftest import analisar, criar_concurso, ler_csv, log_completo
 from test_edital import PAGINAS
 
 GABARITO = '1 A\n2 B\n3 *\n4 D\n'
@@ -101,6 +101,6 @@ def test_edital_sem_conteudo_programatico_e_sem_manual_segue_sem_topicos_e_avisa
     with caplog.at_level(logging.WARNING):
         assert analisar(provas, analises) == 0
 
-    assert 'edital.txt: conteúdo programático não encontrado' in caplog.text
-    assert 'dica:' in caplog.text and 'edital.manual' in caplog.text
+    assert 'edital.txt: conteúdo programático não encontrado' in log_completo(caplog)
+    assert 'dica:' in log_completo(caplog) and 'edital manual' in log_completo(caplog)
     assert ler_csv(analises / 'sintetico' / 'questoes.csv')['topico'].eq('nao_mapeado').all()

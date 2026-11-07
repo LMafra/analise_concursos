@@ -10,6 +10,7 @@ from concursos.analytics.regras_edital import (
     RegrasEdital,
     confianca_do_edital,
 )
+from concursos.erros import avisar
 from concursos.llm import ClienteLlm, LlmIndisponivelError
 from concursos.modelo import Formato
 from concursos.texto import normalizar, numero_decimal
@@ -28,6 +29,11 @@ _SISTEMA = (
     'cada campo pedido, devolva {"valor": ..., "trecho_origem": "..."} ou null se o edital não disser. O '
     'trecho_origem é uma cópia literal, de até 300 caracteres, do texto do edital que sustenta o valor.'
 )
+_ROTULOS = {
+    'alternativas': 'Número de alternativas',
+    'penalidade': 'Desconto por erro',
+    'data_prova': 'Data da prova',
+}
 _CAMPOS = {
     'alternativas': 'número de alternativas por questão da prova objetiva (inteiro)',
     'penalidade': (
@@ -55,7 +61,12 @@ def completar_com_llm(
     try:
         resposta = _json(cliente.completar(_SISTEMA, usuario))
     except LlmIndisponivelError as erro:
-        logger.warning('LLM %s indisponível; seguindo sem ele: %s', cliente.provedor, erro)
+        avisar(
+            logger,
+            f'A IA ({cliente.provedor}) não respondeu; segui só com a leitura do edital feita no computador.',
+            'tente de novo mais tarde ou confira em Configurações > Inteligência artificial para ler editais.',
+            f'LLM {cliente.provedor} indisponível: {erro}',
+        )
         return regras
     preenchidos = {}
     for campo in pedidos:
@@ -64,14 +75,12 @@ def completar_com_llm(
     if not preenchidos:
         return regras
     for campo, achado in preenchidos.items():
-        logger.warning(
-            '%s veio do LLM %s: %s (trecho "%s", %s, página %s); confira no PDF',
-            campo,
-            cliente.provedor,
-            achado.valor,
-            achado.trecho_origem,
-            achado.documento_origem,
-            achado.pagina_origem,
+        avisar(
+            logger,
+            f'{_ROTULOS[campo]}: a IA ({cliente.provedor}) achou {achado.valor} no edital '
+            f'({achado.documento_origem}, página {achado.pagina_origem}).',
+            f'confira no PDF o trecho "{achado.trecho_origem}".',
+            f'{campo} veio do LLM {cliente.provedor}',
         )
     prova = regras.prova
     if 'alternativas' in preenchidos:

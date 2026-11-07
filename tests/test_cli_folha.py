@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import cv2
-from conftest import analisar, criar_concurso, ler_csv
+from conftest import analisar, criar_concurso, ler_csv, log_completo
 from folha_sintetica import folha_cebraspe, folha_fgv
 from PIL import Image
 
@@ -108,4 +108,4 @@ def test_folha_ilegivel_falha_apontando_arquivo_e_pagina(raizes, caplog):
     concurso_com_folha(provas, folha_cebraspe({}, 0, 15))
 
     assert analisar(provas, analises) == 1
-    assert 'folha.png: página 1' in caplog.text
+    assert 'folha.png: página 1' in log_completo(caplog)

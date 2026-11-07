@@ -31,7 +31,7 @@ class Estado:
 
     def contexto(self) -> Contexto:
         if self.projeto is None:
-            raise ErroDoUsuario('nenhuma pasta de projeto escolhida', 'escolha a pasta em "Projeto"')
+            raise ErroDoUsuario('Nenhuma pasta de projeto escolhida.', 'escolha a pasta em "Projeto".')
         return resolver_contexto(
             cwd=self.projeto, data_dir=self.projeto / PASTA_PROJETO, candidato=self.candidato
         )
@@ -43,7 +43,7 @@ class Estado:
             pasta.mkdir(parents=True, exist_ok=True)
         except OSError as erro:
             raise ErroDoUsuario(
-                f'não foi possível usar a pasta {pasta} ({erro})', 'escolha outra pasta'
+                f'Não consegui usar a pasta {pasta}.', 'escolha outra pasta.', str(erro)
             ) from erro
         os.chdir(pasta)
         self.projeto = pasta

@@ -29,5 +29,8 @@ def analisar_exemplo(home: Path) -> Path:
     )
     opcoes = Opcoes(contexto, sim=True, forcar=True, abrir=False, llm=False, rede=False)
     if analise.analisar(opcoes) != 0:
-        raise ErroDoAmbiente('a análise do exemplo falhou', 'veja o log em ~/.concurso/logs/')
+        raise ErroDoAmbiente(
+            'Não consegui analisar o concurso de exemplo.',
+            'veja o que aconteceu no registro em ~/.concurso/logs/.',
+        )
     return contexto.analises / exemplo.CANDIDATO / ARQUIVO_INDICE

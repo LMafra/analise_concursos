@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from concursos.arquivos import gravar_se_mudou
+from concursos.erros import avisar
 from concursos.texto import normalizar
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,11 @@ class CachePci:
         try:
             dados = json.loads(self.caminho.read_text(encoding='utf-8'))
         except (OSError, json.JSONDecodeError) as erro:
-            logger.warning('PCI: cache ilegível em %s (%s); começando vazio', self.caminho, erro)
+            avisar(
+                logger,
+                'PCI: não consegui ler as buscas guardadas; vou buscar tudo de novo.',
+                detalhe=f'cache ilegível em {self.caminho} ({erro}); começando vazio',
+            )
             return {}
         return dados if isinstance(dados, dict) else {}
 

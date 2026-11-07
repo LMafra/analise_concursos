@@ -27,13 +27,19 @@ def executar_onboarding(
         respostas = onboarding.perguntar(contexto, set(opcoes.fornecidos), opcoes.interacao, ambiente)
     except onboarding.OnboardingCanceladoError:
         raise ErroDoUsuario(
-            'onboarding cancelado; nada foi gravado', 'rode `concurso-analise init` quando quiser'
+            'Configuração inicial cancelada; nada foi gravado.', 'rode concurso-analise init quando quiser.'
         ) from None
     except CalibracaoError as erro:
-        raise ErroDoUsuario(f'calibração reprovada, nada foi gravado: {erro.causa}', erro.dica) from erro
+        raise ErroDoUsuario(
+            'A leitura de teste da folha não bateu com as respostas digitadas; nada foi gravado.',
+            erro.dica,
+            erro.causa,
+        ) from erro
     except onboarding.ProvedorInvalidoError as erro:
         raise ErroDoUsuario(
-            f'{erro}; nada foi gravado', f'corrija {onboarding.VARIAVEL_LLM} ou apague a variável'
+            'O serviço de inteligência artificial escolhido no ambiente não existe; nada foi gravado.',
+            f'corrija a variável de ambiente {onboarding.VARIAVEL_LLM} ou apague-a.',
+            str(erro),
         ) from erro
     opcoes = configurar(opcoes, respostas)
     contexto = opcoes.contexto
@@ -97,7 +103,7 @@ def respostas_do_formulario(
 
 def validar_nome(nome: str) -> str:
     if not nome.strip():
-        raise ErroDoUsuario('falta o seu nome', 'escreva o nome que vai aparecer nos relatórios')
+        raise ErroDoUsuario('Falta o seu nome.', 'escreva o nome que vai aparecer nos relatórios.')
     return nome.strip()
 
 
@@ -105,7 +111,9 @@ def calibrar_folha(folha: Path, digitadas: str) -> Calibracao:
     try:
         return calibrar(folha, digitadas)
     except CalibracaoError as erro:
-        raise ErroDoUsuario(f'calibração reprovada: {erro.causa}', erro.dica) from erro
+        raise ErroDoUsuario(
+            'A leitura de teste da folha não bateu com as respostas digitadas.', erro.dica, erro.causa
+        ) from erro
 
 
 def concluir_onboarding(opcoes: Opcoes, respostas: onboarding.Respostas) -> Opcoes:

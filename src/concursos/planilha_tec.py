@@ -118,7 +118,7 @@ def _decodificar(conteudo: bytes) -> str:
             return conteudo.decode(codificacao)
         except UnicodeDecodeError:
             continue
-    raise PlanilhaInvalidaError('codificação do CSV não reconhecida')
+    raise PlanilhaInvalidaError('não reconheci a codificação dos caracteres da planilha')
 
 
 def _separador(texto: str) -> str:

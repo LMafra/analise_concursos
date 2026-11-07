@@ -385,7 +385,10 @@ def recomendar(
             try:
                 livros = busca.livros(categorias, str(linha.topico))
             except OpenNotebookIndisponivelError as erro:
-                avisos.append(f'open-notebook: busca indisponível ({erro.causa}); seguindo com o catálogo')
+                logger.debug('open-notebook: busca indisponível: %s', erro.detalhe or erro.causa)
+                avisos.append(
+                    'open-notebook: a busca nos livros não respondeu; usei só o catálogo de livros.'
+                )
                 busca = None
         if categorias and not livros:
             livros = recomendar_por_catalogo(categorias, str(linha.topico), catalogo)
@@ -422,11 +425,16 @@ def topicos_fracos(
 
 def _secao(linha, itens: list[Recomendacao]) -> list[str]:
     concursos = ', '.join(linha.concursos_abaixo) if isinstance(linha.concursos_abaixo, list) else ''
+    acertos = getattr(linha, 'acertos', None)
+    desempenho = (
+        f'Acertou {int(acertos)} de {int(linha.n)}; descontado o chute, {_numero(linha.percentual)}%'
+        if acertos is not None and pd.notna(acertos)
+        else f'{int(linha.n)} questões; descontado o chute, {_numero(linha.percentual)}%'
+    )
     return [
         f'## {linha.disciplina}: {abreviar(str(linha.topico), 120)}',
         '',
-        f'n = {int(linha.n)}, percentual ajustado = {_numero(linha.percentual)}%'
-        + (f' (abaixo do limiar em: {concursos})' if concursos else ''),
+        desempenho + (f' (abaixo do esperado em: {concursos})' if concursos else '') + '.',
         '',
         *([item.em_markdown() for item in itens] or ['- Sem livro na estante nem norma citada.']),
         '',
@@ -437,22 +445,23 @@ def _markdown(
     secoes: list[str], limiar: float, sem_mapa: list[str], tem_fracos: bool, da_pratica: list[Recomendacao]
 ) -> str:
     linhas = [
-        '# Recomendações de estudo',
+        '# Onde estudar',
         '',
-        f'Para os tópicos abaixo de {_numero(limiar * 100)}% (percentual ajustado) em mais de um concurso, com '
-        f'n ≥ {N_MINIMO_TOPICO}. São sugestões: não mudam o tópico nem a disciplina de nenhuma questão.',
+        f'Livros e normas para os tópicos que ficaram abaixo de {_numero(limiar * 100)}% (descontado o chute) '
+        f'em mais de um concurso, com pelo menos {N_MINIMO_TOPICO} questões. São sugestões: não mudam o '
+        'tópico nem a disciplina de nenhuma questão.',
         '',
     ]
-    linhas += secoes if tem_fracos else ['Nenhum tópico fraco persistente.', '']
+    linhas += secoes if tem_fracos else ['Nenhum tópico ficou abaixo do esperado em mais de um concurso.', '']
     if da_pratica:
         linhas += [
-            '## Normas citadas nos seus erros do TEC',
+            '## Normas que aparecem nos seus erros do TEC',
             '',
             *(item.em_markdown() for item in da_pratica),
             '',
         ]
     if sem_mapa:
-        linhas += ['## Disciplinas sem livros mapeados', '', *(f'- {d}' for d in sem_mapa), '']
+        linhas += ['## Disciplinas sem livro escolhido', '', *(f'- {d}' for d in sem_mapa), '']
     return '\n'.join(linhas).rstrip() + '\n'
 
 

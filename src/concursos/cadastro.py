@@ -19,6 +19,7 @@ from concursos.deteccao import (
     detectar_tipo_caderno,
     eh_anexo,
 )
+from concursos.erros import avisar
 from concursos.gabarito import Secao, cargo_do_gabarito, detectar_status, ler_gabarito_texto, secoes_do_pdf
 from concursos.modelo import Formato, Pontuacao, StatusGabarito
 from concursos.perfis import ids_de_banca, ids_de_ocr, perfil_da_banca
@@ -157,10 +158,10 @@ class _Cadastro:
             )
         )
         if isinstance(self.interacao, InteracaoAutomatica):
-            logger.warning(
-                '%s: tratado como %s pelo conteúdo; ponha "gabarito" ou "respostas" no nome para não depender disso',
-                nome,
-                escolha,
+            avisar(
+                logger,
+                f'{nome}: pelo conteúdo, tratei o arquivo como {escolha.value}.',
+                'ponha "gabarito" ou "respostas" no nome do arquivo para não depender disso.',
             )
         status = detectar_status(detectado.texto) if escolha is Papel.GABARITO else None
         return replace(detectado, papel=escolha, status_gabarito=status, ambiguo=False)

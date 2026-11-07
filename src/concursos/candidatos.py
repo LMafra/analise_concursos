@@ -14,6 +14,7 @@ import yaml
 
 from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, FolhaConfig
 from concursos.config.contexto import ler_toml
+from concursos.erros import avisar
 from concursos.integracoes.pci_mcp import validar_cargos, validar_uf
 from concursos.manifesto import hash_arquivo
 from concursos.modelo import Origem, RespostaMarcada
@@ -136,13 +137,12 @@ def _avisar_revisao_antiga(config: ConcursoConfig, revisado: Path) -> None:
     folha = config.caminho(config.folha.arquivo)
     revisada = json.loads(registro.read_text(encoding='utf-8')).get('sha256')
     if folha.exists() and revisada and hash_arquivo(folha) != revisada:
-        logger.warning(
-            '%s: revisão antiga: a folha %s mudou depois do --reuse-csv, e as respostas continuam vindo do %s. '
-            'Para ler a folha nova, apague o %s e rode de novo',
-            config.nome,
-            folha.name,
-            ARQUIVO_REVISADAS,
-            ARQUIVO_REVISADAS,
+        avisar(
+            logger,
+            f'{config.nome}: revisão antiga: a folha de respostas mudou depois que você revisou a leitura, e as '
+            'respostas continuam vindo da revisão.',
+            f'para ler a folha nova, apague o {ARQUIVO_REVISADAS} e analise de novo.',
+            f'a folha {folha.name} mudou depois do --reuse-csv',
         )
 
 
@@ -189,10 +189,20 @@ def completar_perfis(raiz_provas: Path, candidato: str) -> None:
             continue
         perfil = inferir_perfil(pasta)
         if not perfil:
-            logger.warning('%s: sem respostas reconhecíveis; crie o %s', pasta, ARQUIVO_CANDIDATO)
+            avisar(
+                logger,
+                f'{pasta.parent.parent.name}: não achei as respostas de {pasta.name}.',
+                'ponha o arquivo de respostas ou a folha na pasta do candidato, ou cadastre pela janela '
+                '(Novo concurso).',
+                f'{pasta}: sem respostas reconhecíveis; crie o {ARQUIVO_CANDIDATO}',
+            )
             continue
         gravar_perfil(pasta, perfil)
-        logger.warning('%s: candidato sem perfil; %s criado a partir dos arquivos', pasta, ARQUIVO_CANDIDATO)
+        avisar(
+            logger,
+            f'{pasta.parent.parent.name}: montei os dados de {pasta.name} a partir dos arquivos da pasta.',
+            detalhe=f'{pasta}: candidato sem perfil; {ARQUIVO_CANDIDATO} criado a partir dos arquivos',
+        )
 
 
 def adicionar_arquivo(pasta_concurso: Path, arquivo: Path, nome: str) -> Path:

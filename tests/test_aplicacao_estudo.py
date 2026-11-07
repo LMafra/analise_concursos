@@ -55,7 +55,7 @@ def test_preparar_de_um_arquivo_local(contexto, tmp_path):
 def test_baixar_exige_consentimento_e_rede(contexto):
     with pytest.raises(ErroDoUsuario, match='concordar'):
         estudo.preparar_estudo(Opcoes(contexto), consentiu=False)
-    with pytest.raises(ErroDoUsuario, match='sem internet'):
+    with pytest.raises(ErroDoUsuario, match='Sem internet'):
         estudo.preparar_estudo(Opcoes(contexto, rede=False), consentiu=True)
 
 

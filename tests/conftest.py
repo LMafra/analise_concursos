@@ -6,6 +6,7 @@ import pytest
 from concurso_sintetico import EDITAL_MINIMO, com_edital_minimo, criar_concurso  # noqa: F401
 
 from concursos.cli import main
+from concursos.erros import linhas_extras
 
 # Sem o extra [gui], os testes da interface ficam de fora (a CLI não depende dele).
 collect_ignore = [] if importlib.util.find_spec('nicegui') else ['gui']
@@ -50,3 +51,8 @@ def analisar(provas: Path, analises: Path, *extra: str) -> int:
 
 def ler_csv(caminho: Path) -> pd.DataFrame:
     return pd.read_csv(caminho, keep_default_na=False)
+
+
+def log_completo(caplog: pytest.LogCaptureFixture) -> str:
+    """O texto, a dica e o detalhe de cada registro; o `caplog.text` só traz o texto."""
+    return '\n'.join('\n'.join([r.getMessage(), *linhas_extras(r)]) for r in caplog.records)

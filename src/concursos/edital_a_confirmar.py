@@ -13,6 +13,7 @@ import yaml
 from concursos.analytics.correcao import ConfiguracaoCorrecao, FonteCorrecao
 from concursos.analytics.regras_edital import FONTES_DO_TEXTO, Campo, EscopoCorte, FonteRegra, RegrasEdital
 from concursos.concurso_config import ARQUIVO_CONFIRMACAO, CAMPOS_CONFIRMAVEIS, ConcursoConfig
+from concursos.erros import avisar
 from concursos.modelo import Formato
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,12 @@ _EXPLICACOES = {
         'quantos acertos cada erro anula: 0 se o erro não desconta, 1 na Cebraspe, 0.25 se 4 erros anulam 1 acerto'
     ),
     'nota_corte': 'nota mínima no conjunto das provas objetivas, em pontos (vazio se o edital não tem)',
+}
+_ROTULOS = {
+    'data_prova': 'a data da prova',
+    'alternativas': 'o número de alternativas',
+    'fator_penalidade': 'quanto cada erro desconta',
+    'nota_corte': 'a nota de corte',
 }
 _CABECALHO = """\
 # Campos do edital que a análise não encontrou. Preencha os que souber e rode `concurso-analise` de novo: os
@@ -67,11 +74,11 @@ def gravar_confirmacao(
         caminho.write_text(
             _CABECALHO + _extraidos(regras) + ''.join(_bloco(c) for c in novos), encoding='utf-8'
         )
-    logger.warning(
-        '%s: o edital não traz %s; preencha %s e rode de novo',
-        config.nome,
-        ', '.join(novos),
-        caminho,
+    avisar(
+        logger,
+        f'{config.nome}: o edital não traz {", ".join(_ROTULOS[c] for c in novos)}.',
+        'informe em Concursos > Conferir > Dados do edital.',
+        f'{", ".join(novos)} em {caminho}',
     )
     return caminho
 

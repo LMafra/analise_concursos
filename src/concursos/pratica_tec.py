@@ -670,8 +670,8 @@ def _rotulo_do_topico(topico: str) -> str:
 
 def _desempenho(acertos: int, n: int) -> str:
     if n < N_MINIMO_TOPICO:
-        return f'amostra insuficiente (n = {n})'
-    return f'{_numero(100 * acertos / n)}% (n = {n})'
+        return f'poucas questões para avaliar ({n})'
+    return f'{_numero(100 * acertos / n)}% de {n} questões'
 
 
 def _plural(n: int, singular: str, plural: str) -> str:
@@ -691,13 +691,13 @@ def resumo_markdown(
         f'({_plural(len(repetidos), "repetido", "repetidos")}, errado 2 vezes ou mais); '
         f'{_plural(resolvidas, "questão resolvida", "questões resolvidas")} nos cadernos acompanhados.',
         '',
-        '## Prioridade de revisão',
+        '## O que revisar primeiro',
         '',
-        'Tópicos fracos na prova (abaixo do limiar em mais de um concurso) com erro repetido no TEC no mesmo '
-        'tópico do edital.',
+        'Tópicos que ficaram abaixo do esperado em mais de um concurso e em que você também errou a mesma '
+        'questão mais de uma vez no TEC.',
         '',
         *_prioridades(repetidos, fracos),
-        '## Erros repetidos',
+        '## Questões que você errou mais de uma vez',
         '',
     ]
     if repetidos:
@@ -713,7 +713,7 @@ def resumo_markdown(
         if len(repetidos) > MAXIMO_REPETIDOS:
             linhas += ['', f'Mais {len(repetidos) - MAXIMO_REPETIDOS} em `pratica/{ARQUIVO_ERROS}`.']
     else:
-        linhas.append('Nenhum erro repetido.')
+        linhas.append('Nenhuma questão errada mais de uma vez.')
     linhas += ['', '## Cadernos acompanhados', '']
     if cadernos:
         linhas += ['| Caderno | Modo | Acertos | Desempenho |', '|---|---|---|---|']
@@ -737,7 +737,7 @@ def resumo_markdown(
 
 def _prioridades(repetidos: list[dict], fracos: pd.DataFrame | None) -> list[str]:
     if fracos is None or fracos.empty:
-        return ['Sem tópicos fracos persistentes na prova para cruzar.', '']
+        return ['Nenhum tópico ficou abaixo do esperado em mais de um concurso.', '']
     por_topico: dict[str, list[dict]] = {}
     for e in repetidos:
         if e['topico'] not in (NAO_MAPEADO, FORA_DO_EDITAL):
@@ -747,12 +747,12 @@ def _prioridades(repetidos: list[dict], fracos: pd.DataFrame | None) -> list[str
         if cruzados := por_topico.get(chave_de_palavras(str(fraco.topico))):
             linhas.append(
                 f'| {_celula(fraco.disciplina)} | {_celula(cruzados[0]["topico"])} | '
-                f'{_numero(fraco.percentual)}% (n = {int(fraco.n)}) | {len(cruzados)} |'
+                f'{_numero(fraco.percentual)}% de {int(fraco.n)} questões | {len(cruzados)} |'
             )
     if not linhas:
-        return ['Nenhum tópico fraco da prova tem erro repetido no TEC.', '']
+        return ['Nenhum tópico fraco da prova tem questão errada mais de uma vez no TEC.', '']
     cabecalho = [
-        '| Disciplina | Tópico | Prova: percentual ajustado | Erros repetidos no TEC |',
+        '| Disciplina | Tópico | Na prova, descontado o chute | Questões erradas mais de uma vez no TEC |',
         '|---|---|---|---|',
     ]
     return [*cabecalho, *linhas, '']

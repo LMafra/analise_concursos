@@ -24,7 +24,7 @@ from concursos.biblioteca import (
 from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.config.contexto import Contexto, gravar_no_config_projeto
 from concursos.configuracao import ConfiguracaoGlobal
-from concursos.erros import ErroDoUsuario
+from concursos.erros import ErroDoUsuario, avisar
 from concursos.integracoes.open_notebook import (
     ClienteOpenNotebook,
     OpenNotebookIndisponivelError,
@@ -59,15 +59,22 @@ def configuracao_pratica(contexto: Contexto) -> ConfiguracaoPratica | None:
     try:
         return ler_configuracao_pratica(contexto.config_projeto, contexto.raiz)
     except ConfiguracaoInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), 'corrija a seção [pratica] do .concurso/config.toml') from erro
+        raise ErroDoUsuario(
+            'Não consegui ler a configuração da prática no TEC.',
+            'importe a planilha do TEC de novo na tela Importar do TEC.',
+            f'{erro} (seção [pratica] do .concurso/config.toml)',
+        ) from erro
 
 
 def exigir_configuracao_pratica(contexto: Contexto) -> ConfiguracaoPratica:
     configuracao = configuracao_pratica(contexto)
     if configuracao is None:
         raise ErroDoUsuario(
-            'o projeto não tem a seção [pratica]',
-            'acrescente `[pratica]` com `entrada_tec = "<pasta das exportações>"` ao .concurso/config.toml',
+            'A prática no TEC ainda não foi configurada neste projeto.',
+            'importe a planilha do TEC na tela Importar do TEC, que liga a prática sozinha, ou acrescente a '
+            'seção descrita no detalhe.',
+            'falta a seção [pratica] no .concurso/config.toml; acrescente [pratica] com '
+            'entrada_tec = "<pasta das exportações>"',
         )
     return configuracao
 
@@ -75,14 +82,16 @@ def exigir_configuracao_pratica(contexto: Contexto) -> ConfiguracaoPratica:
 def validar_exportacao(arquivo: Path) -> None:
     if not arquivo.is_file():
         raise ErroDoUsuario(
-            f'{arquivo}: arquivo não encontrado', 'confira o caminho da exportação do tec-erros'
+            f'Não encontrei o arquivo {arquivo}.', 'confira o caminho do arquivo exportado do TEC.'
         )
     if arquivo.name != ARQUIVO_ESTADO_CADERNO:
         try:
             ler_exportacao(arquivo)
         except ExportacaoInvalidaError as erro:
             raise ErroDoUsuario(
-                str(erro), 'exporte de novo pela extensão, pelo userscript ou pelo caderno.html'
+                f'Não consegui ler o arquivo exportado do TEC ({arquivo.name}).',
+                'exporte de novo pela extensão, pelo userscript ou pelo caderno.html.',
+                str(erro),
             ) from erro
 
 
@@ -137,7 +146,9 @@ def _ler_planilha(arquivo: Path) -> planilha_tec.Planilha:
         return planilha_tec.ler_planilha(arquivo)
     except planilha_tec.PlanilhaInvalidaError as erro:
         raise ErroDoUsuario(
-            str(erro), 'exporte a planilha de novo, em .csv ou .xlsx, com o cabeçalho na primeira linha'
+            f'Não consegui ler a planilha {arquivo.name}.',
+            'exporte a planilha de novo, em .csv ou .xlsx, com o cabeçalho na primeira linha.',
+            str(erro),
         ) from erro
 
 
@@ -166,18 +177,22 @@ def importar_planilha(
     if faltando := planilha_tec.faltando(mapeamento):
         nomes = ', '.join(planilha_tec.ROTULOS[c] for c in faltando)
         raise ErroDoUsuario(
-            f'{arquivo.name}: falta a coluna de {nomes}',
-            'escolha as colunas na tela Importar do TEC, ou dê esse nome ao cabeçalho da planilha',
+            f'{arquivo.name}: não encontrei a coluna de {nomes}.',
+            'escolha as colunas na tela Importar do TEC, ou dê esse nome ao cabeçalho da planilha.',
         )
     agora = agora or datetime.now().astimezone()
     try:
         conversao = planilha_tec.converter(planilha, mapeamento, arquivo.name, agora)
     except planilha_tec.PlanilhaInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), 'escolha as colunas na tela Importar do TEC') from erro
+        raise ErroDoUsuario(
+            f'Não consegui entender a planilha {arquivo.name} com as colunas escolhidas.',
+            'escolha as colunas na tela Importar do TEC.',
+            str(erro),
+        ) from erro
     if conversao.linhas == conversao.ignoradas:
         raise ErroDoUsuario(
-            f'{arquivo.name}: nenhuma linha com disciplina e resultado reconhecido',
-            'confira a coluna Resultado: use certo/errado, C/E, sim/não ou 1/0',
+            f'{arquivo.name}: nenhuma linha tem disciplina e resultado que eu reconheça.',
+            'confira a coluna Resultado: use certo/errado, C/E, sim/não ou 1/0.',
         )
     entrada = entrada_da_pratica(opcoes)
     destino = entrada / planilha_tec.nome_da_exportacao(arquivo, agora)
@@ -235,7 +250,12 @@ def praticar(
     if configuracao is None:
         return None
     if configuracao.candidato is None and opcoes.todos and candidato is not None:
-        logger.warning('prática: com --all-candidates, diga de quem é a prática em [pratica] candidato')
+        avisar(
+            logger,
+            'Prática no TEC: com vários candidatos, não sei de quem é a prática; pulei a importação.',
+            'diga de quem é a prática ao importar a planilha pela janela.',
+            'com --all-candidates, falta [pratica] candidato',
+        )
         return None
     if (configuracao.candidato or candidato) != candidato:
         return None
@@ -243,7 +263,12 @@ def praticar(
         opcoes.saida(f'prática: importaria {curto(configuracao.entrada, contexto.raiz)}')
         return None
     if not configuracao.entrada.is_dir():
-        logger.warning('prática: a pasta %s não existe; nada a importar', configuracao.entrada)
+        avisar(
+            logger,
+            'Prática no TEC: não encontrei a pasta dos arquivos exportados; não havia nada a importar.',
+            'importe uma planilha do TEC na tela Importar do TEC.',
+            f'{configuracao.entrada} não existe',
+        )
     taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else {}
     limiar = configuracao_analise.limiar_topico_baixo
     fracos, _ = topicos_fracos(curto(contexto.provas, contexto.raiz), destino, contexto.taxonomia, limiar)
@@ -259,7 +284,11 @@ def praticar(
             configuracao_analise.dicionario,
         )
     except ConfiguracaoInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), f'corrija ou apague {contexto.projeto / ARQUIVO_ESCOLHAS}') from erro
+        raise ErroDoUsuario(
+            'Não consegui ler as escolhas de disciplina e tópico da prática no TEC.',
+            f'apague o arquivo {contexto.projeto / ARQUIVO_ESCOLHAS} e importe de novo.',
+            str(erro),
+        ) from erro
 
 
 def caderno_de_erros(contexto: Contexto, candidatos: list[str | None]) -> dict[str | None, dict[str, str]]:
@@ -285,7 +314,9 @@ def fontes_de_estudo(contexto: Contexto) -> FontesDeEstudo:
         )
     except ConfiguracaoInvalidaError as erro:
         raise ErroDoUsuario(
-            str(erro), 'corrija o .concurso/biblioteca.yaml ou a seção [legislacao] e rode de novo'
+            'Não consegui ler a lista de livros ou a configuração das leis.',
+            'corrija o .concurso/biblioteca.yaml ou a seção [legislacao] e rode de novo.',
+            str(erro),
         ) from erro
     if not livros_do_app(contexto):
         return fontes
@@ -341,5 +372,9 @@ def busca_na_biblioteca(opcoes: Opcoes, fontes: FontesDeEstudo) -> BuscaBibliote
         cliente.saude()
         return BuscaBiblioteca(cliente, indexar_biblioteca(cliente, fontes.mapa))
     except OpenNotebookIndisponivelError as erro:
-        logger.warning('open-notebook: %s; recomendações só pelo catálogo', erro.causa)
+        avisar(
+            logger,
+            'Não consegui buscar nos seus livros agora; as recomendações vêm só do catálogo.',
+            detalhe=f'open-notebook: {erro.detalhe or erro.causa}',
+        )
         return None

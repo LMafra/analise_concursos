@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from conftest import log_completo
 from consolidado_sintetico import concurso, consolidado
 from editais_bancas import (
     CVM_2024,
@@ -213,7 +214,7 @@ def test_campo_ausente_no_edital_e_na_configuracao_vem_do_perfil_com_confianca_m
 
     assert (correcao.fator_penalidade, correcao.fonte) == (1.0, FonteCorrecao.PERFIL)
     assert 0 < correcao.confianca < 0.9
-    assert 'perfil da banca cebraspe' in caplog.text
+    assert 'perfil da banca cebraspe' in log_completo(caplog)
     penalidade = regras.prova.penalidade
     assert (penalidade.valor, penalidade.fonte) == (1.0, FonteRegra.PERFIL)
     assert 0 < penalidade.confianca_extracao < 0.9

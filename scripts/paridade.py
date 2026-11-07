@@ -3,18 +3,32 @@
 Uso (rode a análise com --forcar antes de cada retrato):
     python scripts/paridade.py retrato analises .paridade/retrato.json
     python scripts/paridade.py comparar analises .paridade/retrato.json
+    python scripts/paridade.py comparar analises .paridade/retrato.json --esperadas scripts/paridade_esperadas.toml
 
 A chave é o caminho relativo à pasta de análises. Depois da migração para o layout multi-candidato, compare
 contra a pasta do candidato (analises/<slug>). O manifesto fica de fora: ele guarda os hashes de entrada e a
 versão da análise, que mudam legitimamente. O index.html também, porque traz a data da geração.
+
+Sem `--esperadas`, toda diferença reprova. Com ela, uma diferença cujo caminho casa com um padrão do arquivo
+aparece com o motivo e não reprova; as outras continuam reprovando.
 """
 
+import fnmatch
 import hashlib
 import json
 import sys
+import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 
 IGNORADOS = {'.manifesto.json', 'index.html'}
+
+
+@dataclass(frozen=True)
+class Esperada:
+    padrao: str
+    motivo: str
+    versao: str
 
 
 def retratar(raiz: Path) -> dict[str, str]:
@@ -34,7 +48,19 @@ def comparar(antes: dict[str, str], depois: dict[str, str]) -> list[str]:
     return diferencas
 
 
+def ler_esperadas(arquivo: Path) -> list[Esperada]:
+    dados = tomllib.loads(arquivo.read_text(encoding='utf-8'))
+    return [Esperada(item['padrao'], item['motivo'], item['versao']) for item in dados.get('esperada', [])]
+
+
+def motivo_esperado(chave: str, esperadas: list[Esperada]) -> str | None:
+    return next((e.motivo for e in esperadas if fnmatch.fnmatchcase(chave, e.padrao)), None)
+
+
 def main(argv: list[str]) -> int:
+    esperadas: list[Esperada] | None = None
+    if len(argv) == 5 and argv[0] == 'comparar' and argv[3] == '--esperadas':
+        esperadas, argv = ler_esperadas(Path(argv[4])), argv[:3]
     if len(argv) != 3 or argv[0] not in {'retrato', 'comparar'}:
         sys.stderr.write(__doc__)
         return 2
@@ -46,10 +72,16 @@ def main(argv: list[str]) -> int:
         sys.stdout.write(f'{len(atual)} arquivos retratados em {arquivo}\n')
         return 0
     diferencas = comparar(json.loads(arquivo.read_text(encoding='utf-8')), atual)
-    sys.stdout.write(
-        '\n'.join(diferencas) + '\n' if diferencas else f'paridade: {len(atual)} arquivos iguais\n'
-    )
-    return 1 if diferencas else 0
+    if not diferencas:
+        sys.stdout.write(f'paridade: {len(atual)} arquivos iguais\n')
+        return 0
+    linhas, inesperadas = [], 0
+    for diferenca in diferencas:
+        motivo = motivo_esperado(diferenca.split(': ', 1)[1], esperadas or [])
+        linhas.append(f'{diferenca} (esperado: {motivo})' if motivo else diferenca)
+        inesperadas += motivo is None
+    sys.stdout.write('\n'.join(linhas) + '\n')
+    return 1 if inesperadas else 0
 
 
 if __name__ == '__main__':

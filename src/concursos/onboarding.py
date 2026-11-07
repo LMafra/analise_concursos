@@ -8,6 +8,7 @@ from concursos.assistente import InteracaoConsole
 from concursos.calibracao import QUESTOES_CALIBRACAO, Calibracao, CalibracaoError, calibrar, gravar_calibracao
 from concursos.candidatos import PASTA_PERFIS_GLOBAIS, candidatos_existentes, gravar_perfil_global, slug
 from concursos.config.contexto import Contexto, gravar_secao, ler_toml
+from concursos.erros import linhas_do_erro
 from concursos.llm import (
     ARQUIVO_ENV,
     NENHUM,
@@ -188,7 +189,7 @@ def _perguntar_calibracao(interacao: InteracaoConsole, raiz: Path) -> Calibracao
         try:
             calibracao = calibrar(caminho, digitadas or '')
         except CalibracaoError as erro:
-            interacao.mostrar(f'erro: {erro.causa}\ndica: {erro.dica}')
+            interacao.mostrar('\n'.join(linhas_do_erro(erro)))
             continue
         interacao.mostrar(
             f'Calibração aprovada: alternativas {calibracao.perfil.alternativas}, '
@@ -241,7 +242,7 @@ def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
 def o_que_vai_para(provedor: str) -> str:
     return (
         f'Só o texto do edital e dos anexos vai para {provedor}; respostas, folhas, notas e inscrição não '
-        'saem do computador. Sem LLM, a leitura do edital continua só local.'
+        'saem do computador. Sem a IA, a leitura do edital continua só no computador.'
     )
 
 

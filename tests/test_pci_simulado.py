@@ -138,7 +138,7 @@ def test_organizadora_sem_perfil_usa_a_reserva_e_avisa(raizes):
 
     assert ler_dados(pasta)['banca'] == BANCA_RESERVA
     assert any('ESAF' in aviso for aviso in avisos)
-    assert any('modo mínimo' in aviso for aviso in avisos)
+    assert any('sem tópico' in aviso for aviso in avisos)
 
 
 def test_cadastro_preserva_o_edital_de_fora_da_pasta(raizes):
@@ -202,9 +202,9 @@ def test_simulado_fica_fora_do_consolidado_por_padrao(raizes):
     indice = gerar_relatorio_html(provas, analises, provas.parent / 'taxonomia.yaml', 0.6).read_text(
         encoding='utf-8'
     )
-    tabela_de_concursos = indice.split('<h2>Concursos</h2>')[1].split('<h2>')[0]
+    tabela_de_concursos = indice.split('>Como estou saindo</h2>')[1].split('<h3>')[0]
     assert 'simulado/relatorio.html' not in tabela_de_concursos
-    assert 'Simulados (provas anteriores do PCI)' in indice
+    assert 'Simulados que você fez' in indice
     assert LINK in indice
 
 

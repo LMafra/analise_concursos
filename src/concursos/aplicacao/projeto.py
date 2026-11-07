@@ -24,8 +24,9 @@ def curto(caminho: Path, raiz: Path) -> Path:
 def exigir_provas(raiz_provas: Path) -> None:
     if not raiz_provas.is_dir():
         raise ErroDoUsuario(
-            f'pasta de provas não encontrada: {raiz_provas}',
-            'crie uma subpasta por concurso (ex.: provas/meu_concurso/) ou indique outra pasta com --provas',
+            f'Não encontrei a pasta onde ficam suas provas ({raiz_provas}).',
+            'cadastre um concurso pela janela (Novo concurso) ou com concurso-analise add, ou indique a pasta '
+            'com --provas.',
         )
 
 
@@ -37,8 +38,8 @@ def escolher_candidato(contexto: Contexto) -> str | None:
     if len(existentes) <= 1:
         return existentes[0] if existentes else None
     raise ErroDoUsuario(
-        f'há mais de um candidato ({", ".join(existentes)}) e nenhum foi escolhido',
-        'rode com --candidate <nome> ou com --all-candidates',
+        f'Este projeto tem mais de um candidato ({", ".join(existentes)}) e não sei de qual é a análise.',
+        'escolha o candidato na janela ou rode com --candidate <nome> (ou --all-candidates para todos).',
     )
 
 
@@ -58,8 +59,10 @@ def candidatos_da_execucao(contexto: Contexto, todos: bool) -> list[str | None]:
     candidatos = candidatos_existentes(contexto.provas)
     if not candidatos:
         raise ErroDoUsuario(
-            'nenhum candidato encontrado em provas/<concurso>/candidatos/',
-            'acrescente um com `concurso-analise add <arquivo> --candidate <nome> --concurso <pasta>`',
+            'Ainda não há respostas de nenhum candidato.',
+            'acrescente a folha de respostas pela janela (Novo concurso) ou com '
+            'concurso-analise add <arquivo> --candidate <nome> --concurso <pasta>.',
+            'nenhum candidato em provas/<concurso>/candidatos/',
         )
     return list(candidatos)
 
@@ -69,7 +72,9 @@ def concurso_do_arquivo(raiz_provas: Path, arquivo: Path, concurso: str | None) 
         pasta = raiz_provas / concurso
         if not pasta.is_dir():
             raise ErroDoUsuario(
-                f'concurso não encontrado: {pasta}', 'use o nome de uma pasta em provas/ no --concurso'
+                f'Não encontrei o concurso {concurso}.',
+                'use em --concurso o nome de um concurso já cadastrado (veja concurso-analise status).',
+                f'pasta {pasta} não existe',
             )
         return pasta
     absoluto, raiz = arquivo.resolve(), raiz_provas.resolve()
@@ -79,7 +84,7 @@ def concurso_do_arquivo(raiz_provas: Path, arquivo: Path, concurso: str | None) 
     if len(pastas) == 1:
         return pastas[0]
     raise ErroDoUsuario(
-        'não dá para saber a qual concurso o arquivo pertence', 'rode de novo com --concurso <pasta>'
+        'Não sei a qual concurso esse arquivo pertence.', 'rode de novo com --concurso <nome do concurso>.'
     )
 
 
@@ -94,11 +99,19 @@ def proxima_pasta(contexto: Contexto, base: str) -> Path:
 def concurso_alvo(contexto: Contexto, nome: str) -> ConcursoConfig:
     pasta = contexto.provas / nome
     if not pasta.is_dir():
-        raise ErroDoUsuario(f'concurso não encontrado: {pasta}', 'use o nome de uma pasta em provas/')
+        raise ErroDoUsuario(
+            f'Não encontrei o concurso {nome}.',
+            'escolha um concurso já cadastrado (veja concurso-analise status).',
+            f'pasta {pasta} não existe',
+        )
     try:
         return carregar_concurso(pasta)
     except (ConfiguracaoInvalidaError, FileNotFoundError) as erro:
-        raise ErroDoUsuario(str(erro), f'cadastre o concurso com `concurso-analise add {pasta}`') from erro
+        raise ErroDoUsuario(
+            f'Não consegui ler o cadastro do concurso {nome}.',
+            f'cadastre-o de novo pela janela ou com concurso-analise add {pasta}.',
+            str(erro),
+        ) from erro
 
 
 def migrar(opcoes: Opcoes) -> Opcoes:
@@ -117,7 +130,9 @@ def migrar(opcoes: Opcoes) -> Opcoes:
         executar_migracao(migracao, contexto)
     except MigracaoError as erro:
         raise ErroDoAmbiente(
-            str(erro), 'resolva o problema e rode de novo; a migração recomeça do zero'
+            'Não consegui reorganizar as pastas do projeto para o formato novo; nada foi perdido.',
+            'resolva o problema descrito no detalhe e abra o app de novo; a reorganização recomeça do zero.',
+            str(erro),
         ) from erro
     return replace(opcoes, contexto=replace(contexto, candidato=migracao.candidato))
 

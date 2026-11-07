@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
+from conftest import log_completo
 from transporte_pci import TransporteFalso, concurso, fixture, payload, resposta
 
 from concursos.candidatos import alvos_pci, gravar_perfil_global
@@ -72,8 +73,9 @@ def test_resposta_sem_meta_e_data_vira_erro_de_formato(texto: str):
 
 def test_item_sem_id_vira_erro_de_formato(cache):
     transporte = TransporteFalso({'buscar_por_cargo': payload([{'titulo': 'sem id'}])})
-    with pytest.raises(PciMcpFormatoError, match='id'):
+    with pytest.raises(PciMcpFormatoError, match='formato') as erro:
         ClientePciMcp(transporte, cache).buscar_concursos(cargos=['analista'])
+    assert '`id`' in erro.value.detalhe
 
 
 def test_busca_por_cargo_le_os_campos_da_fixture_real(cache):
@@ -162,8 +164,9 @@ def test_offline_usa_o_cache_vencido_com_aviso_e_nunca_chama(cache, relogio, cap
     with caplog.at_level(logging.WARNING):
         concursos = offline.buscar_concursos(cargos=['analista', 'auditor'])
     assert concursos
-    assert 'cache de 2026-11-05T10:00:00' in caplog.text
-    assert 'sem rede e sem cache' in caplog.text
+    assert 'busca de 05/11/2026' in caplog.text
+    assert 'cache de 2026-11-05T10:00:00' in log_completo(caplog)
+    assert 'sem internet e sem resultado guardado' in caplog.text
 
 
 def test_falha_de_rede_usa_o_cache_vencido_ou_propaga(cache, relogio, caplog):
@@ -173,7 +176,8 @@ def test_falha_de_rede_usa_o_cache_vencido_ou_propaga(cache, relogio, caplog):
     cliente = ClientePciMcp(fora, cache)
     with caplog.at_level(logging.WARNING):
         assert cliente.buscar_concursos(cargos=['analista'])
-    assert 'usando o cache vencido' in caplog.text
+    assert 'Usei o resultado guardado' in caplog.text
+    assert 'usando o cache vencido' in log_completo(caplog)
     assert cliente.falhas == 1
     with pytest.raises(PciMcpIndisponivelError):
         cliente.buscar_concursos(cargos=['sem cache'])
@@ -183,7 +187,7 @@ def test_ferramenta_ausente_avisa_e_pula(cache, caplog):
     transporte = TransporteFalso(ferramentas=('listar_concursos',))
     with caplog.at_level(logging.WARNING):
         assert ClientePciMcp(transporte, cache).pesquisar_provas_anteriores('auditor') == []
-    assert 'não tem mais a ferramenta pesquisar_provas' in caplog.text
+    assert 'não tem mais a ferramenta pesquisar_provas' in log_completo(caplog)
     assert transporte.chamadas == []
 
 

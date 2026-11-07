@@ -1,6 +1,6 @@
 import logging
 
-from conftest import analisar, criar_concurso, ler_csv
+from conftest import analisar, criar_concurso, ler_csv, log_completo
 
 
 def config(formato: str, pontuacao: str, fim: int) -> dict:
@@ -66,6 +66,6 @@ def test_gabarito_com_contagem_diferente_da_faixa_falha_com_mensagem_clara(raize
     with caplog.at_level(logging.ERROR):
         assert analisar(provas, analises) == 1
 
-    assert 'gabarito.txt' in caplog.text
-    assert 'questões 1-4' in caplog.text
-    assert '3 itens' in caplog.text
+    assert 'gabarito.txt' in log_completo(caplog)
+    assert 'questões 1-4' in log_completo(caplog)
+    assert '3 itens' in log_completo(caplog)

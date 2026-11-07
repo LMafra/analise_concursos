@@ -24,6 +24,8 @@ from concursos.analytics.correcao import (
 from concursos.analytics.pistas_edital import CANDIDATOS, VERSAO_CANDIDATOS, Candidato
 from concursos.concurso_config import ConcursoConfig, PesoItens, pesos_variam
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, maiusculo, mesclar_json, titulo_legivel
+from concursos.erros import avisar
+from concursos.linguagem import traduzir_aviso
 from concursos.modelo import ALTERNATIVAS_PADRAO, Escolaridade, Formato
 from concursos.perfis import PERFIL_GENERICO, perfil_da_banca
 from concursos.texto import NUMERO_DECIMAL, normalizar, numero_decimal
@@ -1569,7 +1571,11 @@ def extrair_regras(
     metadados = _extrair_metadados(docs, escopo, derivados)
     avisos += avisos_dos_pesos + avisos_da_distribuicao + avisos_dos_cortes + avisos_do_cronograma
     for aviso in avisos:
-        logger.warning('%s', aviso)
+        traducao = traduzir_aviso(aviso.removeprefix(f'{config.nome}: '))
+        if traducao is None:
+            avisar(logger, aviso)
+        else:
+            avisar(logger, f'{config.nome}: {traducao}', detalhe=aviso)
     regras = RegrasEdital(
         identificacao,
         pesos,

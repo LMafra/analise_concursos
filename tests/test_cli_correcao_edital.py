@@ -4,7 +4,7 @@ from datetime import date
 
 import pandas as pd
 import pytest
-from conftest import analisar, criar_concurso, ler_csv
+from conftest import analisar, criar_concurso, ler_csv, log_completo
 from test_analytics_correcao import AGSUS, CEBRASPE
 from test_cli_edital import MANUAL
 from test_edital import PAGINAS
@@ -140,7 +140,7 @@ def test_edital_sem_a_regra_nem_configuracao_grava_default_e_avisa(raizes, caplo
 
     [cfg] = correcao(analises)
     assert (cfg['modelo'], cfg['fonte'], cfg['trecho_origem']) == ('bruta', 'default', None)
-    assert 'usando o default' in caplog.text
+    assert 'default (bruta, fator 0)' in log_completo(caplog)
 
 
 def test_bloco_correcao_do_concurso_yaml_vira_fonte_config(raizes):

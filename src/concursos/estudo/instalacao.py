@@ -19,7 +19,7 @@ from pathlib import Path, PurePosixPath
 
 from concursos import atualizador
 from concursos.aplicacao.atualizador import Progresso, Transporte
-from concursos.erros import ErroDoAmbiente, ErroDoUsuario
+from concursos.erros import ErroDoAmbiente, ErroDoUsuario, avisar
 from concursos.estudo import manifesto
 from concursos.estudo.manifesto import ArtefatoEstudo, ManifestoEstudo
 from concursos.modelo import CanalAtualizacao
@@ -31,7 +31,7 @@ ARQUIVO_ESTADO = 'instalado.json'
 BACKUPS_MANTIDOS = 2
 URL_RELEASES = f'https://api.github.com/repos/{atualizador.REPOSITORIO}/releases?per_page=50'
 MARGEM_DISCO = 200 * 1024 * 1024
-DICA_DISCO = 'libere espaço no disco (apague arquivos grandes ou esvazie a lixeira) e tente de novo'
+DICA_DISCO = 'libere espaço no disco (apague arquivos grandes ou esvazie a lixeira) e tente de novo.'
 
 EspacoLivre = Callable[[Path], int]
 
@@ -89,8 +89,8 @@ def plataforma(sistema: str = sys.platform) -> str:
         return atualizador.plataforma(sistema)
     except ErroDoUsuario as erro:
         raise ErroDoUsuario(
-            'estudar com seus livros ainda não está disponível neste sistema',
-            'por enquanto, a biblioteca funciona no Windows e no Linux',
+            'Estudar com seus livros ainda não está disponível neste sistema.',
+            'por enquanto, a biblioteca funciona no Windows e no Linux.',
         ) from erro
 
 
@@ -128,7 +128,9 @@ def _releases_de_estudo(transporte: Transporte, canal: CanalAtualizacao) -> list
         releases = json.loads(transporte.baixar(URL_RELEASES, atualizador.LIMITE_LISTA_RELEASES))
     except json.JSONDecodeError as erro:
         raise ErroDoAmbiente(
-            'o GitHub respondeu algo que não é a lista de versões', 'tente mais tarde'
+            'Não consegui ver as versões da biblioteca no site do app.',
+            'tente de novo mais tarde.',
+            str(erro),
         ) from erro
     versoes = []
     for release in releases if isinstance(releases, list) else []:
@@ -196,7 +198,7 @@ def conferir_espaco(pastas: Pastas, artefato: ArtefatoEstudo, livre: EspacoLivre
     precisa = espaco_necessario(pastas, artefato)
     if livre(pastas.base) < precisa:
         raise ErroDoUsuario(
-            f'falta espaço no disco para preparar a biblioteca: são necessários {precisa / 1e9:.1f} GB livres',
+            f'Falta espaço no disco para preparar a biblioteca: são necessários {precisa / 1e9:.1f} GB livres.',
             DICA_DISCO,
         )
 
@@ -204,7 +206,9 @@ def conferir_espaco(pastas: Pastas, artefato: ArtefatoEstudo, livre: EspacoLivre
 def _dentro(destino: Path, nome: str) -> Path:
     relativo = PurePosixPath(nome.replace('\\', '/'))
     if relativo.is_absolute() or '..' in relativo.parts:
-        raise ErroDoAmbiente(f'o pacote da biblioteca tem um caminho inválido ({nome}); nada foi instalado')
+        raise ErroDoAmbiente(
+            'O pacote da biblioteca tem um caminho inválido; não instalei nada.', manifesto.DICA, nome
+        )
     return destino / Path(*relativo.parts)
 
 
@@ -235,7 +239,11 @@ def instalar_arquivo(pastas: Pastas, arquivo: Path, versao: str) -> Path:
     try:
         extrair(arquivo, temporaria)
         if not (temporaria / f'estudo-{versao}' / 'estudo.toml').is_file():
-            raise ErroDoAmbiente('o pacote da biblioteca está incompleto; nada foi instalado', manifesto.DICA)
+            raise ErroDoAmbiente(
+                'O pacote da biblioteca veio incompleto; não instalei nada.',
+                manifesto.DICA,
+                'falta o estudo.toml',
+            )
         shutil.rmtree(destino, ignore_errors=True)
         temporaria.rename(destino)
     finally:
@@ -260,11 +268,11 @@ def instalar(
 ) -> Path:
     if offline:
         raise ErroDoUsuario(
-            'sem internet não dá para preparar a biblioteca', 'tente de novo com a internet ligada'
+            'Sem internet, não dá para preparar a biblioteca.', 'tente de novo com a internet ligada.'
         )
     if not consentiu:
         raise ErroDoUsuario(
-            'a biblioteca só é preparada depois que você concordar', 'clique em "Preparar agora"'
+            'A biblioteca só é preparada depois que você concordar.', 'clique em "Preparar agora".'
         )
     pastas.base.mkdir(parents=True, exist_ok=True)
     conferir_espaco(pastas, disponivel.artefato, livre)
@@ -276,7 +284,9 @@ def instalar(
             atualizador.conferir_sha256(baixado, disponivel.artefato.sha256)
         except ErroDoAmbiente as erro:
             raise ErroDoAmbiente(
-                'o pacote da biblioteca chegou diferente do publicado e foi descartado', manifesto.DICA
+                'O pacote da biblioteca chegou diferente do publicado; não usei ele.',
+                manifesto.DICA,
+                erro.detalhe,
             ) from erro
         return instalar_arquivo(pastas, baixado, disponivel.manifesto.versao)
     finally:
@@ -304,7 +314,8 @@ def fazer_backup(pastas: Pastas, versao: str, agora: datetime | None = None) -> 
     if _arquivos(pastas.banco) != _arquivos(destino / 'banco'):
         shutil.rmtree(destino, ignore_errors=True)
         raise ErroDoAmbiente(
-            'a cópia de segurança da biblioteca não conferiu; a versão nova não foi aberta', DICA_DISCO
+            'A cópia de segurança da biblioteca saiu diferente do original; não abri a versão nova.',
+            DICA_DISCO,
         )
     copias = sorted(p for p in pastas.backups.iterdir() if p.is_dir())
     for antiga in copias[:-BACKUPS_MANTIDOS]:
@@ -329,5 +340,9 @@ def voltar_ao_anterior(pastas: Pastas) -> str | None:
     gravar_estado(
         pastas, Estado(atual=estado.anterior, anterior=estado.atual, ultima_partida=estado.anterior)
     )
-    logger.warning('open-notebook: a versão %s não abriu; voltei para a %s', estado.atual, estado.anterior)
+    avisar(
+        logger,
+        'A versão nova da biblioteca de estudo não abriu; voltei para a anterior.',
+        detalhe=f'open-notebook: a versão {estado.atual} não abriu; voltei para a {estado.anterior}',
+    )
     return estado.anterior

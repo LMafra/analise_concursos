@@ -13,6 +13,8 @@ from concursos.cli.erros import (
     mostrar_inesperado,
 )
 from concursos.config.contexto import resolver_home
+from concursos.erros import avisar
+from concursos.linguagem import erro_para_a_tela
 
 COMANDOS_LEGADOS = {'adicionar': 'add', 'analisar': 'analyze'}
 
@@ -24,10 +26,10 @@ def main(argv: list[str] | None = None) -> int:
     arquivo_log = configurar_log(resolver_home() / 'logs')
     try:
         if argv and argv[0] in COMANDOS_LEGADOS:
-            logger.warning(
-                '`%s` está obsoleto e sai na fase 5; use `concurso-analise %s`',
-                argv[0],
-                COMANDOS_LEGADOS[argv[0]],
+            avisar(
+                logger,
+                f'O comando `{argv[0]}` está obsoleto e vai sair; use `concurso-analise '
+                f'{COMANDOS_LEGADOS[argv[0]]}`.',
             )
             return legado.main(argv)
         return app(args=argv, prog_name='concurso-analise', standalone_mode=False) or 0
@@ -36,11 +38,12 @@ def main(argv: list[str] | None = None) -> int:
         return CODIGO_USUARIO
     except ErroDoUsuario as erro:
         logger.debug('erro do usuário', exc_info=True)
-        mostrar_erro(erro.causa, erro.dica)
+        mostrar_erro(erro.causa, erro.dica, erro.detalhe)
         return erro.codigo
     except (ValueError, FileNotFoundError) as erro:
         logger.debug('erro nos dados', exc_info=True)
-        mostrar_erro(str(erro))
+        traduzido = erro_para_a_tela(erro)
+        mostrar_erro(traduzido.causa, traduzido.dica, traduzido.detalhe)
         return CODIGO_USUARIO
     except typer.TyperException as erro:
         mostrar_erro(f'uso inválido: {erro.format_message()}', 'veja as opções com `concurso-analise --help`')

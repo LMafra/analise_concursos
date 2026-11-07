@@ -132,7 +132,11 @@ def carregar_dicionario(caminho: Path) -> Dicionario:
     try:
         dados = yaml.safe_load(caminho.read_text(encoding='utf-8'))
     except yaml.YAMLError as erro:
-        raise ErroDoUsuario(f'{caminho}: YAML inválido ({erro})', 'refaça o dicionário pela tela') from erro
+        raise ErroDoUsuario(
+            'Não consegui ler o dicionário de temas.',
+            'refaça o dicionário em Configurações > Disciplinas e temas.',
+            f'{caminho}: YAML inválido ({erro})',
+        ) from erro
     return ler_dicionario(dados or {}, str(caminho))
 
 

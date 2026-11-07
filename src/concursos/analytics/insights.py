@@ -164,12 +164,15 @@ def sensibilidade_em_markdown(consolidado: pd.DataFrame, com: Achados) -> str:
 
 
 def gravar_relatorio_evolucao(
-    consolidado: pd.DataFrame, pasta: Path | None = None, limiar: float = LIMIAR_TOPICO_FRACO
+    consolidado: pd.DataFrame,
+    pasta: Path | None = None,
+    limiar: float = LIMIAR_TOPICO_FRACO,
+    achados: Achados | None = None,
 ) -> Path:
     """Grava as três imagens (linha, heatmap e painel) e o relatório com as quatro respostas e a
     sensibilidade sem o nível médio. Sem pasta, usa a do consolidado."""
     pasta = pasta or pasta_consolidado()
-    achados = calcular_achados(consolidado, limiar)
+    achados = achados or calcular_achados(consolidado, limiar)
     exportar_linha_evolucao(zscore_por_disciplina(consolidado), pasta / IMAGEM_LINHA)
     exportar_heatmap_topicos(
         percentual_por_topico(consolidado, min_concursos=MINIMO_CONCURSOS), pasta / IMAGEM_HEATMAP

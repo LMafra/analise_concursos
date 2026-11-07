@@ -76,7 +76,7 @@ def test_definitivo_novo_substitui_o_preliminar(raizes):
         ['unica', 4, 'D', '', 'anulada', 'D', True, True],
     ]
     texto = relatorio(analises)
-    assert '## Preliminar → Definitivo' in texto
+    assert '## Gabarito preliminar → definitivo' in texto
     assert 'Acertos: 4 → 5' in texto
     assert SELO not in texto
     desempenho = ler_csv(analises / 'sintetico' / 'desempenho_por_disciplina.csv')
@@ -111,7 +111,7 @@ def test_sobrescrever_com_mesmo_nome_e_status_novo_dispara_a_troca(raizes):
     assert 'gabarito.txt' not in config.get('ignorar', [])
     assert config['historico'][-1]['novo'] == 'gabarito.txt'
     assert (analises / 'sintetico' / 'diff_gabarito.csv').exists()
-    assert '## Preliminar → Definitivo' in relatorio(analises)
+    assert '## Gabarito preliminar → definitivo' in relatorio(analises)
 
 
 def test_definitivo_de_outro_cargo_deixa_desatualizado(raizes, capsys):

@@ -45,7 +45,7 @@ async def test_sem_nome_fica_no_primeiro_passo_com_erro_e_dica(user: User, proje
     user.find(marker='nome').clear()
     user.find(marker='continuar').click()
 
-    await user.should_see('erro: falta o seu nome')
+    await user.should_see('erro: Falta o seu nome.')
     await user.should_see('Passo 1 de 4: Seu nome')
     assert not (projeto / '.concurso' / 'config.toml').exists()
 

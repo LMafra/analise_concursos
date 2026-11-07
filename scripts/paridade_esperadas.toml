@@ -1,0 +1,39 @@
+# Diferenças de paridade intencionais, lidas por `scripts/paridade.py comparar --esperadas`.
+# `padrao` é um glob (fnmatch) sobre o caminho relativo à pasta do candidato; o `*` atravessa pastas.
+# Dados (CSV, parquet, correcao.json) nunca entram aqui: uma diferença neles é regressão.
+versao = 1
+
+[[esperada]]
+padrao = '*/relatorio.md'
+motivo = 'relatório por concurso reescrito em linguagem leiga, com os números crus em Detalhes técnicos'
+versao = '0.7.0'
+
+[[esperada]]
+padrao = '*/relatorio.html'
+motivo = 'gerado do relatorio.md reescrito; a parte técnica fica num <details> fechado'
+versao = '0.7.0'
+
+[[esperada]]
+padrao = 'consolidado/*.png'
+motivo = 'títulos dos gráficos em linguagem leiga'
+versao = '0.7.0'
+
+[[esperada]]
+padrao = '*radar_editais.md'
+motivo = 'texto do radar de prazos em linguagem leiga'
+versao = '0.7.0'
+
+[[esperada]]
+padrao = 'consolidado/simulado_focado.md'
+motivo = 'texto do simulado focado em linguagem leiga'
+versao = '0.7.0'
+
+[[esperada]]
+padrao = '*recomendacoes_estudo.md'
+motivo = 'texto das recomendações de estudo em linguagem leiga'
+versao = '0.7.0'
+
+[[esperada]]
+padrao = '*resumo_pratica.md'
+motivo = 'texto do resumo da prática no TEC em linguagem leiga'
+versao = '0.7.0'

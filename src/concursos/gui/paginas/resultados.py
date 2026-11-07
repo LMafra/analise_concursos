@@ -31,9 +31,9 @@ SEM_PRATICA = (
     'seguinte junta a prática ao relatório.'
 )
 DESCRICAO_DOS_FORMATOS = {
-    FormatoExportacao.CSV: 'CSV (Excel, planilhas)',
-    FormatoExportacao.PARQUET: 'Parquet (pandas, análise de dados)',
-    FormatoExportacao.MD: 'Markdown (texto)',
+    FormatoExportacao.CSV: 'Planilha (abre no Excel)',
+    FormatoExportacao.PARQUET: 'Para programadores (Parquet)',
+    FormatoExportacao.MD: 'Texto',
 }
 
 

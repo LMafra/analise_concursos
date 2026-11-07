@@ -13,6 +13,7 @@ from concursos.biblioteca import topicos_fracos
 from concursos.concurso_config import ConfiguracaoInvalidaError, carregar_concurso
 from concursos.config.contexto import Contexto
 from concursos.configuracao import ConfiguracaoGlobal, configuracao_do_projeto
+from concursos.erros import avisar
 from concursos.pipeline import preparar_revisao
 from concursos.topicos import ARQUIVO_REVISAO
 
@@ -31,7 +32,12 @@ def revisar_simulado(contexto: Contexto, pasta: Path, configuracao: Configuracao
         taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else None
         preparar_revisao(config, configuracao or _configuracao(contexto), taxonomia)
     except (ConfiguracaoInvalidaError, FileNotFoundError, ValueError) as erro:
-        logger.warning('%s: tópicos das questões não classificados (%s)', pasta.name, erro)
+        avisar(
+            logger,
+            f'{pasta.name}: não consegui descobrir o tópico das questões desta prova.',
+            'confira o cadastro da prova em Concursos.',
+            str(erro),
+        )
         return False
     return True
 
@@ -54,7 +60,11 @@ def gerar_simulado_focado(
             revisar_simulado(contexto, pasta, configuracao)
     fracos, avisos = topicos_fracos(raiz_provas, destino, contexto.taxonomia, limiar)
     for aviso in avisos:
-        logger.warning('simulado focado: %s', aviso)
+        avisar(
+            logger,
+            'Não consegui calcular seus tópicos fracos; o simulado focado sai sem eles.',
+            detalhe=aviso,
+        )
     resultado = simulado_focado.montar(raiz_provas, destino, fracos)
     simulado_focado.gravar(destino, simulado_focado.formatar(resultado, limiar))
     return resultado

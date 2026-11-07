@@ -80,13 +80,13 @@ def test_gravar_de_novo_sem_mudanca_preserva_o_mtime(tmp_path: Path):
     assert (tmp_path / ARQUIVO_RADAR).stat().st_mtime_ns == antes
     assert ler_radar(tmp_path) == radar
     texto = (tmp_path / ARQUIVO_RADAR).read_text(encoding='utf-8')
-    assert '# Editais que fecham em breve' in texto and 'aberto, fecha em 3 dias' in texto
+    assert '# Prazos dos editais' in texto and 'aberto, fecha em 3 dias' in texto
 
 
 def test_sem_cargos_avisa_que_so_mostra_os_interesses(tmp_path: Path):
     gravar_radar(tmp_path, montar_radar([], [], 15, (), HOJE))
     texto = (tmp_path / ARQUIVO_RADAR).read_text(encoding='utf-8')
-    assert 'Sem cargos-alvo' in texto and 'Nenhum edital' in texto
+    assert 'Sem cargos de interesse' in texto and 'Nenhum edital' in texto
 
 
 CONCURSO = {
@@ -141,7 +141,7 @@ def ligar() -> None:
 def test_desligado_nao_gera_radar_nem_chama_o_pci(projeto: Path):
     assert main(['--candidate', 'alice']) == 0
     assert not (projeto / 'analises' / 'alice' / ARQUIVO_RADAR).exists()
-    assert 'Editais que fecham em breve' not in (projeto / 'analises' / 'alice' / 'index.html').read_text()
+    assert 'id="prazos"' not in (projeto / 'analises' / 'alice' / 'index.html').read_text()
 
 
 def test_radar_depois_da_analise_no_indice_status_e_doctor(
@@ -156,10 +156,12 @@ def test_radar_depois_da_analise_no_indice_status_e_doctor(
     radar = json.loads((destino / ARQUIVO_RADAR_JSON).read_text(encoding='utf-8'))
     assert [item['id'] for item in radar['itens']] == [1]
     indice = (destino / 'index.html').read_text(encoding='utf-8')
-    assert 'Editais que fecham em breve' in indice and 'Câmara Alfa' in indice
+    assert '<section id="prazos">\n<h2>Prazos dos editais</h2>' in indice and 'Câmara Alfa' in indice
     markdown = (destino / ARQUIVO_RADAR).read_text(encoding='utf-8')
     assert re.search(r'\d{2}/\d{2}/\d{4}', markdown) and not re.search(r'\d{4}-\d{2}-\d{2}', markdown)
-    assert not re.search(r'\d{4}-\d{2}-\d{2}', indice.split('Editais que fecham em breve')[1])
+    assert not re.search(
+        r'\d{4}-\d{2}-\d{2}', indice.split('<section id="prazos">')[1].split('</section>')[0]
+    )
     assert re.match(r'\d{4}-\d{2}-\d{2}$', radar['data_referencia'])
     capsys.readouterr()
 
@@ -195,7 +197,7 @@ def test_falha_do_pci_vira_aviso_e_a_analise_segue(projeto: Path, monkeypatch: p
         assert main(['--candidate', 'alice']) == 0
 
     assert (projeto / 'analises' / 'alice' / 'alfa' / 'relatorio.md').exists()
-    assert 'radar não atualizado' in caplog.text
+    assert 'Não consegui atualizar os prazos dos editais' in caplog.text
 
 
 def test_offline_usa_so_o_cache(projeto: Path, transporte, monkeypatch: pytest.MonkeyPatch):

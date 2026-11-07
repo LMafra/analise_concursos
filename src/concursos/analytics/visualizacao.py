@@ -19,6 +19,11 @@ from concursos.texto import abreviar
 OPACIDADE_AMOSTRA_INSUFICIENTE = 0.35
 TAMANHO_ROTULO_TOPICO = 50
 _VERSOES_DO_PAINEL = (('bruta', 'bruto'), ('corrigida', 'corrigido'), ('ajustada', 'ajustado'))
+_VERSOES_DO_PNG = {
+    'bruta': 'só os acertos',
+    'corrigida': 'pela regra de correção',
+    'ajustada': 'descontado o chute',
+}
 ESCALA_PERCENTUAL = 'RdYlGn'
 LIMITES_PERCENTUAL = (-100, 100)
 DPI_EXPORTACAO = 120
@@ -298,17 +303,19 @@ def exportar_linha_evolucao(
             soltos['ordem'].astype(int), soltos['zscore'], facecolors='none', edgecolors=linha.get_color()
         )
     eixo.set(
-        xlabel='ordem cronológica',
-        ylabel='z-score',
-        title=(
-            f'Evolução do z-score por disciplina ({min_pontos} concursos ou mais com n ≥ {N_MINIMO_TOPICO})'
-        ),
+        xlabel='concursos, do mais antigo ao mais recente',
+        ylabel='acima ou abaixo da sua média',
+        title=f'Seu desempenho por disciplina, concurso a concurso ({min_pontos} concursos ou mais)',
     )
     if (pontos >= min_pontos).any():
         eixo.legend(loc='upper left', bbox_to_anchor=(1.01, 1), fontsize=8)
     else:
         eixo.text(
-            0.5, 0.5, 'nenhuma disciplina com pontos suficientes', transform=eixo.transAxes, ha='center'
+            0.5,
+            0.5,
+            f'nenhuma disciplina em {min_pontos} concursos ou mais',
+            transform=eixo.transAxes,
+            ha='center',
         )
     return _salvar(figura, caminho)
 
@@ -329,14 +336,14 @@ def exportar_heatmap_topicos(
     eixo.imshow(np.where(grade.insuficiente, 1.0, np.nan), cmap=ListedColormap(['lightgray']), aspect='auto')
     minimo, maximo = LIMITES_PERCENTUAL
     imagem = eixo.imshow(grade.percentual, cmap=ESCALA_PERCENTUAL, vmin=minimo, vmax=maximo, aspect='auto')
-    figura.colorbar(imagem, ax=eixo, label='%')
+    figura.colorbar(imagem, ax=eixo, label='% descontado o chute')
     for textos in (grade.textos_percentual, grade.textos_insuficiente):
         for (linha, coluna), texto in np.ndenumerate(np.array(textos, dtype=object)):
             if texto:
                 eixo.text(coluna, linha, texto, ha='center', va='center', fontsize=8)
     eixo.set_xticks(range(len(grade.concursos)), grade.concursos, rotation=45, ha='right')
     eixo.set_yticks(range(len(grade.rotulos)), grade.rotulos, fontsize=8)
-    eixo.set_title('Percentual por tópico e concurso')
+    eixo.set_title('Como você foi em cada tópico')
     return _salvar(figura, caminho)
 
 
@@ -347,12 +354,13 @@ def exportar_painel_correcao(comparacao: pd.DataFrame, caminho: Path) -> Figure:
     largura = 0.8 / len(_VERSOES_DO_PAINEL)
     figura = Figure(figsize=(max(6, 0.9 * len(rotulos)), 5))
     eixo = figura.subplots()
-    for i, (versao, nome) in enumerate(_VERSOES_DO_PAINEL):
+    for i, (versao, _) in enumerate(_VERSOES_DO_PAINEL):
+        nome = _VERSOES_DO_PNG[versao]
         eixo.bar(posicoes + (i - 1) * largura, comparacao[f'percentual_{versao}'], largura, label=nome)
     eixo.axhline(0, color='gray', linewidth=0.8)
     eixo.set_xticks(posicoes, rotulos, rotation=45, ha='right')
-    eixo.set(ylabel='percentual (sem anuladas)', title='Percentual por concurso em cada versão da correção')
-    eixo.legend(title='versão')
+    eixo.set(ylabel='nota em % (sem as anuladas)', title='Sua nota com e sem a regra de correção e o chute')
+    eixo.legend(title='como a nota foi contada')
     return _salvar(figura, caminho)
 
 

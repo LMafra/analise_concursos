@@ -43,6 +43,8 @@
       <a href="#uso">Uso</a>
       <ul>
         <li><a href="#usar-pela-janela">Usar pela janela</a></li>
+        <li><a href="#como-ler-o-relatório">Como ler o relatório</a></li>
+        <li><a href="#o-que-cada-arquivo-contém">O que cada arquivo contém</a></li>
         <li><a href="#dicionário-de-temas">Dicionário de temas</a></li>
         <li><a href="#estudar-com-seus-livros-open-notebook">Estudar com seus livros (open-notebook)</a></li>
         <li><a href="#encontrar-concursos">Encontrar concursos</a></li>
@@ -64,9 +66,8 @@
         <li><a href="#troca-de-gabarito-preliminar-para-definitivo">Troca de gabarito preliminar para definitivo</a></li>
         <li><a href="#configuração">Configuração</a></li>
         <li><a href="#edital-como-fonte-de-verdade">Edital como fonte de verdade</a></li>
-        <li><a href="#llm-opcional">LLM opcional</a></li>
-        <li><a href="#integração-com-open-notebook">Integração com open-notebook</a></li>
-        <li><a href="#integração-com-o-pci-concursos">Integração com o PCI Concursos</a></li>
+        <li><a href="#ia-opcional">IA opcional</a></li>
+        <li><a href="#open-notebook-e-pci-concursos-pelo-terminal">open-notebook e PCI Concursos pelo terminal</a></li>
         <li><a href="#análise-evolutiva">Análise evolutiva</a></li>
         <li><a href="#problemas-comuns">Problemas comuns</a></li>
         <li><a href="#build-local-do-executável">Build local do executável</a></li>
@@ -96,7 +97,7 @@ Ferramenta local que corrige suas provas de concurso e mostra **em quais discipl
 
 Tudo roda na sua máquina: nenhum arquivo é enviado para lugar nenhum. O acesso à internet é sempre opcional e pedido antes: a IA para ler editais, a busca de concursos no PCI Concursos (que só recebe termos de busca) e o download único da biblioteca de estudo (veja [Privacidade](#privacidade)).
 
-Bancas com perfil embutido: Cebraspe (certo/errado, um erro anula um acerto), FGV, FCC, Vunesp, IBFC, Idecan, SELECON e Quadrix. Uma banca sem perfil usa o genérico, e o que o edital não disser fica para você confirmar (veja [Problemas comuns](#problemas-comuns)).
+Bancas que o app já conhece: Cebraspe (certo/errado, um erro anula um acerto), FGV, FCC, Vunesp, IBFC, Idecan, SELECON e Quadrix. Para outra banca, o app usa regras genéricas, e o que o edital não disser fica para você confirmar (veja [Problemas comuns](#problemas-comuns)).
 
 ### Feito com
 
@@ -119,7 +120,7 @@ Bancas com perfil embutido: Cebraspe (certo/errado, um erro anula um acerto), FG
 
 ### Instalação para usuários leigos
 
-Baixe o instalador do seu sistema na [página da última versão](https://github.com/LMafra/analise_concursos/releases/latest), em "Assets". Ele já traz o Python e o Tesseract: não é preciso instalar mais nada nem abrir o terminal.
+Baixe o instalador do seu sistema na [página da última versão](https://github.com/LMafra/analise_concursos/releases/latest), em "Assets". Ele já traz tudo de que o app precisa, inclusive o leitor de PDF escaneado: não é preciso instalar mais nada nem abrir o terminal.
 
 | Sistema | Arquivo |
 |---|---|
@@ -148,33 +149,29 @@ Das próximas vezes, o app abre direto.
 
 **Linux**
 
-1. Torne o arquivo executável: no gerenciador de arquivos, abra Propriedades > Permissões e marque "Permitir executar como programa". No terminal, é o mesmo que `chmod +x concurso-analise-*.AppImage`.
-2. Abra o arquivo com dois cliques. A tela abre no navegador padrão, num endereço que só o seu computador acessa (`127.0.0.1`).
+1. Torne o arquivo executável: no gerenciador de arquivos, abra Propriedades > Permissões e marque "Permitir executar como programa".
+2. Abra o arquivo com dois cliques. A tela abre no navegador padrão, e só o seu computador a acessa.
 
-O AppImage já traz o Python e o Tesseract com o português; a leitura de folhas escaneadas funciona sem instalar nada. Ele foi testado em Debian 12 e Ubuntu 22.04 sem Python nem Tesseract.
-
-Se ele não abrir, rode no terminal `APPIMAGE_EXTRACT_AND_RUN=1 ./concurso-analise-*.AppImage`, que dispensa o FUSE.
+O arquivo já traz tudo de que o app precisa, inclusive a leitura de folhas escaneadas. Se ele não abrir, veja [AppImage no Linux](docs/detalhes-tecnicos.md#appimage-no-linux).
 
 Para o app aparecer no menu de aplicativos, com ícone, use o [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) ou o [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) (no Flathub): ao abrir o AppImage, eles oferecem integrá-lo ao sistema. Guarde o arquivo numa pasta onde você tenha permissão de escrita (por exemplo, `~/Aplicativos`), para que a atualização pelo app consiga substituí-lo.
 
-**Conferir o download (opcional).** A página da versão traz o `SHA256SUMS`, com a impressão digital de cada arquivo. No Windows, compare com a saída de `Get-FileHash .\concurso-analise-<versão>-windows-x64-setup.exe` no PowerShell; no Linux e no macOS, rode `sha256sum -c SHA256SUMS --ignore-missing` (no macOS, `shasum -a 256 -c SHA256SUMS --ignore-missing`) na pasta do download.
-
-Depois de instalar, veja [Usar pela janela](#usar-pela-janela).
+Depois de instalar, veja [Usar pela janela](#usar-pela-janela). Para quem quer saber mais: [detalhes técnicos](docs/detalhes-tecnicos.md#instalação), inclusive como conferir o arquivo baixado.
 
 #### Atualizar
 
-Em **Sobre** (no menu ⋮ do canto da tela), clique em **Verificar atualizações**. Se houver versão nova, **Baixar e instalar** pede confirmação, baixa do GitHub e só usa o arquivo se a assinatura do manifesto da release e o SHA-256 conferirem. No Windows, o instalador continua sozinho e reabre o app; no Linux, o AppImage é trocado no mesmo lugar, e o app oferece reabrir. Os projetos e as análises não mudam. A biblioteca de estudo, se você a preparou, é conferida no mesmo clique, e seus livros continuam lá. Pelo terminal, o mesmo é `concurso-analise upgrade --run`.
+Em **Sobre** (no menu ⋮ do canto da tela), clique em **Verificar atualizações**. Se houver versão nova, **Baixar e instalar** pede a sua confirmação e baixa a versão nova. A atualização é segura: se o arquivo estiver corrompido, o app avisa e não instala. No Windows, o instalador continua sozinho e reabre o app; no Linux, o arquivo é trocado no mesmo lugar, e o app oferece reabrir. Seus projetos e análises não mudam. A biblioteca de estudo, se você a preparou, é conferida no mesmo clique, e seus livros continuam lá.
 
-O app não consulta nada sozinho. Em **Configurações > Avançado**, você pode ligar o aviso de versão nova (uma consulta ao GitHub por dia, no máximo, com o aviso no cabeçalho) e escolher o canal: `stable` (padrão) ou `beta` (versões novas antes, que podem ter problemas). Quem tem a 0.5.0 ou anterior instala a primeira versão com o atualizador à mão, uma vez.
+O app não procura atualizações sozinho. Em **Configurações > Avançado**, você pode ligar o aviso de versão nova (no máximo uma consulta por dia, com o aviso no alto da tela) e escolher entre as versões testadas (padrão) e as de teste, que chegam antes e podem ter problemas. Quem tem a 0.5.0 ou anterior instala a primeira versão com o atualizador à mão, uma vez. Para quem quer saber mais: [detalhes técnicos](docs/detalhes-tecnicos.md#atualização).
 
 #### Por que o Windows avisa na primeira execução
 
-O SmartScreen, o filtro de downloads do Windows, avisa sobre todo programa que ainda foi baixado por poucas pessoas, mesmo quando o arquivo é assinado. A assinatura não tira esse aviso; ela garante duas coisas que você pode conferir:
+O Windows avisa sobre todo programa que ainda foi baixado por poucas pessoas, mesmo quando o arquivo é assinado. A assinatura não tira esse aviso; ela garante duas coisas que você pode conferir:
 
 * **Quem publicou:** no aviso, depois de **Mais informações**, o editor aparece como **SignPath Foundation**. Nas propriedades do `.exe` (botão direito > Propriedades > Assinaturas Digitais), a assinatura aparece como válida.
 * **Que o arquivo não mudou:** se alguém alterar o instalador depois da assinatura, o Windows mostra a assinatura como inválida, ou o editor como "desconhecido".
 
-O aviso some sozinho à medida que mais pessoas baixam a mesma versão; não há como prometer que ele não apareça. Se o editor não for SignPath Foundation, ou se a assinatura estiver inválida, não instale: baixe de novo pela [página de releases](https://github.com/LMafra/analise_concursos/releases) e confira o `SHA256SUMS`.
+O aviso some sozinho à medida que mais pessoas baixam a mesma versão; não há como prometer que ele não apareça. Se o editor não for SignPath Foundation, ou se a assinatura estiver inválida, não instale: baixe de novo pela [página de versões](https://github.com/LMafra/analise_concursos/releases). Para quem quer saber mais: [detalhes técnicos](docs/detalhes-tecnicos.md#assinatura-no-windows).
 
 #### Política de assinatura de código
 
@@ -218,15 +215,54 @@ Se a folha não puder ser lida, use **Digitar respostas** e marque a alternativa
 
 ![Relatório do candidato dentro do app](docs/img/gui-resultados.png)
 
-**6. Configurações.** Os dois limiares da análise, o concurso que você vai prestar (`concurso-alvo`), a pasta do projeto, **Disciplinas e temas** (veja [Dicionário de temas](#dicionário-de-temas)) e a IA. A IA começa desligada; se você a ligar, a chave de acesso fica no cofre de senhas do sistema, nunca num arquivo, e você escolhe para que ela serve: ler editais e, se quiser, responder perguntas com base nos seus livros.
+**6. Configurações.** Quando considerar uma leitura confiável e um tópico fraco, o concurso que você vai prestar (concurso-alvo), a pasta do projeto, **Disciplinas e temas** (veja [Dicionário de temas](#dicionário-de-temas)) e a IA. A IA começa desligada; se você a ligar, a chave de acesso fica no cofre de senhas do sistema, nunca num arquivo, e você escolhe para que ela serve: ler editais e, se quiser, responder perguntas com base nos seus livros.
 
-![Configurações com os limiares e o concurso-alvo](docs/img/gui-configuracoes.png)
+![Configurações da análise e o concurso-alvo](docs/img/gui-configuracoes.png)
 
 **7. Sobre.** A versão, se o leitor de folhas e a biblioteca estão prontos, o registro de erros (para anexar a um relato de problema) e **Verificar atualizações**.
 
 Com mais de um candidato no projeto, a tela de concursos mostra o seletor de candidato e a opção **todos**, que gera o comparativo.
 
 No Linux, o menu tem **Fechar o app**: fechar só a aba do navegador deixa o app rodando.
+
+### Como ler o relatório
+
+Em **Resultados**, o relatório geral mostra todos os seus concursos. Ele começa pelo resumo e por cinco números: quantos concursos você fez, em quantas provas ficou acima do corte, o seu melhor desempenho, o ponto mais fraco e a tendência geral. Depois vêm as seções:
+
+* **Como estou saindo:** uma linha por prova (cada opção de cargo conta como uma prova), com a nota pela regra do edital e um selo: **✓ Acima do corte**, **! No limite** (a até 2 pontos percentuais do corte, para cima ou para baixo), **✗ Abaixo do corte** ou **– Sem corte no edital**. A última coluna diz quanto faltou ou quanto sobrou. O nome do concurso abre o relatório dele.
+* **Meus pontos fortes** e **Meus pontos a melhorar:** as disciplinas em que você vai bem e os tópicos abaixo do esperado, agrupados por disciplina, dos mais urgentes para os menos. "Descontado o chute" quer dizer que o app tira da nota o que você acertaria chutando; um tópico abaixo de zero rendeu menos do que o chute.
+* **Estou evoluindo?:** uma frase com a resposta, a situação de cada disciplina e três gráficos, cada um com uma legenda que explica como lê-lo. O app só fala em melhora ou piora quando a diferença é grande o bastante para não ser acaso, e só com pelo menos 3 concursos com data.
+* **O que fazer agora:** de 3 a 5 ações tiradas dos seus dados, como a disciplina para priorizar e o simulado focado.
+* **Prazos dos editais**, **Simulado focado**, **Onde estudar** e **Prática no TEC**, quando você usa esses recursos.
+* **Detalhes técnicos**, fechado no fim: como o app chegou nos números, as observações sobre os dados e as tabelas completas. Não é preciso abri-lo para usar o relatório.
+
+O relatório de cada concurso segue a mesma ideia: o resumo da nota, o desempenho por disciplina, onde você mais errou e o que conferir (leituras da folha incertas e temas escolhidos pelo app), com os detalhes técnicos no fim. Os termos e as contas estão em [Métricas](docs/detalhes-tecnicos.md#métricas).
+
+### O que cada arquivo contém
+
+O app grava as análises na pasta do projeto. Os nomes dos arquivos não mudam entre versões; a tabela diz o que é cada um.
+
+| Arquivo ou pasta | O que é |
+|---|---|
+| `provas/` | Suas provas: uma pasta por concurso, com o edital, a prova, o gabarito e as suas respostas |
+| `analises/` | Suas análises: uma pasta por candidato |
+| `.concurso/` | Configuração do projeto |
+| `analises/<você>/index.html` | O relatório geral, com todos os concursos |
+| `respostas.txt` | Suas respostas, digitadas |
+| `respostas.csv` | Suas respostas (planilha) |
+| `respostas_extraidas.csv` | Respostas lidas da folha |
+| `questoes.csv` | Questões da prova, com o tema de cada uma |
+| `relatorio.md` e `relatorio.html` | Relatório do concurso (texto e página) |
+| `desempenho_por_disciplina.csv` | Desempenho por disciplina |
+| `desempenho_por_topico.csv` | Desempenho por tópico |
+| `edital_estruturado.json` | O que o app leu do edital |
+| `discrepancias_edital.csv` | O que o app conferiu no edital |
+| `catalogo_edital.md` | Descobertas no edital |
+| `edital_a_confirmar.yaml` | Dados do edital a confirmar (a tela **Conferir** os edita) |
+| `diff_gabarito.csv` | Mudanças do gabarito preliminar para o definitivo |
+| `depuracao/` | Arquivos para investigar problemas |
+
+Os arquivos com final `.csv` abrem no Excel ou no LibreOffice. O formato de cada um está em [Saídas](#saídas) e em [docs/modelo.md](docs/modelo.md).
 
 ### Dicionário de temas
 
@@ -251,7 +287,7 @@ Com a IA ligada em Configurações e a opção **Responder perguntas com base no
 
 Em **Resultados > Tópicos para estudar**, **Procurar nos meus livros** abre a pergunta já filtrada pelo tema em que você perdeu pontos, e as recomendações de estudo passam a indicar os seus livros.
 
-Seus livros não saem do computador. Se você já usa um open-notebook seu, ligue-o em **Configurações > Avançado > Usar um open-notebook que já tenho** (detalhes em [Integração com open-notebook](#integração-com-open-notebook)).
+Seus livros não saem do computador. Se você já usa um open-notebook seu, ligue-o em **Configurações > Avançado > Usar meu próprio programa de estudo**. Para quem quer saber mais: [detalhes técnicos](docs/detalhes-tecnicos.md#open-notebook).
 
 ### Encontrar concursos
 
@@ -259,11 +295,11 @@ Em **Concursos**, as abas **Encontrar concursos** e **Provas anteriores** consul
 
 **Encontrar concursos.** Escolha o estado e, se quiser, a cidade, escreva o cargo e clique em **Buscar**. Cada resultado mostra o órgão, a região, os cargos e o fim das inscrições. Nele:
 
-* **Acompanhar** põe o concurso no radar de prazos, que avisa no relatório quando as inscrições estão para fechar;
+* **Acompanhar este concurso** o põe entre os concursos que você acompanha, e o relatório avisa quando as inscrições estão para fechar;
 * **Adicionar ao meu projeto** cria o concurso na sua lista, com um clique; ele fica incompleto até você acrescentar o edital;
 * **Ver página** abre a página do concurso no navegador.
 
-**Lembrar estes filtros** guarda a busca para a próxima vez. As respostas ficam guardadas no computador por um dia; **Atualizar agora** consulta de novo. O PCI é colaborativo e pode não ter todos os editais: confira sempre o edital no site do órgão ou da banca.
+**Lembrar estes filtros** guarda a busca para a próxima vez. O resultado fica guardado no computador por um dia; **Buscar de novo agora** consulta outra vez. O PCI é colaborativo e pode não ter todos os editais: confira sempre o edital no site do órgão ou da banca. Para quem quer saber mais: [detalhes técnicos](docs/detalhes-tecnicos.md#pci-concursos).
 
 **Provas anteriores.** Escolha o seu concurso: o app mostra o termo que vai procurar (as primeiras palavras do cargo, com e sem a banca), e você pode trocá-lo. Cada prova encontrada pode virar um simulado, uma de cada vez ou com **Importar todas**. O PCI pede um captcha para baixar a prova, então o download é seu: o app abre a página no navegador, você baixa a prova e o gabarito, e o app os encontra na pasta de downloads e cadastra o simulado. **Cancelar** interrompe a espera, e uma prova que falha não para as outras.
 
@@ -353,12 +389,7 @@ O pacote ainda não está no PyPI.
 
 #### Sem uv: Docker
 
-A imagem já traz o Tesseract em português. A pasta montada em `/dados` é o projeto:
-
-```sh
-docker build -t concurso-analise .
-docker run --rm -it --user "$(id -u):$(id -g)" -v "$PWD:/dados" concurso-analise
-```
+A imagem já traz o Tesseract em português; os comandos estão em [Docker](docs/detalhes-tecnicos.md#docker).
 
 ### Primeira execução
 
@@ -393,7 +424,9 @@ Em seguida, o `doctor` confere o ambiente e a análise mostra o progresso. Os av
 ✓ espaço em disco: 908272 MB livres em ~/meus-concursos/provas
 ✓ LLM: desligado (nenhuma chamada de rede)
 INFO Analisando sintetico_2024
-WARNING sintetico_2024: regra de correção não encontrada no edital nem no concurso.yaml; usando a do perfil da banca fgv (fator 0)
+aviso: sintetico_2024: não encontrei a regra de correção no edital. Vou usar a regra padrão da FGV.
+    dica: se estiver errada, ajuste em Concursos > Conferir > Dados do edital.
+    detalhe: regra do perfil da banca fgv (fator 0); o edital e o concurso.yaml não a trazem
 INFO Saídas de sintetico_2024 gravadas em analises/ana/sintetico_2024
 INFO Analisando sintetico_2025
 INFO Saídas de sintetico_2025 gravadas em analises/ana/sintetico_2025
@@ -419,15 +452,15 @@ Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa 
 | `export --format csv\|parquet\|md` | Grava o consolidado do candidato, uma linha por questão. |
 | `doctor` | Confere uv, Python, Tesseract, permissão de escrita, espaço em disco, a chave do LLM e a configuração do open-notebook, com o comando de correção para o seu sistema. |
 | `upgrade` | No executável, procura a versão nova no GitHub (canal de `[atualizacao]`, ou `--canal stable`/`beta`); com `--run`, baixa, confere e instala. Fora dele, mostra o comando do uv; com `--run`, executa `uv tool upgrade concurso-analise`. |
-| `notebook enable\|disable\|sync` | Liga, desliga ou roda a sincronização com o open-notebook (veja [Integração com open-notebook](#integração-com-open-notebook)). |
-| `discover` | Busca no PCI Concursos os concursos com inscrições abertas ou prestes a abrir; `--register ID` acompanha um no radar de prazos (veja [Integração com o PCI Concursos](#integração-com-o-pci-concursos)). |
+| `notebook enable\|disable\|sync` | Liga, desliga ou envia agora as análises para um open-notebook seu (veja [open-notebook](docs/detalhes-tecnicos.md#open-notebook)). |
+| `discover` | Busca no PCI Concursos os concursos com inscrições abertas ou prestes a abrir; `--register ID` acompanha um deles (veja [PCI Concursos](docs/detalhes-tecnicos.md#pci-concursos)). |
 | `pci enable\|disable\|provas` | Liga ou desliga o PCI, ou lista as provas anteriores de um concurso e importa uma como simulado. |
 
 Flags globais, antes do subcomando: `--yes` (aceita os padrões sem perguntar), `--quiet`, `--verbose`, `--dry-run` (mostra o que seria feito, sem gravar nada), `--force` (reprocessa tudo), `--candidate`, `--all-candidates`, `--no-open`, `--no-llm`, `--offline`, `--data-dir`, `--provas` e `--analises`.
 
 Sem terminal interativo, com a variável `CI` ou com `--yes`, nada é perguntado: o app usa os padrões e os lista no log.
 
-Códigos de saída: 0 sucesso, 1 problema nos seus dados ou na configuração, 2 problema no ambiente. Um erro aparece em até duas linhas, a causa e uma `dica:` com o que fazer. Os detalhes técnicos ficam em `~/.concurso/logs/concurso-analise.log`.
+Códigos de saída: 0 sucesso, 1 problema nos seus dados ou na configuração, 2 problema no ambiente. Um erro aparece em até três linhas: `erro:` com o que aconteceu, `dica:` com o que fazer e, quando houver, `detalhe:` com o texto técnico. Um aviso segue o mesmo formato, com `aviso:`. O traceback fica em `~/.concurso/logs/concurso-analise.log`.
 
 O comando antigo `concursos` continua funcionando, com aviso de obsoleto.
 
@@ -491,7 +524,7 @@ Por concurso, em `analises/<candidato>/<concurso>/`:
 
 Por candidato, em `analises/<candidato>/`:
 
-- `index.html`: o relatório com todos os concursos, o que o app decidiu sozinho, os avisos e a evolução;
+- `index.html`: o relatório com todos os concursos (veja [Como ler o relatório](#como-ler-o-relatório)); o que o app decidiu sozinho, os avisos e a evolução técnica ficam nos detalhes técnicos, no fim;
 - `consolidado/desempenho_geral.csv` e `consolidado/comparativo_concursos.md`: desempenho e nota final por concurso, tópicos e disciplinas abaixo do limiar em pelo menos dois concursos, concursos incompletos e validação com o resultado oficial;
 - `consolidado/consolidado.parquet` e `consolidado/relatorio_evolucao.md`, com os gráficos de evolução.
 
@@ -515,7 +548,7 @@ Se o definitivo casar com a prova configurada (mesma banca, cargo/tipo e faixa d
 - move o preliminar para `ignorar` e registra o evento em `historico`;
 - guarda as saídas anteriores em `analises/<candidato>/<concurso>/historico/`;
 - gera `diff_gabarito.csv`, com as questões alteradas e anuladas, sua resposta e o acerto antes e depois;
-- adiciona ao relatório a seção "Preliminar → Definitivo".
+- adiciona ao relatório a seção "Gabarito preliminar → definitivo".
 
 Em qualquer outro caso (outro cargo, arquivo desconhecido), o concurso fica `desatualizado` até você rodar `add` de novo.
 
@@ -558,7 +591,7 @@ A `.concurso/taxonomia.yaml` mapeia cada nome de disciplina para uma disciplina 
 
 A análise lê do edital do cargo, além do conteúdo programático, as regras que mudam a nota e a leitura dela: identificação, pesos, distribuição de questões, cortes (em pontos ou acertos, por bloco, no conjunto e por disciplina), cronograma, desempate e outras descobertas. Cada valor vem com a fonte e com trecho, documento e página, para conferir no PDF. A nota continua saindo do `correcao.json`; o edital é a expectativa contra a qual a prova é conferida.
 
-Quando o edital não diz algo, o valor vem, nesta ordem, do LLM (se ligado), do perfil da banca, do padrão ou do `edital_a_confirmar.yaml`. O relatório lista o que o app decidiu sozinho.
+Quando o edital não diz algo, o valor vem, nesta ordem, do LLM (se ligado), do perfil da banca, do padrão ou do `edital_a_confirmar.yaml`. Os detalhes técnicos do relatório listam o que o app decidiu sozinho.
 
 **Como ler as discrepâncias** (`discrepancias_edital.csv`). As colunas são `item, esperado_edital, observado_prova, diferenca, severidade, acao_sugerida`:
 
@@ -570,76 +603,19 @@ Arquivo vazio, só com o cabeçalho, quer dizer que edital, prova e gabarito con
 
 **Como ler o catálogo** (`catalogo_edital.md`). Uma linha por informação procurada no edital: valor, trecho de origem, uso no projeto, impacto e status. "Não encontrado" quer dizer que o edital não declara a informação. O template está em [docs/modelo.md](docs/modelo.md).
 
-### LLM opcional
+### IA opcional
 
-Desligado por padrão. Ligado no onboarding (pergunta 5) ou com `init`, ele só preenche o número de alternativas, o desconto por erro e a data da prova quando o texto do edital não os trouxe. Só o texto do edital e dos anexos é enviado, nunca suas respostas ou seu nome, e o app pede sua concordância antes do primeiro uso. Cada valor precisa citar um trecho que exista no edital; sem isso, é descartado.
+A IA que lê editais (um LLM) fica desligada por padrão. Ligada na janela, no onboarding (pergunta 5) ou com `init`, ela só preenche o número de alternativas, o desconto por erro e a data da prova quando o texto do edital não os trouxe. Só o texto do edital e dos anexos é enviado, nunca suas respostas ou seu nome, e o app pede sua concordância antes do primeiro uso. Cada valor precisa citar um trecho que exista no edital; sem isso, é descartado.
 
 Provedores: OpenAI, OpenRouter, Gemini, Ollama (local, sem chave) e Anthropic. A chave vem de uma variável de ambiente; com o extra `llm` (`uv tool install '<repositório>[llm]'`), pode ficar no keyring do sistema. Ela nunca é gravada no `config.toml`.
 
-### Integração com open-notebook
+### open-notebook e PCI Concursos pelo terminal
 
-Para um open-notebook seu; o da tela Estudar é preparado e gerenciado pelo app. Opcional e desligada por padrão. Com uma instância local do [open-notebook](https://github.com/lfnovo/open-notebook) (testada com a 1.15), o app cria um notebook por concurso e um consolidado, envia os relatórios e CSVs como fontes e grava uma nota de resumo montada localmente, sem LLM. Assim você conversa com as suas análises no chat do open-notebook.
-
-```sh
-docker compose up -d                                   # na pasta do open-notebook
-concurso-analise notebook enable                       # mostra o que vai e pede confirmação
-concurso-analise notebook sync                         # envia agora; depois, toda análise sincroniza sozinha
-concurso-analise notebook sync --concurso meu_concurso --all-candidates
-concurso-analise notebook disable
-```
-
-- O candidato aparece como pseudônimo (`candidato 1`); para usar o nome, grave `incluir_nome = true` em `[open_notebook]` no `~/.concurso/config.toml`. CPF e inscrição não são enviados.
-- Se a instância tem senha (`OPEN_NOTEBOOK_PASSWORD`), defina a mesma variável no seu ambiente; a senha nunca vai para o TOML.
-- O chat do open-notebook usa o provedor de IA configurado nele. Se esse provedor é externo, o conteúdo das análises vai para ele quando você conversa.
-- Reexecutar sem mudança não envia nada: o estado fica em `.concurso/open_notebook.json`. Um arquivo que mudou tem a fonte apagada e criada de novo. Fontes que você criou à mão no notebook nunca são apagadas.
-- `notebook sync` sai com 0, 1 (falha parcial ou senha recusada) ou 2 (instância fora do ar). Depois de uma análise, uma falha só gera aviso. `--offline` e `--dry-run` não chamam a instância, e o `doctor` mostra a configuração sem consultá-la.
-
-Os campos e o estado estão em [docs/modelo.md](docs/modelo.md); as decisões, em [docs/spec-open-notebook.md](docs/spec-open-notebook.md).
-
-### Integração com o PCI Concursos
-
-Opcional e desligada por padrão. O [PCI Concursos](https://www.pciconcursos.com.br/) tem um servidor MCP público e gratuito (`https://mcp.pciconcursos.com.br/mcp`, em beta). Com ele ligado, o app descobre concursos, acha provas anteriores para treinar e avisa dos prazos de inscrição. O PCI é um complemento colaborativo e pode não ter todos os editais: confira sempre o edital no site do órgão ou da banca.
-
-```sh
-uv tool install 'concurso-analise[pci]'        # o cliente MCP vem num extra
-concurso-analise pci enable                     # mostra o que é enviado e pede confirmação
-concurso-analise discover --cargo analista --cargo auditor --uf mg
-concurso-analise discover --cidade campinas --uf sp --json
-concurso-analise discover --cargo analista --register 296237   # acompanha no radar
-concurso-analise add provas/camara_x --pci 296237              # vincula a pasta do concurso
-concurso-analise pci provas meu_concurso                       # provas anteriores do mesmo cargo e banca
-concurso-analise pci provas meu_concurso --download 20549582   # abre a página e importa o que você baixar
-```
-
-- **O que sai do computador:** só termos de busca (cargos, UF, cidade, região, termos de prova). Nome, CPF, inscrição e notas, não.
-- **Cargos-alvo:** sem filtro, o `discover` e o radar usam os cargos do candidato, em `~/.concurso/candidatos/<slug>.toml`:
-
-  ```toml
-  [pci]
-  cargos = ["auditor fiscal", "analista"]
-  uf = "df"
-  ```
-
-  Sem eles, valem `cargos` e `uf` de `[pci_mcp]` no `~/.concurso/config.toml`; sem nenhum, a lista geral.
-- **Radar de prazos:** depois de cada análise, o app grava `analises/<candidato>/radar_editais.md` e a seção "Editais que fecham em breve" no `index.html`, com os concursos dos seus cargos que fecham em até `dias_alerta` (15) dias ou que vão abrir, mais os que você registrou. O `status` e o `doctor` mostram o radar pelo cache, sem rede.
-- **Provas anteriores viram simulados:** o PDF fica atrás de um captcha e o `robots.txt` do PCI proíbe baixá-lo por robô, então o download é seu: o `--download` abre a página no navegador, você clica nos arquivos, e o app importa da pasta de downloads (`pasta_downloads`; no WSL, a do Windows). O simulado vira uma pasta própria, `provas/<orgao>_<ano>_pci<id>/`, corrigida pelo perfil da banca da prova, com os tópicos do edital do seu concurso. Acrescente suas respostas com `add`; a data do simulado é a data em que você resolveu. Simulados ficam fora do consolidado e das tendências, a não ser com `incluir_simulados = true` em `[analise]` no `.concurso/config.toml`, e aparecem na seção "Simulados" do `index.html`.
-- **Cache:** as respostas ficam em `.concurso/cache/pci_mcp.json` por `ttl_horas` (24); `--refresh` consulta de novo, e `--offline` usa o cache, mesmo vencido, com aviso. No máximo 20 consultas por execução.
-- **Falhas:** num comando explícito, saem como `erro:`/`dica:` (código 2 com o servidor fora do ar, 1 com um filtro recusado). Depois da análise, uma falha só gera aviso.
-- **No Cursor:** para o agente consultar o PCI direto, crie `.cursor/mcp.json` com `{"mcpServers": {"pci-concursos": {"url": "https://mcp.pciconcursos.com.br/mcp"}}}`.
-
-```toml
-# ~/.concurso/config.toml
-[pci_mcp]
-enabled = true
-dias_alerta = 15
-pasta_downloads = ""      # vazio: ~/Downloads (no WSL, a do usuário do Windows)
-```
-
-Os campos estão em [docs/modelo.md](docs/modelo.md); as decisões, em [docs/spec-pci-mcp.md](docs/spec-pci-mcp.md), e o que o servidor responde, em [docs/pesquisa-pci-mcp.md](docs/pesquisa-pci-mcp.md).
+As duas integrações também funcionam pelo terminal: `notebook enable|disable|sync` liga, desliga e envia as análises para um open-notebook seu, e `pci enable|disable|provas` e `discover` buscam concursos abertos e provas anteriores no PCI Concursos. Os comandos, o que vai para cada serviço, onde fica o resultado guardado e os códigos de saída estão em [open-notebook](docs/detalhes-tecnicos.md#open-notebook) e [PCI Concursos](docs/detalhes-tecnicos.md#pci-concursos), nos detalhes técnicos.
 
 ### Recomendações de estudo: livros e legislação
 
-Também opcionais. Com uma das duas fontes abaixo, a análise grava `analises/<candidato>/consolidado/recomendacoes_estudo.md` e a seção "Recomendações de estudo" no `index.html`: para cada tópico fraco persistente, as normas que o próprio tópico cita e até 3 livros. Cada linha diz de onde veio (`legislação`, `open-notebook` ou `catálogo`). São sugestões e não mudam o tópico nem a disciplina das questões.
+Também opcionais. Com uma das duas fontes abaixo, a análise grava `analises/<candidato>/consolidado/recomendacoes_estudo.md` e a seção "Onde estudar" no `index.html`: para cada tópico fraco persistente, as normas que o próprio tópico cita e até 3 livros. Cada linha diz de onde veio (`legislação`, `open-notebook` ou `catálogo`). São sugestões e não mudam o tópico nem a disciplina das questões.
 
 **Livros.** Mapeie as disciplinas da taxonomia para as categorias da estante do projeto `books` em `.concurso/biblioteca.yaml`:
 
@@ -711,26 +687,21 @@ Os notebooks são scripts [jupytext](https://jupytext.readthedocs.io/) em `noteb
 
 ### Problemas comuns
 
-**"pasta de provas não encontrada".** Rode o comando na pasta que contém `provas/`, ou indique outra com `--provas <pasta>`. O assistente oferece criar a pasta, com um `LEIA-ME.txt` que explica o que pôr nela.
+**"Não encontrei a pasta onde ficam suas provas".** Na janela, cadastre um concurso em **Concursos > Novo concurso**: o app cria as pastas. Pelo terminal, rode o comando na pasta que contém `provas/` ou indique outra com `--provas <pasta>`; o app nunca cria a pasta sozinho.
 
-**Tesseract ausente.** Só é necessário para edital ou folha em imagem (PDF escaneado); veja os [pré-requisitos](#pré-requisitos). Sem ele, o edital em imagem cai no modo mínimo, com aviso, e a imagem Docker já o traz.
+**Falta o componente que lê PDF escaneado.** O instalador já o traz. Sem ele, o edital escaneado não é lido, e o concurso segue sem o conteúdo do edital, com aviso; a folha de respostas é lida mesmo assim. Na versão de terminal, `concurso-analise doctor` mostra como instalar (veja os [pré-requisitos](#pré-requisitos)).
 
-**A folha de resposta não foi lida, ou foi lida errado.** Em ordem:
+**A folha de resposta não foi lida, ou foi lida errado.** Na janela, use **Digitar respostas** no concurso e marque a alternativa de cada questão. O relatório do concurso lista em "O que conferir" as leituras incertas. Pelo terminal, há a correção da planilha lida e a calibração da folha: veja [Problemas comuns pelo terminal](docs/detalhes-tecnicos.md#problemas-comuns-pelo-terminal).
 
-1. Abra `analises/<candidato>/<concurso>/respostas_extraidas.csv`. As leituras com `revisar = True` têm confiança baixa.
-2. Corrija a coluna `alternativa_marcada` no Excel ou no LibreOffice e rode `concurso-analise analyze <concurso> --reuse-csv`. A revisão passa a valer no lugar da folha.
-3. Se a sua folha tem um modelo que o app não conhece, calibre a leitura: `concurso-analise init --calibrate-sheet folha.png --calibrate-answers ABCD-`, com as respostas das 5 primeiras questões (`-` para branco).
-4. Sem a folha, digite as respostas num `respostas.csv` ou `respostas.txt` na pasta do candidato.
+**O app diz que o edital não trouxe algumas informações.** Faltou algum dado que muda a nota (número de alternativas, desconto por erro, data da prova), e o app preencheu com um valor padrão. Confira e corrija em **Concursos > Conferir > Dados do edital**; o app refaz a análise.
 
-**"edital_a_confirmar.yaml" apareceu na pasta do concurso.** O edital não trouxe algum campo que muda a nota (número de alternativas, desconto por erro, data da prova). Preencha os valores no arquivo e rode de novo; eles passam a valer com fonte `config`. O relatório marca cada concurso com a confiança da leitura do edital (alta, média, baixa ou mínima).
+**Vários candidatos e nenhum escolhido.** Na janela, escolha o candidato no seletor da tela de concursos. Pelo terminal, use `--candidate <nome>` ou `--all-candidates`.
 
-**Vários candidatos e nenhum escolhido.** A CLI pede `--candidate <nome>` ou `--all-candidates`.
+**Mudei uma configuração e nada mudou.** A janela refaz a análise quando você salva uma conferência. Pelo terminal, a análise só reprocessa o que mudou nos arquivos: rode `concurso-analise --force`.
 
-**Mudei um limiar e nada mudou.** A análise só reprocessa o que mudou nos arquivos. Rode `concurso-analise --force`.
+**O relatório não abriu.** Em **Resultados**, clique em **Abrir no navegador**. Pelo terminal, `concurso-analise report` o reabre.
 
-**O relatório não abriu.** O caminho do `index.html` aparece no fim da execução, e `concurso-analise report` o reabre. No WSL, o app usa o `wslview` (pacote `wslu`) ou o `explorer.exe`.
-
-**O LLM não foi usado.** O `doctor` diz qual variável de ambiente definir com a chave. `--offline` e `--no-llm` o desligam de propósito.
+**A IA não foi usada.** Confira em **Configurações > Inteligência artificial para ler editais** se ela está ligada e com a chave. `--offline` e `--no-llm` a desligam de propósito.
 
 **Eu usava a versão anterior (`concursos analisar`).** Na primeira execução, o `concurso-analise` migra o projeto para o layout com candidatos, sem reprocessar nada. Antes, copia tudo o que vai mudar para `~/.concurso/backup-<data>/`. `--dry-run` lista o que seria migrado.
 

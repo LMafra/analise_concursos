@@ -432,11 +432,11 @@ def test_resumo_cruza_topico_fraco_da_prova_com_erro_repetido(projeto):
     resumo = (projeto / 'analises' / 'ana' / PASTA_PRATICA / ARQUIVO_RESUMO).read_text(encoding='utf-8')
     assert resumo.startswith('# Prática no TEC')
     assert '2 erros registrados (1 repetido, errado 2 vezes ou mais)' in resumo
-    prioridade = resumo.split('## Prioridade de revisão')[1].split('##')[0]
-    assert '| Simples Nacional | 25,0% (n = 8) | 1 |' in prioridade
+    prioridade = resumo.split('## O que revisar primeiro')[1].split('##')[0]
+    assert '| Simples Nacional | 25,0% de 8 questões | 1 |' in prioridade
     assert 'ICMS' not in prioridade
     assert '| 2 | Simples Nacional | Simples Nacional | 2026-11-04 |' in resumo
-    assert 'amostra insuficiente (n = 3)' in resumo
+    assert 'poucas questões para avaliar (3)' in resumo
     assert resultado.mudou
 
 

@@ -20,6 +20,7 @@ from concursos.concurso_config import (
     pesos_variam,
 )
 from concursos.correcao import ARQUIVO_QUESTOES
+from concursos.erros import avisar
 from concursos.modelo import Formato, ModeloCorrecao, Resultado
 from concursos.perfis import PERFIL_GENERICO, perfil_da_banca
 from concursos.resultado_oficial import formatar
@@ -421,10 +422,12 @@ def _resolver_data_prova(
     for paginas in documentos.values():
         if (data := extrair_data_prova(paginas)) is not None:
             return data, FonteCorrecao.EDITAL
-    logger.warning(
-        '%s: data da prova não encontrada no edital nem no concurso.yaml (data_prova); '
-        'o concurso fica sem data e fora das análises de tendência',
-        config.nome,
+    avisar(
+        logger,
+        f'{config.nome}: não encontrei a data da prova no edital nem nos dados do concurso. '
+        'Ele fica sem data e fora da análise de evolução.',
+        'informe a data em Concursos > Conferir > Dados do edital.',
+        'data_prova ausente no edital e no concurso.yaml',
     )
     return None, None
 
@@ -450,12 +453,12 @@ def _resolver_regra(
             fonte=FonteCorrecao.PERFIL,
             confianca=CONFIANCA_PERFIL,
         )
-        logger.warning(
-            '%s: regra de correção não encontrada no edital nem no concurso.yaml; '
-            'usando a do perfil da banca %s (fator %g)',
-            config.nome,
-            config.banca,
-            fator,
+        avisar(
+            logger,
+            f'{config.nome}: não encontrei a regra de correção no edital. '
+            f'Vou usar a regra padrão da {perfil_da_banca(config.banca).nome or config.banca}.',
+            'se estiver errada, ajuste em Concursos > Conferir > Dados do edital.',
+            f'regra do perfil da banca {config.banca} (fator {fator:g}); o edital e o concurso.yaml não a trazem',
         )
     else:
         cfg = ConfiguracaoCorrecao()
@@ -510,10 +513,11 @@ def _resolver_variante(
             pagina_origem=linha.pagina,
             variante=variante.nome,
         )
-    logger.warning(
-        '%s: variante %s sem pesos no quadro do edital nem no concurso.yaml; usando os pesos gerais do concurso',
-        nome,
-        variante.nome,
+    avisar(
+        logger,
+        f'{nome}: não encontrei no edital os pesos do cargo {variante.nome}. Vou usar os pesos gerais do concurso.',
+        'confira a tabela de pesos no edital.',
+        f'variante {variante.nome} sem pesos no quadro do edital nem no concurso.yaml',
     )
     return replace(base, variante=variante.nome)
 
@@ -554,14 +558,12 @@ def extrair_quadro_de_pesos(
         return {}
     n_gerais, n_eixos, por_eixo = int(gerais['valor']), int(eixos['eixos']), int(eixos['itens'])
     if n_gerais + n_eixos * por_eixo != config.total_itens:
-        logger.warning(
-            '%s: o edital divide a prova em %d itens gerais e %d eixos de %d, mas o concurso tem %d itens; '
-            'quadro de pesos ignorado',
-            config.nome,
-            n_gerais,
-            n_eixos,
-            por_eixo,
-            config.total_itens,
+        avisar(
+            logger,
+            f'{config.nome}: o edital diz que a prova tem {n_gerais + n_eixos * por_eixo} questões, '
+            f'mas o concurso cadastrado tem {config.total_itens}. Não usei a tabela de pesos por cargo do edital.',
+            'confira se todas as provas do concurso foram cadastradas.',
+            f'{n_gerais} itens gerais e {n_eixos} eixos de {por_eixo}; quadro de pesos ignorado',
         )
         return {}
     encontrados = {}
@@ -608,16 +610,22 @@ def _pesos_por_parte(
 
 
 def _avisar_default(nome: str, documentos: dict[str, list[str]]) -> None:
+    dica = 'informe a regra em Concursos > Conferir > Dados do edital.'
     if any(mencao_penalidade(paginas) for paginas in documentos.values()):
-        logger.warning(
-            '%s: regra de correção não reconhecida, mas o edital menciona penalidade por erro; '
-            'usando o default (bruta, fator 0). Confira o edital e declare o bloco correcao no concurso.yaml',
-            nome,
+        avisar(
+            logger,
+            f'{nome}: o edital fala em desconto por erro, mas não entendi a regra. '
+            'Por enquanto, cada acerto vale um ponto, sem desconto.',
+            dica,
+            'regra de correção não reconhecida, mas o edital menciona penalidade; default (bruta, fator 0)',
         )
     else:
-        logger.warning(
-            '%s: regra de correção não encontrada no edital nem no concurso.yaml; usando o default (bruta, fator 0)',
-            nome,
+        avisar(
+            logger,
+            f'{nome}: não encontrei a regra de correção no edital. '
+            'Vou usar a regra padrão: cada acerto vale um ponto, sem desconto.',
+            dica,
+            'regra de correção ausente no edital e no concurso.yaml; default (bruta, fator 0)',
         )
 
 
@@ -625,26 +633,32 @@ def _avisar_divergencia_da_configuracao(
     nome: str, extraida: ConfiguracaoCorrecao, declarada: CorrecaoConfig
 ) -> None:
     if declarada.fator_penalidade is not None and declarada.fator_penalidade != extraida.fator_penalidade:
-        logger.warning(
-            '%s: correcao.fator_penalidade declarado (%g) difere do edital (%g); vale o edital',
-            nome,
-            declarada.fator_penalidade,
-            extraida.fator_penalidade,
+        avisar(
+            logger,
+            f'{nome}: a regra de correção do cadastro é diferente da do edital; vale a do edital.',
+            detalhe=(
+                f'correcao.fator_penalidade declarado ({declarada.fator_penalidade:g}) '
+                f'difere do edital ({extraida.fator_penalidade:g})'
+            ),
         )
     if declarada.pesos and extraida.pesos and declarada.pesos != extraida.pesos:
-        logger.warning('%s: correcao.pesos declarados diferem dos pesos do edital; vale o edital', nome)
+        avisar(
+            logger,
+            f'{nome}: os pesos das questões no cadastro são diferentes dos do edital; valem os do edital.',
+            detalhe='correcao.pesos declarados diferem dos pesos do edital',
+        )
 
 
 def _avisar_contradicao_com_pontuacao(config: ConcursoConfig, cfg: ConfiguracaoCorrecao) -> None:
     if cfg.fator_penalidade != config.pontuacao.fator_penalidade:
-        logger.warning(
-            "%s: pontuacao '%s' declarada no concurso.yaml contradiz a regra de correção "
-            '(%s, fator %g, fonte %s); a nota_liquida dos CSVs segue a pontuacao declarada',
-            config.nome,
-            config.pontuacao.value,
-            cfg.modelo.value,
-            cfg.fator_penalidade,
-            cfg.fonte.value,
+        avisar(
+            logger,
+            f'{config.nome}: o jeito de calcular a nota no cadastro não bate com a regra de correção. '
+            'As planilhas por questão seguem o cadastro.',
+            'confira o tipo de prova e a regra de correção em Concursos.',
+            f"pontuacao '{config.pontuacao.value}' do concurso.yaml contradiz a regra de correção "
+            f'({cfg.modelo.value}, fator {cfg.fator_penalidade:g}, fonte {cfg.fonte.value}); '
+            'a nota_liquida dos CSVs segue a pontuacao declarada',
         )
 
 

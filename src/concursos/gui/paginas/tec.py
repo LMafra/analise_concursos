@@ -15,6 +15,7 @@ from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro
+from concursos.linguagem import rotulo_do_arquivo
 
 logger = logging.getLogger('concursos')
 
@@ -120,7 +121,7 @@ class PainelTec:
             ),
         ):
             for copiado in copiados:
-                ui.label(copiado.name).classes('font-mono text-sm')
+                ui.label(rotulo_do_arquivo(copiado.name)).classes('font-mono text-sm')
             ui.button('Analisar agora', icon='play_arrow', on_click=analisar)
 
     def conferir(self, previsoes: list[pratica.PrevisaoPlanilha]) -> None:
@@ -133,7 +134,7 @@ class PainelTec:
                 'obrigatórias. Uma planilha com as mesmas colunas já vem conferida da próxima vez.'
             ).classes('text-sm')
             for previsao in previsoes:
-                ui.label(previsao.arquivo.name).classes('font-mono text-sm')
+                ui.label(rotulo_do_arquivo(previsao.arquivo.name)).classes('font-mono text-sm')
                 opcoes = {SEM_COLUNA: 'Nenhuma', **{c: c for c in previsao.cabecalho if c}}
                 selects = {}
                 with ui.row().classes('w-full').style(tema.gap('md')):

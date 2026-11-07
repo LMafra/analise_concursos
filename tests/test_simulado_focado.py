@@ -89,8 +89,8 @@ def test_markdown_cita_o_limiar_o_n_e_os_simulados_sem_revisao(tmp_path: Path):
 
     texto = simulado_focado.formatar(simulado_focado.montar(provas, tmp_path / 'a', FRACOS), 0.6)
 
-    assert '1 questão(ões)' in texto and 'abaixo de 60%' in texto
-    assert '## Português: Crase (45% de acerto, n=8)' in texto
+    assert '1 questão de provas anteriores' in texto and 'abaixo de 60%' in texto
+    assert '## Português: Crase (45% descontado o chute, em 8 questões)' in texto
     assert '- TCU 2019 (simulado PCI 1), questão 1 (prova unica): Enunciado da questão 1' in texto
     assert 'sem_revisao' in texto
 

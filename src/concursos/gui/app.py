@@ -13,6 +13,7 @@ from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao.preferencias import aviso_webview2_dispensado, dispensar_aviso_webview2, tema_da_gui
 from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.config.contexto import resolver_home
+from concursos.erros import avisar
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.estado import ESTADO, projeto_inicial
@@ -195,7 +196,11 @@ def reabrir_no_navegador() -> None:
     comando = janela.comando_para_reabrir(
         congelado=bool(getattr(sys, 'frozen', False)), executavel=sys.executable, projeto=ESTADO.projeto
     )
-    logger.warning('a janela nativa não abriu; reabrindo no navegador: %s', ' '.join(comando))
+    avisar(
+        logger,
+        'A janela do app não abriu; vou abrir no navegador.',
+        detalhe=f'janela nativa falhou; reabrindo: {" ".join(comando)}',
+    )
     subprocess.Popen(comando, env={**os.environ, janela.VARIAVEL_JANELA_FALHOU: '1'})  # noqa: S603
 
 
@@ -214,7 +219,12 @@ def executar(
     ESTADO.cliente_conectou = False
     ESTADO.janela_reaberta = False
     if decisao is DecisaoJanela.NAVEGADOR_SEM_WEBVIEW2:
-        logger.warning('WebView2 não encontrado: a GUI abre no navegador')
+        avisar(
+            logger,
+            'Falta um componente do Windows para a janela do app; abri no navegador.',
+            'instale o Microsoft Edge WebView2 ou reinstale o app, que já traz esse componente.',
+            'WebView2 não encontrado',
+        )
     porta = porta or native.find_open_port()
     if not nativa and abrir:
         app.on_startup(lambda: abrir_no_navegador(f'http://{HOST}:{porta}/'))

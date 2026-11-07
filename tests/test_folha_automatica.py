@@ -3,7 +3,7 @@ import logging
 import cv2
 import numpy as np
 import pytest
-from conftest import analisar, criar_concurso, ler_csv
+from conftest import analisar, criar_concurso, ler_csv, log_completo
 from folha_sintetica import folha_generica
 
 from concursos.folha import FolhaIlegivelError, ler_folha
@@ -76,7 +76,7 @@ def test_perfil_que_nao_le_a_folha_cai_na_deteccao_automatica(raizes, caplog):
     with caplog.at_level(logging.INFO):
         assert analisar(provas, analises) == 0
 
-    assert 'detecção automática' in caplog.text
+    assert 'detecção automática' in log_completo(caplog)
     respostas = ler_csv(analises / 'ficticia' / 'respostas_extraidas.csv')
     assert ''.join(respostas['alternativa_marcada']) == ''.join(MARCAS[q] for q in range(1, TOTAL + 1))
 
@@ -96,5 +96,5 @@ def test_grade_nao_detectada_nao_interrompe_os_outros_concursos(raizes, caplog):
 
     assert analisar(provas, analises) == 1
 
-    assert 'dica:' in caplog.text
+    assert 'dica:' in log_completo(caplog)
     assert (analises / 'ficticia' / 'respostas_extraidas.csv').exists()

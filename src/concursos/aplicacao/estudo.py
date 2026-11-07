@@ -22,7 +22,7 @@ from concursos.aplicacao.projeto import curto, pasta_do_candidato
 from concursos.biblioteca import consultas_do_topico, topicos_fracos
 from concursos.config.contexto import Contexto
 from concursos.configuracao import configuracao_do_projeto
-from concursos.erros import ErroDoAmbiente, ErroDoUsuario
+from concursos.erros import ErroDoAmbiente, ErroDoUsuario, avisar
 from concursos.estudo import embeddings, instalacao
 from concursos.estudo.instalacao import PacoteDisponivel, Pastas
 from concursos.estudo.supervisor import VARIAVEL_CIFRA, Sessao, Supervisor
@@ -131,7 +131,7 @@ def situacao_do_estudo(contexto: Contexto, sistema: str | None = None) -> Situac
 def procurar_pacote(opcoes: Opcoes, transporte=None) -> PacoteDisponivel | None:  # noqa: ANN001
     if not opcoes.rede:
         raise ErroDoUsuario(
-            'sem internet não dá para preparar a biblioteca', 'tente de novo com a internet ligada'
+            'Sem internet, não dá para preparar a biblioteca.', 'tente de novo com a internet ligada.'
         )
     canal = atualizacao.ler_preferencias(opcoes.contexto.config_global).canal
     versao = atualizacao.versao_instalada()
@@ -155,7 +155,8 @@ def preparar_estudo(
         encontrada = re.match(r'estudo-(\d+\.\d+\.\d+-\d+)-', arquivo.name)
         if encontrada is None:
             raise ErroDoUsuario(
-                f'{arquivo.name} não é um pacote de estudo', 'use o arquivo estudo-<versão>-<sistema>'
+                f'O arquivo {arquivo.name} não é a biblioteca de estudo do app.',
+                'use o arquivo estudo-<versão>-<sistema> baixado da página de versões do app.',
             )
         versao = encontrada.group(1)
         instalacao.instalar_arquivo(alvo, arquivo, versao)
@@ -163,14 +164,14 @@ def preparar_estudo(
         return versao
     if not consentiu:
         raise ErroDoUsuario(
-            'a biblioteca só é preparada depois que você concordar', 'clique em "Preparar agora"'
+            'A biblioteca só é preparada depois que você concordar.', 'clique em "Preparar agora".'
         )
     if progresso:
         progresso('Procurando a versão mais nova…', 0.0)
     disponivel = procurar_pacote(opcoes, transporte)
     if disponivel is None:
         raise ErroDoAmbiente(
-            'ainda não há uma biblioteca para esta versão do app', 'atualize o app e tente de novo'
+            'Ainda não há uma biblioteca para esta versão do app.', 'atualize o app e tente de novo.'
         )
     if not instalacao.tem_atualizacao(alvo, disponivel):
         return disponivel.manifesto.versao
@@ -331,7 +332,7 @@ def _cliente_se_preparado(contexto: Contexto) -> ClienteOpenNotebook | None:
     try:
         return cliente_gerenciado(contexto)
     except ErroDoAmbiente as erro:
-        logger.warning('open-notebook: %s', erro.causa)
+        avisar(logger, 'Não consegui abrir a biblioteca de estudo agora.', erro.dica, erro.causa)
         return None
 
 
@@ -341,7 +342,11 @@ def remover_livro(contexto: Contexto, sha: str) -> Livro | None:
     try:
         return envio.remover_livro(cliente, biblioteca(contexto), sha)
     except OpenNotebookIndisponivelError as erro:
-        logger.warning('open-notebook: %s; o livro sai só da biblioteca local', erro.causa)
+        avisar(
+            logger,
+            'Não consegui abrir a biblioteca de estudo; tirei o livro só da lista deste computador.',
+            detalhe=f'open-notebook: {erro.detalhe or erro.causa}',
+        )
         return envio.remover_livro(None, biblioteca(contexto), sha)
 
 
@@ -350,7 +355,11 @@ def mudar_disciplina(contexto: Contexto, sha: str, disciplina: str) -> Livro | N
     try:
         return envio.mudar_disciplina(cliente, biblioteca(contexto), sha, disciplina)
     except OpenNotebookIndisponivelError as erro:
-        logger.warning('open-notebook: %s; a disciplina muda lá na próxima vez', erro.causa)
+        avisar(
+            logger,
+            'Não consegui abrir a biblioteca de estudo; a disciplina do livro muda lá na próxima vez.',
+            detalhe=f'open-notebook: {erro.detalhe or erro.causa}',
+        )
         return envio.mudar_disciplina(None, biblioteca(contexto), sha, disciplina)
 
 
@@ -510,7 +519,12 @@ def ambiente_da_ia(contexto: Contexto) -> dict[str, str]:
     if configuracao.variavel_chave is not None:
         encontrada = obter_chave(configuracao, contexto.home)
         if encontrada is None:
-            logger.warning('IA nos livros sem chave (%s); seguindo sem ela', configuracao.variavel_chave)
+            avisar(
+                logger,
+                'Não encontrei a chave da inteligência artificial; procurei nos livros sem ela.',
+                'informe a chave em Configurações.',
+                f'variável {configuracao.variavel_chave} vazia',
+            )
             return {}
         chave = encontrada[0]
     return perguntas.ambiente_da_ia(configuracao, chave)
@@ -547,7 +561,12 @@ def termos_do_dicionario(contexto: Contexto, pergunta: str) -> list[str]:
     try:
         return expandir_consulta(dicionario_do_projeto(contexto), pergunta)
     except ErroDoUsuario as erro:
-        logger.warning('dicionário de temas: %s', erro.causa)
+        avisar(
+            logger,
+            'Não consegui usar o dicionário de temas nesta busca.',
+            erro.dica,
+            f'dicionário: {erro.causa}',
+        )
         return []
 
 
@@ -590,7 +609,7 @@ def _pasta_das_analises(contexto: Contexto) -> Path | None:
     try:
         return pasta_do_candidato(contexto)
     except ErroDoUsuario as erro:
-        logger.warning('análises: %s', erro.causa)
+        avisar(logger, 'Não procurei nas suas análises nesta busca.', erro.dica, erro.causa)
         return None
 
 
@@ -617,7 +636,7 @@ def perguntar(
     página. Com o open-notebook fora, só o índice local."""
     pergunta = ' '.join(pergunta.split())
     if not pergunta:
-        raise ErroDoUsuario('a pergunta está vazia', 'escreva o que quer encontrar nos seus livros')
+        raise ErroDoUsuario('A pergunta está vazia.', 'escreva o que quer encontrar nos seus livros.')
     contexto = opcoes.contexto
     avisos: list[str] = []
     trechos: list[TrechoEncontrado] = []
@@ -644,7 +663,11 @@ def perguntar(
                     resposta_ia = perguntas.sem_citacoes(texto) or None
                     apontados = list(dict.fromkeys([*citados_shas, *apontados]))
             except OpenNotebookIndisponivelError as erro:
-                logger.warning('open-notebook: %s; buscando só nos seus livros', erro.causa)
+                avisar(
+                    logger,
+                    'Não consegui abrir a biblioteca de estudo; procurei só no texto dos seus livros.',
+                    detalhe=f'open-notebook: {erro.detalhe or erro.causa}',
+                )
                 avisos.append(TEXTO_FORA)
         elif livros and situacao_do_estudo(contexto).preparado:
             avisos.append(TEXTO_FORA)

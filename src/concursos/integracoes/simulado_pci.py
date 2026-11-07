@@ -89,11 +89,14 @@ def preparar_pasta(
     if banca is None:
         banca = BANCA_RESERVA
         avisos.append(
-            f'a organizadora "{prova.organizadora or "?"}" não tem perfil de banca; usando {BANCA_RESERVA}, '
-            'confira o formato e a penalidade no cadastro'
+            f'o app não conhece a banca "{prova.organizadora or "?"}"; usei a regra padrão ({BANCA_RESERVA}). '
+            'Confira o tipo de prova e o desconto por erro no cadastro.'
         )
     if alvo is None or alvo.edital is None:
-        avisos.append('sem edital do concurso-alvo, o simulado fica em modo mínimo (tópicos nao_mapeado)')
+        avisos.append(
+            'sem o edital do concurso que você quer, as questões do simulado ficam sem tópico; '
+            'escolha o concurso-alvo para usar o edital dele.'
+        )
     pasta = raiz_provas / nome_da_pasta(prova)
     pasta.mkdir(parents=True, exist_ok=True)
     iniciais = dados_iniciais(prova, banca, alvo)

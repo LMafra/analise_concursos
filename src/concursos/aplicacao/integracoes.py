@@ -26,7 +26,7 @@ from concursos.candidatos import alvos_pci, slug
 from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, gravar_dados, ler_dados
 from concursos.config.contexto import Contexto
 from concursos.configuracao import configuracao_do_projeto
-from concursos.erros import ErroDoAmbiente, ErroDoUsuario
+from concursos.erros import ErroDoAmbiente, ErroDoUsuario, avisar
 from concursos.integracoes import download_assistido, pci_mcp
 from concursos.integracoes.cache_pci import ARQUIVO_CACHE
 from concursos.integracoes.open_notebook import (
@@ -90,7 +90,9 @@ def configuracao_open_notebook(contexto: Contexto) -> ConfiguracaoOpenNotebook:
         return ler_configuracao(contexto.config_global)
     except ConfiguracaoInvalidaError as erro:
         raise ErroDoUsuario(
-            str(erro), f'corrija a seção [open_notebook] de {contexto.config_global}'
+            'Não consegui ler a configuração do seu programa de estudo (open-notebook).',
+            'configure de novo em Configurações > Avançado.',
+            f'{erro} (seção [open_notebook] de {contexto.config_global})',
         ) from erro
 
 
@@ -138,13 +140,13 @@ def sincronizar(
     gerenciada = not configuracao.ativa and estudo.situacao_do_estudo(contexto).preparado
     if not configuracao.ativa and not gerenciada:
         raise ErroDoUsuario(
-            'o envio das análises ao open-notebook está desligado',
-            'prepare a biblioteca em Estudar (`concurso-analise estudo preparar`) ou use um open-notebook seu '
-            '(`concurso-analise notebook enable`)',
+            'O envio das análises para os seus materiais de estudo está desligado.',
+            'prepare a biblioteca em Estudar, ou ligue o seu próprio open-notebook em Configurações > Avançado.',
         )
     if not opcoes.rede:
         raise ErroDoUsuario(
-            'o envio ao open-notebook usa a rede e foi pedido --offline', 'rode de novo sem --offline'
+            'Atualizar os materiais de estudo usa a internet, e você pediu para não usar (--offline).',
+            'rode de novo sem --offline.',
         )
     candidatos = candidatos_da_execucao(contexto, todos or opcoes.todos)
     if opcoes.dry_run:
@@ -162,8 +164,8 @@ def sincronizar(
         return sincronizar_notebooks(contexto, configuracao, candidatos, concurso)
     except OpenNotebookIndisponivelError as erro:
         if erro.status in (401, 403):
-            raise ErroDoUsuario(erro.causa, erro.dica) from erro
-        raise ErroDoAmbiente(erro.causa, erro.dica or DICA_INSTANCIA) from erro
+            raise ErroDoUsuario(erro.causa, erro.dica, erro.detalhe) from erro
+        raise ErroDoAmbiente(erro.causa, erro.dica or DICA_INSTANCIA, erro.detalhe) from erro
 
 
 def sincronizar_notebooks(
@@ -189,7 +191,7 @@ def sincronizar_gerenciada(
     try:
         cliente = estudo.cliente_gerenciado(contexto)
     except ErroDoAmbiente as erro:
-        raise OpenNotebookIndisponivelError(erro.causa, erro.dica) from erro
+        raise OpenNotebookIndisponivelError(erro.causa, erro.dica, detalhe=erro.detalhe) from erro
     sincronizador = Sincronizador(
         cliente,
         EstadoSincronizacao.ler(contexto.projeto / ARQUIVO_ESTADO),
@@ -241,7 +243,12 @@ def sincronizar_depois_da_analise(opcoes: Opcoes, candidatos: list[str | None]) 
     try:
         configuracao = ler_configuracao(contexto.config_global)
     except ConfiguracaoInvalidaError as erro:
-        logger.warning('open-notebook: %s; a sincronização foi pulada', erro)
+        avisar(
+            logger,
+            'Não consegui ler a configuração do open-notebook; não atualizei seus materiais de estudo.',
+            'configure de novo em Configurações > Avançado.',
+            str(erro),
+        )
         return
     gerenciada = not configuracao.ativa and estudo.situacao_do_estudo(contexto).preparado
     if not configuracao.ativa and not gerenciada:
@@ -252,17 +259,25 @@ def sincronizar_depois_da_analise(opcoes: Opcoes, candidatos: list[str | None]) 
         else:
             relatorio = sincronizar_notebooks(contexto, configuracao, candidatos, None)
     except OpenNotebookIndisponivelError as erro:
-        logger.warning(
-            'open-notebook: %s; a sincronização foi pulada (%s)', erro.causa, erro.dica or DICA_INSTANCIA
+        avisar(
+            logger,
+            'Não consegui falar com o open-notebook; não atualizei seus materiais de estudo.',
+            erro.dica or DICA_INSTANCIA,
+            erro.detalhe or erro.causa,
         )
         return
     except Exception as erro:  # noqa: BLE001 - nenhuma falha da integração derruba a análise
-        logger.warning('open-notebook: falha inesperada na sincronização: %s', erro)
+        avisar(
+            logger,
+            'Algo deu errado ao atualizar seus materiais de estudo; a análise seguiu normalmente.',
+            'tente de novo mais tarde; se continuar, veja o registro em ~/.concurso/logs/.',
+            str(erro),
+        )
         logger.debug('open-notebook: detalhe da falha', exc_info=True)
         return
     logger.info('open-notebook: %s', relatorio.formatar().replace('\n', '; '))
     for falha in relatorio.falhas:
-        logger.warning('open-notebook: %s', falha)
+        avisar(logger, 'Um item não foi para os seus materiais de estudo.', detalhe=f'open-notebook: {falha}')
 
 
 # PCI Concursos
@@ -272,13 +287,18 @@ def configuracao_pci(contexto: Contexto) -> ConfiguracaoPciMcp:
     try:
         return pci_mcp.ler_configuracao(contexto.config_global)
     except ConfiguracaoInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), f'corrija a seção [pci_mcp] de {contexto.config_global}') from erro
+        raise ErroDoUsuario(
+            'Não consegui ler a configuração da busca de concursos abertos.',
+            'configure de novo em Concursos > Encontrar concursos.',
+            f'{erro} (seção [pci_mcp] de {contexto.config_global})',
+        ) from erro
 
 
 def exigir_pci_ligado(configuracao: ConfiguracaoPciMcp) -> None:
     if not configuracao.enabled:
         raise ErroDoUsuario(
-            'a integração com o PCI Concursos está desligada', 'ligue com `concurso-analise pci enable`'
+            'A busca de concursos abertos (PCI Concursos) está desligada.',
+            'ligue em Concursos > Encontrar concursos ou com concurso-analise pci enable.',
         )
 
 
@@ -290,7 +310,8 @@ def aviso_pci(url: str, configuracao: ConfiguracaoPciMcp) -> str:
             'Nome, CPF, inscrição e notas não saem do computador.',
             f'As respostas ficam guardadas no computador por {configuracao.ttl_horas:g} h. A busca do PCI está em '
             'teste e complementa, mas não substitui, o edital oficial.',
-            'Depois de cada análise, o radar de prazos consulta o PCI; sem internet, usa o que já está guardado.',
+            'Depois de cada análise, o app confere os prazos dos concursos que você acompanha; sem internet, usa o '
+            'que já está guardado.',
         ]
     )
 
@@ -313,7 +334,11 @@ def alvos_do_candidato(contexto: Contexto) -> tuple[tuple[str, ...], str]:
     try:
         return alvos_pci(contexto.home, candidato)
     except ConfiguracaoInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), 'corrija a seção [pci] do perfil do candidato') from erro
+        raise ErroDoUsuario(
+            'Não consegui ler os cargos de interesse do candidato.',
+            'escolha os cargos de novo em Concursos > Encontrar concursos.',
+            f'{erro} (seção [pci] do perfil do candidato)',
+        ) from erro
 
 
 def filtros_pci(
@@ -330,9 +355,11 @@ def filtros_pci(
     try:
         uf = validar_uf(uf if uf is not None else (uf_alvo or configuracao.uf), '--uf')
     except ConfiguracaoInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), 'use a sigla do estado, ex.: --uf sp') from erro
+        raise ErroDoUsuario(
+            'Não reconheci o estado informado.', 'use a sigla do estado, por exemplo --uf sp.', str(erro)
+        ) from erro
     if regiao is not None and regiao not in REGIOES:
-        raise ErroDoUsuario(f'--regiao {regiao} é inválida', f'use uma de: {", ".join(REGIOES)}')
+        raise ErroDoUsuario(f'Não conheço a região “{regiao}”.', f'use uma destas: {", ".join(REGIOES)}.')
     if not (cargos or cidade or termo or regiao):
         cargos = list(alvos or configuracao.cargos)
         regiao = configuracao.regiao
@@ -350,9 +377,9 @@ def consultar_pci(opcoes: Opcoes, configuracao: ConfiguracaoPciMcp, refresh: boo
         ) as cliente:
             return consulta(cliente)
     except PciMcpParametroError as erro:
-        raise ErroDoUsuario(erro.causa, erro.dica) from erro
+        raise ErroDoUsuario(erro.causa, erro.dica, erro.detalhe) from erro
     except PciMcpErro as erro:
-        raise ErroDoAmbiente(erro.causa, erro.dica) from erro
+        raise ErroDoAmbiente(erro.causa, erro.dica, erro.detalhe) from erro
 
 
 def descobrir(
@@ -380,15 +407,19 @@ def interesses(contexto: Contexto) -> Interesses:
     try:
         return Interesses.do_projeto(contexto.projeto)
     except ConfiguracaoInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), 'corrija ou apague o arquivo de interesses') from erro
+        raise ErroDoUsuario(
+            'Não consegui ler a lista dos concursos que você acompanha.',
+            'apague o arquivo .concurso/interesses_pci.yaml e acompanhe os concursos de novo.',
+            str(erro),
+        ) from erro
 
 
 def registrar_interesse(opcoes: Opcoes, concursos: list[ConcursoPci], identificador: int) -> None:
     escolhido = next((c for c in concursos if c.id == identificador), None)
     if escolhido is None:
         raise ErroDoUsuario(
-            f'o concurso {identificador} não está no resultado desta busca',
-            'rode o discover com os filtros que o mostram e use um id da lista',
+            f'O concurso {identificador} não está no resultado desta busca.',
+            'busque de novo com os filtros que o mostram e use um número da lista.',
         )
     if opcoes.dry_run:
         opcoes.saida(f'registraria o interesse em {identificador} ({escolhido.titulo})')
@@ -397,14 +428,18 @@ def registrar_interesse(opcoes: Opcoes, concursos: list[ConcursoPci], identifica
     novo = registro.registrar(escolhido)
     registro.gravar()
     acao = 'registrado' if novo else 'atualizado'
-    opcoes.saida(f'interesse {acao}: {identificador} ({escolhido.titulo}); ele entra no radar de prazos')
+    opcoes.saida(
+        f'interesse {acao}: {identificador} ({escolhido.titulo}); ele entra nos concursos que você acompanha'
+    )
 
 
 def esquecer_interesse(opcoes: Opcoes, identificador: int) -> None:
     registro = interesses(opcoes.contexto)
     if registro.obter(identificador) is None:
         raise ErroDoUsuario(
-            f'o concurso {identificador} não está nos interesses', f'confira {registro.caminho}'
+            f'O concurso {identificador} não está entre os que você acompanha.',
+            'confira a lista em Concursos > Encontrar concursos.',
+            f'{registro.caminho}',
         )
     if opcoes.dry_run:
         opcoes.saida(f'deixaria de acompanhar {identificador}')
@@ -434,17 +469,21 @@ def gravar_filtros_pci(
     try:
         uf = validar_uf(uf or '', 'UF')
     except ConfiguracaoInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), 'escolha a UF na lista') from erro
+        raise ErroDoUsuario(
+            'Não reconheci o estado escolhido.', 'escolha a UF na lista.', str(erro)
+        ) from erro
     if regiao and regiao not in REGIOES:
-        raise ErroDoUsuario(f'região {regiao} é inválida', f'use uma de: {", ".join(REGIOES)}')
+        raise ErroDoUsuario(f'Não conheço a região “{regiao}”.', f'use uma destas: {", ".join(REGIOES)}.')
     oficial = ''
     if cidade and cidade.strip():
         if not uf:
-            raise ErroDoUsuario(f'a cidade {cidade} precisa da UF', 'escolha a UF antes da cidade')
+            raise ErroDoUsuario(
+                f'Para buscar em {cidade}, preciso do estado.', 'escolha a UF antes da cidade.'
+            )
         oficial = cidade_da_uf(cidade, uf)
         if oficial is None:
             raise ErroDoUsuario(
-                f'{cidade} não é uma cidade de {uf.upper()}', 'escolha a cidade na lista da UF'
+                f'Não encontrei a cidade {cidade} em {uf.upper()}.', 'escolha a cidade na lista da UF.'
             )
     return pci_mcp.gravar_configuracao(
         contexto.config_global,
@@ -501,8 +540,8 @@ def adicionar_ao_projeto(opcoes: Opcoes, concursos: list[ConcursoPci], identific
     escolhido = next((c for c in concursos if c.id == identificador), None)
     if escolhido is None:
         raise ErroDoUsuario(
-            f'o concurso {identificador} não está no resultado desta busca',
-            'busque de novo com os filtros que o mostram',
+            f'O concurso {identificador} não está no resultado desta busca.',
+            'busque de novo com os filtros que o mostram.',
         )
     contexto = opcoes.contexto
     if (
@@ -548,8 +587,8 @@ def provas_anteriores(
     automaticos = termos_automaticos(alvo) if alvo is not None and not explicitos else []
     if not (explicitos or automaticos):
         raise ErroDoUsuario(
-            'falta o que buscar nas provas anteriores',
-            'passe o concurso-alvo (com `cargo` no concurso.yaml) ou --termo "<cargo> <órgão>"',
+            'Falta dizer o que buscar nas provas anteriores.',
+            'escolha um concurso-alvo com cargo cadastrado, ou busque por "<cargo> <órgão>" (--termo).',
         )
 
     def consulta(cliente: ClientePciMcp) -> tuple[str, list[ProvaAnteriorPci]]:
@@ -608,8 +647,8 @@ def importar_simulado(
     prova = next((p for p in provas if p.id == identificador), None)
     if prova is None:
         raise ErroDoUsuario(
-            f'a prova {identificador} não está no resultado desta busca',
-            'rode `pci provas` com os termos que a mostram e use um id da lista',
+            f'A prova {identificador} não está no resultado desta busca.',
+            'busque de novo com os termos que a mostram e use um número da lista.',
         )
     contexto = opcoes.contexto
     exigir_provas(contexto.provas)
@@ -620,17 +659,23 @@ def importar_simulado(
         return 0
     if not opcoes.rede:
         raise ErroDoUsuario(
-            '--download abre a página da prova, e foi pedido --offline', 'rode de novo sem --offline'
+            'Baixar a prova abre a página dela na internet, e você pediu para não usar (--offline).',
+            'rode de novo sem --offline.',
         )
     link = validar_link(prova.link)
     try:
         arquivos = ler_arquivos(baixar_pagina(link, configuracao.timeout))
     except PciMcpErro as erro:
-        logger.warning('PCI: %s; baixe os arquivos que a página mostrar', erro.causa)
+        avisar(
+            logger,
+            'Não consegui ver quais arquivos a página da prova tem.',
+            'baixe os arquivos que a página mostrar.',
+            f'PCI: {erro.detalhe or erro.causa}',
+        )
         arquivos = []
     pasta, avisos = preparar_pasta(contexto.provas, prova, alvo)
     for aviso in avisos:
-        logger.warning('%s: %s', pasta.name, aviso)
+        avisar(logger, f'{pasta.name}: {aviso}')
     downloads = download_assistido.pasta_de_downloads(configuracao.pasta_downloads)
     desde = download_assistido.instante_atual()
     relatorio_html.abrir_no_navegador(link)
@@ -647,8 +692,9 @@ def importar_simulado(
     encontrados = esperar(downloads, [a.nome for a in arquivos], desde, configuracao.timeout_download)
     if not encontrados:
         raise ErroDoUsuario(
-            f'nenhum arquivo da prova apareceu em {downloads}',
-            f'salve os PDFs em {pasta} e rode `concurso-analise add {pasta}` (ou ajuste pasta_downloads em [pci_mcp])',
+            f'Nenhum arquivo da prova apareceu na sua pasta de downloads ({downloads}).',
+            f'salve os PDFs em {pasta} e rode concurso-analise add {pasta}.',
+            'a pasta de downloads se ajusta em pasta_downloads, na seção [pci_mcp]',
         )
     for copiado in download_assistido.importar(encontrados, pasta):
         opcoes.saida(f'importado: {copiado}')
@@ -656,8 +702,9 @@ def importar_simulado(
         cadastrado = cadastrar(pasta, opcoes.interacao_ou_automatica())
     except ValueError as erro:
         raise ErroDoUsuario(
-            f'{pasta.name}: o cadastro não terminou ({erro})',
-            f'confira os arquivos e rode `concurso-analise add {pasta}`',
+            f'{pasta.name}: não consegui terminar o cadastro da prova.',
+            f'confira os arquivos e rode concurso-analise add {pasta}.',
+            str(erro),
         ) from erro
     if not cadastrado:
         return 1
@@ -720,7 +767,7 @@ def importar_simulados(
             lote.nao_tentadas = [p.id for p in pedidas[posicao - 1 :]]
             break
         except (ErroDoUsuario, ErroDoAmbiente) as erro:
-            logger.warning('prova %s: %s', prova.id, erro.causa)
+            avisar(logger, f'Prova {prova.id}: {erro.causa}', erro.dica, erro.detalhe)
             lote.falhas[prova.id] = erro.causa
             continue
         if codigo == 0:
@@ -757,7 +804,11 @@ def radar_pci(opcoes: Opcoes, candidato: str | None, destino: Path) -> bool:
             with sessao_pci(contexto.projeto, configuracao, rede=opcoes.rede) as cliente:
                 encontrados = cliente.buscar_concursos(cargos=cargos, uf=uf)
     except (PciMcpErro, ConfiguracaoInvalidaError, OSError) as erro:
-        logger.warning('PCI: radar não atualizado: %s', getattr(erro, 'causa', erro))
+        avisar(
+            logger,
+            'Não consegui atualizar os prazos dos editais; ficam os da última busca.',
+            detalhe=f'PCI: {getattr(erro, "detalhe", None) or getattr(erro, "causa", erro)}',
+        )
         return False
     radar = montar_radar(encontrados, registro, configuracao.dias_alerta, tuple(cargos), date.today())
     return gravar_radar(destino, radar)

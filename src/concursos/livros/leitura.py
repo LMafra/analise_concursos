@@ -16,6 +16,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from xml.etree import ElementTree
 
+from concursos.erros import avisar
 from concursos.texto import ESCALA_OCR, MINIMO_CARACTERES_PAGINA
 
 logger = logging.getLogger(__name__)
@@ -143,7 +144,13 @@ def _paginas_docx(caminho: Path) -> list[str]:
 def ocr_da_pagina(caminho: Path, indice: int) -> str:
     """OCR de uma página do PDF; sem o Tesseract, devolve vazio (a página fica sem texto, com aviso)."""
     if shutil.which('tesseract') is None:
-        logger.warning('%s: página %d sem texto e o Tesseract não está instalado', caminho.name, indice + 1)
+        avisar(
+            logger,
+            f'{caminho.name}: a página {indice + 1} é uma imagem, e falta o componente que lê texto em imagem; '
+            'ela ficou sem texto.',
+            'o instalador já traz esse componente; na versão de terminal, rode concurso-analise doctor.',
+            'página sem texto e o Tesseract não está instalado',
+        )
         return ''
     import pypdfium2 as pdfium
     import pytesseract

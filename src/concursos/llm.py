@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Protocol
 
 from concursos.config.contexto import gravar_secao, ler_toml
+from concursos.erros import avisar
 
 logger = logging.getLogger(__name__)
 
@@ -153,11 +154,11 @@ def guardar_chave(variavel: str, chave: str, home: Path) -> str:
     caminho.touch(mode=0o600, exist_ok=True)
     caminho.chmod(0o600)
     caminho.write_text('\n'.join([*linhas, f'{variavel}={chave}']) + '\n', encoding='utf-8')
-    logger.warning(
-        'sem keyring disponível: a chave ficou em texto plano em %s (permissão 600); prefira definir a '
-        'variável %s no ambiente e apagar o arquivo',
-        caminho,
-        variavel,
+    avisar(
+        logger,
+        'Este computador não tem um cofre de senhas; a chave da IA ficou num arquivo só seu, sem criptografia.',
+        f'para mais segurança, defina a variável {variavel} no sistema e apague o arquivo {caminho}.',
+        f'sem keyring disponível: a chave ficou em texto plano em {caminho} (permissão 600)',
     )
     return str(caminho)
 
@@ -238,20 +239,23 @@ def cliente_configurado(home: Path, config_global: Path, permitido: bool = True)
     if not permitido or configuracao is None:
         return None
     if not configuracao.consentimento:
-        logger.warning(
-            'LLM %s configurado sem consentimento; seguindo sem ele. dica: rode `concurso-analise init`',
-            configuracao.provedor,
+        avisar(
+            logger,
+            f'A IA ({configuracao.provedor}) está configurada, mas falta a sua autorização; segui sem ela.',
+            'autorize em Configurações > Inteligência artificial para ler editais, ou rode concurso-analise init.',
+            f'LLM {configuracao.provedor} sem consentimento',
         )
         return None
     chave = None
     if configuracao.variavel_chave is not None:
         encontrada = obter_chave(configuracao, home)
         if encontrada is None:
-            logger.warning(
-                'LLM %s sem chave; seguindo sem ele. dica: defina a variável %s (export %s=...)',
-                configuracao.provedor,
-                configuracao.variavel_chave,
-                configuracao.variavel_chave,
+            avisar(
+                logger,
+                f'A IA ({configuracao.provedor}) está sem a chave de acesso; segui sem ela.',
+                'informe a chave em Configurações > Inteligência artificial para ler editais, ou defina a variável '
+                f'{configuracao.variavel_chave} (export {configuracao.variavel_chave}=...).',
+                f'LLM {configuracao.provedor} sem chave',
             )
             return None
         chave = encontrada[0]
@@ -288,7 +292,12 @@ def _do_env(caminho: Path, variavel: str) -> str | None:
     if not caminho.exists():
         return None
     if os.name != 'nt' and stat.S_IMODE(caminho.stat().st_mode) & 0o077:
-        logger.warning('%s: a chave está legível por outros usuários; rode chmod 600 "%s"', caminho, caminho)
+        avisar(
+            logger,
+            'O arquivo com a chave da IA pode ser lido por outros usuários deste computador.',
+            f'proteja o arquivo: chmod 600 "{caminho}"',
+            str(caminho),
+        )
     for linha in caminho.read_text(encoding='utf-8').splitlines():
         nome, _, valor = linha.partition('=')
         if nome.strip() == variavel and valor.strip():

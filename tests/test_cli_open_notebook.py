@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import criar_concurso
+from conftest import criar_concurso, log_completo
 from servidor_open_notebook import ServidorOpenNotebook
 
 from concursos.cli import main
@@ -87,7 +87,7 @@ def test_disable_desliga_sem_apagar_a_url(home_isolada, servidor):
 def test_sync_desligado_explica_como_ligar(projeto, capsys):
     assert main(['notebook', 'sync', '--candidate', 'zuleica']) == 1
 
-    assert 'notebook enable' in capsys.readouterr().err
+    assert 'Configurações > Avançado' in capsys.readouterr().err
 
 
 def test_sync_imprime_o_resumo_e_sai_com_zero(projeto, servidor, capsys):
@@ -195,7 +195,7 @@ def test_instancia_fora_do_ar_vira_aviso_e_a_analise_sai_com_zero(projeto, caplo
 
     assert main(['--yes', '--no-open', '--force', '--candidate', 'zuleica']) == 0
 
-    assert 'open-notebook' in caplog.text and 'docker compose' in caplog.text
+    assert 'open-notebook' in caplog.text and 'docker compose' in log_completo(caplog)
 
 
 def test_desligado_a_analise_nao_chama_a_instancia(projeto, servidor):
@@ -227,7 +227,7 @@ def com_biblioteca(projeto: Path, disciplina: str = 'Conhecimentos') -> None:
 def test_sem_biblioteca_nem_legislacao_nao_ha_recomendacoes(projeto):
     assert not recomendacoes(projeto).exists()
     indice = (projeto / 'analises' / 'zuleica' / 'index.html').read_text(encoding='utf-8')
-    assert 'Recomendações de estudo' not in indice
+    assert 'id="onde-estudar"' not in indice
 
 
 def test_com_biblioteca_a_analise_grava_recomendacoes_e_a_secao_sem_rede(projeto, servidor):
@@ -236,9 +236,9 @@ def test_com_biblioteca_a_analise_grava_recomendacoes_e_a_secao_sem_rede(projeto
 
     assert main(['--yes', '--no-open', '--offline', '--candidate', 'zuleica']) == 0
 
-    assert recomendacoes(projeto).read_text(encoding='utf-8').startswith('# Recomendações de estudo')
+    assert recomendacoes(projeto).read_text(encoding='utf-8').startswith('# Onde estudar')
     indice = (projeto / 'analises' / 'zuleica' / 'index.html').read_text(encoding='utf-8')
-    assert '<h2>Recomendações de estudo</h2>' in indice
+    assert '<section id="onde-estudar">\n<h2>Onde estudar</h2>' in indice
     assert servidor.pedidos == []
     antes = mtimes(projeto / 'analises')
     assert main(['--yes', '--no-open', '--offline', '--candidate', 'zuleica']) == 0

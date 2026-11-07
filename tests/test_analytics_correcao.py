@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from conftest import log_completo
 
 from concursos.agregacao import agregar
 from concursos.analytics.correcao import (
@@ -186,7 +187,7 @@ def test_resolver_sem_edital_nem_configuracao_cai_no_default_com_aviso(caplog):
     assert cfg.trecho_origem is None
     assert cfg.nota_maxima == 120.0
     assert 'sintetico' in caplog.text
-    assert 'default' in caplog.text
+    assert 'default' in log_completo(caplog)
 
 
 def test_default_com_edital_mencionando_penalidade_avisa_a_mencao(caplog):
@@ -196,7 +197,7 @@ def test_default_com_edital_mencionando_penalidade_avisa_a_mencao(caplog):
         [cfg] = resolver_correcao(concurso('simples', banca='generic'), {'edital.pdf': paginas})
 
     assert cfg.fonte is FonteCorrecao.DEFAULT
-    assert 'menciona penalidade' in caplog.text
+    assert 'menciona penalidade' in log_completo(caplog)
 
 
 def test_configuracao_vale_quando_o_edital_nao_define_a_regra(caplog):
@@ -226,14 +227,14 @@ def test_edital_prevalece_sobre_a_configuracao_e_ela_completa_o_que_falta(caplog
         FonteCorrecao.EDITAL,
     )
     assert (cfg.nota_maxima, cfg.nota_corte) == (100.0, 60.0)
-    assert 'difere do edital' in caplog.text
+    assert 'difere do edital' in log_completo(caplog)
 
 
 def test_pontuacao_declarada_que_contradiz_o_edital_gera_aviso(caplog):
     with caplog.at_level(logging.WARNING):
         resolver_correcao(concurso('simples'), {'edital.pdf': [CEBRASPE]})
 
-    assert "pontuacao 'simples'" in caplog.text
+    assert "pontuacao 'simples'" in log_completo(caplog)
 
 
 def questoes(*resultados: str, anuladas: tuple[int, ...] = ()) -> pd.DataFrame:
@@ -353,8 +354,8 @@ def test_default_nao_acusa_contradicao_com_a_pontuacao_alem_do_aviso_de_default(
     with caplog.at_level(logging.WARNING):
         resolver_correcao(concurso('cebraspe', banca='generic'), {'edital.pdf': ['Das inscrições.']})
 
-    assert 'usando o default' in caplog.text
-    assert 'contradiz' not in caplog.text
+    assert 'default (bruta, fator 0)' in log_completo(caplog)
+    assert 'contradiz' not in log_completo(caplog)
 
 
 def test_pontuacao_coerente_com_o_edital_nao_gera_aviso(caplog):
@@ -575,7 +576,7 @@ def test_quadro_com_faixas_que_nao_somam_os_itens_do_concurso_e_ignorado_com_avi
         [cfg] = resolver_correcao(cpnu({'variantes': ['B3-08-A']}), documentos)
 
     assert cfg.pesos == ()
-    assert 'quadro de pesos ignorado' in caplog.text
+    assert 'quadro de pesos ignorado' in log_completo(caplog)
 
 
 def test_variante_fora_do_quadro_e_sem_pesos_declarados_avisa_e_fica_sem_pesos(caplog):
