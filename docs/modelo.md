@@ -885,7 +885,7 @@ No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_htm
 
 Sai com 2 se algum item tem `✗`, senão com 0.
 
-**`upgrade`.** Instalado pelo `uv`, só imprime `uv tool upgrade concurso-analise`; com `--run`, executa-o pelo `uv` do PATH (sem ele, sai com 2 e a `dica:` de instalação). No executável (fase 6), consulta o manifesto do canal (`--canal stable|beta`, padrão o de `[atualizacao]`) e diz se há versão nova; com `--run`, baixa, confere e aplica (ver "Atualizador"). Com `--dry-run` ou `--offline`, não consulta nada. A ferramenta nunca se atualiza sem um pedido.
+**`upgrade`.** Instalado pelo `uv`, só imprime `uv tool upgrade concurso-analise`; com `--run`, executa-o pelo `uv` do PATH (sem ele, sai com 2 e a `dica:` de instalação). No executável (fase 6), consulta o manifesto do canal (`--canal stable|beta`, padrão o de `[atualizacao]`) e diz se há versão nova; com `--run`, baixa, confere e aplica (ver "Atualizador"). Com `--dry-run` ou `--offline`, não consulta nada. A ferramenta nunca se atualiza sem um pedido. Nos dois casos, com a biblioteca preparada, o `upgrade` também procura o pacote de estudo mais novo (`estudo.avisar_atualizacao_da_biblioteca`) e só informa: instalar é o `estudo preparar`. Sem biblioteca, nada é consultado para ela.
 
 **Idempotência.** Uma execução sem mudança nas entradas não altera nenhum `mtime` em `analises/`, nem com `--dry-run`: as saídas por concurso dependem do manifesto, o `index.html` só é regerado quando algo foi reprocessado, e o consolidado (`desempenho_geral.csv`, `comparativo_concursos.md`) só é regravado quando o conteúdo muda.
 
@@ -930,7 +930,7 @@ Artefatos da release: `concurso-analise-<versão>-windows-x64-setup.exe`, `concu
 
 ## Fase 6: atualizador, janela, etapas e tema
 
-**Atualizador.** `concursos.atualizador` e `concursos.aplicacao.atualizador`, usados pelo Sobre da GUI e pelo `upgrade` do executável. O canal `stable` lê `https://github.com/LMafra/analise_concursos/releases/latest/download/atualizacao.json` e `.sig`; o `beta` lê `https://api.github.com/repos/LMafra/analise_concursos/releases?per_page=10` e usa a primeira release que não é rascunho. Cada release traz:
+**Atualizador.** `concursos.atualizador` e `concursos.aplicacao.atualizador`, usados pelo Sobre da GUI e pelo `upgrade` do executável. Com a biblioteca preparada, o botão do Sobre vira "Verificar atualizações do app e da biblioteca" (fora do executável, "da biblioteca"): o mesmo clique chama `aplicacao.sobre.biblioteca_nova` e, confirmado, `atualizar_biblioteca`, que instala o pacote novo e para o open-notebook em uso; o próximo uso sobe o novo, com o backup e a volta ao anterior do supervisor. O canal `stable` lê `https://github.com/LMafra/analise_concursos/releases/latest/download/atualizacao.json` e `.sig`; o `beta` lê `https://api.github.com/repos/LMafra/analise_concursos/releases?per_page=10` e usa a primeira release que não é rascunho. Cada release traz:
 
 ```json
 {
@@ -980,7 +980,7 @@ Artefatos da release a partir da fase 6: os da fase 5, mais `atualizacao.json`, 
 
 ## Fase 7: estudar com o open-notebook
 
-**Pacote de estudo.** Uma release própria por versão, tag `estudo-v<versao>`, com `<versao> = <open-notebook>-<revisao>` (ex.: `estudo-v1.15.1-1`). Anexos: `estudo-<versao>-windows-x64.zip`, `estudo-<versao>-linux-x86_64.tar.xz`, `estudo.json` e `estudo.json.sig` (Ed25519 sobre os bytes exatos, com as mesmas `atualizador.CHAVES_PUBLICAS`). Montado por `empacotamento/estudo/montar.py` a partir de `empacotamento/estudo/versao.toml`.
+**Pacote de estudo.** Uma release própria por versão, tag `estudo-v<versao>`, com `<versao> = <open-notebook>-<revisao>` (ex.: `estudo-v1.15.1-1`). Anexos: `estudo-<versao>-windows-x64.zip`, `estudo-<versao>-linux-x86_64.tar.xz`, `estudo.json` e `estudo.json.sig` (Ed25519 sobre os bytes exatos, com as mesmas `atualizador.CHAVES_PUBLICAS`). Montado por `empacotamento/estudo/montar.py` a partir de `empacotamento/estudo/versao.toml`. `scripts/smoke.py estudo <pacote> [comando]` confere um pacote de ponta a ponta (instalação do arquivo, PDF com uma página escaneada enviado, pergunta com trecho e página, sem o aviso de open-notebook fora); roda no `estudo.yml` e, com o executável, no gate de máquina limpa do `release.yml`.
 
 ```json
 {

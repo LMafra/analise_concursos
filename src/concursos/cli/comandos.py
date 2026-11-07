@@ -430,6 +430,7 @@ def upgrade(
         typer.Option('--canal', help='stable ou beta (padrão: o de [atualizacao] no config.toml global)'),
     ] = None,
 ) -> int:
+    estudo.avisar_atualizacao_da_biblioteca(ctx.obj)
     if atualizacao.no_executavel():
         return atualizacao.atualizar_executavel(ctx.obj, canal=canal, executar=executar)
     comando = ['tool', 'upgrade', 'concurso-analise']

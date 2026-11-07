@@ -1,6 +1,7 @@
 import io
 import tarfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -138,3 +139,45 @@ def test_opcoes_de_concurso_e_disciplina(contexto):
 
     assert estudo.concursos_do_projeto(contexto) == ['sefaz-df-2026']
     assert estudo.disciplinas_sugeridas(contexto) == ['Geral', 'Direito Constitucional']
+
+
+def _disponivel(versao: str):
+    return SimpleNamespace(manifesto=SimpleNamespace(versao=versao, open_notebook=versao.split('-')[0]))
+
+
+def test_atualizacao_da_biblioteca_nao_consulta_sem_biblioteca(contexto, monkeypatch):
+    def nao_consulta(*_args, **_kwargs):
+        raise AssertionError('consultou sem biblioteca preparada')
+
+    monkeypatch.setattr(estudo, 'procurar_pacote', nao_consulta)
+
+    assert estudo.atualizacao_da_biblioteca(Opcoes(contexto)) is None
+
+
+def test_atualizacao_da_biblioteca_so_com_versao_mais_nova(contexto, tmp_path, monkeypatch):
+    estudo.preparar_estudo(Opcoes(contexto), consentiu=False, arquivo=pacote(tmp_path))
+
+    monkeypatch.setattr(estudo, 'procurar_pacote', lambda *_a, **_k: _disponivel('1.15.1-1'))
+    assert estudo.atualizacao_da_biblioteca(Opcoes(contexto)) is None
+    monkeypatch.setattr(estudo, 'procurar_pacote', lambda *_a, **_k: _disponivel('1.15.1-2'))
+    assert estudo.atualizacao_da_biblioteca(Opcoes(contexto)).manifesto.versao == '1.15.1-2'
+
+
+def test_atualizar_biblioteca_para_o_open_notebook_em_uso(contexto, monkeypatch):
+    parados = []
+    monkeypatch.setattr(estudo, 'preparar_estudo', lambda *_a, **_k: '1.15.1-2')
+    monkeypatch.setitem(estudo._supervisores, contexto.home, SimpleNamespace(parar=lambda: parados.append(1)))
+
+    assert estudo.atualizar_biblioteca(Opcoes(contexto), consentiu=True) == '1.15.1-2'
+    assert parados == [1]
+
+
+def test_upgrade_avisa_da_biblioteca_nova(contexto, tmp_path, monkeypatch):
+    estudo.preparar_estudo(Opcoes(contexto), consentiu=False, arquivo=pacote(tmp_path))
+    monkeypatch.setattr(estudo, 'procurar_pacote', lambda *_a, **_k: _disponivel('1.15.1-2'))
+    saida: list[str] = []
+
+    estudo.avisar_atualizacao_da_biblioteca(Opcoes(contexto, rede=False, saida=saida.append))
+    assert saida == []
+    estudo.avisar_atualizacao_da_biblioteca(Opcoes(contexto, saida=saida.append))
+    assert len(saida) == 1 and '1.15.1-2' in saida[0] and 'estudo preparar' in saida[0]

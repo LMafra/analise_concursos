@@ -133,12 +133,31 @@ jobs:
           wait-for-completion-timeout-in-seconds: 3600
           output-artifact-directory: dist
 
+      # O pacote de estudo mais novo já publicado (estudo.yml); numa tag v*, ele é obrigatório.
+      - name: Pacote de estudo publicado
+        id: estudo
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --limit 100 --json tagName,isDraft \
+            --jq '[.[] | select((.isDraft | not) and (.tagName | startswith("estudo-v")))][0].tagName // ""')
+          if [ -z "$tag" ]; then
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "nenhum pacote de estudo publicado" >&2; exit 1; fi
+            echo "pacote=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh release download "$tag" --pattern 'estudo-*-windows-x64.zip' --dir estudo-baixado
+          echo "pacote=$(ls estudo-baixado/estudo-*-windows-x64.zip)" >> "$GITHUB_OUTPUT"
+
       # O certificado da política test-signing não é confiável para o Windows; só a tag exige Authenticode válido.
       - name: Gate de máquina limpa
         env:
           ASSINADO: ${{ steps.assinatura.outputs.ativa }}
+          PACOTE_ESTUDO: ${{ steps.estudo.outputs.pacote }}
         run: |
           $assinatura = @{ ExigirAssinatura = ($env:ASSINADO -eq 'true' -and $env:GITHUB_REF.StartsWith('refs/tags/v')) }
+          if ($env:PACOTE_ESTUDO) { $assinatura.PacoteEstudo = (Resolve-Path $env:PACOTE_ESTUDO).Path }
           ./scripts/smoke_maquina_limpa.ps1 -Instalador "dist\concurso-analise-$env:VERSAO-windows-x64-setup.exe" `
             -LimitePartida 10 -Relatorio dist\smoke-windows.md @assinatura
           Get-Content dist\smoke-windows.md | Add-Content $env:GITHUB_STEP_SUMMARY
@@ -228,6 +247,32 @@ jobs:
         run: |
           python3 scripts/smoke.py congelado dist/concurso-analise-*-linux-x86_64.AppImage
           echo '- scripts/smoke.py congelado: onboarding, análise e idempotência ok' >> "$RELATORIO"
+
+      # O pacote de estudo mais novo já publicado (estudo.yml); numa tag v*, ele é obrigatório.
+      - name: Pacote de estudo publicado
+        id: estudo
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --limit 100 --json tagName,isDraft \
+            --jq '[.[] | select((.isDraft | not) and (.tagName | startswith("estudo-v")))][0].tagName // ""')
+          if [ -z "$tag" ]; then
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "nenhum pacote de estudo publicado" >&2; exit 1; fi
+            echo "pacote=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh release download "$tag" --pattern 'estudo-*-linux-x86_64.tar.xz' --dir estudo-baixado
+          echo "pacote=$(ls estudo-baixado/estudo-*-linux-x86_64.tar.xz)" >> "$GITHUB_OUTPUT"
+
+      - name: Biblioteca pelo executável
+        if: steps.estudo.outputs.pacote != ''
+        run: |
+          python3 scripts/smoke.py estudo "${{ steps.estudo.outputs.pacote }}" dist/concurso-analise-*-linux-x86_64.AppImage
+          echo "- biblioteca ($(basename '${{ steps.estudo.outputs.pacote }}')): pacote instalado, PDF com página escaneada enviado, pergunta com trecho e página" >> "$RELATORIO"
+
+      - name: Fecha o relatório
+        run: |
           echo >> "$RELATORIO"
           cat "$RELATORIO" >> "$GITHUB_STEP_SUMMARY"
 

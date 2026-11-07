@@ -1,4 +1,4 @@
-"""O resumo da tela Sobre: versão, sistema, leitor de folhas e biblioteca, sem projeto aberto e sem rede."""
+"""A tela Sobre: o resumo do app (sem rede) e a atualização da biblioteca, sem projeto aberto."""
 
 import platform
 import shutil
@@ -6,10 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from concursos.aplicacao import atualizador as atualizacao
+from concursos.aplicacao import estudo
+from concursos.aplicacao.opcoes import Opcoes
+from concursos.config.contexto import Contexto
 from concursos.empacotado import embutido
 from concursos.erros import ErroDoUsuario
 from concursos.estudo import instalacao
-from concursos.estudo.instalacao import Pastas
+from concursos.estudo.instalacao import PacoteDisponivel, Pastas
 
 
 @dataclass(frozen=True)
@@ -54,4 +57,23 @@ def resumo_do_app(home: Path) -> ResumoDoApp:
         leitor_pronto,
         texto_da_biblioteca,
         biblioteca_pronta,
+    )
+
+
+def _so_global(home: Path) -> Opcoes:
+    """A biblioteca mora na pasta global; nenhum caminho de projeto é usado."""
+    return Opcoes(Contexto(raiz=home, home=home, projeto=home, provas=home, analises=home))
+
+
+def biblioteca_nova(home: Path, transporte=None) -> PacoteDisponivel | None:  # noqa: ANN001
+    return estudo.atualizacao_da_biblioteca(_so_global(home), transporte)
+
+
+def atualizar_biblioteca(
+    home: Path,
+    progresso: estudo.ProgressoEstudo | None = None,
+    transporte=None,  # noqa: ANN001
+) -> str:
+    return estudo.atualizar_biblioteca(
+        _so_global(home), consentiu=True, progresso=progresso, transporte=transporte
     )

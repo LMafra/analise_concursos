@@ -194,6 +194,46 @@ def preparar_estudo(
     return disponivel.manifesto.versao
 
 
+def atualizacao_da_biblioteca(opcoes: Opcoes, transporte=None) -> PacoteDisponivel | None:  # noqa: ANN001
+    """O pacote mais novo que o da biblioteca preparada; sem biblioteca, nenhuma consulta."""
+    alvo = pastas(opcoes.contexto)
+    if instalacao.instalado(alvo) is None:
+        return None
+    disponivel = procurar_pacote(opcoes, transporte)
+    return disponivel if instalacao.tem_atualizacao(alvo, disponivel) else None
+
+
+def atualizar_biblioteca(
+    opcoes: Opcoes,
+    *,
+    consentiu: bool,
+    progresso: ProgressoEstudo | None = None,
+    transporte=None,  # noqa: ANN001
+) -> str:
+    """Instala o pacote novo; o open-notebook em uso para e volta, no próximo uso, já no novo (com backup)."""
+    versao = preparar_estudo(opcoes, consentiu=consentiu, progresso=progresso, transporte=transporte)
+    existente = _supervisores.get(opcoes.contexto.home)
+    if existente is not None:
+        existente.parar()
+    return versao
+
+
+def avisar_atualizacao_da_biblioteca(opcoes: Opcoes, transporte=None) -> None:  # noqa: ANN001
+    """A parte da biblioteca no `upgrade`: só informa; instalar é o `estudo preparar`."""
+    if opcoes.dry_run or not opcoes.rede:
+        return
+    try:
+        disponivel = atualizacao_da_biblioteca(opcoes, transporte)
+    except (ErroDoUsuario, ErroDoAmbiente) as erro:
+        opcoes.saida(f'biblioteca: não deu para procurar a versão nova ({erro.causa})')
+        return
+    if disponivel is not None:
+        opcoes.saida(
+            f'biblioteca: versão nova {disponivel.manifesto.versao}; '
+            'para instalar: concurso-analise estudo preparar'
+        )
+
+
 def cliente_gerenciado(contexto: Contexto) -> ClienteOpenNotebook:
     """O cliente da instância gerenciada, subindo os processos se preciso."""
     sessao = supervisor(contexto).garantir()
