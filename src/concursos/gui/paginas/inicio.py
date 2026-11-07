@@ -15,6 +15,7 @@ from concursos.gui.paginas.configuracoes import EXPLICACAO_AVISO, SecaoDaIa
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
+from concursos.linguagem import rotulo_do_arquivo
 
 logger = logging.getLogger('concursos')
 
@@ -53,8 +54,8 @@ class Onboarding:
         with self.assistente.passo(PASSO_PASTA):
             ui.label(f'As provas e as análises ficam em {raiz}.').mark('pasta-do-projeto')
             ui.label(
-                'Cada concurso é uma subpasta de provas, e os relatórios vão para analises. '
-                'Os arquivos não saem deste computador.'
+                f'Cada concurso é uma subpasta em {rotulo_do_arquivo("provas/")}, e os relatórios vão para '
+                f'{rotulo_do_arquivo("analises/")}. Os arquivos não saem deste computador.'
             ).classes('ca-texto-suave')
             ui.button(
                 'Usar outra pasta', icon='folder_open', on_click=lambda: ui.navigate.to('/projeto')

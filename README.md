@@ -246,6 +246,7 @@ O app grava as análises na pasta do projeto. Os nomes dos arquivos não mudam e
 |---|---|
 | `provas/` | Suas provas: uma pasta por concurso, com o edital, a prova, o gabarito e as suas respostas |
 | `analises/` | Suas análises: uma pasta por candidato |
+| `.concurso/` | Configuração do projeto |
 | `analises/<você>/index.html` | O relatório geral, com todos os concursos |
 | `respostas.txt` | Suas respostas, digitadas |
 | `respostas.csv` | Suas respostas (planilha) |

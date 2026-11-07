@@ -7,7 +7,7 @@ from concursos.analytics.regras_edital import Identificacao
 from concursos.atualizacao import COLUNAS_DIFF, impacto
 from concursos.concurso_config import ConcursoConfig
 from concursos.correcao import TOPICO_NAO_MAPEADO
-from concursos.linguagem import plural
+from concursos.linguagem import CALCULO_DA_NOTA, SITUACAO_DO_GABARITO, TIPOS_DE_PROVA, plural
 from concursos.modelo import StatusGabarito
 from concursos.resultado_oficial import Validacao, ValidacaoConferida, formatar
 from concursos.texto import abreviar
@@ -16,16 +16,7 @@ from concursos.topicos import ARQUIVO_REVISAO, SCORE_BAIXO
 MAXIMO_TOPICOS_FRACOS = 10
 LIMITE_TOPICO = 150
 TITULO_DETALHES_TECNICOS = 'Detalhes técnicos'
-_TIPO_DE_PROVA = {'multipla_escolha': 'múltipla escolha', 'certo_errado': 'certo ou errado'}
-_COMO_A_NOTA_E_CALCULADA = {
-    'simples': 'cada acerto vale um ponto, e o erro não desconta',
-    'cebraspe': 'cada acerto vale um ponto, e cada erro anula um acerto',
-}
-_GABARITO = {
-    'preliminar': 'preliminar (provisório)',
-    'definitivo': 'definitivo',
-    'misto': 'preliminar em algumas provas e definitivo em outras',
-}
+_GABARITO = {**SITUACAO_DO_GABARITO, 'misto': 'preliminar em algumas provas e definitivo em outras'}
 _CABECALHOS = {
     'prova': 'Prova',
     'disciplina': 'Disciplina',
@@ -63,9 +54,8 @@ def gerar_relatorio(config: ConcursoConfig, conteudo: ConteudoRelatorio) -> str:
         '',
         *_identificacao(conteudo.identificacao),
         f'- Banca: {config.banca}',
-        f'- Tipo de prova: {_TIPO_DE_PROVA.get(str(config.formato), str(config.formato))}',
-        f'- Como a nota é calculada: '
-        f'{_COMO_A_NOTA_E_CALCULADA.get(str(config.pontuacao), str(config.pontuacao))}',
+        f'- Tipo de prova: {TIPOS_DE_PROVA.get(str(config.formato), str(config.formato))}',
+        f'- Como a nota é calculada: {CALCULO_DA_NOTA.get(str(config.pontuacao), str(config.pontuacao))}',
         f'- Gabarito: {_GABARITO.get(config.status_gabarito, config.status_gabarito)}',
         '',
         *_selo_preliminar(config),

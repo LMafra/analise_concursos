@@ -17,6 +17,7 @@ from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.progresso import Andamento
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
+from concursos.linguagem import rotulo_do_arquivo
 
 logger = logging.getLogger('concursos')
 
@@ -143,7 +144,7 @@ class TelaDeEnvio:
                 ):
                     with ui.column().classes('col').style(tema.gap('xs')):
                         with ui.row().classes('items-center').style(tema.gap('sm')):
-                            ui.label(caminho.name).classes('font-mono break-all')
+                            ui.label(rotulo_do_arquivo(caminho.name)).classes('font-mono break-all')
                             if detectado.banca:
                                 ui.badge(detectado.banca)
                         ui.label(f'Detectamos: {NOME_DO_PAPEL[detectado.papel]}. Confirma?').classes(

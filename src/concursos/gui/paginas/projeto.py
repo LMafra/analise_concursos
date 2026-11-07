@@ -6,16 +6,17 @@ from concursos.gui import tema
 from concursos.gui.componentes.seletor_pasta import escolher_pasta
 from concursos.gui.estado import ESTADO, pasta_padrao
 from concursos.gui.textos import mostrar_erro, rotulo
+from concursos.linguagem import rotulo_do_arquivo
 from concursos.onboarding import precisa_de_onboarding
 
 
 def pagina() -> None:
     with ui.column().classes('w-full max-w-2xl').style(tema.gap('md')):
         ui.label('Pasta do projeto').classes('text-2xl font-bold')
-        ui.label(
-            'É nesta pasta que ficam as provas (provas/), as análises (analises/) e a configuração (.concurso/). '
-            'Nada sai do seu computador.'
-        )
+        ui.label('É nesta pasta que ficam, sem sair do seu computador:')
+        with ui.column().style(tema.gap('xs')):
+            for pasta in ('provas/', 'analises/', '.concurso/'):
+                ui.label(f'• {rotulo_do_arquivo(pasta)}')
         if ESTADO.projeto is not None:
             ui.label(f'Pasta atual: {ESTADO.projeto}').mark('pasta-atual')
         campo = rotulo(

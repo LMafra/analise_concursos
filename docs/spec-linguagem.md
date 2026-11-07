@@ -191,6 +191,7 @@ Os nomes reais não mudam (compatibilidade). Na GUI, o nome aparece com o rótul
 |---|---|
 | `provas/` | Suas provas |
 | `analises/` | Suas análises |
+| `.concurso/` | Configuração do projeto |
 | `respostas.txt` | Suas respostas |
 | `respostas.csv` | Suas respostas (planilha) |
 | `respostas_extraidas.csv` | Respostas lidas da folha |

@@ -214,8 +214,8 @@ class SecaoDaIa:
                     .mark('chave-ia')
                 )
                 ui.label(
-                    'A chave vai para o cofre do sistema (ou para ~/.concurso/.env, só seu), nunca para os '
-                    'arquivos de configuração.'
+                    'A chave vai para o cofre de senhas do sistema (sem ele, para um arquivo só seu, na pasta do '
+                    'app), nunca para os arquivos de configuração.'
                 ).classes('text-sm ca-texto-suave')
                 ui.button('Concordo e ligar', icon='check', on_click=self.ligar).mark('ligar-ia')
             self.formulario.set_visibility(estado.ligada)
