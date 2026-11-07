@@ -23,7 +23,7 @@ PREFIXO_TAG = 'estudo-v'
 SUFIXOS = {'windows-x64': 'windows-x64.zip', 'linux-x86_64': 'linux-x86_64.tar.xz'}
 PADRAO_VERSAO = re.compile(r'^\d+\.\d+\.\d+-\d+$')
 PADRAO_ARQUIVO = re.compile(r'^estudo-\d+\.\d+\.\d+-\d+-(windows-x64\.zip|linux-x86_64\.tar\.xz)$')
-DICA = 'tente de novo mais tarde em Estudar; se continuar, veja a página de releases do app'
+DICA = 'tente de novo mais tarde em Estudar; se continuar, baixe a versão mais nova do app.'
 
 
 @dataclass(frozen=True)
@@ -63,12 +63,18 @@ def conferir_assinatura(conteudo: bytes, assinatura: bytes) -> None:
         atualizador.conferir_assinatura(conteudo, assinatura)
     except ErroDoAmbiente as erro:
         raise ErroDoAmbiente(
-            'o pacote da biblioteca não tem assinatura válida; nada foi instalado', DICA
+            'O pacote da biblioteca não tem a assinatura do autor do app; não instalei nada.',
+            DICA,
+            erro.detalhe,
         ) from erro
 
 
 def _invalido(motivo: str) -> ErroDoAmbiente:
-    return ErroDoAmbiente(f'pacote da biblioteca inválido: {motivo}', DICA)
+    return ErroDoAmbiente(
+        'O pacote da biblioteca veio com defeito; não instalei nada.',
+        DICA,
+        f'pacote de estudo inválido: {motivo}',
+    )
 
 
 def _inteiro_positivo(valor: object) -> bool:

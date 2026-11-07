@@ -175,7 +175,7 @@ def test_linux_com_sha256_errado_mantem_o_appimage_antigo(tmp_path):
         CanalAtualizacao.STABLE, transporte=transporte, instalada='0.5.0', sistema='linux'
     )
 
-    with pytest.raises(ErroDoAmbiente, match='SHA-256'):
+    with pytest.raises(ErroDoAmbiente, match='diferente do publicado'):
         aplicacao.instalar(
             novidade, transporte=transporte, sistema='linux', ambiente={'APPIMAGE': str(atual)}
         )
@@ -282,7 +282,7 @@ def test_windows_sem_assinatura_no_atual_confia_no_manifesto_e_no_sha256(tmp_pat
 
 
 def test_windows_com_sha256_errado_nao_roda_nada(tmp_path):
-    with pytest.raises(ErroDoAmbiente, match='SHA-256'):
+    with pytest.raises(ErroDoAmbiente, match='diferente do publicado'):
         instalar_no_windows(tmp_path, assinaturas(), setup=b'outro setup')
     assert list(tmp_path.iterdir()) == []
 

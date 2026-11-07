@@ -345,7 +345,7 @@ def remover_livro(contexto: Contexto, sha: str) -> Livro | None:
         avisar(
             logger,
             'Não consegui abrir a biblioteca de estudo; tirei o livro só da lista deste computador.',
-            detalhe=f'open-notebook: {erro.causa}',
+            detalhe=f'open-notebook: {erro.detalhe or erro.causa}',
         )
         return envio.remover_livro(None, biblioteca(contexto), sha)
 
@@ -358,7 +358,7 @@ def mudar_disciplina(contexto: Contexto, sha: str, disciplina: str) -> Livro | N
         avisar(
             logger,
             'Não consegui abrir a biblioteca de estudo; a disciplina do livro muda lá na próxima vez.',
-            detalhe=f'open-notebook: {erro.causa}',
+            detalhe=f'open-notebook: {erro.detalhe or erro.causa}',
         )
         return envio.mudar_disciplina(None, biblioteca(contexto), sha, disciplina)
 
@@ -666,7 +666,7 @@ def perguntar(
                 avisar(
                     logger,
                     'Não consegui abrir a biblioteca de estudo; procurei só no texto dos seus livros.',
-                    detalhe=f'open-notebook: {erro.causa}',
+                    detalhe=f'open-notebook: {erro.detalhe or erro.causa}',
                 )
                 avisos.append(TEXTO_FORA)
         elif livros and situacao_do_estudo(contexto).preparado:

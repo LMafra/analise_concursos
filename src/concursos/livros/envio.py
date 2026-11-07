@@ -7,6 +7,7 @@ import sqlite3
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from concursos.erros import avisar
 from concursos.integracoes.open_notebook import ClienteOpenNotebook, OpenNotebookIndisponivelError
 from concursos.livros import fila, indice
 from concursos.livros.fila import Livro, PastasBiblioteca
@@ -130,7 +131,11 @@ def processar_envios(cliente: ClienteOpenNotebook, pastas: PastasBiblioteca) -> 
             if enviando and conferir_envio(cliente, pastas, livro).estado is EstadoLivro.PRONTO:
                 relatorio.prontos.append(livro.nome)
         except OpenNotebookIndisponivelError as erro:
-            logger.warning('livro %s: %s', livro.nome, erro.causa)
+            avisar(
+                logger,
+                f'livro {livro.nome}: não consegui mandar para a biblioteca de estudo; tento de novo na próxima vez.',
+                detalhe=f'{erro.causa} {erro.detalhe or ""}'.strip(),
+            )
             relatorio.falhas.append(livro.nome)
     return relatorio
 

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO
 
-from concursos.erros import ErroDoAmbiente
+from concursos.erros import ErroDoAmbiente, avisar
 from concursos.estudo import instalacao
 from concursos.estudo.instalacao import Pastas
 
@@ -38,7 +38,7 @@ FALHAS_ATE_DESISTIR = 3
 NAMESPACE = 'open_notebook'
 USUARIO_BANCO = 'concurso'
 VARIAVEL_CIFRA = 'CONCURSO_OPEN_NOTEBOOK_CIFRA'
-DICA = 'a busca continua nos seus livros pelo app; tente de novo mais tarde ou reinicie o app'
+DICA = 'a busca continua nos seus livros pelo app; tente de novo mais tarde ou reinicie o app.'
 _SEGREDOS_DO_AMBIENTE = ('_API_KEY', '_API_BASE', 'OPEN_NOTEBOOK_', 'SURREAL_', 'OPENAI_COMPATIBLE_')
 
 
@@ -360,20 +360,24 @@ class Supervisor:
                 logger.info('open-notebook: a IA mudou; subindo de novo')
                 self._parar_processos()
             if self._rodando:
-                logger.warning('open-notebook: um processo caiu; subindo de novo')
+                avisar(
+                    logger,
+                    'A biblioteca de estudo fechou sozinha; estou abrindo de novo.',
+                    detalhe='open-notebook: um processo caiu; subindo de novo',
+                )
                 self._parar_processos()
             if self.indisponivel:
-                raise ErroDoAmbiente('a biblioteca não conseguiu abrir agora', DICA)
+                raise ErroDoAmbiente('A biblioteca não conseguiu abrir agora.', DICA)
             raiz = instalacao.instalado(self.pastas)
             if raiz is None:
                 raise ErroDoAmbiente(
-                    'a biblioteca ainda não foi preparada', 'abra Estudar e clique em "Preparar agora"'
+                    'A biblioteca ainda não foi preparada.', 'abra Estudar e clique em "Preparar agora".'
                 )
             if self._trava is None:
                 trava = _Trava(self.pastas.trava)
                 if not trava.adquirir():
                     raise ErroDoAmbiente(
-                        'a biblioteca já está aberta em outra janela do app', 'feche a outra janela'
+                        'A biblioteca já está aberta em outra janela do app.', 'feche a outra janela.'
                     )
                 self._trava = trava
             nova_versao = instalacao.precisa_de_backup(self.pastas)
@@ -394,7 +398,11 @@ class Supervisor:
         try:
             return dict(self.ambiente_ia())
         except Exception:
-            logger.warning('open-notebook: a IA não pôde ser lida; seguindo sem ela', exc_info=True)
+            logger.warning(
+                'Não consegui ler a configuração da IA; a biblioteca abre sem ela.',
+                exc_info=True,
+                extra={'dica': 'confira a IA em Configurações.', 'detalhe': None},
+            )
             return {}
 
     def _subir(self, raiz: Path, ambiente: dict[str, str]) -> Sessao:
@@ -437,7 +445,7 @@ class Supervisor:
         except Exception as erro:
             self._parar_processos()
             logger.exception('open-notebook: falha ao subir')
-            raise ErroDoAmbiente('a biblioteca não conseguiu abrir agora', DICA) from erro
+            raise ErroDoAmbiente('A biblioteca não conseguiu abrir agora.', DICA, str(erro)) from erro
         self._sessao = sessao
         self._ambiente = ambiente
         logger.info('open-notebook: em uso (%s)', ', '.join(r.processo.nome for r in self._rodando))
@@ -447,13 +455,12 @@ class Supervisor:
         limite = self.relogio() + self.timeout_partida
         while True:
             if rodando.popen.poll() is not None:
-                logger.error(
-                    'open-notebook: %s saiu com %s; veja %s',
-                    rodando.processo.nome,
-                    rodando.popen.returncode,
-                    self.logs / f'open-notebook-{rodando.processo.nome}.log',
+                raise ErroDoAmbiente(
+                    'A biblioteca não conseguiu abrir agora.',
+                    DICA,
+                    f'open-notebook: {rodando.processo.nome} saiu com {rodando.popen.returncode}; veja '
+                    f'{self.logs / f"open-notebook-{rodando.processo.nome}.log"}',
                 )
-                raise ErroDoAmbiente('a biblioteca não conseguiu abrir agora', DICA)
             if rodando.processo.saude is None:
                 time.sleep(0.5)
                 if rodando.popen.poll() is None:
@@ -462,10 +469,11 @@ class Supervisor:
             if _responde(rodando.processo.saude):
                 return
             if self.relogio() > limite:
-                logger.error(
-                    'open-notebook: %s não respondeu em %.0f s', rodando.processo.nome, self.timeout_partida
+                raise ErroDoAmbiente(
+                    'A biblioteca demorou demais para abrir.',
+                    DICA,
+                    f'open-notebook: {rodando.processo.nome} não respondeu em {self.timeout_partida:.0f} s',
                 )
-                raise ErroDoAmbiente('a biblioteca demorou demais para abrir', DICA)
             time.sleep(0.2)
 
     def _parar_processos(self) -> None:

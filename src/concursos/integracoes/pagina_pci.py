@@ -58,7 +58,9 @@ def ler_arquivos(html: str) -> list[ArquivoProvaPci]:
 def validar_link(link: str) -> str:
     if not link.startswith(PREFIXO_PAGINA) or link.lower().endswith('.pdf'):
         raise PciMcpFormatoError(
-            f'link de prova inesperado: {link}', 'o app só abre páginas em /provas/ do PCI'
+            'Este link não é de uma página de prova do PCI.',
+            'escolha a prova pela busca de provas anteriores.',
+            f'link de prova inesperado: {link}; o app só abre páginas em /provas/ do PCI',
         )
     return link
 
@@ -69,4 +71,6 @@ def baixar_pagina(link: str, timeout: float) -> str:
         with urllib.request.urlopen(requisicao, timeout=timeout) as resposta:
             return resposta.read().decode('utf-8', errors='replace')
     except (urllib.error.URLError, TimeoutError, OSError) as erro:
-        raise PciMcpIndisponivelError(f'não consegui ler a página da prova ({erro})', DICA_SERVIDOR) from erro
+        raise PciMcpIndisponivelError(
+            'Não consegui abrir a página da prova no PCI.', DICA_SERVIDOR, f'{link}: {erro}'
+        ) from erro

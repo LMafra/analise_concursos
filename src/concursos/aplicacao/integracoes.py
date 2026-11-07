@@ -164,8 +164,8 @@ def sincronizar(
         return sincronizar_notebooks(contexto, configuracao, candidatos, concurso)
     except OpenNotebookIndisponivelError as erro:
         if erro.status in (401, 403):
-            raise ErroDoUsuario(erro.causa, erro.dica) from erro
-        raise ErroDoAmbiente(erro.causa, erro.dica or DICA_INSTANCIA) from erro
+            raise ErroDoUsuario(erro.causa, erro.dica, erro.detalhe) from erro
+        raise ErroDoAmbiente(erro.causa, erro.dica or DICA_INSTANCIA, erro.detalhe) from erro
 
 
 def sincronizar_notebooks(
@@ -191,7 +191,7 @@ def sincronizar_gerenciada(
     try:
         cliente = estudo.cliente_gerenciado(contexto)
     except ErroDoAmbiente as erro:
-        raise OpenNotebookIndisponivelError(erro.causa, erro.dica) from erro
+        raise OpenNotebookIndisponivelError(erro.causa, erro.dica, detalhe=erro.detalhe) from erro
     sincronizador = Sincronizador(
         cliente,
         EstadoSincronizacao.ler(contexto.projeto / ARQUIVO_ESTADO),
@@ -263,7 +263,7 @@ def sincronizar_depois_da_analise(opcoes: Opcoes, candidatos: list[str | None]) 
             logger,
             'Não consegui falar com o open-notebook; não atualizei seus materiais de estudo.',
             erro.dica or DICA_INSTANCIA,
-            erro.causa,
+            erro.detalhe or erro.causa,
         )
         return
     except Exception as erro:  # noqa: BLE001 - nenhuma falha da integração derruba a análise
@@ -376,9 +376,9 @@ def consultar_pci(opcoes: Opcoes, configuracao: ConfiguracaoPciMcp, refresh: boo
         ) as cliente:
             return consulta(cliente)
     except PciMcpParametroError as erro:
-        raise ErroDoUsuario(erro.causa, erro.dica) from erro
+        raise ErroDoUsuario(erro.causa, erro.dica, erro.detalhe) from erro
     except PciMcpErro as erro:
-        raise ErroDoAmbiente(erro.causa, erro.dica) from erro
+        raise ErroDoAmbiente(erro.causa, erro.dica, erro.detalhe) from erro
 
 
 def descobrir(
@@ -667,7 +667,7 @@ def importar_simulado(
             logger,
             'Não consegui ver quais arquivos a página da prova tem.',
             'baixe os arquivos que a página mostrar.',
-            f'PCI: {erro.causa}',
+            f'PCI: {erro.detalhe or erro.causa}',
         )
         arquivos = []
     pasta, avisos = preparar_pasta(contexto.provas, prova, alvo)
@@ -804,7 +804,7 @@ def radar_pci(opcoes: Opcoes, candidato: str | None, destino: Path) -> bool:
         avisar(
             logger,
             'Não consegui atualizar os prazos dos editais; ficam os da última busca.',
-            detalhe=f'PCI: {getattr(erro, "causa", erro)}',
+            detalhe=f'PCI: {getattr(erro, "detalhe", None) or getattr(erro, "causa", erro)}',
         )
         return False
     radar = montar_radar(encontrados, registro, configuracao.dias_alerta, tuple(cargos), date.today())

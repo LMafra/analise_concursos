@@ -25,6 +25,7 @@ from concursos.biblioteca import (
     disciplinas_do_concurso,
     indexar_biblioteca,
 )
+from concursos.erros import avisar
 from concursos.integracoes.open_notebook import ClienteOpenNotebook, OpenNotebookIndisponivelError
 from concursos.legislacao import (
     citacoes_do_edital,
@@ -205,7 +206,11 @@ def resumo_do_consolidado(
             notas_finais_em_markdown(consolidado),
         ]
     except Exception as erro:  # noqa: BLE001 - a nota sai sem a evolução, com o motivo
-        logger.warning('open-notebook: resumo consolidado sem a evolução: %s', erro)
+        avisar(
+            logger,
+            'open-notebook: o resumo de todos os concursos foi sem a evolução.',
+            detalhe=f'resumo consolidado sem a evolução: {erro}',
+        )
         linhas.append(f'Evolução indisponível: {erro}')
     return Documento('resumo', TITULO_RESUMO, '\n'.join(linhas) + '\n')
 

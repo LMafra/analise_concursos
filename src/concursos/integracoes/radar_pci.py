@@ -8,6 +8,7 @@ from pathlib import Path
 
 from concursos.arquivos import gravar_se_mudou
 from concursos.datas import data_br
+from concursos.erros import avisar
 from concursos.integracoes.pci_mcp import ConcursoPci
 from concursos.integracoes.sincronizacao_pci import situacao
 
@@ -188,7 +189,12 @@ def ler_radar(destino: Path) -> Radar | None:
             itens=tuple(ItemRadar(**item) for item in dados['itens']),
         )
     except (ValueError, KeyError, TypeError) as erro:
-        logger.warning('%s ilegível (%s); rode a análise de novo para refazer o radar', arquivo, erro)
+        avisar(
+            logger,
+            'Não consegui ler os prazos dos editais guardados.',
+            'rode a análise de novo para refazer a lista de prazos.',
+            f'{arquivo} ilegível ({erro})',
+        )
         return None
 
 

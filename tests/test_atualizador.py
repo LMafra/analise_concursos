@@ -128,12 +128,12 @@ def test_le_o_manifesto_valido():
     ],
 )
 def test_manifesto_invalido_e_recusado(mudancas):
-    with pytest.raises(ErroDoAmbiente, match='manifesto'):
+    with pytest.raises(ErroDoAmbiente, match='defeito'):
         atualizador.ler_manifesto(bytes_de(manifesto(**mudancas)))
 
 
 def test_manifesto_que_nao_e_json_e_recusado():
-    with pytest.raises(ErroDoAmbiente, match='manifesto'):
+    with pytest.raises(ErroDoAmbiente, match='defeito'):
         atualizador.ler_manifesto(b'<html>')
 
 
@@ -141,7 +141,7 @@ def test_campo_faltando_e_recusado():
     dados = manifesto()
     del dados['versao']
 
-    with pytest.raises(ErroDoAmbiente, match='manifesto'):
+    with pytest.raises(ErroDoAmbiente, match='defeito'):
         atualizador.ler_manifesto(bytes_de(dados))
 
 
@@ -217,8 +217,9 @@ def test_sha256_confere_o_arquivo(tmp_path):
     arquivo.write_bytes(b'conteudo')
     atualizador.conferir_sha256(arquivo, hashlib.sha256(b'conteudo').hexdigest())
 
-    with pytest.raises(ErroDoAmbiente, match='SHA-256'):
+    with pytest.raises(ErroDoAmbiente, match='diferente do publicado') as erro:
         atualizador.conferir_sha256(arquivo, 'c' * 64)
+    assert 'SHA-256' in erro.value.detalhe
 
 
 @pytest.mark.parametrize(('sistema', 'plataforma'), [('win32', 'windows-x64'), ('linux', 'linux-x86_64')])

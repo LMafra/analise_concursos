@@ -45,7 +45,7 @@ PADRAO_ARQUIVO = re.compile(
     r'^concurso-analise-[0-9A-Za-z.+-]+-(windows-x64-setup\.exe|linux-x86_64\.AppImage)$'
 )
 PADRAO_SHA256 = re.compile(r'^[0-9a-f]{64}$')
-DICA_MANUAL = f'baixe a versão nova à mão em {URL_RELEASES_PAGINA}'
+DICA_MANUAL = f'baixe a versão nova no site do app: {URL_RELEASES_PAGINA}'
 
 
 @dataclass(frozen=True)
@@ -80,12 +80,18 @@ def conferir_assinatura(conteudo: bytes, assinatura: bytes, chaves: tuple[str, .
             continue
         return
     raise ErroDoAmbiente(
-        'o manifesto de atualização não tem assinatura válida; nada foi baixado', DICA_MANUAL
+        'O aviso de versão nova não tem a assinatura do autor do app; não baixei nada.',
+        DICA_MANUAL,
+        'o manifesto de atualização não tem assinatura Ed25519 válida',
     )
 
 
 def _invalido(motivo: str) -> ErroDoAmbiente:
-    return ErroDoAmbiente(f'manifesto de atualização inválido: {motivo}', DICA_MANUAL)
+    return ErroDoAmbiente(
+        'O aviso de versão nova veio com defeito; não baixei nada.',
+        DICA_MANUAL,
+        f'manifesto de atualização inválido: {motivo}',
+    )
 
 
 def ler_manifesto(conteudo: bytes) -> Manifesto:
@@ -141,8 +147,9 @@ def escolher(
     """O artefato a instalar, ou None se não há versão maior para este sistema."""
     if canal is CanalAtualizacao.STABLE and manifesto.canal is not CanalAtualizacao.STABLE:
         raise ErroDoAmbiente(
-            f'o manifesto do canal stable aponta uma versão beta ({manifesto.versao}); nada foi baixado',
+            f'O canal estável apontou para uma versão beta, de teste ({manifesto.versao}); não baixei nada.',
             DICA_MANUAL,
+            'o manifesto do canal stable aponta uma versão beta',
         )
     if Version(manifesto.versao) <= Version(instalada):
         return None
@@ -157,8 +164,9 @@ def conferir_url(url: str) -> None:
     partes = urlsplit(url)
     if partes.scheme != 'https' or partes.username or partes.hostname not in HOSTS_PERMITIDOS:
         raise ErroDoAmbiente(
-            f'endereço fora do GitHub na atualização ({partes.scheme}://{partes.hostname}); nada foi baixado',
+            'O download apontou para fora do GitHub, onde ficam as versões oficiais; não baixei nada.',
             DICA_MANUAL,
+            f'endereço da atualização: {partes.scheme}://{partes.hostname}',
         )
 
 
@@ -169,7 +177,9 @@ def conferir_sha256(caminho: Path, esperado: str) -> None:
             resumo.update(bloco)
     if resumo.hexdigest() != esperado:
         raise ErroDoAmbiente(
-            f'o SHA-256 de {caminho.name} não confere com o manifesto; o arquivo foi descartado', DICA_MANUAL
+            f'O arquivo baixado ({caminho.name}) veio diferente do publicado; não usei ele.',
+            DICA_MANUAL,
+            f'o SHA-256 de {caminho.name} não confere com o manifesto; o arquivo foi descartado',
         )
 
 
@@ -177,7 +187,7 @@ def plataforma(sistema: str) -> str:
     chave = 'linux' if sistema.startswith('linux') else sistema
     if chave not in PLATAFORMAS:
         raise ErroDoUsuario(
-            'a atualização pelo app existe só no Windows e no Linux', f'no macOS, {DICA_MANUAL}'
+            'A atualização pelo app existe só no Windows e no Linux.', f'no macOS, {DICA_MANUAL}'
         )
     return PLATAFORMAS[chave]
 

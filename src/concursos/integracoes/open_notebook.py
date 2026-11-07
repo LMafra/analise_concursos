@@ -13,6 +13,7 @@ from typing import Any
 
 from concursos.concurso_config import ConfiguracaoInvalidaError
 from concursos.config.contexto import gravar_secao, ler_toml
+from concursos.erros import avisar
 from concursos.llm import obter_chave_da_variavel
 
 logger = logging.getLogger(__name__)
@@ -22,8 +23,11 @@ URL_PADRAO = 'http://localhost:5055'
 VARIAVEL_CHAVE_PADRAO = 'OPEN_NOTEBOOK_PASSWORD'
 TIMEOUT_PADRAO = 120
 LIMITE_PAGINA = 100
-DICA_INSTANCIA = 'suba o open-notebook (ex.: `docker compose up -d`) ou confira `url` em [open_notebook]'
-DICA_VERSAO = 'a API do open-notebook mudou; a integração foi testada com a versão 1.15'
+DICA_INSTANCIA = (
+    'ligue o seu open-notebook (por exemplo, com `docker compose up -d`) e confira o endereço em '
+    'Configurações > Avançado.'
+)
+DICA_VERSAO = 'o open-notebook mudou de versão; o app foi testado com a versão 1.15.'
 
 
 @dataclass(frozen=True)
@@ -83,11 +87,14 @@ def obter_senha(
 
 
 class OpenNotebookIndisponivelError(RuntimeError):
-    def __init__(self, causa: str, dica: str | None = None, status: int | None = None) -> None:
+    def __init__(
+        self, causa: str, dica: str | None = None, status: int | None = None, detalhe: str | None = None
+    ) -> None:
         super().__init__(causa)
         self.causa = causa
         self.dica = dica
         self.status = status
+        self.detalhe = detalhe
 
 
 @dataclass(frozen=True)
@@ -128,8 +135,10 @@ class ClienteOpenNotebook:
         """O mais antigo com o nome exato; o servidor aceita nomes repetidos."""
         iguais = [nb for nb in self.listar_notebooks() if nb.get('name') == nome and not nb.get('archived')]
         if len(iguais) > 1:
-            logger.warning(
-                'open-notebook: %d notebooks se chamam "%s"; usando o mais antigo', len(iguais), nome
+            avisar(
+                logger,
+                f'open-notebook: há {len(iguais)} cadernos chamados "{nome}"; usei o mais antigo.',
+                'apague ou renomeie os repetidos no seu open-notebook.',
             )
         return min(iguais, key=lambda nb: str(nb.get('created', ''))) if iguais else None
 
@@ -302,7 +311,9 @@ class ClienteOpenNotebook:
         except (urllib.error.URLError, TimeoutError, ConnectionError) as erro:
             motivo = getattr(erro, 'reason', erro)
             raise OpenNotebookIndisponivelError(
-                f'open-notebook indisponível em {self.url}: {motivo}', DICA_INSTANCIA
+                'Não consegui falar com o open-notebook.',
+                DICA_INSTANCIA,
+                detalhe=f'open-notebook indisponível em {self.url}: {motivo}',
             ) from erro
         if not bruto:
             return None
@@ -310,7 +321,9 @@ class ClienteOpenNotebook:
             return json.loads(bruto.decode('utf-8'))
         except (json.JSONDecodeError, UnicodeDecodeError) as erro:
             raise OpenNotebookIndisponivelError(
-                f'open-notebook: {metodo} {caminho} devolveu algo que não é JSON', DICA_VERSAO
+                'O open-notebook respondeu algo que o app não entende.',
+                DICA_VERSAO,
+                detalhe=f'open-notebook: {metodo} {caminho} devolveu algo que não é JSON',
             ) from erro
 
 
@@ -319,17 +332,25 @@ def _erro_http(metodo: str, caminho: str, erro: urllib.error.HTTPError) -> OpenN
         detalhe = json.loads(erro.read().decode('utf-8')).get('detail')
     except Exception:  # noqa: BLE001 - corpo vazio ou não JSON
         detalhe = None
-    causa = f'open-notebook: {metodo} {caminho} devolveu HTTP {erro.code}' + (
+    tecnico = f'open-notebook: {metodo} {caminho} devolveu HTTP {erro.code}' + (
         f' ({detalhe})' if detalhe else ''
     )
+    causas = {
+        401: 'O open-notebook pediu a senha.',
+        404: 'O open-notebook não encontrou o que o app pediu.',
+        413: 'O arquivo é grande demais para o open-notebook.',
+    }
     dicas = {
         401: f'defina a senha da instância na variável {VARIAVEL_CHAVE_PADRAO} (ou na `variavel_chave` de '
         '[open_notebook])',
-        413: 'o arquivo passa do limite do servidor (OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB, padrão 100)',
+        413: 'divida o arquivo em partes menores ou aumente o limite do seu open-notebook '
+        '(OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB, padrão 100 MB).',
         405: DICA_VERSAO,
         422: DICA_VERSAO,
     }
-    return OpenNotebookIndisponivelError(causa, dicas.get(erro.code), erro.code)
+    return OpenNotebookIndisponivelError(
+        causas.get(erro.code, 'O open-notebook recusou o pedido.'), dicas.get(erro.code), erro.code, tecnico
+    )
 
 
 def _multipart(campos: dict[str, str], arquivo: _Arquivo | None) -> tuple[bytes, str]:

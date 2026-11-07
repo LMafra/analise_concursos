@@ -2,6 +2,8 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from conftest import log_completo
+
 from concursos.integracoes.cache_pci import CachePci, argumentos_normalizados, chave
 
 AGORA = datetime(2026, 11, 5, 10, 0)
@@ -46,4 +48,5 @@ def test_cache_ilegivel_comeca_vazio_com_aviso(tmp_path: Path, caplog):
     caminho.write_text('{quebrado', encoding='utf-8')
     with caplog.at_level(logging.WARNING):
         assert CachePci(caminho, ttl_horas=24).obter('pesquisar_provas', {'termo': 'x'}) is None
-    assert 'cache ilegível' in caplog.text
+    assert 'buscas guardadas' in caplog.text
+    assert 'cache ilegível' in log_completo(caplog)

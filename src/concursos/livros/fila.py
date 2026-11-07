@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from concursos.erros import avisar
 from concursos.livros import indice, leitura
 from concursos.livros.validacao import validar
 from concursos.modelo import EstadoLivro
@@ -290,7 +291,11 @@ class Fila:
                 ).result()
                 return
             except BrokenProcessPool:
-                logger.warning('a leitura de %s derrubou o processo (tentativa %d)', livro.nome, tentativa)
+                avisar(
+                    logger,
+                    f'{livro.nome}: a leitura do livro parou no meio; vou tentar de novo.',
+                    detalhe=f'a leitura derrubou o processo (tentativa {tentativa})',
+                )
                 self._executor = None
             except Exception:
                 logger.exception('falha ao ler %s', livro.nome)

@@ -138,7 +138,7 @@ def test_organizadora_sem_perfil_usa_a_reserva_e_avisa(raizes):
 
     assert ler_dados(pasta)['banca'] == BANCA_RESERVA
     assert any('ESAF' in aviso for aviso in avisos)
-    assert any('modo mínimo' in aviso for aviso in avisos)
+    assert any('sem tópico' in aviso for aviso in avisos)
 
 
 def test_cadastro_preserva_o_edital_de_fora_da_pasta(raizes):

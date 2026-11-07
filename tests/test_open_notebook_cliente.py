@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -79,13 +80,14 @@ def test_401_vira_erro_com_dica_da_senha(servidor: ServidorOpenNotebook, cliente
         cliente.listar_notebooks()
     assert erro.value.status == 401
     assert 'OPEN_NOTEBOOK_PASSWORD' in erro.value.dica
-    assert 'Missing authorization header' in erro.value.causa
+    assert 'Missing authorization header' in erro.value.detalhe
 
 
 def test_500_traz_o_detail(servidor: ServidorOpenNotebook, cliente: ClienteOpenNotebook):
     servidor.falhas[('POST', '/api/notebooks')] = 500
-    with pytest.raises(OpenNotebookIndisponivelError, match='HTTP 500.*falha simulada'):
+    with pytest.raises(OpenNotebookIndisponivelError, match='recusou') as erro:
         cliente.criar_notebook('x')
+    assert re.search('HTTP 500.*falha simulada', erro.value.detalhe)
 
 
 def test_422_sugere_versao_incompativel(servidor: ServidorOpenNotebook, cliente: ClienteOpenNotebook):

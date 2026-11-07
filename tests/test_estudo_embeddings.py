@@ -2,7 +2,7 @@ import pytest
 from servidor_open_notebook import ServidorOpenNotebook
 
 from concursos.estudo import embeddings
-from concursos.integracoes.open_notebook import ClienteOpenNotebook
+from concursos.integracoes.open_notebook import ClienteOpenNotebook, OpenNotebookIndisponivelError
 
 
 @pytest.fixture
@@ -38,8 +38,9 @@ def test_registrar_de_novo_nao_duplica_nem_regrava(servidor):
 
 def test_busca_vetorial_so_depois_do_registro(servidor):
     cliente = ClienteOpenNotebook(servidor.url, 's')
-    with pytest.raises(Exception, match='400'):
+    with pytest.raises(OpenNotebookIndisponivelError) as erro:
         cliente.buscar_vetorial('licitação')
+    assert erro.value.status == 400
 
     embeddings.registrar(cliente)
 

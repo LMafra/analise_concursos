@@ -202,7 +202,7 @@ def test_busca_fora_do_ar_cai_para_o_catalogo_com_aviso(catalogo, servidor):
     resultado = recomendar(fracos(('Banco de Dados', TOPICO_BD)), 0.6, mapa(catalogo), None, busca)
 
     assert resultado.fontes == {FonteRecomendacao.CATALOGO}
-    assert any('busca indisponível' in aviso for aviso in resultado.avisos)
+    assert any('busca nos livros não respondeu' in aviso for aviso in resultado.avisos)
 
 
 def test_lei_citada_no_topico_entra_antes_dos_livros(tmp_path, catalogo):

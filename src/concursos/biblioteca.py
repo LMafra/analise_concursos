@@ -385,7 +385,10 @@ def recomendar(
             try:
                 livros = busca.livros(categorias, str(linha.topico))
             except OpenNotebookIndisponivelError as erro:
-                avisos.append(f'open-notebook: busca indisponível ({erro.causa}); seguindo com o catálogo')
+                logger.debug('open-notebook: busca indisponível: %s', erro.detalhe or erro.causa)
+                avisos.append(
+                    'open-notebook: a busca nos livros não respondeu; usei só o catálogo de livros.'
+                )
                 busca = None
         if categorias and not livros:
             livros = recomendar_por_catalogo(categorias, str(linha.topico), catalogo)

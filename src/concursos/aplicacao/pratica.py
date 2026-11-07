@@ -375,6 +375,6 @@ def busca_na_biblioteca(opcoes: Opcoes, fontes: FontesDeEstudo) -> BuscaBibliote
         avisar(
             logger,
             'Não consegui buscar nos seus livros agora; as recomendações vêm só do catálogo.',
-            detalhe=f'open-notebook: {erro.causa}',
+            detalhe=f'open-notebook: {erro.detalhe or erro.causa}',
         )
         return None
