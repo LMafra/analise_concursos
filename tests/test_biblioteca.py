@@ -143,8 +143,8 @@ def test_recomendar_sem_rede_usa_o_catalogo_e_lista_disciplinas_sem_mapa(catalog
 
     assert resultado.fontes == {FonteRecomendacao.CATALOGO}
     assert '[catálogo] Projeto de Banco de Dados' in resultado.texto
-    assert 'n = 8, percentual ajustado = 25,0% (abaixo do limiar em: alfa, beta)' in resultado.texto
-    assert '## Disciplinas sem livros mapeados\n\n- Língua Portuguesa' in resultado.texto
+    assert '8 questões; descontado o chute, 25,0% (abaixo do esperado em: alfa, beta).' in resultado.texto
+    assert '## Disciplinas sem livro escolhido\n\n- Língua Portuguesa' in resultado.texto
     assert '- Sem livro na estante nem norma citada.' in resultado.texto
 
 
@@ -154,7 +154,7 @@ def test_categoria_desconhecida_e_so_aviso(catalogo):
     )
 
     assert any("'Nada › Aqui'" in aviso for aviso in resultado.avisos)
-    assert 'Nenhum tópico fraco persistente.' in resultado.texto
+    assert 'Nenhum tópico ficou abaixo do esperado em mais de um concurso.' in resultado.texto
 
 
 @pytest.fixture
@@ -260,7 +260,7 @@ def test_norma_citada_nos_erros_do_tec_ganha_secao_propria(tmp_path):
 
     resultado = recomendar(fracos(), 0.6, None, tmp_path / 'leis', textos_pratica=textos)
 
-    assert '## Normas citadas nos seus erros do TEC' in resultado.texto
+    assert '## Normas que aparecem nos seus erros do TEC' in resultado.texto
     assert (
         '- [legislação] Lei nº 9.784, de 29 de janeiro de 1999 (clone do ctresb/leis). citada em 2 erros'
         in (resultado.texto)

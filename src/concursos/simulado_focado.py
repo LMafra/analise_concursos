@@ -13,6 +13,7 @@ from concursos.arquivos import gravar_se_mudou
 from concursos.concurso_config import ler_dados
 from concursos.consolidado import MINIMO_CONCURSOS
 from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO
+from concursos.linguagem import plural
 from concursos.modelo import Resultado
 from concursos.texto import abreviar, normalizar
 from concursos.topicos import ARQUIVO_REVISAO
@@ -119,14 +120,16 @@ def formatar(simulado: SimuladoFocado, limiar: float) -> str:
     linhas = [
         '# Simulado focado',
         '',
-        f'{simulado.total} questão(ões) das provas anteriores importadas nos tópicos em que você ficou abaixo de '
-        f'{limiar:.0%} em pelo menos {MINIMO_CONCURSOS} concursos. É uma seleção pelo tópico sugerido para cada questão: resolva no '
-        'caderno da prova e confira no gabarito dela.',
+        f'{plural(simulado.total, "questão", "questões")} de provas anteriores nos tópicos em que você ficou '
+        f'abaixo de {limiar:.0%} (descontado o chute) em pelo menos {MINIMO_CONCURSOS} concursos. O app '
+        'escolheu as questões pelo tópico de cada uma: resolva no caderno da prova e confira no gabarito dela.',
         '',
     ]
     if simulado.sem_revisao:
         linhas += [
-            'Ainda sem tópicos (rode a análise para classificar): ' + ', '.join(simulado.sem_revisao) + '.',
+            'Provas ainda sem tópicos (analise de novo para o app classificar): '
+            + ', '.join(simulado.sem_revisao)
+            + '.',
             '',
         ]
     if not simulado.questoes:
@@ -134,7 +137,7 @@ def formatar(simulado: SimuladoFocado, limiar: float) -> str:
         return '\n'.join(linhas)
     for fraco, questoes in simulado.questoes:
         linhas += [
-            f'## {fraco["disciplina"]}: {fraco["topico"]} ({fraco["percentual"]:.0f}% de acerto, n={int(fraco["n"])})',
+            f'## {fraco["disciplina"]}: {fraco["topico"]} ({_acertos(fraco)})',
             '',
         ]
         for questao in questoes:
@@ -145,6 +148,13 @@ def formatar(simulado: SimuladoFocado, limiar: float) -> str:
             )
         linhas.append('')
     return '\n'.join(linhas)
+
+
+def _acertos(fraco: pd.Series) -> str:
+    """Pelos acertos quando o consolidado os traz; o percentual descontado o chute, quando não."""
+    if 'acertos' in fraco and pd.notna(fraco['acertos']):
+        return f'acertou {int(fraco["acertos"])} de {int(fraco["n"])}'
+    return f'{fraco["percentual"]:.0f}% descontado o chute, em {int(fraco["n"])} questões'
 
 
 def gravar(pasta_candidato: Path, texto: str) -> bool:

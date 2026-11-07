@@ -85,11 +85,31 @@ def test_indice_diz_o_que_o_app_decidiu_sozinho_e_a_origem(projeto):
     assert main(['--candidate', 'alice']) == 0
 
     html = indice(projeto).read_text(encoding='utf-8')
-    assert 'O que o app decidiu sozinho' in html
-    assert 'alfa: regra de correção do perfil da banca' in html
-    assert 'regra do perfil da banca (0,50)' in html
-    assert 'Avisos' in html
+    principal, apendice = html.split('<details id="detalhes-tecnicos">')
+    assert 'perfil da banca' not in principal
+    assert 'Como o app chegou nesses números' in apendice
+    assert 'alfa: o edital não traz a regra de correção; usei a regra padrão da banca.' in apendice
+    assert 'Detalhe técnico: regra de correção do perfil da banca' in apendice
+    assert 'regra padrão da banca (0,50)' in apendice
+    assert 'Observações sobre os dados' in apendice
     assert re.search(r'Gerado por concurso-analise \d[\w.+]* em \d{2}/\d{2}/\d{4}', html)
+
+
+def test_indice_e_um_painel_com_resumo_cards_e_selos(projeto):
+    concurso(projeto, 'beta', '2025-09-01')
+    respostas(projeto, 'beta', '1 A\n2 B\n3 D\n4 E\n')
+
+    assert main(['--candidate', 'alice']) == 0
+
+    html = indice(projeto).read_text(encoding='utf-8')
+    assert re.search(r'<p class="resumo">Você fez 2 concursos\.', html)
+    assert html.count('<div class="card">') == 5
+    for titulo in ('Como estou saindo', 'Meus pontos fortes', 'Meus pontos a melhorar', 'Estou evoluindo?'):
+        assert f'>{titulo}</h2>' in html
+    assert '<nav aria-label="Ir para">' in html
+    assert html.count('Sem corte no edital</span>') == 2
+    assert '<span aria-hidden="true">–</span>' in html
+    assert '<details id="detalhes-tecnicos">' in html and '<details id="detalhes-tecnicos" open' not in html
 
 
 def test_html_funciona_sem_rede(projeto):
@@ -154,9 +174,11 @@ def test_evolucao_e_gap_com_dois_concursos(projeto):
     assert main(['--candidate', 'alice']) == 0
 
     html = indice(projeto).read_text(encoding='utf-8')
-    assert 'Evolução' in html
+    assert 'Estou evoluindo?' in html
     assert 'consolidado/evolucao_zscore.png' in html
-    assert 'Gap para o corte' in html
+    assert '<figcaption>' in html
+    assert 'Quanto falta para o corte (tabela técnica)' in html
+    assert 'Relatório de evolução' in html.split('<details id="detalhes-tecnicos">')[1]
 
 
 def test_evolucao_com_um_concurso_explica_o_minimo(projeto):
@@ -192,7 +214,8 @@ def test_nome_sem_edital_aparece_a_confirmar_e_o_corrigido_vence(projeto):
     assert main(['--candidate', 'alice']) == 0
     html = indice(projeto).read_text(encoding='utf-8')
     assert 'a confirmar' in html
-    assert 'alfa: nome do concurso: alfa (da pasta do concurso); a confirmar em Concursos' in html
+    assert 'alfa: o nome “alfa” não veio do edital; confirme na tela Concursos.' in html
+    assert 'nome do concurso: alfa (da pasta do concurso); a confirmar em Concursos' in html
 
     pasta = projeto / 'provas' / 'alfa'
     dados = yaml.safe_load((pasta / 'concurso.yaml').read_text(encoding='utf-8'))

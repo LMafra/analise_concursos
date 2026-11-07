@@ -135,25 +135,25 @@ def _celula(texto: str) -> str:
 
 
 def formatar_radar(radar: Radar) -> str:
-    alvo = f'os cargos {", ".join(radar.cargos)}' if radar.cargos else 'nenhum cargo-alvo'
+    alvo = f'os cargos {", ".join(radar.cargos)}' if radar.cargos else 'os concursos que você acompanha'
     linhas = [
-        '# Editais que fecham em breve',
+        '# Prazos dos editais',
         '',
-        f'Prazos do PCI Concursos em {data_br(radar.data_referencia)}, para {alvo} e os concursos registrados com '
-        f'`discover --register`; alerta de {radar.dias_alerta} dias. O PCI é um complemento colaborativo: '
-        'confira o edital no site do órgão ou da banca.',
+        f'Editais que abrem ou fecham nos próximos {radar.dias_alerta} dias, para {alvo}, pelo site do PCI '
+        f'Concursos em {data_br(radar.data_referencia)}. O PCI é colaborativo: confira o edital no site do '
+        'órgão ou da banca antes de se inscrever.',
         '',
     ]
     if not radar.cargos:
         linhas += [
-            'Sem cargos-alvo, o radar mostra só os interesses: defina `cargos` em `[pci]` no perfil do candidato '
-            '(`~/.concurso/candidatos/<candidato>.toml`) ou em `[pci_mcp]`.',
+            'Sem cargos de interesse, aparecem só os concursos que você acompanha: escolha os cargos em '
+            'Encontrar concursos.',
             '',
         ]
     if not radar.itens:
         linhas += [f'Nenhum edital abre ou fecha nos próximos {radar.dias_alerta} dias.', '']
         return '\n'.join(linhas)
-    linhas += ['| concurso | UF | inscrições | situação | acompanhado |', '|---|---|---|---|---|']
+    linhas += ['| Concurso | UF | Inscrições | Situação | Você acompanha |', '|---|---|---|---|---|']
     for item in radar.itens:
         titulo = _celula(item.titulo or str(item.id))
         nome = f'[{titulo}]({item.link})' if item.link else titulo
