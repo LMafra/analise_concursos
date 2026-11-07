@@ -5,9 +5,10 @@ import pytest
 from nicegui import ui
 from nicegui.testing.user import User
 
-from concursos.aplicacao import captura_tec, integracoes, simulados
+from concursos.aplicacao import cadastro, captura_tec, integracoes, simulados
 from concursos.config.contexto import ler_toml
 from concursos.gui.estado import ESTADO
+from concursos.gui.paginas import pratica_tec as pagina_tec
 from concursos.integracoes.pci_mcp import ConcursoPci, DatasInscricao, ProvaAnteriorPci
 from concursos.integracoes.sincronizacao_pci import Interesses
 
@@ -350,6 +351,54 @@ async def test_soltar_exportacao_invalida_mostra_erro_e_nao_copia(user: User, pr
     await user.should_see('erro:')
     await user.should_see('dica:')
     assert not (projeto / 'tec').exists()
+
+
+async def test_soltar_planilha_confere_as_colunas_importa_e_analisa(user: User, projeto, monkeypatch):
+    monkeypatch.setattr(pagina_tec, 'analisar', lambda: ui.notify('análise pedida'))
+    await abrir_aba(user, 'Prática no TEC')
+    await user.should_see(marker='como-conseguir')
+    planilha = 'Área;Assunto;Status\nPortuguês;Crase;Errado\nPortuguês;Crase;Certo\n'.encode()
+
+    await soltar_tec(user, ('historico.csv', planilha))
+
+    await user.should_see(marker='conferir-colunas')
+    assert elemento(user, 'coluna-assunto').value == 'Assunto'
+    assert elemento(user, 'coluna-materia').value == ''
+    elemento(user, 'coluna-materia').value = 'Área'
+    elemento(user, 'coluna-resultado').value = 'Status'
+    user.find(marker='importar-planilha').click()
+
+    await user.should_see('análise pedida')
+    (exportacao,) = (projeto / 'tec').iterdir()
+    assert exportacao.name.startswith('tec-erros-planilha-historico-')
+    assert not any((projeto / '.concurso' / cadastro.PASTA_ENVIOS).iterdir())
+
+
+async def test_planilha_sem_coluna_obrigatoria_mostra_erro_e_mantem_a_conferencia(user: User, projeto):
+    await abrir_aba(user, 'Prática no TEC')
+    await soltar_tec(user, ('historico.csv', 'Área;Status\nPortuguês;Errado\n'.encode()))
+    await user.should_see(marker='conferir-colunas')
+
+    user.find(marker='importar-planilha').click()
+
+    await user.should_see('erro:')
+    await user.should_see(marker='conferir-colunas')
+    assert not (projeto / 'tec').exists()
+    assert ESTADO.pedir_analise is False
+
+
+async def test_com_a_pratica_analisada_mostra_prioridades_e_simulado(user: User, projeto, navegador):
+    pasta = projeto / 'analises' / 'pratica'
+    pasta.mkdir(parents=True)
+    (pasta / 'resumo_pratica.md').write_text('# Prioridades da semana', encoding='utf-8')
+    (pasta / 'simulado_tec.html').write_text('<html></html>', encoding='utf-8')
+    await abrir_aba(user, 'Prática no TEC')
+
+    user.find(marker='ver-prioridades').click()
+    await user.should_see('Prioridades da semana')
+    user.find(marker='ver-simulado-tec').click()
+
+    assert navegador == [pasta / 'simulado_tec.html']
 
 
 @pytest.fixture

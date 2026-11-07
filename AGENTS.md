@@ -53,7 +53,8 @@ A instância gerenciada do open-notebook (fase 7) roda no próprio computador e 
 | Página da prova anterior no PCI (nomes dos arquivos, só HTML) e download assistido pela pasta de downloads | `integracoes/pagina_pci.py`, `integracoes/download_assistido.py` |
 | Prova anterior como simulado (bloco `simulado:`, banca pela organizadora, edital emprestado, `provas_anteriores.md`) | `integracoes/simulado_pci.py` |
 | Simulado focado (`consolidado/simulado_focado.md`) e a revisão de tópicos do simulado antes das respostas | `simulado_focado.py`, `aplicacao/simulados.py`, `pipeline.preparar_revisao` |
-| Prática no TEC (`[pratica]`): exportações do tec-erros, mesclagem, matéria e assunto → disciplina e tópico, `.concurso/pratica_tec.yaml` e `analises/<candidato>/pratica/` | `pratica_tec.py` |
+| Prática no TEC (`[pratica]`): exportações do tec-erros, mesclagem, matéria e assunto → disciplina e tópico, `.concurso/pratica_tec.yaml` e `analises/<candidato>/pratica/` (com o `simulado_tec.html`) | `pratica_tec.py` |
+| Planilha do TEC (CSV ou XLSX): leitura, colunas por sinônimo, assinatura do cabeçalho e conversão para o contrato v1 com o hash do `nucleo.js` | `planilha_tec.py` |
 | Fontes de estudo: `biblioteca.yaml`, catálogo do `books`, busca nos notebooks de biblioteca e `recomendacoes_estudo.md` | `biblioteca.py` |
 | Citações de normas nos tópicos e leitura do clone do `ctresb/leis` (`[legislacao]`) | `legislacao.py` |
 | Relatório HTML por candidato e abertura no navegador | `relatorio_html.py` |

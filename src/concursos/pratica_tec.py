@@ -4,6 +4,7 @@ edital do `concurso_alvo` e grava o desempenho em `analises/<candidato>/pratica/
 As regras de mesclagem repetem as de `core/nucleo.js` do tec-erros (`docs/contrato.md` de lá)."""
 
 import csv
+import html
 import io
 import json
 import logging
@@ -42,6 +43,9 @@ ARQUIVO_CADERNOS = 'cadernos_tec.csv'
 ARQUIVO_DESEMPENHO = 'desempenho_pratica_por_disciplina.csv'
 ARQUIVO_REVISAO = 'revisao_aliases.csv'
 ARQUIVO_RESUMO = 'resumo_pratica.md'
+ARQUIVO_SIMULADO = 'simulado_tec.html'
+MAXIMO_SIMULADO = 40
+MAXIMO_SIMULADO_POR_TOPICO = 10
 SEM_DISCIPLINA = 'Sem disciplina'
 MAXIMO_REPETIDOS = 20
 TAMANHO_DIGITAL = 300
@@ -264,6 +268,7 @@ class Escolhas:
     aliases: dict[str, str | None] = field(default_factory=dict)
     materias: dict[str, str] = field(default_factory=dict)
     cadernos: dict[str, dict] = field(default_factory=dict)
+    planilhas: dict[str, dict] = field(default_factory=dict)
 
 
 def ler_escolhas(caminho: Path) -> Escolhas:
@@ -276,7 +281,10 @@ def ler_escolhas(caminho: Path) -> Escolhas:
     if not isinstance(dados, dict):
         raise ConfiguracaoInvalidaError(f'{caminho}: esperado um mapa com aliases, materias e cadernos')
     return Escolhas(
-        dict(dados.get('aliases') or {}), dict(dados.get('materias') or {}), dict(dados.get('cadernos') or {})
+        dict(dados.get('aliases') or {}),
+        dict(dados.get('materias') or {}),
+        dict(dados.get('cadernos') or {}),
+        dict(dados.get('planilhas') or {}),
     )
 
 
@@ -285,6 +293,8 @@ def gravar_escolhas(caminho: Path, escolhas: Escolhas) -> bool:
         return False
     caminho.parent.mkdir(parents=True, exist_ok=True)
     dados = {'aliases': escolhas.aliases, 'materias': escolhas.materias, 'cadernos': escolhas.cadernos}
+    if escolhas.planilhas:
+        dados['planilhas'] = escolhas.planilhas
     return gravar_se_mudou(caminho, yaml.safe_dump(dados, allow_unicode=True, sort_keys=True))
 
 
@@ -628,6 +638,10 @@ def importar_pratica(
     desempenho = _linhas_de_desempenho(erros, cadernos)
     mudou |= gravar_se_mudou(pasta / ARQUIVO_DESEMPENHO, _csv(COLUNAS_DESEMPENHO, desempenho))
     mudou |= gravar_se_mudou(pasta / ARQUIVO_RESUMO, resumo_markdown(erros, cadernos, desempenho, fracos))
+    if pratica.erros:
+        mudou |= gravar_se_mudou(
+            pasta / ARQUIVO_SIMULADO, simulado_html(pratica.erros, escolhas.aliases, fracos)
+        )
     if pendentes or (pendentes is not None and revisao.exists()):
         linhas = [
             {'assunto': p.assunto, 'disciplina': p.disciplina, 'sugestao': p.sugestao, 'score': p.score}
@@ -742,6 +756,68 @@ def _prioridades(repetidos: list[dict], fracos: pd.DataFrame | None) -> list[str
         '|---|---|---|---|',
     ]
     return [*cabecalho, *linhas, '']
+
+
+def questoes_do_simulado(
+    erros: list[dict], aliases: dict[str, str | None], fracos: pd.DataFrame | None
+) -> tuple[list[dict], bool]:
+    """Os erros dos tópicos fracos, na ordem dos fracos e dos mais repetidos; sem cruzamento, os mais repetidos.
+    Devolve também se o cruzamento com os tópicos fracos achou algum erro."""
+    por_repeticao = sorted(erros, key=lambda e: (-(e.get('v') or 1), e['id']))
+    por_topico: dict[str, list[dict]] = {}
+    for e in por_repeticao:
+        topico = _topico_do_erro(e.get('ass'), aliases)
+        if topico not in (NAO_MAPEADO, FORA_DO_EDITAL):
+            por_topico.setdefault(chave_de_palavras(topico), []).append(e)
+    escolhidos: list[dict] = []
+    for fraco in fracos.itertuples() if fracos is not None else []:
+        do_topico = por_topico.get(chave_de_palavras(str(fraco.topico)), [])
+        escolhidos += do_topico[: min(MAXIMO_SIMULADO_POR_TOPICO, MAXIMO_SIMULADO - len(escolhidos))]
+        if len(escolhidos) >= MAXIMO_SIMULADO:
+            break
+    if escolhidos:
+        return escolhidos, True
+    return por_repeticao[:MAXIMO_REPETIDOS], False
+
+
+def simulado_html(erros: list[dict], aliases: dict[str, str | None], fracos: pd.DataFrame | None) -> str:
+    """Uma página para refazer as questões erradas, com as respostas só no fim."""
+    questoes, cruzou = questoes_do_simulado(erros, aliases, fracos)
+    explicacao = (
+        'As questões que você errou no TEC nos seus tópicos mais fracos da prova, das mais repetidas para as menos.'
+        if cruzou
+        else 'Nenhum erro do TEC caiu nos tópicos fracos da prova; estas são as questões que você mais errou.'
+    )
+    corpo = []
+    for numero, e in enumerate(questoes, start=1):
+        origem = ' · '.join(str(e[c]) for c in ('mat', 'ass', 'banca', 'orgao', 'ano') if e.get(c))
+        partes = [f'<h2>Questão {numero}</h2>', f'<p class="origem">{html.escape(origem)}</p>']
+        if e.get('enun'):
+            partes.append(f'<p>{html.escape(str(e["enun"]))}</p>')
+        if alternativas := [a for a in e.get('alts') or [] if isinstance(a, dict)]:
+            itens = ''.join(
+                f'<li>{html.escape(str(a.get("l", "")))}) {html.escape(str(a.get("t", "")))}</li>'
+                for a in alternativas
+            )
+            partes.append(f'<ul>{itens}</ul>')
+        if e.get('url'):
+            partes.append(f'<p><a href="{html.escape(str(e["url"]))}">abrir no TEC</a></p>')
+        corpo.append(f'<section>{"".join(partes)}</section>')
+    gabarito = ''.join(
+        f'<li>Questão {numero}: {html.escape(str(e.get("gab") or "—"))}'
+        + (f' (você marcou {html.escape(str(e["marc"]))})' if e.get('marc') else '')
+        + '</li>'
+        for numero, e in enumerate(questoes, start=1)
+    )
+    return (
+        '<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n'
+        '<title>Simulado com os meus erros</title>\n'
+        '<style>body{font-family:sans-serif;max-width:48rem;margin:2rem auto;line-height:1.5}'
+        '.origem{font-size:.9rem;opacity:.75}section{margin-bottom:2rem}</style>\n</head>\n<body>\n'
+        f'<h1>Simulado com os meus erros</h1>\n<p>{html.escape(explicacao)}</p>\n'
+        + '\n'.join(corpo)
+        + f'\n<h2>Gabarito</h2>\n<ol class="gabarito">{gabarito}</ol>\n</body>\n</html>\n'
+    )
 
 
 def textos_do_caderno(resultado: ResultadoPratica) -> dict[str, str]:

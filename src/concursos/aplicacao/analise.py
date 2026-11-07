@@ -9,8 +9,10 @@ from concursos.aplicacao.integracoes import radar_pci, sincronizar_depois_da_ana
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.pratica import (
     copiar_exportacao,
+    eh_planilha,
     exigir_configuracao_pratica,
     fontes_de_estudo,
+    importar_planilha,
     praticar,
     recomendar_estudo,
 )
@@ -189,6 +191,10 @@ def reaproveitar_csv(opcoes: Opcoes, concurso: str | None) -> None:
 
 
 def importar_pratica_e_analisar(opcoes: Opcoes, arquivo: Path | None = None) -> int:
+    """A planilha (CSV ou XLSX) vai pelas colunas reconhecidas ou lembradas e cria `[pratica]` se faltar."""
+    if arquivo is not None and eh_planilha(arquivo):
+        importar_planilha(opcoes, arquivo)
+        return analisar(opcoes)
     configuracao = exigir_configuracao_pratica(opcoes.contexto)
     if arquivo is not None:
         copiar_exportacao(opcoes, arquivo, configuracao.entrada)

@@ -492,7 +492,10 @@ def notebook_disable(ctx: typer.Context) -> int:
 def pratica_import(
     ctx: typer.Context,
     arquivo: Annotated[
-        Path | None, typer.Argument(help='tec-erros-*.json ou caderno-estado.json (sem ele, só analisa)')
+        Path | None,
+        typer.Argument(
+            help='tec-erros-*.json, caderno-estado.json ou planilha .csv/.xlsx (sem ele, só analisa)'
+        ),
     ] = None,
     candidato: Candidato = None,
     nao_abrir: NaoAbrir = False,
