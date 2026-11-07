@@ -13,6 +13,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from packaging.version import Version
+
 from concursos.analytics.dicionario_topicos import expandir_consulta
 from concursos.analytics.taxonomia import carregar_taxonomia
 from concursos.aplicacao import atualizador as atualizacao
@@ -38,13 +40,13 @@ from concursos.llm import (
     obter_chave_da_variavel,
 )
 from concursos.llm import ler_configuracao as ler_configuracao_llm
-from concursos.modelo import EstadoLivro, OndeProcurar
+from concursos.modelo import CanalAtualizacao, EstadoLivro, OndeProcurar
 from concursos.status import listar_concursos
 from concursos.texto import abreviar
 
 logger = logging.getLogger(__name__)
 
-TAMANHO_ESTIMADO_MB = 360
+TAMANHO_ESTIMADO_MB = {'linux-x86_64': 360, 'windows-x64': 420}
 TEXTO_PREPARAR = (
     'Para estudar com seus livros, o app precisa preparar o open-notebook no seu computador. '
     'É um download único de cerca de {mb} MB; seus livros não saem do computador.'
@@ -114,12 +116,12 @@ def supervisor(contexto: Contexto) -> Supervisor:
 
 def situacao_do_estudo(contexto: Contexto, sistema: str | None = None) -> SituacaoEstudo:
     try:
-        instalacao.plataforma(*([sistema] if sistema else []))
+        alvo = instalacao.plataforma(*([sistema] if sistema else []))
     except ErroDoUsuario as erro:
         return SituacaoEstudo(False, None, False, False, erro.causa)
     raiz = instalacao.instalado(pastas(contexto))
     if raiz is None:
-        return SituacaoEstudo(True, None, False, False, TEXTO_PREPARAR.format(mb=TAMANHO_ESTIMADO_MB))
+        return SituacaoEstudo(True, None, False, False, TEXTO_PREPARAR.format(mb=TAMANHO_ESTIMADO_MB[alvo]))
     versao = instalacao.ler_estado(pastas(contexto)).atual
     existente = _supervisores.get(contexto.home)
     aberto = existente is not None and existente.sessao is not None
@@ -128,14 +130,48 @@ def situacao_do_estudo(contexto: Contexto, sistema: str | None = None) -> Situac
     return SituacaoEstudo(True, versao, aberto, fora, mensagem)
 
 
-def procurar_pacote(opcoes: Opcoes, transporte=None) -> PacoteDisponivel | None:  # noqa: ANN001
+def procurar_pacote(
+    opcoes: Opcoes,
+    transporte=None,  # noqa: ANN001
+    recusados: list[str] | None = None,
+) -> PacoteDisponivel | None:
     if not opcoes.rede:
         raise ErroDoUsuario(
             'Sem internet, não dá para preparar a biblioteca.', 'tente de novo com a internet ligada.'
         )
-    canal = atualizacao.ler_preferencias(opcoes.contexto.config_global).canal
     versao = atualizacao.versao_instalada()
-    return instalacao.procurar(canal, transporte or atualizacao.TransporteHttps(versao), versao)
+    return instalacao.procurar(
+        canal_da_biblioteca(opcoes.contexto, versao),
+        transporte or atualizacao.TransporteHttps(versao),
+        versao,
+        recusados=recusados,
+    )
+
+
+def canal_da_biblioteca(contexto: Contexto, versao_do_app: str) -> CanalAtualizacao:
+    """A biblioteca feita para um app de teste também é de teste: ele procura no beta mesmo no stable."""
+    if Version(versao_do_app).is_prerelease:
+        return CanalAtualizacao.BETA
+    return atualizacao.ler_preferencias(contexto.config_global).canal
+
+
+def _sem_biblioteca(opcoes: Opcoes, transporte, recusados: list[str]) -> ErroDoAmbiente:  # noqa: ANN001
+    versao = atualizacao.versao_instalada()
+    if recusados:
+        exigida = min(recusados, key=Version)
+        return ErroDoAmbiente(
+            f'A biblioteca precisa do app {exigida} ou mais novo, e você está com o {versao}.',
+            'atualize o app em Sobre > Verificar atualizações (ou baixe a versão nova na página de versões) e '
+            'tente de novo.',
+        )
+    if canal_da_biblioteca(opcoes.contexto, versao) is CanalAtualizacao.STABLE and (
+        instalacao.ha_pacote_de_teste(transporte)
+    ):
+        return ErroDoAmbiente(
+            'Por enquanto, só há uma versão de teste da biblioteca.',
+            'para usá-la, escolha o canal beta em Configurações > Avançado > Atualizações e tente de novo.',
+        )
+    return ErroDoAmbiente('Ainda não há uma biblioteca para esta versão do app.', 'tente de novo mais tarde.')
 
 
 def preparar_estudo(
@@ -168,11 +204,11 @@ def preparar_estudo(
         )
     if progresso:
         progresso('Procurando a versão mais nova…', 0.0)
-    disponivel = procurar_pacote(opcoes, transporte)
+    transporte = transporte or atualizacao.TransporteHttps(atualizacao.versao_instalada())
+    recusados: list[str] = []
+    disponivel = procurar_pacote(opcoes, transporte, recusados)
     if disponivel is None:
-        raise ErroDoAmbiente(
-            'Ainda não há uma biblioteca para esta versão do app.', 'atualize o app e tente de novo.'
-        )
+        raise _sem_biblioteca(opcoes, transporte, recusados)
     if not instalacao.tem_atualizacao(alvo, disponivel):
         return disponivel.manifesto.versao
 

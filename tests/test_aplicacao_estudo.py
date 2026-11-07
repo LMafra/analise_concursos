@@ -4,11 +4,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from test_estudo_instalacao import Transporte, chave, publicar  # noqa: F401
 
 from concursos.aplicacao import estudo
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.config.contexto import Contexto
-from concursos.erros import ErroDoUsuario
+from concursos.erros import ErroDoAmbiente, ErroDoUsuario
+from concursos.estudo import instalacao
 
 
 @pytest.fixture
@@ -38,6 +40,11 @@ def test_antes_de_preparar_explica_o_download(contexto):
     assert 'open-notebook' in situacao.mensagem and 'não saem do computador' in situacao.mensagem
 
 
+@pytest.mark.parametrize(('sistema', 'tamanho'), [('linux', 'cerca de 360 MB'), ('win32', 'cerca de 420 MB')])
+def test_o_tamanho_do_download_e_o_do_sistema(contexto, sistema, tamanho):
+    assert tamanho in estudo.situacao_do_estudo(contexto, sistema).mensagem
+
+
 def test_macos_diz_que_ainda_nao_esta_disponivel(contexto):
     situacao = estudo.situacao_do_estudo(contexto, 'darwin')
 
@@ -57,6 +64,58 @@ def test_baixar_exige_consentimento_e_rede(contexto):
         estudo.preparar_estudo(Opcoes(contexto), consentiu=False)
     with pytest.raises(ErroDoUsuario, match='Sem internet'):
         estudo.preparar_estudo(Opcoes(contexto, rede=False), consentiu=True)
+
+
+@pytest.fixture
+def no_linux(monkeypatch):
+    monkeypatch.setattr('sys.platform', 'linux')
+
+
+def _com_app(monkeypatch, versao):
+    monkeypatch.setattr(estudo.atualizacao, 'versao_instalada', lambda: versao)
+
+
+def test_app_de_teste_acha_a_biblioteca_de_teste_no_stable(contexto, chave, tmp_path, monkeypatch, no_linux):  # noqa: F811
+    transporte = Transporte()
+    publicar(transporte, chave, tmp_path, '1.15.1-1', app_minimo='0.7.0b1', prerelease=True)
+    _com_app(monkeypatch, '0.7.0b1')
+
+    disponivel = estudo.procurar_pacote(Opcoes(contexto), transporte)
+
+    assert disponivel.manifesto.versao == '1.15.1-1'
+
+
+def test_app_antigo_diz_a_versao_exigida_e_a_instalada(contexto, chave, tmp_path, monkeypatch, no_linux):  # noqa: F811
+    transporte = Transporte()
+    publicar(transporte, chave, tmp_path, '1.15.1-1', app_minimo='0.7.0b1', prerelease=True)
+    _com_app(monkeypatch, '0.6.0b3')
+
+    with pytest.raises(ErroDoAmbiente) as erro:
+        estudo.preparar_estudo(Opcoes(contexto), consentiu=True, transporte=transporte)
+
+    assert '0.7.0b1' in erro.value.causa and '0.6.0b3' in erro.value.causa
+    assert 'Sobre' in erro.value.dica
+
+
+def test_so_biblioteca_de_teste_sugere_o_canal_beta(contexto, chave, tmp_path, monkeypatch, no_linux):  # noqa: F811
+    transporte = Transporte()
+    publicar(transporte, chave, tmp_path, '1.16.0-1', app_minimo='0.7.0b1', prerelease=True)
+    _com_app(monkeypatch, '0.7.0')
+
+    with pytest.raises(ErroDoAmbiente) as erro:
+        estudo.preparar_estudo(Opcoes(contexto), consentiu=True, transporte=transporte)
+
+    assert 'versão de teste' in erro.value.causa
+    assert 'beta' in erro.value.dica and 'Configurações > Avançado' in erro.value.dica
+
+
+def test_sem_nenhuma_biblioteca_publicada(contexto, monkeypatch, no_linux):
+    transporte = Transporte()
+    transporte.urls[instalacao.URL_RELEASES] = b'[]'
+    _com_app(monkeypatch, '0.7.0')
+
+    with pytest.raises(ErroDoAmbiente, match='Ainda não há uma biblioteca'):
+        estudo.preparar_estudo(Opcoes(contexto), consentiu=True, transporte=transporte)
 
 
 def test_dry_run_nao_grava(contexto, tmp_path):
