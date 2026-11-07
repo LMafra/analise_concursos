@@ -8,6 +8,7 @@ abre porta nenhuma (como o worker).
 
 import json
 import os
+import socketserver
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -25,11 +26,18 @@ class Tratador(BaseHTTPRequestHandler):
         self.end_headers()
 
 
+class Servidor(HTTPServer):
+    def server_bind(self):
+        # O HTTPServer chama socket.getfqdn, que leva dezenas de segundos nos runners do macOS.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
 def main() -> None:
     porta, registro = sys.argv[1], sys.argv[2]
     if '--falhar' in sys.argv:
         sys.exit(3)
-    servidor = None if porta == '-' else HTTPServer(('127.0.0.1', int(porta)), Tratador)
+    servidor = None if porta == '-' else Servidor(('127.0.0.1', int(porta)), Tratador)
     with open(registro, 'a', encoding='utf-8') as arquivo:
         host = servidor.server_address[0] if servidor else None
         arquivo.write(
