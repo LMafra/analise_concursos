@@ -1,5 +1,5 @@
 """O leigo nunca lê termos técnicos: as strings da GUI e as mensagens do estudo, das integrações e da planilha do
-TEC passam por esta lista. Só o Avançado ("Usar um open-notebook que já tenho") pode usá-los."""
+TEC passam por esta lista. Só o Avançado ("Usar meu próprio programa de estudo") pode usá-los."""
 
 import ast
 import re
@@ -10,7 +10,9 @@ import concursos
 PACOTE = Path(concursos.__file__).parent
 PROIBIDOS = re.compile(
     r'\blocalhost\b|\bportas?\b|\bservidor(es)?\b|\bdocker\b|(?-i:\bAPI\b)|\bsources?\b|(?<!open-)\bnotebooks?\b'
-    r'|sincroniz|\bsync\b|embedding|\bterminal\b',
+    r'|sincroniz|\bsync\b|embedding|\bterminal\b'
+    r'|\bMCP\b|\bcache\b|TF-IDF|\bLLM\b|tesseract|\bOCR\b|modo mínimo|\blimiar(?!-)|manifesto|SHA-256'
+    r'|(?<![.\w])(ya?ml|csv)\b',
     re.IGNORECASE,
 )
 ARQUIVOS = [
@@ -105,9 +107,12 @@ def test_o_detector_acha_termo_proibido_em_texto_da_tela():
         "ui.label(f'Servidor em localhost:{porta}')\n"
         "ui.label('Envie para o open-notebook')\n"
         "logger.debug('notebook sync falhou')\n"
+        "ui.label('Limiar de tópico fraco')\n"
+        "ui.label('Solte a planilha .csv ou .xlsx')\n"
+        "controle('Quando considerar', 'limiar-topico')\n"
     )
 
-    assert [linha for linha, _ in termos_proibidos(codigo)] == [1, 2]
+    assert [linha for linha, _ in termos_proibidos(codigo)] == [1, 2, 5]
 
 
 def test_nenhum_termo_tecnico_fora_do_avancado():
@@ -117,6 +122,55 @@ def test_nenhum_termo_tecnico_fora_do_avancado():
         for linha, texto in termos_proibidos(
             arquivo.read_text(encoding='utf-8'), arquivo.relative_to(PACOTE).as_posix()
         )
+    ]
+
+    assert achados == []
+
+
+TERMOS_DE_BOTAO = re.compile(
+    r'open-notebook|\bMCP\b|embedding|\bcache\b|TF-IDF|\bLLM\b|\bCSV\b|limiar', re.IGNORECASE
+)
+
+
+def _textos_literais(no: ast.expr) -> list[str]:
+    if isinstance(no, ast.Constant) and isinstance(no.value, str):
+        return [no.value]
+    if isinstance(no, ast.JoinedStr):
+        return [parte.value for parte in no.values if isinstance(parte, ast.Constant)]
+    return []
+
+
+def rotulos_de_botao_tecnicos(codigo: str) -> list[tuple[int, str]]:
+    achados = []
+    for no in ast.walk(ast.parse(codigo)):
+        if not (isinstance(no, ast.Call) and _nome_da_chamada(no) == 'button'):
+            continue
+        argumentos = [*no.args[:1], *(k.value for k in no.keywords if k.arg == 'text')]
+        achados += [
+            (no.lineno, texto)
+            for argumento in argumentos
+            for texto in _textos_literais(argumento)
+            if TERMOS_DE_BOTAO.search(texto)
+        ]
+    return achados
+
+
+def test_o_detector_acha_termo_tecnico_em_botao():
+    codigo = (
+        "ui.button('Enviar ao open-notebook')\n"
+        "ui.button(f'Limpar o cache de {nome}')\n"
+        "ui.button('Atualizar meus materiais de estudo').mark('sincronizar-notebook')\n"
+        "ui.label('open-notebook')\n"
+    )
+
+    assert [linha for linha, _ in rotulos_de_botao_tecnicos(codigo)] == [1, 2]
+
+
+def test_nenhum_botao_com_termo_tecnico():
+    achados = [
+        f'{arquivo.relative_to(PACOTE)}:{linha}: {texto!r}'
+        for arquivo in sorted((PACOTE / 'gui').rglob('*.py'))
+        for linha, texto in rotulos_de_botao_tecnicos(arquivo.read_text(encoding='utf-8'))
     ]
 
     assert achados == []

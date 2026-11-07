@@ -64,7 +64,7 @@ def completar_com_llm(
         avisar(
             logger,
             f'A IA ({cliente.provedor}) não respondeu; segui só com a leitura do edital feita no computador.',
-            'tente de novo mais tarde ou confira em Configurações > IA para ler editais.',
+            'tente de novo mais tarde ou confira em Configurações > Inteligência artificial para ler editais.',
             f'LLM {cliente.provedor} indisponível: {erro}',
         )
         return regras

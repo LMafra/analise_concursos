@@ -74,13 +74,16 @@ def secao_da_analise() -> None:
     nomes = opcoes_de_concurso(contexto)
     with cartao('Análise', icone='analytics'):
         confianca = controle_de_limiar(
-            'Limiar de confiança da leitura',
+            'Quando considerar uma leitura confiável',
             atuais.limiar_confianca,
             EXPLICACAO_CONFIANCA,
             'limiar-confianca',
         )
         topico = controle_de_limiar(
-            'Limiar de tópico fraco', atuais.limiar_topico_baixo, EXPLICACAO_TOPICO, 'limiar-topico'
+            'Quando considerar um tópico fraco',
+            atuais.limiar_topico_baixo,
+            EXPLICACAO_TOPICO,
+            'limiar-topico',
         )
         opcoes = {SEM_ALVO: SEM_ALVO, **nomes}
         alvo = (
@@ -175,10 +178,13 @@ class SecaoDaIa:
 
     def __init__(self) -> None:
         estado = ia.estado_da_ia(ESTADO.contexto())
-        with cartao('IA para ler editais', icone='smart_toy'):
+        with cartao('Inteligência artificial para ler editais', icone='smart_toy'):
             self.usar = ui.checkbox(
-                'Usar IA para ler editais (requer chave)', value=estado.ligada, on_change=self.alternar
+                'Usar inteligência artificial para ler editais', value=estado.ligada, on_change=self.alternar
             ).mark('usar-ia')
+            ui.label('Precisa de uma chave de acesso do provedor que você escolher.').classes(
+                'text-sm ca-texto-suave'
+            )
             self.situacao = ui.label(self.descrever(estado)).classes('text-sm').mark('situacao-ia')
             with ui.column().classes('w-full').style(tema.gap('sm')) as self.formulario:
                 self.provedor = (
@@ -339,16 +345,16 @@ class OpenNotebookProprio:
     def __init__(self, recarregar: Callable[[], None]) -> None:
         self.recarregar = recarregar
         configuracao = integracoes.configuracao_open_notebook(ESTADO.contexto())
-        ui.label('Usar um open-notebook que já tenho').classes('font-bold')
+        ui.label('Usar meu próprio programa de estudo').classes('font-bold')
         ui.label(
-            'Para quem já mantém um open-notebook: as análises vão para ele depois de cada análise. Os livros '
+            'Para quem já mantém um open-notebook (programa de estudo): as análises vão para ele depois de cada análise. Os livros '
             'continuam na biblioteca do app, em Estudar.'
         ).classes('text-sm ca-texto-suave')
         self.situacao = ui.label().mark('estado-notebook')
         self.descrever()
         if not configuracao.ativa:
             url = (
-                rotulo(ui.input('Endereço do open-notebook', value=configuracao.url), 'endereço')
+                rotulo(ui.input('Endereço do programa', value=configuracao.url), 'endereço')
                 .classes('w-full')
                 .mark('url-notebook')
             )
@@ -365,9 +371,9 @@ class OpenNotebookProprio:
             )
             return
         with ui.row().style(tema.gap('sm')):
-            self.botao = ui.button('Enviar agora', icon='upload', on_click=self.enviar).mark(
-                'sincronizar-notebook'
-            )
+            self.botao = ui.button(
+                'Atualizar meus materiais de estudo', icon='upload', on_click=self.enviar
+            ).mark('sincronizar-notebook')
             ui.button('Deixar de usar', on_click=self.desligar).props('flat').mark('desligar-notebook')
         self.saida = ui.column().classes('w-full')
 
@@ -384,7 +390,7 @@ class OpenNotebookProprio:
     def ligar(self, url: str | None) -> None:
         url = (url or '').strip()
         if not url:
-            ui.notify('Informe o endereço do open-notebook.', type='warning')
+            ui.notify('Informe o endereço do programa.', type='warning')
             return
         try:
             integracoes.ligar_open_notebook(ESTADO.contexto(), url)

@@ -242,7 +242,7 @@ def cliente_configurado(home: Path, config_global: Path, permitido: bool = True)
         avisar(
             logger,
             f'A IA ({configuracao.provedor}) está configurada, mas falta a sua autorização; segui sem ela.',
-            'autorize em Configurações > IA para ler editais, ou rode concurso-analise init.',
+            'autorize em Configurações > Inteligência artificial para ler editais, ou rode concurso-analise init.',
             f'LLM {configuracao.provedor} sem consentimento',
         )
         return None
@@ -253,7 +253,7 @@ def cliente_configurado(home: Path, config_global: Path, permitido: bool = True)
             avisar(
                 logger,
                 f'A IA ({configuracao.provedor}) está sem a chave de acesso; segui sem ela.',
-                'informe a chave em Configurações > IA para ler editais, ou defina a variável '
+                'informe a chave em Configurações > Inteligência artificial para ler editais, ou defina a variável '
                 f'{configuracao.variavel_chave} (export {configuracao.variavel_chave}=...).',
                 f'LLM {configuracao.provedor} sem chave',
             )

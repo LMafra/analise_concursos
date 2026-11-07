@@ -10,7 +10,7 @@ from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.progresso import Andamento, HandlerDoPainel
 from concursos.gui.tema import Tom
-from concursos.gui.textos import linhas_do_erro
+from concursos.gui.textos import cartao_de_erro
 from concursos.modelo import Etapa
 
 logger = logging.getLogger('concursos')
@@ -70,7 +70,7 @@ class PainelDeAnalise:
             ESTADO.forcar_proxima_analise = False
         except Exception as erro:  # noqa: BLE001
             logger.debug('falha na análise pela GUI', exc_info=True)
-            self._mostrar_falha(*linhas_do_erro(erro))
+            self._mostrar_falha(erro)
         else:
             self._mostrar_fim(codigo)
         finally:
@@ -109,7 +109,7 @@ class PainelDeAnalise:
                     tom=Tom.ALERTA,
                 )
 
-    def _mostrar_falha(self, causa: str, dica: str | None) -> None:
+    def _mostrar_falha(self, erro: Exception) -> None:
         self.titulo.text = 'A análise não rodou.'
         with self.resultado:
-            aviso(causa, dica, tom=Tom.ERRO).mark('falha')
+            cartao_de_erro(erro).mark('falha')

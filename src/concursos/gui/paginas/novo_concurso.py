@@ -34,8 +34,9 @@ SEM_NOME_DETECTADO = (
     'O nome do concurso vem do edital. Sem ele, o nome fica a confirmar, e você pode corrigi-lo depois.'
 )
 AVISO_SEM_OCR = (
-    'O Tesseract não está instalado: PDFs escaneados (sem texto) não são lidos, e o concurso segue em modo '
-    'mínimo. A folha de respostas é lida sem ele; se ela não for lida, digite as suas respostas.'
+    'Falta o componente que lê PDF escaneado: edital e prova escaneados (sem texto) não são lidos, e o '
+    'concurso segue sem o conteúdo do edital. A folha de respostas é lida sem ele; se ela não for lida, digite '
+    'as suas respostas.'
 )
 
 

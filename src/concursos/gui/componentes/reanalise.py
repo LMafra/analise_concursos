@@ -5,11 +5,9 @@ from nicegui import run, ui
 from concursos.aplicacao import analise, conferencia
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.gui import tema
-from concursos.gui.componentes.aviso import aviso
 from concursos.gui.estado import ESTADO
 from concursos.gui.progresso import Andamento
-from concursos.gui.tema import Tom
-from concursos.gui.textos import linhas_do_erro
+from concursos.gui.textos import cartao_de_erro
 from concursos.modelo import Etapa
 
 logger = logging.getLogger('concursos')
@@ -51,7 +49,7 @@ class Reanalise:
             logger.debug('falha na reanálise pela GUI', exc_info=True)
             self.titulo.text = 'A nova análise não rodou.'
             with self.resultado:
-                aviso(*linhas_do_erro(erro), tom=Tom.ERRO).mark('reanalise-falha')
+                cartao_de_erro(erro).mark('reanalise-falha')
         else:
             self.barra.value = 1
             if codigo == 0:

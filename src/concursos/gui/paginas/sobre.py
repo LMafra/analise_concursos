@@ -149,8 +149,8 @@ class SecaoDeAtualizacao:
             dialogo = Dialogo(f'Atualizar a biblioteca para a {versao_nova}?')
         with dialogo.corpo:
             ui.label(
-                f'São cerca de {pacote.artefato.tamanho // 1_000_000} MB do GitHub, usados só se a assinatura '
-                'conferir. Antes de usar a versão nova, o app guarda uma cópia da biblioteca; se ela não '
+                f'São cerca de {pacote.artefato.tamanho // 1_000_000} MB do GitHub. O app confere o arquivo antes '
+                'de usar; se estiver corrompido, avisa e não instala. Antes de usar a versão nova, o app guarda uma cópia da biblioteca; se ela não '
                 'abrir, o app volta à anterior. Seus livros continuam lá.'
             )
         with dialogo.acoes:
@@ -216,8 +216,8 @@ class SecaoDeAtualizacao:
             dialogo = Dialogo(f'Baixar e instalar a {novidade.versao}?')
         with dialogo.corpo:
             ui.label(
-                f'São {megas} MB do GitHub. O arquivo só é usado se a assinatura do manifesto e o SHA-256 '
-                'conferirem. Os seus projetos e análises não mudam.'
+                f'São {megas} MB do GitHub. A atualização é segura: se o arquivo estiver corrompido, o app '
+                'avisa e não instala. Os seus projetos e análises não mudam.'
             )
         with dialogo.acoes:
             ui.button('Cancelar', on_click=dialogo.close).props('flat')

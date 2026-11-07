@@ -148,20 +148,20 @@ class PainelEncontrar:
         with ui.row().classes('items-center').style(tema.gap('sm')):
             self.atualizado = ui.label().classes('text-sm ca-texto-suave').mark('situacao-cache')
             self.atualizar = (
-                ui.button('Atualizar agora', icon='refresh', on_click=lambda: self.buscar(refresh=True))
+                ui.button('Buscar de novo agora', icon='refresh', on_click=lambda: self.buscar(refresh=True))
                 .props('flat dense')
                 .mark('atualizar-pci')
             )
         self.mostrar_cache()
         self.resultado = ui.column().classes('w-full').style(tema.gap('sm'))
         ui.separator()
-        ui.label('Acompanhando no radar de prazos').classes('text-lg font-bold')
+        ui.label('Concursos que você acompanha').classes('text-lg font-bold')
         self.acompanhados()
         for linha in integracoes.linhas_do_radar(ESTADO.contexto()):
             ui.label(linha).classes('text-sm')
-        ui.button('Desligar o PCI', on_click=lambda: desligar_pci(recarregar)).props('flat').mark(
-            'desligar-pci'
-        )
+        ui.button('Parar de buscar concursos abertos', on_click=lambda: desligar_pci(recarregar)).props(
+            'flat'
+        ).mark('desligar-pci')
 
     def trocar_uf(self, evento) -> None:
         uf = escolhido(evento.value)
@@ -231,7 +231,7 @@ class PainelEncontrar:
                             on_click=lambda c=concurso: abrir_no_navegador(c.link),
                         ).props('flat').mark(f'abrir-{concurso.id}')
                         ui.button(
-                            'Acompanhar',
+                            'Acompanhar este concurso',
                             icon='notifications',
                             on_click=lambda c=concurso: self.acompanhar(c.id),
                         ).props('outline').mark(f'acompanhar-{concurso.id}')

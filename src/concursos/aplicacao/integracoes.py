@@ -310,7 +310,8 @@ def aviso_pci(url: str, configuracao: ConfiguracaoPciMcp) -> str:
             'Nome, CPF, inscrição e notas não saem do computador.',
             f'As respostas ficam guardadas no computador por {configuracao.ttl_horas:g} h. A busca do PCI está em '
             'teste e complementa, mas não substitui, o edital oficial.',
-            'Depois de cada análise, o radar de prazos consulta o PCI; sem internet, usa o que já está guardado.',
+            'Depois de cada análise, o app confere os prazos dos concursos que você acompanha; sem internet, usa o '
+            'que já está guardado.',
         ]
     )
 
@@ -427,7 +428,9 @@ def registrar_interesse(opcoes: Opcoes, concursos: list[ConcursoPci], identifica
     novo = registro.registrar(escolhido)
     registro.gravar()
     acao = 'registrado' if novo else 'atualizado'
-    opcoes.saida(f'interesse {acao}: {identificador} ({escolhido.titulo}); ele entra no radar de prazos')
+    opcoes.saida(
+        f'interesse {acao}: {identificador} ({escolhido.titulo}); ele entra nos concursos que você acompanha'
+    )
 
 
 def esquecer_interesse(opcoes: Opcoes, identificador: int) -> None:

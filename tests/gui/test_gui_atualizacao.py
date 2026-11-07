@@ -77,6 +77,29 @@ async def test_falha_na_consulta_aparece_como_erro_e_dica(user: User, executavel
     await user.should_see('erro: sem conexão com o GitHub para procurar a atualização')
 
 
+async def test_o_detalhe_tecnico_do_erro_fica_fechado(user: User, executavel, monkeypatch):
+    from nicegui import ui
+
+    from concursos.erros import ErroDoAmbiente
+
+    def falha(canal):
+        raise ErroDoAmbiente(
+            'Não consegui procurar a atualização.', 'confira a internet', 'HTTP 503 em api.github.com'
+        )
+
+    monkeypatch.setattr(atualizacao, 'verificar', falha)
+
+    await user.open('/sobre')
+    user.find(marker='verificar-atualizacoes').click()
+
+    await user.should_see('erro: Não consegui procurar a atualização.')
+    await user.should_see('dica: confira a internet')
+    await user.should_see('Ver detalhes técnicos')
+    (detalhes,) = user.find(marker='detalhes-tecnicos').elements
+    assert isinstance(detalhes, ui.expansion)
+    assert detalhes.value is False
+
+
 async def test_instalar_pede_confirmacao_e_no_linux_oferece_reabrir(
     user: User, executavel, monkeypatch, tmp_path
 ):
