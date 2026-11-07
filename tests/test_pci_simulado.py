@@ -332,3 +332,20 @@ def test_pci_provas_download_offline_recusa(projeto_pci: Path, capsys):
 def test_pci_provas_download_de_id_fora_da_lista_recusa(projeto_pci: Path, capsys):
     assert main(['pci', 'provas', 'alvo', '--download', '1']) == 1
     assert 'não está no resultado' in capsys.readouterr().err
+
+
+def test_pci_provas_import_all_importa_a_lista_uma_por_vez(
+    projeto_pci: Path, monkeypatch: pytest.MonkeyPatch, capsys
+):
+    tentadas: list[int] = []
+    monkeypatch.setattr(
+        aplicacao_integracoes,
+        'importar_simulado',
+        lambda opcoes, provas, identificador, alvo, esperar=None: tentadas.append(identificador) or 0,
+    )
+
+    assert main(['--yes', 'pci', 'provas', 'alvo', '--import-all']) == 0
+
+    assert tentadas == [4242]
+    saida = capsys.readouterr().out
+    assert 'Passo 1 de 1' in saida and 'provas anteriores: 1 importada(s)' in saida

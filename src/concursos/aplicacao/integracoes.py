@@ -3,7 +3,7 @@ import logging
 import re
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
@@ -20,6 +20,7 @@ from concursos.aplicacao.projeto import (
     pasta_do_candidato,
     proxima_pasta,
 )
+from concursos.aplicacao.simulados import revisar_simulado
 from concursos.cadastro import cadastrar
 from concursos.candidatos import alvos_pci, slug
 from concursos.concurso_config import ConcursoConfig, ConfiguracaoInvalidaError, gravar_dados, ler_dados
@@ -658,11 +659,84 @@ def importar_simulado(
         ) from erro
     if not cadastrado:
         return 1
+    revisar_simulado(contexto, pasta)
     opcoes.saida(
         f'simulado pronto em {pasta}; acrescente suas respostas com '
         f'`concurso-analise add <arquivo> --candidate <nome> --concurso {pasta.name}`'
     )
     return 0
+
+
+@dataclass
+class LoteDeSimulados:
+    importadas: list[int] = field(default_factory=list)
+    ja_importadas: list[int] = field(default_factory=list)
+    falhas: dict[int, str] = field(default_factory=dict)
+    nao_tentadas: list[int] = field(default_factory=list)
+
+    @property
+    def cancelado(self) -> bool:
+        return bool(self.nao_tentadas)
+
+    def resumo(self) -> str:
+        partes = [f'{len(self.importadas)} importada(s)']
+        if self.ja_importadas:
+            partes.append(f'{len(self.ja_importadas)} já estava(m) no projeto')
+        if self.falhas:
+            partes.append(f'{len(self.falhas)} com falha')
+        if self.nao_tentadas:
+            partes.append(f'{len(self.nao_tentadas)} não tentada(s) (cancelado)')
+        return '; '.join(partes)
+
+
+def ja_importada(raiz_provas: Path, prova: ProvaAnteriorPci) -> bool:
+    return bool(ler_dados(raiz_provas / nome_da_pasta(prova)).get('provas'))
+
+
+def importar_simulados(
+    opcoes: Opcoes,
+    provas: list[ProvaAnteriorPci],
+    identificadores: list[int],
+    alvo: ConcursoConfig | None,
+    esperar: Callable[..., dict[str, Path]] | None = None,
+) -> LoteDeSimulados:
+    """Uma prova por vez, cada uma com a página aberta e a espera na pasta de downloads. A falha de uma vira
+    aviso e o lote segue; cancelar a espera encerra o lote, e as que faltavam ficam como não tentadas."""
+    lote = LoteDeSimulados()
+    pedidas = [p for i in identificadores for p in provas if p.id == i]
+    for posicao, prova in enumerate(pedidas, start=1):
+        if ja_importada(opcoes.contexto.provas, prova):
+            lote.ja_importadas.append(prova.id)
+            continue
+        opcoes.saida(
+            f'Passo {posicao} de {len(pedidas)}: o navegador vai abrir a página da prova {prova.orgao} '
+            f'{prova.ano or ""}. Baixe a prova e o gabarito.'.replace('  ', ' ')
+        )
+        try:
+            codigo = importar_simulado(opcoes, provas, prova.id, alvo, esperar)
+        except ImportacaoCanceladaError:
+            lote.nao_tentadas = [p.id for p in pedidas[posicao - 1 :]]
+            break
+        except (ErroDoUsuario, ErroDoAmbiente) as erro:
+            logger.warning('prova %s: %s', prova.id, erro.causa)
+            lote.falhas[prova.id] = erro.causa
+            continue
+        if codigo == 0:
+            lote.importadas.append(prova.id)
+        else:
+            lote.falhas[prova.id] = 'o cadastro não terminou'
+    opcoes.saida(f'provas anteriores: {lote.resumo()}')
+    return lote
+
+
+def termos_previstos(contexto: Contexto, concurso: str | None) -> list[str]:
+    """Os termos que a busca usará sem termo digitado, para a tela mostrar antes de buscar."""
+    if not concurso:
+        return []
+    try:
+        return termos_automaticos(concurso_alvo(contexto, concurso))
+    except (ErroDoUsuario, ConfiguracaoInvalidaError, FileNotFoundError):
+        return []
 
 
 def radar_pci(opcoes: Opcoes, candidato: str | None, destino: Path) -> bool:

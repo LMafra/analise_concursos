@@ -23,10 +23,11 @@ from concursos.aplicacao.projeto import (
     migrar,
     pasta_do_candidato,
 )
+from concursos.aplicacao.simulados import gerar_simulado_focado
 from concursos.candidatos import completar_perfis, gravar_revisao
 from concursos.candidatos import pasta_do_candidato as pasta_de_respostas
 from concursos.config.contexto import Contexto
-from concursos.configuracao import configuracao_do_projeto
+from concursos.configuracao import ConfiguracaoGlobal, configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
 from concursos.erros import ErroDoUsuario
 from concursos.exportacao import FormatoExportacao, exportar_consolidado
@@ -36,6 +37,7 @@ from concursos.modelo import Etapa
 from concursos.pipeline import ARQUIVO_RESPOSTAS, analisar_todos, planejar
 from concursos.pratica_tec import textos_para_normas
 from concursos.respostas import RespostasInvalidasError
+from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
 from concursos.status import StatusConcurso, avaliar, listar_concursos
 
 TEXTO_DA_ETAPA = {
@@ -117,9 +119,17 @@ def analisar_candidato(
         opcoes, fontes, provas, destino, configuracao.limiar_topico_baixo, textos
     )
     radar = radar_pci(opcoes, candidato, destino)
+    focado = simulado_focado_mudou(opcoes, provas, destino, configuracao)
     indice = destino / relatorio_html.ARQUIVO_INDICE
     mudou_pratica = pratica is not None and pratica.mudou
-    if recomendacoes or mudou_pratica or radar or manifestos(destino) != antes or not indice.exists():
+    if (
+        recomendacoes
+        or mudou_pratica
+        or radar
+        or focado
+        or manifestos(destino) != antes
+        or not indice.exists()
+    ):
         relatorio_html.gerar_relatorio_html(
             provas, destino, contexto.taxonomia, configuracao.limiar_topico_baixo
         )
@@ -127,6 +137,15 @@ def analisar_candidato(
             relatorio_html.abrir_no_navegador(contexto.raiz / indice)
     opcoes.saida(f'relatório: {contexto.raiz / indice}')
     return sucesso
+
+
+def simulado_focado_mudou(
+    opcoes: Opcoes, provas: Path, destino: Path, configuracao: ConfiguracaoGlobal
+) -> bool:
+    arquivo = destino / ARQUIVO_SIMULADO_FOCADO
+    antes = arquivo.read_text(encoding='utf-8') if arquivo.exists() else None
+    gerar_simulado_focado(opcoes, provas, destino, configuracao.limiar_topico_baixo, configuracao)
+    return (arquivo.read_text(encoding='utf-8') if arquivo.exists() else None) != antes
 
 
 def manifestos(destino: Path) -> dict[str, int]:

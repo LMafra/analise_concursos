@@ -5,7 +5,7 @@ import pytest
 from nicegui import ui
 from nicegui.testing.user import User
 
-from concursos.aplicacao import captura_tec, integracoes
+from concursos.aplicacao import captura_tec, integracoes, simulados
 from concursos.config.contexto import ler_toml
 from concursos.gui.estado import ESTADO
 from concursos.integracoes.pci_mcp import ConcursoPci, DatasInscricao, ProvaAnteriorPci
@@ -201,6 +201,82 @@ async def test_importar_simulado_pode_ser_cancelado(user: User, projeto, monkeyp
     user.find(marker='cancelar-importacao').click()
 
     await user.should_see('Importação cancelada')
+
+
+SEGUNDA = ProvaAnteriorPci(
+    id=8, descricao='Auditor', orgao='SEFAZ-DF', ano=2015, organizadora='Cebraspe', link='l8'
+)
+
+
+def busca_de_provas(monkeypatch) -> None:
+    monkeypatch.setattr(
+        integracoes,
+        'provas_anteriores',
+        lambda opcoes, concurso=None, termos=None: integracoes.ProvasAnteriores(
+            None, 'auditor sefaz', [PROVA, SEGUNDA]
+        ),
+    )
+
+
+async def test_termo_explicado_e_termo_automatico_no_campo(user: User, projeto, monkeypatch):
+    ligar_pci()
+    monkeypatch.setattr(integracoes, 'termos_previstos', lambda contexto, alvo: ['auditor controle cebraspe'])
+    monkeypatch.setattr(
+        'concursos.gui.paginas.encontrar.opcoes_de_concurso', lambda contexto: {'tcu_2025': 'TCU 2025'}
+    )
+    await abrir_aba(user, 'Provas anteriores')
+
+    await user.should_see('só aparecem as provas que têm todas elas')
+    elemento(user, 'alvo-provas').value = 'tcu_2025'
+    assert elemento(user, 'termo-provas').props['placeholder'] == 'auditor controle cebraspe'
+
+
+async def test_importar_todas_em_lote_e_mostrar_o_simulado_focado(user: User, projeto, monkeypatch):
+    ligar_pci()
+    busca_de_provas(monkeypatch)
+    tentadas: list[int] = []
+    monkeypatch.setattr(
+        integracoes,
+        'importar_simulado',
+        lambda opcoes, provas, identificador, alvo, esperar=None: tentadas.append(identificador) or 0,
+    )
+    focado = type('Focado', (), {'total': 14})()
+    monkeypatch.setattr(simulados, 'simulado_focado_do_projeto', lambda opcoes: focado)
+    monkeypatch.setattr(
+        simulados, 'texto_do_simulado_focado', lambda contexto: '# Simulado focado\n\n- TCU 2019'
+    )
+    await abrir_aba(user, 'Provas anteriores')
+    user.find(marker='termo-provas').type('auditor sefaz')
+    user.find(marker='buscar-provas').click()
+    await user.should_see('Busca: auditor sefaz')
+    user.find(marker='importar-todas').click()
+
+    await user.should_see(marker='simulado-importado')
+    assert tentadas == [7, 8]
+    await user.should_see('Simulado focado: 14 questões das provas anteriores nos seus tópicos mais fracos')
+    user.find(marker='ver-simulado-focado').click()
+    await user.should_see('TCU 2019')
+
+
+async def test_importar_selecionadas_so_as_marcadas(user: User, projeto, monkeypatch):
+    ligar_pci()
+    busca_de_provas(monkeypatch)
+    tentadas: list[int] = []
+    monkeypatch.setattr(
+        integracoes,
+        'importar_simulado',
+        lambda opcoes, provas, identificador, alvo, esperar=None: tentadas.append(identificador) or 0,
+    )
+    monkeypatch.setattr(simulados, 'simulado_focado_do_projeto', lambda opcoes: None)
+    await abrir_aba(user, 'Provas anteriores')
+    user.find(marker='termo-provas').type('auditor sefaz')
+    user.find(marker='buscar-provas').click()
+    await user.should_see('Busca: auditor sefaz')
+    elemento(user, 'selecionar-8').value = True
+    user.find(marker='importar-selecionadas').click()
+
+    await user.should_see(marker='simulado-importado')
+    assert tentadas == [8]
 
 
 async def test_importar_simulado_concluido(user: User, projeto, monkeypatch):

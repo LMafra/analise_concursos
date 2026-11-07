@@ -392,6 +392,22 @@ def _disciplinas_por_questao(config: ConcursoConfig) -> dict[int, str]:
     return disciplinas
 
 
+def preparar_revisao(
+    config: ConcursoConfig,
+    configuracao: ConfiguracaoGlobal,
+    taxonomia: dict[str, DisciplinaCanonica] | None = None,
+) -> Path:
+    """Classifica as questões de uma prova ainda sem respostas (a prova anterior importada) e grava só a
+    revisão de tópicos, que o simulado focado lê; a análise da prova continua exigindo as respostas."""
+    edital = _ler_edital(config, _paginas_dos_documentos(config))
+    gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
+    resultados = corrigir(config, gabaritos, [], _disciplinas_por_questao(config))
+    _classificar_topicos(
+        config, edital, resultados, configuracao.dicionario, taxonomia or _taxonomia_do_contexto()
+    )
+    return config.caminho(ARQUIVO_REVISAO)
+
+
 def _classificar_topicos(
     config: ConcursoConfig,
     edital: Edital | None,

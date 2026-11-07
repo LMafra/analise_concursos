@@ -38,6 +38,7 @@ from concursos.integracoes.radar_pci import ARQUIVO_RADAR
 from concursos.pipeline import ARQUIVO_RESPOSTAS
 from concursos.pratica_tec import ARQUIVO_RESUMO, PASTA_PRATICA
 from concursos.resultado_oficial import formatar
+from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,7 @@ def gerar_relatorio_html(
         [
             f'<h1>Relatório de {escape(raiz_analises.name)}</h1>',
             *_radar(raiz_analises),
+            *_simulado_focado(raiz_analises),
             '<h2>Concursos</h2>',
             _tabela_de_concursos(concursos),
             *_tabela_de_simulados(
@@ -274,6 +276,13 @@ def _tabela_de_simulados(simulados: list[tuple[ConcursoNoIndice, dict]]) -> list
 def _radar(raiz_analises: Path) -> list[str]:
     """Só com o PCI ligado o radar existe; sem ele, o índice fica como era."""
     arquivo = raiz_analises / ARQUIVO_RADAR
+    if not arquivo.exists():
+        return []
+    return [_html(arquivo.read_text(encoding='utf-8'), nivel=1)]
+
+
+def _simulado_focado(raiz_analises: Path) -> list[str]:
+    arquivo = raiz_analises / ARQUIVO_SIMULADO_FOCADO
     if not arquivo.exists():
         return []
     return [_html(arquivo.read_text(encoding='utf-8'), nivel=1)]

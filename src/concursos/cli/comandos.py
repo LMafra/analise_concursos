@@ -347,6 +347,12 @@ def pci_provas(
     baixar: Annotated[
         int | None, typer.Option('--download', help='id da prova: abre a página e importa o que você baixar')
     ] = None,
+    todas: Annotated[
+        bool,
+        typer.Option(
+            '--import-all', help='importa todas as provas da lista, uma por vez, como no --download'
+        ),
+    ] = False,
     refresh: Refresh = False,
     json_: ComoJson = False,
     candidato: Candidato = None,
@@ -360,6 +366,11 @@ def pci_provas(
         typer.echo(formatar_provas(resultado.provas))
     if baixar is not None:
         return integracoes.importar_simulado(opcoes, resultado.provas, baixar, resultado.alvo)
+    if todas:
+        lote = integracoes.importar_simulados(
+            opcoes, resultado.provas, [p.id for p in resultado.provas], resultado.alvo
+        )
+        return 1 if lote.falhas else 0
     return 0
 
 
