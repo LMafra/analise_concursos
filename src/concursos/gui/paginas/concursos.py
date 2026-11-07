@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 
 from nicegui import ui
 
@@ -11,6 +12,7 @@ from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.estado_vazio import estado_vazio
 from concursos.gui.componentes.situacao import situacao
 from concursos.gui.estado import ESTADO
+from concursos.gui.paginas.encontrar import PainelEncontrar, PainelProvasAnteriores
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
@@ -24,13 +26,46 @@ EXPLICACAO_GABARITO = (
 TOM_DA_SITUACAO = {Situacao.COMPLETO: Tom.SUCESSO, Situacao.INCOMPLETO: Tom.ALERTA}
 
 
-def pagina() -> None:
+ABAS = {'lista': 'Meus concursos', 'encontrar': 'Encontrar concursos', 'provas': 'Provas anteriores'}
+
+
+def pagina(aba: str | None = None) -> None:
     if not exigir_projeto():
         return
     with ui.column().classes('w-full').style(tema.gap('md')):
         with ui.row().classes('items-center').style(tema.gap('sm')):
             ui.label(f'Projeto: {ESTADO.projeto}').classes('text-sm ca-texto-suave')
             ui.button('Trocar', on_click=lambda: ui.navigate.to('/projeto')).props('flat dense')
+        with ui.tabs().classes('w-full') as abas:
+            guias = {chave: ui.tab(titulo).mark(f'aba-{chave}') for chave, titulo in ABAS.items()}
+        with ui.tab_panels(abas, value=guias.get(aba or '', guias['lista'])).classes('w-full'):
+            with ui.tab_panel(guias['lista']):
+                meus_concursos()
+            with ui.tab_panel(guias['encontrar']):
+                no_lugar(PainelEncontrar)
+            with ui.tab_panel(guias['provas']):
+                no_lugar(PainelProvasAnteriores)
+
+
+def no_lugar(construir: Callable[[Callable[[], None]], object]) -> None:
+    """Monta o painel numa caixa que ele mesmo refaz (ao ligar ou desligar o PCI): navegar para o mesmo endereço
+    não remonta a aba."""
+    caixa = ui.column().classes('w-full')
+
+    def montar() -> None:
+        caixa.clear()
+        with caixa:
+            try:
+                construir(montar)
+            except Exception as erro:  # noqa: BLE001
+                logger.debug('falha ao montar o painel %s', construir.__name__, exc_info=True)
+                mostrar_erro(erro)
+
+    montar()
+
+
+def meus_concursos() -> None:
+    with ui.column().classes('w-full').style(tema.gap('md')):
         if onboarding.precisa_de_onboarding(ESTADO.contexto()):
             with (
                 aviso(

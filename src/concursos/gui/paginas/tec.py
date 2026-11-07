@@ -10,8 +10,9 @@ from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
+from concursos.gui.componentes.dialogo import ver_texto
 from concursos.gui.estado import ESTADO
-from concursos.gui.paginas.encontrar import ver_texto
+from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro
 
@@ -41,9 +42,16 @@ COMO_CONSEGUIR = (
 SEM_COLUNA = ''
 
 
+def pagina() -> None:
+    if not exigir_projeto():
+        return
+    with ui.column().classes('w-full max-w-4xl').style(tema.gap('md')):
+        ui.label('Importar do TEC').classes('text-2xl font-bold')
+        PainelTec()
+
+
 class PainelTec:
     def __init__(self) -> None:
-        ui.label('Importar do TEC').classes('text-lg font-bold')
         ui.label(
             'Solte a planilha que você exportou do TEC (.csv ou .xlsx) ou os arquivos tec-erros-*.json da '
             'captura (computador e tablet juntos) e, se usa o caderno de erros, o caderno-estado.json. A prática '

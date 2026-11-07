@@ -8,7 +8,7 @@ from nicegui.testing.user import User
 from concursos.aplicacao import cadastro, captura_tec, integracoes, simulados
 from concursos.config.contexto import ler_toml
 from concursos.gui.estado import ESTADO
-from concursos.gui.paginas import pratica_tec as pagina_tec
+from concursos.gui.paginas import tec as pagina_tec
 from concursos.integracoes.pci_mcp import ConcursoPci, DatasInscricao, ProvaAnteriorPci
 from concursos.integracoes.sincronizacao_pci import Interesses
 
@@ -45,9 +45,16 @@ def proibido(*_args, **_kwargs):
     raise AssertionError('desligada, a integração não pode ser chamada')
 
 
+ENDERECOS = {
+    'Encontrar concursos': '/?aba=encontrar',
+    'Provas anteriores': '/?aba=provas',
+    'open-notebook': '/configuracoes?secao=avancado',
+    'Prática no TEC': '/tec',
+}
+
+
 async def abrir_aba(user: User, aba: str) -> None:
-    await user.open('/integracoes')
-    user.find(aba).click()
+    await user.open(ENDERECOS[aba])
 
 
 async def test_pci_desligado_mostra_o_aviso_e_nao_consulta(user: User, projeto, monkeypatch):

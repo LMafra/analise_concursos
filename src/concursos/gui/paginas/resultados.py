@@ -19,12 +19,16 @@ logger = logging.getLogger('concursos')
 LINHAS_POR_PAGINA = 15
 SEM_RELATORIO = 'Analise as provas para corrigir e gerar o relatório com as suas notas e os tópicos fracos.'
 SEM_RECOMENDACOES = (
-    'Elas aparecem depois da análise quando o projeto tem uma biblioteca de estudo (biblioteca.yaml) ou a '
-    'legislação ligada; os tópicos fracos estão no relatório.'
+    'As indicações de leitura aparecem depois da análise, quando há livros em Estudar ou a legislação ligada; '
+    'os tópicos fracos estão no relatório.'
+)
+SEM_SIMULADO = (
+    'Importe provas anteriores em Concursos > Provas anteriores: a análise junta as questões delas que caem '
+    'nos seus tópicos mais fracos. Com a prática do TEC importada, aparece também o simulado com os seus erros.'
 )
 SEM_PRATICA = (
-    'Instale a captura do TEC (em Integrações), exporte os seus erros e solte o arquivo em Integrações, '
-    'Prática no TEC; a análise seguinte junta a prática ao relatório.'
+    'Solte a planilha que você exportou do TEC, ou os arquivos da captura, em Importar do TEC; a análise '
+    'seguinte junta a prática ao relatório.'
 )
 DESCRICAO_DOS_FORMATOS = {
     FormatoExportacao.CSV: 'CSV (Excel, planilhas)',
@@ -45,13 +49,15 @@ def pagina() -> None:
             return
         with ui.tabs().classes('w-full') as abas:
             aba_relatorio = ui.tab('Relatório', icon='insights')
-            aba_recomendacoes = ui.tab('Recomendações', icon='menu_book')
+            aba_recomendacoes = ui.tab('Tópicos para estudar', icon='menu_book')
+            aba_simulado = ui.tab('Simulado focado', icon='quiz')
             aba_pratica = ui.tab('Prática no TEC', icon='school')
             aba_exportar = ui.tab('Exportar', icon='download')
         with ui.tab_panels(abas, value=aba_relatorio).classes('w-full'):
             with ui.tab_panel(aba_relatorio):
                 painel_do_relatorio(achados)
             with ui.tab_panel(aba_recomendacoes):
+                procurar_nos_livros()
                 if achados.recomendacoes is None:
                     estado_vazio(
                         'menu_book',
@@ -63,6 +69,8 @@ def pagina() -> None:
                     )
                 else:
                     ui.markdown(achados.recomendacoes).classes('w-full').mark('recomendacoes')
+            with ui.tab_panel(aba_simulado):
+                painel_do_simulado(achados)
             with ui.tab_panel(aba_pratica):
                 painel_da_pratica(achados)
             with ui.tab_panel(aba_exportar):
@@ -104,7 +112,6 @@ def painel_do_relatorio(achados: Resultados) -> None:
         ui.button('Abrir no navegador', icon='open_in_new', on_click=lambda: abrir_no_navegador(indice)).mark(
             'abrir-navegador'
         )
-    procurar_nos_livros()
     relatorio(indice)
 
 
@@ -132,14 +139,36 @@ def procurar_nos_livros() -> None:
     ui.timer(0.1, carregar, once=True)
 
 
+def painel_do_simulado(achados: Resultados) -> None:
+    if achados.simulado_focado is None and achados.simulado_tec is None:
+        estado_vazio(
+            'quiz',
+            'Sem simulado ainda',
+            SEM_SIMULADO,
+            acao='Ir para Provas anteriores',
+            ao_clicar=lambda: ui.navigate.to('/?aba=provas'),
+            marca='sem-simulado',
+        )
+        return
+    if achados.simulado_tec is not None:
+        simulado_tec = achados.simulado_tec
+        ui.button(
+            'Ver simulado com meus erros do TEC',
+            icon='quiz',
+            on_click=lambda: abrir_no_navegador(simulado_tec),
+        ).props('outline').mark('abrir-simulado-tec')
+    if achados.simulado_focado is not None:
+        ui.markdown(achados.simulado_focado).classes('w-full').mark('simulado-focado-resultados')
+
+
 def painel_da_pratica(achados: Resultados) -> None:
     if achados.pratica is None:
         estado_vazio(
             'school',
             'Sem prática no TEC ainda',
             SEM_PRATICA,
-            acao='Ir para a prática no TEC',
-            ao_clicar=lambda: ui.navigate.to('/integracoes?aba=tec'),
+            acao='Ir para Importar do TEC',
+            ao_clicar=lambda: ui.navigate.to('/tec'),
             marca='sem-pratica',
         )
     else:

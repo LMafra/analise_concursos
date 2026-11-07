@@ -1,5 +1,6 @@
 import logging
 import threading
+from collections.abc import Callable
 
 from nicegui import run, ui
 
@@ -11,6 +12,7 @@ from concursos.datas import data_br
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.consentimento import consentimento
+from concursos.gui.componentes.dialogo import ver_texto
 from concursos.gui.componentes.situacao import situacao
 from concursos.gui.estado import ESTADO
 from concursos.gui.interacao import InteracaoCanceladaError, InteracaoGui
@@ -60,38 +62,40 @@ def escolhido(valor: str | None) -> str | None:
     return None if valor in (None, '', QUALQUER) else valor
 
 
-def ligar_pci(aba: str) -> None:
+def ligar_pci(recarregar: Callable[[], None]) -> None:
     try:
         contexto = ESTADO.contexto()
         integracoes.ligar_pci(contexto, integracoes.configuracao_pci(contexto).url)
     except Exception as erro:  # noqa: BLE001
         mostrar_erro(erro)
         return
-    ui.navigate.to(f'/integracoes?aba={aba}')
+    recarregar()
 
 
-def desligar_pci(aba: str) -> None:
+def desligar_pci(recarregar: Callable[[], None]) -> None:
     try:
         integracoes.desligar_pci(ESTADO.contexto())
     except Exception as erro:  # noqa: BLE001
         mostrar_erro(erro)
         return
-    ui.navigate.to(f'/integracoes?aba={aba}')
+    recarregar()
 
 
-def pci_ligado(aba: str) -> bool:
+def pci_ligado(recarregar: Callable[[], None]) -> bool:
     """Desligado, mostra o aviso e nenhuma consulta é feita."""
     configuracao = integracoes.configuracao_pci(ESTADO.contexto())
     if not configuracao.enabled:
-        consentimento(integracoes.aviso_pci(configuracao.url, configuracao), 'pci', lambda: ligar_pci(aba))
+        consentimento(
+            integracoes.aviso_pci(configuracao.url, configuracao), 'pci', lambda: ligar_pci(recarregar)
+        )
         return False
     return True
 
 
 class PainelEncontrar:
-    def __init__(self, aba: str) -> None:
+    def __init__(self, recarregar: Callable[[], None]) -> None:
         self.concursos = []
-        if not pci_ligado(aba):
+        if not pci_ligado(recarregar):
             return
         configuracao = integracoes.configuracao_pci(ESTADO.contexto())
         uf = configuracao.uf.upper()
@@ -155,7 +159,9 @@ class PainelEncontrar:
         self.acompanhados()
         for linha in integracoes.linhas_do_radar(ESTADO.contexto()):
             ui.label(linha).classes('text-sm')
-        ui.button('Desligar o PCI', on_click=lambda: desligar_pci(aba)).props('flat').mark('desligar-pci')
+        ui.button('Desligar o PCI', on_click=lambda: desligar_pci(recarregar)).props('flat').mark(
+            'desligar-pci'
+        )
 
     def trocar_uf(self, evento) -> None:
         uf = escolhido(evento.value)
@@ -288,11 +294,11 @@ class PainelEncontrar:
 
 
 class PainelProvasAnteriores:
-    def __init__(self, aba: str) -> None:
+    def __init__(self, recarregar: Callable[[], None]) -> None:
         self.achados: integracoes.ProvasAnteriores | None = None
         self.andamento = Andamento()
         self.marcadas: dict[int, ui.checkbox] = {}
-        if not pci_ligado(aba):
+        if not pci_ligado(recarregar):
             return
         contexto = ESTADO.contexto()
         opcoes = {SEM_ALVO: SEM_ALVO, **opcoes_de_concurso(contexto)}
@@ -473,11 +479,3 @@ class PainelProvasAnteriores:
             ui.button('Ver', on_click=lambda: ver_texto('Simulado focado', texto)).props('flat dense').mark(
                 'ver-simulado-focado'
             )
-
-
-def ver_texto(titulo: str, texto: str) -> None:
-    with ui.dialog() as dialogo, ui.card().classes('w-full max-w-3xl'):
-        ui.label(titulo).classes('text-lg font-bold')
-        ui.markdown(texto).classes('w-full')
-        ui.button('Fechar', on_click=dialogo.close).props('flat')
-    dialogo.open()

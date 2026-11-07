@@ -1,12 +1,14 @@
 import logging
+from collections.abc import Callable
 from pathlib import Path, PureWindowsPath
 
 from nicegui import events, run, ui
 
 from concursos.aplicacao import atualizador as atualizacao
-from concursos.aplicacao import dicionario, ia, inicio
+from concursos.aplicacao import dicionario, estudo, ia, inicio, integracoes
 from concursos.aplicacao.cadastro import nova_pasta_de_envio
 from concursos.aplicacao.nomes import opcoes_de_concurso
+from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.preferencias import (
     PreferenciasAnalise,
     gravar_analise,
@@ -19,6 +21,7 @@ from concursos.config.contexto import resolver_home
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.cartao import cartao
+from concursos.gui.componentes.consentimento import texto_do_aviso
 from concursos.gui.componentes.situacao import situacao
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
@@ -36,7 +39,7 @@ EXPLICACAO_ALVO = (
 )
 
 
-def pagina() -> None:
+def pagina(secao: str | None = None) -> None:
     if not exigir_projeto():
         return
     with ui.column().classes('w-full max-w-2xl').style(tema.gap('lg')):
@@ -50,7 +53,7 @@ def pagina() -> None:
         secao_da_aparencia()
         SecaoDaIa()
         SecaoDaCalibracao()
-        secao_avancada()
+        secao_avancada(aberta=secao == 'avancado')
 
 
 def controle_de_limiar(titulo: str, valor: float, explicacao: str, marca: str) -> ui.slider:
@@ -198,8 +201,8 @@ class SecaoDaIa:
                     self.aviso.mark('aviso-ia')
                 self.chave = (
                     rotulo(
-                        ui.input('Chave da API', password=True, password_toggle_button=True),
-                        'chave da API',
+                        ui.input('Chave de acesso', password=True, password_toggle_button=True),
+                        'chave de acesso',
                     )
                     .classes('w-full')
                     .mark('chave-ia')
@@ -210,6 +213,38 @@ class SecaoDaIa:
                 ).classes('text-sm ca-texto-suave')
                 ui.button('Concordo e ligar', icon='check', on_click=self.ligar).mark('ligar-ia')
             self.formulario.set_visibility(estado.ligada)
+            self.livros = ui.column().classes('w-full').style(tema.gap('sm'))
+            self.desenhar_livros()
+
+    def desenhar_livros(self) -> None:
+        """Separado da leitura do edital: os trechos dos livros só vão à IA com este consentimento."""
+        self.livros.clear()
+        contexto = ESTADO.contexto()
+        texto = estudo.texto_ia_livros(contexto)
+        if texto is None:
+            return
+        with self.livros:
+            ui.checkbox(
+                'Responder perguntas com base nos meus livros',
+                value=estudo.ia_nos_livros(contexto) is not None,
+                on_change=lambda e: self.ligar_livros(bool(e.value)),
+            ).mark('ia-livros')
+            with ui.expansion('O que é enviado', icon='info').classes('w-full'):
+                ui.label(texto).classes('text-sm whitespace-pre-line').mark('aviso-ia-livros')
+
+    @staticmethod
+    def ligar_livros(ligar: bool) -> None:
+        try:
+            estudo.ligar_ia_nos_livros(ESTADO.contexto(), ligar)
+        except Exception as erro:  # noqa: BLE001
+            mostrar_erro(erro)
+            return
+        ui.notify(
+            'A IA vai responder com base nos seus livros.'
+            if ligar
+            else 'A IA não recebe mais trechos dos livros.',
+            type='positive',
+        )
 
     @staticmethod
     def descrever(estado: ia.EstadoIa) -> str:
@@ -232,6 +267,7 @@ class SecaoDaIa:
             mostrar_erro(erro)
             return
         self.situacao.set_text(self.descrever(ia.estado_da_ia(ESTADO.contexto())))
+        self.desenhar_livros()
 
     def ligar(self) -> None:
         try:
@@ -242,6 +278,7 @@ class SecaoDaIa:
             return
         self.chave.value = ''
         self.situacao.set_text(self.descrever(ia.estado_da_ia(ESTADO.contexto())))
+        self.desenhar_livros()
         ui.notify('IA ligada.', type='positive')
 
 
@@ -255,10 +292,10 @@ CANAIS = {
 }
 
 
-def secao_avancada() -> None:
+def secao_avancada(aberta: bool = False) -> None:
     config_global = resolver_home() / 'config.toml'
     atuais = atualizacao.ler_preferencias(config_global)
-    with ui.expansion('Avançado', icon='tune').classes('w-full').mark('avancado'):
+    with ui.expansion('Avançado', icon='tune', value=aberta).classes('w-full').mark('avancado'):
         ui.label('Atualizações').classes('font-bold')
         aviso = ui.checkbox('Avisar quando houver versão nova', value=atuais.verificar_ao_abrir).mark(
             'verificar-ao-abrir'
@@ -282,6 +319,108 @@ def secao_avancada() -> None:
 
         aviso.on_value_change(gravar)
         canal.on_value_change(gravar)
+        ui.separator()
+        caixa = ui.column().classes('w-full')
+
+        def montar() -> None:
+            caixa.clear()
+            with caixa:
+                try:
+                    OpenNotebookProprio(montar)
+                except Exception as erro:  # noqa: BLE001
+                    mostrar_erro(erro)
+
+        montar()
+
+
+class OpenNotebookProprio:
+    """Só no Avançado: um open-notebook que o usuário já mantém recebe as análises no lugar do que o app prepara."""
+
+    def __init__(self, recarregar: Callable[[], None]) -> None:
+        self.recarregar = recarregar
+        configuracao = integracoes.configuracao_open_notebook(ESTADO.contexto())
+        ui.label('Usar um open-notebook que já tenho').classes('font-bold')
+        ui.label(
+            'Para quem já mantém um open-notebook: as análises vão para ele depois de cada análise. Os livros '
+            'continuam na biblioteca do app, em Estudar.'
+        ).classes('text-sm ca-texto-suave')
+        self.situacao = ui.label().mark('estado-notebook')
+        self.descrever()
+        if not configuracao.ativa:
+            url = (
+                rotulo(ui.input('Endereço do open-notebook', value=configuracao.url), 'endereço')
+                .classes('w-full')
+                .mark('url-notebook')
+            )
+            aviso_do_envio = texto_do_aviso(
+                integracoes.aviso_open_notebook(url.value, configuracao), 'notebook'
+            )
+            url.on_value_change(
+                lambda e: aviso_do_envio.set_text(
+                    integracoes.aviso_open_notebook(e.value or '', configuracao)
+                )
+            )
+            ui.button('Concordo e usar', icon='check', on_click=lambda: self.ligar(url.value)).mark(
+                'ligar-notebook'
+            )
+            return
+        with ui.row().style(tema.gap('sm')):
+            self.botao = ui.button('Enviar agora', icon='upload', on_click=self.enviar).mark(
+                'sincronizar-notebook'
+            )
+            ui.button('Deixar de usar', on_click=self.desligar).props('flat').mark('desligar-notebook')
+        self.saida = ui.column().classes('w-full')
+
+    def descrever(self) -> None:
+        estado = integracoes.estado_open_notebook(ESTADO.contexto())
+        if not estado.ligado:
+            texto = 'Não usado: as análises vão só para a biblioteca do app, se ela estiver preparada.'
+        elif estado.ultima_sincronizacao is None:
+            texto = f'Em uso: {estado.url}; nada enviado ainda.'
+        else:
+            texto = f'Em uso: {estado.url}; último envio em {estado.ultima_sincronizacao:%d/%m/%Y %H:%M}.'
+        self.situacao.set_text(texto)
+
+    def ligar(self, url: str | None) -> None:
+        url = (url or '').strip()
+        if not url:
+            ui.notify('Informe o endereço do open-notebook.', type='warning')
+            return
+        try:
+            integracoes.ligar_open_notebook(ESTADO.contexto(), url)
+        except Exception as erro:  # noqa: BLE001
+            mostrar_erro(erro)
+            return
+        self.recarregar()
+
+    def desligar(self) -> None:
+        try:
+            integracoes.desligar_open_notebook(ESTADO.contexto())
+        except Exception as erro:  # noqa: BLE001
+            mostrar_erro(erro)
+            return
+        self.recarregar()
+
+    async def enviar(self) -> None:
+        if ESTADO.ocupado:
+            return
+        ESTADO.ocupado = True
+        self.botao.disable()
+        try:
+            relatorio = await run.io_bound(
+                integracoes.sincronizar, Opcoes(ESTADO.contexto(), todos=ESTADO.todos), todos=ESTADO.todos
+            )
+        except Exception as erro:  # noqa: BLE001
+            logger.debug('falha no envio ao open-notebook pela GUI', exc_info=True)
+            mostrar_erro(erro)
+            return
+        finally:
+            ESTADO.ocupado = False
+            self.botao.enable()
+        self.saida.clear()
+        with self.saida:
+            ui.label(relatorio.formatar()).classes('text-sm whitespace-pre-line').mark('sincronizado')
+        self.descrever()
 
 
 class SecaoDaCalibracao:

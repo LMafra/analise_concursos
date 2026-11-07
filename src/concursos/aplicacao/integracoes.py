@@ -138,12 +138,14 @@ def sincronizar(
     gerenciada = not configuracao.ativa and estudo.situacao_do_estudo(contexto).preparado
     if not configuracao.ativa and not gerenciada:
         raise ErroDoUsuario(
-            'a sincronização com o open-notebook está desligada',
-            'prepare a biblioteca com `concurso-analise estudo preparar` ou ligue uma instância própria com '
-            '`concurso-analise notebook enable`',
+            'o envio das análises ao open-notebook está desligado',
+            'prepare a biblioteca em Estudar (`concurso-analise estudo preparar`) ou use um open-notebook seu '
+            '(`concurso-analise notebook enable`)',
         )
     if not opcoes.rede:
-        raise ErroDoUsuario('notebook sync usa a rede e foi pedido --offline', 'rode de novo sem --offline')
+        raise ErroDoUsuario(
+            'o envio ao open-notebook usa a rede e foi pedido --offline', 'rode de novo sem --offline'
+        )
     candidatos = candidatos_da_execucao(contexto, todos or opcoes.todos)
     if opcoes.dry_run:
         for nome_candidato in candidatos:
@@ -152,7 +154,7 @@ def sincronizar(
             for nome in concursos_analisados(contexto.provas, pasta):
                 if concurso in (None, nome):
                     destino = 'o open-notebook do app' if gerenciada else configuracao.url
-                    opcoes.saida(f'{prefixo}{nome}: sincronizaria com {destino}')
+                    opcoes.saida(f'{prefixo}{nome}: enviaria para {destino}')
         return None
     try:
         if gerenciada:
@@ -283,12 +285,12 @@ def exigir_pci_ligado(configuracao: ConfiguracaoPciMcp) -> None:
 def aviso_pci(url: str, configuracao: ConfiguracaoPciMcp) -> str:
     return '\n'.join(
         [
-            f'O servidor MCP público do PCI Concursos em {url} vai receber só termos de busca:',
-            '- cargos, UF, cidade, região e termos de prova (do comando ou de [pci] no perfil do candidato).',
+            f'A busca de concursos consulta o PCI Concursos pela internet ({url}) e envia só termos de busca:',
+            '- cargos, UF, cidade, região e as palavras procuradas nas provas anteriores.',
             'Nome, CPF, inscrição e notas não saem do computador.',
-            f'As respostas ficam em .concurso/cache/ por {configuracao.ttl_horas:g} h; o servidor é beta, e o PCI '
-            'complementa, mas não substitui, o edital oficial.',
-            'Depois de cada análise, o radar de prazos consulta o PCI; `--offline` usa só o cache.',
+            f'As respostas ficam guardadas no computador por {configuracao.ttl_horas:g} h. A busca do PCI está em '
+            'teste e complementa, mas não substitui, o edital oficial.',
+            'Depois de cada análise, o radar de prazos consulta o PCI; sem internet, usa o que já está guardado.',
         ]
     )
 

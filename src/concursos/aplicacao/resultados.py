@@ -11,8 +11,10 @@ from concursos.pratica_tec import (
     ARQUIVO_DESEMPENHO,
     ARQUIVO_ERROS,
     ARQUIVO_RESUMO,
+    ARQUIVO_SIMULADO,
     PASTA_PRATICA,
 )
+from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
 
 TABELAS_DA_PRATICA = {
     ARQUIVO_DESEMPENHO: 'Desempenho por disciplina',
@@ -30,6 +32,8 @@ class Resultados:
     recomendacoes: str | None
     pratica: str | None
     tabelas_pratica: dict[str, Path]
+    simulado_focado: str | None = None
+    simulado_tec: Path | None = None
 
 
 def resultados(contexto: Contexto) -> Resultados:
@@ -46,6 +50,8 @@ def resultados(contexto: Contexto) -> Resultados:
             for nome, titulo in TABELAS_DA_PRATICA.items()
             if (pratica / nome).is_file()
         },
+        simulado_focado=_texto(pasta / ARQUIVO_SIMULADO_FOCADO),
+        simulado_tec=pratica / ARQUIVO_SIMULADO if (pratica / ARQUIVO_SIMULADO).is_file() else None,
     )
 
 

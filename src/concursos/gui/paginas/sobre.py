@@ -1,5 +1,3 @@
-import platform
-import shutil
 from importlib.metadata import version
 from pathlib import Path
 
@@ -7,24 +5,24 @@ from nicegui import app, run, ui
 
 from concursos import doctor as diagnostico
 from concursos.aplicacao import atualizador as atualizacao
-from concursos.aplicacao import projeto
+from concursos.aplicacao import projeto, sobre
 from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.config.contexto import resolver_home
-from concursos.empacotado import embutido
 from concursos.gui import tema
 from concursos.gui.componentes.cartao import cartao
 from concursos.gui.componentes.dialogo import Dialogo
+from concursos.gui.componentes.situacao import situacao
 from concursos.gui.estado import ESTADO
 from concursos.gui.progresso import arquivo_de_log
+from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro
 
 PRIVACIDADE = (
-    'Nada sai do seu computador, salvo as integrações que você ligar (IA para ler editais, open-notebook, '
-    'PCI Concursos, aviso de versão nova), e cada uma mostra antes o que envia. A janela só atende no próprio '
-    'computador (127.0.0.1).'
+    'Privacidade: tudo fica no seu computador. Só sai algo se você ligar a IA, a busca de concursos ou os '
+    'avisos de versão nova; cada um mostra antes o que é enviado. Os seus livros não saem do computador.'
 )
 CONSULTA = 'Consulta o GitHub (só o arquivo da versão mais nova; nenhum dado seu vai junto).'
-FORA_DO_EXECUTAVEL = 'Fora do executável, atualize pelo terminal: uv tool upgrade concurso-analise'
+FORA_DO_EXECUTAVEL = 'Instalado pelo uv: atualize com `uv tool upgrade concurso-analise`.'
 SEGUNDOS_PARA_FECHAR = 3
 
 
@@ -33,23 +31,27 @@ def versao() -> str:
 
 
 def pagina() -> None:
+    resumo = sobre.resumo_do_app(resolver_home())
     with ui.column().classes('w-full max-w-2xl').style(tema.gap('md')):
         ui.label(f'concurso-analise {versao()}').classes('text-2xl font-bold').mark('versao')
-        ui.label(f'{platform.system()} {platform.machine()}, Python {platform.python_version()}')
+        with ui.row().classes('items-center').style(tema.gap('md')):
+            ui.label(resumo.sistema).mark('sistema')
+            situacao(
+                f'Leitor de folhas: {resumo.leitor_de_folhas}',
+                Tom.SUCESSO if resumo.leitor_pronto else Tom.ALERTA,
+            ).mark('tesseract')
+            situacao(
+                f'Biblioteca: {resumo.biblioteca}', Tom.SUCESSO if resumo.biblioteca_pronta else Tom.INFO
+            ).mark('biblioteca')
         log = arquivo_de_log()
         with ui.row().classes('items-center').style(tema.gap('sm')):
-            ui.label(f'Log: {log}' if log else 'Log: desligado nesta execução').mark('log')
+            ui.label('Registro de erros:' if log else 'Registro de erros: desligado nesta execução').mark(
+                'log'
+            )
             if log:
                 ui.button(
                     'Abrir a pasta', icon='folder_open', on_click=lambda: abrir_no_navegador(Path(log).parent)
-                ).props('flat dense')
-        tesseract = shutil.which('tesseract')
-        ui.label(
-            f'Tesseract: {"embutido" if embutido(tesseract) else tesseract}'
-            if tesseract
-            else 'Tesseract: não encontrado; PDFs escaneados (sem texto) não são lidos, e as respostas '
-            'podem ser digitadas se a folha não for lida'
-        ).mark('tesseract')
+                ).props('flat dense').mark('abrir-registro')
         SecaoDeAtualizacao()
         if ESTADO.projeto is not None:
             secao_do_ambiente()
