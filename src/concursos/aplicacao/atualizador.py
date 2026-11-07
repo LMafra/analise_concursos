@@ -45,6 +45,10 @@ class Transporte(Protocol):
     ) -> None: ...
 
 
+class NaoEncontrado(ErroDoAmbiente):
+    """O GitHub respondeu 404: no canal stable, ainda não há versão estável publicada."""
+
+
 class _SoGithub(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001, ANN201
         atualizador.conferir_url(newurl)
@@ -63,7 +67,7 @@ class TransporteHttps:
         try:
             return self._abridor.open(pedido, timeout=self._timeout)
         except urllib.error.HTTPError as erro:
-            raise ErroDoAmbiente(
+            raise (NaoEncontrado if erro.code == 404 else ErroDoAmbiente)(
                 'O site das versões do app não respondeu como esperado.',
                 'tente de novo mais tarde.',
                 f'GitHub respondeu {erro.code}',
@@ -159,10 +163,11 @@ def gravar_aviso(config_global: Path, ligado: bool) -> None:
 
 def _manifesto_e_assinatura(canal: CanalAtualizacao, transporte: Transporte) -> tuple[bytes, bytes] | None:
     if canal is CanalAtualizacao.STABLE:
-        return (
-            transporte.baixar(atualizador.URL_STABLE, atualizador.LIMITE_MANIFESTO),
-            transporte.baixar(f'{atualizador.URL_STABLE}.sig', atualizador.LIMITE_ASSINATURA),
-        )
+        try:
+            conteudo = transporte.baixar(atualizador.URL_STABLE, atualizador.LIMITE_MANIFESTO)
+        except NaoEncontrado:
+            return None
+        return conteudo, transporte.baixar(f'{atualizador.URL_STABLE}.sig', atualizador.LIMITE_ASSINATURA)
     try:
         releases = json.loads(transporte.baixar(atualizador.URL_RELEASES, atualizador.LIMITE_LISTA_RELEASES))
     except json.JSONDecodeError as erro:

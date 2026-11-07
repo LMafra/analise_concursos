@@ -101,6 +101,44 @@ def test_stable_na_mesma_versao_nao_oferece():
     )
 
 
+class SemVersaoEstavel(TransporteFalso):
+    def baixar(self, url: str, limite: int) -> bytes:
+        self.pedidos.append(url)
+        raise aplicacao.NaoEncontrado('não achei', 'tente de novo mais tarde.', 'GitHub respondeu 404')
+
+
+def test_stable_sem_nenhuma_versao_estavel_publicada_nao_oferece_nada():
+    transporte = SemVersaoEstavel({})
+
+    assert (
+        aplicacao.verificar(
+            CanalAtualizacao.STABLE, transporte=transporte, instalada='0.7.0b1', sistema='linux'
+        )
+        is None
+    )
+    assert transporte.pedidos == [atualizador.URL_STABLE]
+
+
+def test_transporte_separa_o_404_dos_outros_erros_do_site(monkeypatch):
+    import urllib.error
+
+    transporte = aplicacao.TransporteHttps('0.5.0')
+
+    def responder(codigo):
+        def abrir(pedido, timeout):
+            raise urllib.error.HTTPError(pedido.full_url, codigo, 'x', {}, None)
+
+        monkeypatch.setattr(transporte._abridor, 'open', abrir)
+
+    responder(404)
+    with pytest.raises(aplicacao.NaoEncontrado):
+        transporte.baixar('https://github.com/x', 10)
+    responder(500)
+    with pytest.raises(ErroDoAmbiente) as erro:
+        transporte.baixar('https://github.com/x', 10)
+    assert not isinstance(erro.value, aplicacao.NaoEncontrado)
+
+
 def test_manifesto_com_assinatura_errada_e_erro_e_nada_e_baixado():
     outra = Ed25519PrivateKey.generate()
     transporte = stable(assinatura=atualizador.assinar(manifesto(), outra))

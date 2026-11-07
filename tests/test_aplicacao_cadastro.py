@@ -45,6 +45,13 @@ def test_sem_edital_a_pasta_leva_a_data_do_cadastro(raiz, tmp_path):
     assert pasta == raiz / 'provas' / f'concurso_{date.today():%Y%m%d}'
 
 
+@pytest.mark.parametrize('nome', ['', '   '])
+def test_nome_em_branco_usa_a_pasta_automatica(raiz, tmp_path, nome):
+    pasta = cadastro.cadastrar_envio(opcoes(raiz, Roteiro()), nome, _envio(tmp_path, 'a'), None)
+
+    assert pasta == raiz / 'provas' / 'tcu_2025'
+
+
 def test_pasta_explicita_continua_valendo(raiz, tmp_path):
     pasta = cadastro.cadastrar_envio(opcoes(raiz, Roteiro()), 'meu_tcu', _envio(tmp_path, 'a'), None)
 

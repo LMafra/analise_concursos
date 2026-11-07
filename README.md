@@ -120,7 +120,7 @@ Bancas que o app já conhece: Cebraspe (certo/errado, um erro anula um acerto), 
 
 ### Instalação para usuários leigos
 
-Baixe o instalador do seu sistema na [página da última versão](https://github.com/LMafra/analise_concursos/releases/latest), em "Assets". Ele já traz tudo de que o app precisa, inclusive o leitor de PDF escaneado: não é preciso instalar mais nada nem abrir o terminal.
+Baixe o instalador do seu sistema na [página de versões](https://github.com/LMafra/analise_concursos/releases), em "Assets" da versão mais recente (enquanto o app está em teste, as versões aparecem como "Pre-release"). Ele já traz tudo de que o app precisa, inclusive o leitor de PDF escaneado: não é preciso instalar mais nada nem abrir o terminal.
 
 | Sistema | Arquivo |
 |---|---|
@@ -279,7 +279,7 @@ Se o dicionário piorar a sugestão de tema em alguma questão, a tela avisa e o
 
 A tela **Estudar** guarda seus livros numa biblioteca pesquisável e responde perguntas com o trecho e a página de onde veio a resposta. Por trás, o app usa o [open-notebook](https://github.com/lfnovo/open-notebook), um programa livre de estudo com documentos, que roda no seu próprio computador; você não precisa instalá-lo nem configurá-lo.
 
-1. Em **Estudar > Meus livros**, clique em **Preparar agora**. É um download único, de cerca de 360 MB, e você concorda com ele antes. Enquanto ele acontece, você já pode adicionar livros e buscar neles.
+1. Em **Estudar > Meus livros**, clique em **Preparar agora**. É um download único, de cerca de 420 MB no Windows e 360 MB no Linux, e você concorda com ele antes. Enquanto ele acontece, você já pode adicionar livros e buscar neles.
 2. Clique em **Adicionar livros** e escolha os arquivos: PDF, EPUB, Word (DOCX) ou TXT, até 300 MB cada. Páginas escaneadas são lidas pelo leitor de imagens do app. Um livro grande fica pesquisável aos poucos, e fechar o app não perde o trabalho: ele continua de onde parou.
 3. Em **Estudar > Perguntar**, escreva a pergunta e escolha onde procurar (todas as disciplinas ou uma só). A resposta lista os trechos encontrados, cada um com o arquivo e a página.
 

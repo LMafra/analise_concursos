@@ -160,7 +160,7 @@ def cadastrar_envio(
     folha vão para a pasta do candidato. Sem `concurso`, a pasta é a automática, pelo edital. Recusado ou
     com falha, a pasta fica como estava; devolve None se o usuário recusar."""
     contexto = opcoes.contexto
-    if concurso is None:
+    if not (concurso or '').strip():
         pasta = pasta_automatica(contexto, identificar_envio(papeis))
     else:
         pasta = pasta_do_concurso(contexto, concurso)

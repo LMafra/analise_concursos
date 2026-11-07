@@ -101,7 +101,7 @@ def test_instancia_fora_do_ar_da_dica_de_subir():
     with pytest.raises(OpenNotebookIndisponivelError) as erro:
         ClienteOpenNotebook('http://127.0.0.1:1', timeout=2).saude()
     assert erro.value.status is None
-    assert 'docker compose' in erro.value.dica
+    assert 'Configurações > Avançado' in erro.value.dica and 'docker' not in erro.value.dica.lower()
 
 
 def test_notebook_criar_obter_e_buscar_por_nome(servidor: ServidorOpenNotebook, cliente: ClienteOpenNotebook):

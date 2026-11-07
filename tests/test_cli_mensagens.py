@@ -87,7 +87,24 @@ def test_log_do_painel_da_gui_mostra_dica_e_detalhe(tela):
     avisar(logger, 'faltou algo', 'faça x', 'campo y')
 
     [linha] = andamento.retirar_linhas()
-    assert linha.endswith('WARNING faltou algo\n    dica: faça x\n    detalhe: campo y')
+    assert linha.endswith(' aviso: faltou algo\n    dica: faça x\n    detalhe: campo y')
+
+
+def test_log_do_painel_da_gui_sem_nome_de_nivel_e_sem_traceback(tela):
+    logger, _, _ = tela
+    andamento = Andamento()
+    logger.addHandler(HandlerDoPainel(andamento))
+
+    logger.info('Analisando o concurso.')
+    try:
+        raise ValueError('quebrou')
+    except ValueError:
+        logger.error('Não consegui terminar.', exc_info=True)
+
+    informacao, erro = andamento.retirar_linhas()
+    assert informacao.endswith(' Analisando o concurso.')
+    assert erro.endswith(' erro: Não consegui terminar.')
+    assert not any(nivel in informacao + erro for nivel in ('INFO', 'ERROR', 'Traceback'))
 
 
 def test_erro_do_usuario_com_detalhe(monkeypatch, capsys):

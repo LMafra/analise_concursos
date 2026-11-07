@@ -71,3 +71,23 @@ def test_chave_de_topico_ignora_acento_caixa_e_palavras_vazias():
     assert chave == chave_topico('Língua Portuguesa', 'emprego sinal indicativo, crase')
     assert chave != chave_topico('Direito Administrativo', 'Emprego do sinal indicativo de crase')
     assert chave_topico('Ética', 'Concordância Verbal') == chave_topico('Ética', 'concordancia verbal')
+
+
+def test_muitas_disciplinas_fora_da_lista_viram_contagem_com_exemplos(caplog):
+    import logging
+
+    import pandas as pd
+
+    from concursos.analytics.taxonomia import classificar
+
+    disciplinas = ['Arquivologia', 'Biologia', 'Contabilidade', 'Direito', 'Economia']
+    questoes = pd.DataFrame({'disciplina': disciplinas, 'prova': ['unica'] * 5, 'topico': ['t'] * 5})
+
+    with caplog.at_level(logging.WARNING):
+        classificar(questoes, {})
+
+    [registro] = caplog.records
+    assert registro.getMessage().startswith('5 disciplinas estão fora da lista de disciplinas equivalentes')
+    assert 'Arquivologia, Biologia e Contabilidade' in registro.getMessage()
+    assert 'Economia' not in registro.getMessage()
+    assert 'Economia' in registro.detalhe

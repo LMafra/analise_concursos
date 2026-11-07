@@ -145,10 +145,19 @@ def _releases_de_estudo(transporte: Transporte, canal: CanalAtualizacao) -> list
     return sorted(versoes, key=manifesto.chave_de_ordem, reverse=True)
 
 
+def ha_pacote_de_teste(transporte: Transporte) -> bool:
+    return bool(_releases_de_estudo(transporte, CanalAtualizacao.BETA))
+
+
 def procurar(
-    canal: CanalAtualizacao, transporte: Transporte, versao_do_app: str, sistema: str = sys.platform
+    canal: CanalAtualizacao,
+    transporte: Transporte,
+    versao_do_app: str,
+    sistema: str = sys.platform,
+    recusados: list[str] | None = None,
 ) -> PacoteDisponivel | None:
-    """O pacote mais novo do canal que este app aceita (`app_minimo`), já com a assinatura conferida."""
+    """O pacote mais novo do canal que este app aceita (`app_minimo`), já com a assinatura conferida; o
+    `app_minimo` de cada pacote recusado por versão do app vai para `recusados`."""
     alvo = plataforma(sistema)
     for versao in _releases_de_estudo(transporte, canal):
         conteudo = transporte.baixar(manifesto.url_do_manifesto(versao), atualizador.LIMITE_MANIFESTO)
@@ -162,6 +171,8 @@ def procurar(
         if canal is CanalAtualizacao.STABLE and lido.canal is not CanalAtualizacao.STABLE:
             continue
         if not manifesto.compativel(lido, versao_do_app):
+            if recusados is not None:
+                recusados.append(lido.app_minimo)
             continue
         artefato = lido.artefatos[alvo]
         return PacoteDisponivel(lido, alvo, artefato, manifesto.url_do_artefato(versao, artefato))
