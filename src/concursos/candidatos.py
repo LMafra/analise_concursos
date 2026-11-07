@@ -191,7 +191,7 @@ def completar_perfis(raiz_provas: Path, candidato: str) -> None:
         if not perfil:
             avisar(
                 logger,
-                f'{pasta.parent.name}: não achei as respostas de {pasta.name}.',
+                f'{pasta.parent.parent.name}: não achei as respostas de {pasta.name}.',
                 'ponha o arquivo de respostas ou a folha na pasta do candidato, ou cadastre pela janela '
                 '(Novo concurso).',
                 f'{pasta}: sem respostas reconhecíveis; crie o {ARQUIVO_CANDIDATO}',
@@ -200,7 +200,7 @@ def completar_perfis(raiz_provas: Path, candidato: str) -> None:
         gravar_perfil(pasta, perfil)
         avisar(
             logger,
-            f'{pasta.parent.name}: montei os dados de {pasta.name} a partir dos arquivos da pasta.',
+            f'{pasta.parent.parent.name}: montei os dados de {pasta.name} a partir dos arquivos da pasta.',
             detalhe=f'{pasta}: candidato sem perfil; {ARQUIVO_CANDIDATO} criado a partir dos arquivos',
         )
 

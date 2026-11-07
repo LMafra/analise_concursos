@@ -1,0 +1,56 @@
+# serializer version: 1
+# name: test_avisos_da_analise_na_cli
+  list([
+    'aviso: alfa: montei os dados de alice a partir dos arquivos da pasta.',
+    'detalhe: <TMP>/projeto/provas/alfa/candidatos/alice: candidato sem perfil; candidato.yaml criado a partir dos arquivos',
+    'aviso: beta: montei os dados de alice a partir dos arquivos da pasta.',
+    'detalhe: <TMP>/projeto/provas/beta/candidatos/alice: candidato sem perfil; candidato.yaml criado a partir dos arquivos',
+    'aviso: gama: montei os dados de alice a partir dos arquivos da pasta.',
+    'detalhe: <TMP>/projeto/provas/gama/candidatos/alice: candidato sem perfil; candidato.yaml criado a partir dos arquivos',
+    'aviso: alfa: não encontrei a regra de correção no edital. Vou usar a regra padrão da FGV.',
+    'dica: se estiver errada, ajuste em Concursos > Conferir > Dados do edital.',
+    'detalhe: regra do perfil da banca fgv (fator 0); o edital e o concurso.yaml não a trazem',
+    'aviso: beta: não encontrei a regra de correção no edital. Vou usar a regra padrão da FGV.',
+    'dica: se estiver errada, ajuste em Concursos > Conferir > Dados do edital.',
+    'detalhe: regra do perfil da banca fgv (fator 0); o edital e o concurso.yaml não a trazem',
+    'aviso: gama: não encontrei a regra de correção no edital. Vou usar a regra padrão da FGV.',
+    'dica: se estiver errada, ajuste em Concursos > Conferir > Dados do edital.',
+    'detalhe: regra do perfil da banca fgv (fator 0); o edital e o concurso.yaml não a trazem',
+  ])
+# ---
+# name: test_erro_sem_pasta_de_provas_na_cli
+  '''
+  erro: Não encontrei a pasta onde ficam suas provas (<TMP>/provas).
+  dica: cadastre um concurso pela janela (Novo concurso) ou com concurso-analise add, ou indique a pasta com --provas.
+  
+  '''
+# ---
+# name: test_erros_na_janela
+  list([
+    tuple(
+      'erro: Falta o seu nome.',
+      'dica: escreva o seu nome para continuar.',
+      None,
+    ),
+    tuple(
+      'erro: Não consegui falar com o open-notebook.',
+      'dica: ligue o seu open-notebook e confira o endereço em Configurações > Avançado.',
+      'URLError: [Errno 111] Connection refused',
+    ),
+    tuple(
+      'erro: Um dos dados guardados tem um valor que o app não aceita.',
+      'dica: corrija pela tela (Configurações ou Concursos > Conferir) ou no arquivo citado no detalhe.',
+      '[analise] limiar_confianca: 1.5 fora de [0, 1]',
+    ),
+  ])
+# ---
+# name: test_rotulos_da_janela
+  dict({
+    'formatos': dict({
+      'csv': 'Planilha (abre no Excel)',
+      'md': 'Texto',
+      'parquet': 'Para programadores (Parquet)',
+    }),
+    'sem_leitura_de_imagem': 'Falta o componente que lê PDF escaneado: edital e prova escaneados (sem texto) não são lidos, e o concurso segue sem o conteúdo do edital. A folha de respostas é lida sem ele; se ela não for lida, digite as suas respostas.',
+  })
+# ---

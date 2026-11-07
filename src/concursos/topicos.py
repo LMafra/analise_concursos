@@ -253,7 +253,9 @@ def gravar_revisao(caminho: Path, linhas: list[dict]) -> bool:
     tabela['enunciado'] = tabela['enunciado'].str.slice(0, TAMANHO_ENUNCIADO)
     tabela[COLUNAS_REVISAO].to_csv(caminho, index=False)
     logger.info(
-        'Revisão de tópicos criada em %s: preencha disciplina/topico para corrigir sugestões', caminho
+        'Criei a lista para conferir os tópicos das questões (%s); confira em Concursos > Conferir > '
+        'Tópicos das questões.',
+        caminho,
     )
     return True
 

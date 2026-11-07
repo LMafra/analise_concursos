@@ -1,0 +1,47 @@
+<details id="detalhes-tecnicos">
+<summary><h2>Detalhes técnicos</h2></summary>
+<p class="nota">Para quem quer conferir as contas: as regras usadas, as decisões automáticas e os números de cada análise.</p>
+<h3>Como o app chegou nesses números</h3>
+<ul>
+<li>alfa: o nome “alfa” não veio do edital; confirme na tela Concursos.<br><span class="nota">Detalhe técnico: nome do concurso: alfa (da pasta do concurso); a confirmar em Concursos</span></li>
+<li>alfa: o edital não traz a regra de correção; usei a regra padrão da banca.<br><span class="nota">Detalhe técnico: regra de correção do perfil da banca (bruta, fator 0): o edital e o concurso.yaml não a trazem</span></li>
+<li>beta: o nome “beta” não veio do edital; confirme na tela Concursos.<br><span class="nota">Detalhe técnico: nome do concurso: beta (da pasta do concurso); a confirmar em Concursos</span></li>
+<li>beta: o edital não traz a regra de correção; usei a regra padrão da banca.<br><span class="nota">Detalhe técnico: regra de correção do perfil da banca (bruta, fator 0): o edital e o concurso.yaml não a trazem</span></li>
+<li>gama: o nome “gama” não veio do edital; confirme na tela Concursos.<br><span class="nota">Detalhe técnico: nome do concurso: gama (da pasta do concurso); a confirmar em Concursos</span></li>
+<li>gama: o edital não traz a regra de correção; usei a regra padrão da banca.<br><span class="nota">Detalhe técnico: regra de correção do perfil da banca (bruta, fator 0): o edital e o concurso.yaml não a trazem</span></li>
+</ul>
+<h3>Observações sobre os dados</h3>
+<p>Nenhuma observação.</p>
+<h3>Regras de correção e nível do edital</h3>
+<table>
+<caption>De onde veio a regra de correção e quanto do edital o app conseguiu ler.</caption>
+<tr><th scope="col">Concurso</th><th scope="col">Edital</th><th scope="col">Correção</th></tr>
+<tr><td>alfa</td><td><span class="selo info">sem edital</span></td><td><span class="selo atencao">regra padrão da banca (0,50)</span></td></tr>
+<tr><td>beta</td><td><span class="selo info">sem edital</span></td><td><span class="selo atencao">regra padrão da banca (0,50)</span></td></tr>
+<tr><td>gama</td><td><span class="selo info">sem edital</span></td><td><span class="selo atencao">regra padrão da banca (0,50)</span></td></tr>
+</table>
+<h3>Quanto falta para o corte (tabela técnica)</h3>
+<p>Nenhum concurso com corte no edital.</p>
+<h3>Relatório de evolução</h3>
+<p>12 questões de 3 concursos. Os percentuais são ajustados ao acaso, e a evolução se lê pelo z-score.</p>
+<h4>1. Em quais disciplinas melhorei de forma significativa (p &lt; 0,05)?</h4>
+<p>Nenhuma disciplina melhorou de forma significativa (p &lt; 0,05). 0 de 1 séries de disciplina têm 3 concursos ou mais com n ≥ 5.</p>
+<h4>2. Quais tópicos continuam fracos?</h4>
+<p>Nenhum tópico fica abaixo de 60% (ajustado) em 2 concursos ou mais, com n somado ≥ 5.</p>
+<h4>3. Qual a correlação entre a ordem e o z-score médio?</h4>
+<p>A média dos z-scores de um concurso fica perto de 0 por construção, então ela não mede tendência. A medida geral é a correlação entre a ordem e o percentual ajustado de cada concurso: ρ = -1,00, p = 0,333, 3 concursos.</p>
+<h4>4. O ranking de concursos muda entre bruto, corrigido e ajustado?</h4>
+<p>O ranking não muda entre bruto, corrigido e ajustado (3 linhas).</p>
+<h4>Sensibilidade: sem o nível médio</h4>
+<p>Nenhum concurso de nível médio na base.</p>
+<h4>Nota final pela regra do edital</h4>
+<p>Nenhum concurso com desconto por erro ou pesos.</p>
+<h4>Figuras</h4>
+<p><img src="consolidado/evolucao_zscore.png" alt="Evolução do z-score: só disciplinas com 3 concursos ou mais com n ≥ 5" /></p>
+<p><img src="consolidado/heatmap_topicos.png" alt="Percentual por tópico e concurso: tópicos em 2 concursos ou mais" /></p>
+<p><img src="consolidado/painel_correcao.png" alt="Painel de correção: bruto, corrigido e ajustado por concurso" /></p>
+
+<p class="nota">Simulados ficam fora do consolidado e das tendências, a não ser com <code>incluir_simulados = true</code> em <code>[analise]</code>.</p>
+</details>
+<footer>Gerado por concurso-analise <VERSAO> em <DATA> a partir de provas.</footer>
+</main>
