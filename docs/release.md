@@ -9,7 +9,7 @@ Como gerar, conferir e publicar uma versão. O `release.yml` faz o build e os ga
 A chave pública fica em `atualizador.CHAVES_PUBLICAS`; a privada (Ed25519, PEM) nunca entra no repositório.
 
 1. `uv run python scripts/assinar_manifesto.py gerar-chave <destino.pem>` gera o par com permissão 600 e imprime a chave pública, que vai para `CHAVES_PUBLICAS`.
-2. No GitHub, Settings > Environments > New environment: `release`. Ligue "Required reviewers" com o mantenedor e restrinja "Deployment branches and tags" às tags `v*`.
+2. No GitHub, Settings > Environments > New environment: `release`. Ligue "Required reviewers" com o mantenedor e restrinja "Deployment branches and tags" às tags `v*` e à branch `main` (o `estudo.yml` publica o pacote de estudo a partir dela, pela agenda ou à mão).
 3. Em `release`, crie o secret `CHAVE_ATUALIZACAO` com o PEM inteiro (com as linhas `-----BEGIN PRIVATE KEY-----` e `-----END PRIVATE KEY-----`).
 4. Guarde uma cópia do PEM num cofre de senhas e apague o arquivo local.
 
