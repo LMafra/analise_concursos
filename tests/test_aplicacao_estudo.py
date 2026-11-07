@@ -68,7 +68,8 @@ def test_baixar_exige_consentimento_e_rede(contexto):
 
 @pytest.fixture
 def no_linux(monkeypatch):
-    monkeypatch.setattr('sys.platform', 'linux')
+    original = instalacao.plataforma
+    monkeypatch.setattr(instalacao, 'plataforma', lambda sistema=None: original('linux'))
 
 
 def _com_app(monkeypatch, versao):
