@@ -8,7 +8,6 @@ from concursos.linguagem import TERMOS_TECNICOS_DA_MENSAGEM
 PACOTE = Path(__file__).parent.parent / 'src' / 'concursos'
 FORA = {'cli/legado.py'}
 PENDENTES: set[str] = {
-    'analytics/correcao.py',
     'analytics/dicionario_topicos.py',
     'aplicacao/analise.py',
     'atualizador.py',
@@ -18,7 +17,6 @@ PENDENTES: set[str] = {
     'integracoes/pci_mcp.py',
     'livros/leitura.py',
     'llm.py',
-    'pipeline.py',
 }
 
 

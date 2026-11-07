@@ -130,6 +130,11 @@ _TRADUCOES_DE_AVISO = (
         'a nota de corte do cadastro ({cadastro}) é diferente da do edital ({edital}); vale a do edital.',
     ),
     (
+        re.compile(r'^corte por (?P<tipo>.+) não calculável localmente'),
+        'o edital define um corte por {tipo}, que não dá para calcular só com a sua prova; ele fica de fora na '
+        'comparação com o corte.',
+    ),
+    (
         re.compile(r'^cronograma do edital sem data de (?P<datas>.+); ficam vazias$'),
         'o edital não traz a data de {datas}.',
     ),

@@ -6,6 +6,7 @@ import pytest
 from concursos.cli import main
 from concursos.cli.erros import ARQUIVO_LOG, FormatoDoConsole, configurar_log
 from concursos.erros import ErroDoUsuario, avisar
+from concursos.gui.progresso import Andamento, HandlerDoPainel
 
 
 @pytest.fixture
@@ -76,6 +77,17 @@ def test_arquivo_de_log_guarda_dica_e_detalhe(tmp_path):
     texto = arquivo.read_text(encoding='utf-8')
     assert arquivo.name == ARQUIVO_LOG
     assert 'faltou algo\n    dica: faça x\n    detalhe: campo y' in texto
+
+
+def test_log_do_painel_da_gui_mostra_dica_e_detalhe(tela):
+    logger, _, _ = tela
+    andamento = Andamento()
+    logger.addHandler(HandlerDoPainel(andamento))
+
+    avisar(logger, 'faltou algo', 'faça x', 'campo y')
+
+    [linha] = andamento.retirar_linhas()
+    assert linha.endswith('WARNING faltou algo\n    dica: faça x\n    detalhe: campo y')
 
 
 def test_erro_do_usuario_com_detalhe(monkeypatch, capsys):

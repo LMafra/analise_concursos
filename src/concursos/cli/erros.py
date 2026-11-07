@@ -3,7 +3,14 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from concursos.erros import CODIGO_AMBIENTE, CODIGO_USUARIO, ErroDoAmbiente, ErroDoUsuario
+from concursos.erros import (
+    CODIGO_AMBIENTE,
+    CODIGO_USUARIO,
+    ErroDoAmbiente,
+    ErroDoUsuario,
+    FormatoComDica,
+    linhas_extras,
+)
 
 __all__ = [
     'ARQUIVO_LOG',
@@ -43,7 +50,7 @@ def configurar_log(pasta_logs: Path, nivel: int = logging.INFO) -> Path | None:
     except OSError:
         return None
     arquivo.setLevel(logging.DEBUG)
-    arquivo.setFormatter(_FormatoDoArquivo('%(asctime)s %(levelname)s %(name)s: %(message)s'))
+    arquivo.setFormatter(FormatoComDica('%(asctime)s %(levelname)s %(name)s: %(message)s'))
     _adicionar(arquivo)
     return caminho
 
@@ -56,23 +63,10 @@ class FormatoDoConsole(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         prefixo = self._PREFIXOS.get(min(record.levelno, logging.ERROR) // 10 * 10, '')
-        linhas = [prefixo + record.getMessage(), *_linhas_extras(record)]
+        linhas = [prefixo + record.getMessage(), *linhas_extras(record)]
         if record.exc_info:
             linhas.append(self.formatException(record.exc_info))
         return '\n'.join(linhas)
-
-
-class _FormatoDoArquivo(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        return '\n'.join([super().format(record), *(f'    {linha}' for linha in _linhas_extras(record))])
-
-
-def _linhas_extras(record: logging.LogRecord) -> list[str]:
-    return [
-        f'{rotulo}: {valor}'
-        for rotulo in ('dica', 'detalhe')
-        if (valor := getattr(record, rotulo, None)) not in (None, '')
-    ]
 
 
 def ajustar_nivel_console(nivel: int) -> None:

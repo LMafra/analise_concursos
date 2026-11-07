@@ -262,7 +262,11 @@ def test_disciplina_sem_mapeamento_vira_canonica_de_si_mesma_com_aviso(base, cap
     assert outro['disciplina_canonica'].tolist() == ['Português', 'Redes', 'TI']
     assert outro['bloco'].tolist() == ['nao_informado'] * 3
     assert consolidado.query("concurso == 'dividida'")['bloco'].tolist() == ['especifico'] * 3
-    assert "fora da taxonomia: ['Português', 'Redes', 'TI']" in caplog.text
+    assert 'Português, Redes, TI: fora da lista de disciplinas equivalentes' in caplog.text
+    assert any(
+        "fora da taxonomia: ['Português', 'Redes', 'TI']" in str(getattr(r, 'detalhe', ''))
+        for r in caplog.records
+    )
 
 
 def test_sem_arquivo_de_taxonomia_cada_disciplina_e_canonica_de_si_mesma(base):

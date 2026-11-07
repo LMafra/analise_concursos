@@ -1,7 +1,7 @@
 import logging
 
 import yaml
-from conftest import analisar, criar_concurso
+from conftest import analisar, criar_concurso, log_completo
 
 from concursos.cli import main
 from concursos.concurso_config import carregar_concurso
@@ -77,7 +77,7 @@ def test_concurso_incompleto_nao_impede_analise_dos_demais(raizes, caplog):
 
     assert (analises / 'completo' / 'desempenho_por_disciplina.csv').exists()
     assert not (analises / 'sem_respostas').exists()
-    assert 'sem_respostas' in caplog.text and 'incompleto' in caplog.text
+    assert 'sem_respostas' in caplog.text and 'incompleto' in log_completo(caplog)
 
 
 def test_erro_em_um_concurso_nao_impede_os_demais_mas_retorna_falha(raizes):
@@ -173,7 +173,7 @@ def test_caderno_e_resultado_oficial_ausentes_so_avisam(raizes, capsys, caplog):
     with caplog.at_level(logging.WARNING):
         assert analisar(provas, analises) == 0
     assert (analises / 'sem_opcionais' / 'relatorio.md').exists()
-    assert 'prova.pdf: caderno ausente' in caplog.text
+    assert 'prova.pdf: não encontrei o caderno de questões' in caplog.text
 
 
 def test_concurso_sem_edital_fica_incompleto(raizes, capsys):

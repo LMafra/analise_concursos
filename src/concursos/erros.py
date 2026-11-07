@@ -33,3 +33,18 @@ def linhas_do_erro(erro: BaseException) -> list[str]:
 def avisar(logger: logging.Logger, texto: str, dica: str | None = None, detalhe: str | None = None) -> None:
     """Aviso em até três linhas na tela (`aviso:`, `dica:` e `detalhe:`); o texto não passa por `%`."""
     logger.warning('%s', texto, extra={'dica': dica, 'detalhe': detalhe})
+
+
+def linhas_extras(record: logging.LogRecord) -> list[str]:
+    return [
+        f'{rotulo}: {valor}'
+        for rotulo in ('dica', 'detalhe')
+        if (valor := getattr(record, rotulo, None)) not in (None, '')
+    ]
+
+
+class FormatoComDica(logging.Formatter):
+    """O formato pedido na primeira linha e a `dica:` e o `detalhe:` recuados nas seguintes."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return '\n'.join([super().format(record), *(f'    {linha}' for linha in linhas_extras(record))])

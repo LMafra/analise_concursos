@@ -8,6 +8,7 @@ import pandas as pd
 import yaml
 
 from concursos.correcao import TOPICO_NAO_MAPEADO
+from concursos.erros import avisar
 from concursos.modelo import Bloco
 from concursos.topicos import chave_de_palavras
 
@@ -57,7 +58,13 @@ def classificar(questoes: pd.DataFrame, taxonomia: dict[str, DisciplinaCanonica]
     """
     fora = sorted(set(questoes['disciplina']) - set(taxonomia) - {TOPICO_NAO_MAPEADO})
     if fora:
-        logger.warning('disciplinas fora da taxonomia: %s; cada uma conta como canônica de si mesma', fora)
+        avisar(
+            logger,
+            f'{", ".join(fora)}: fora da lista de disciplinas equivalentes; cada uma conta como uma disciplina '
+            'à parte.',
+            'junte as que forem a mesma disciplina em Disciplinas e temas.',
+            f'disciplinas fora da taxonomia: {fora}; cada uma conta como canônica de si mesma',
+        )
     canonicas = questoes['disciplina'].map(
         lambda bruto: taxonomia.get(bruto) or DisciplinaCanonica(bruto, Bloco.NAO_INFORMADO)
     )

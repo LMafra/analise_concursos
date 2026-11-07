@@ -35,6 +35,15 @@ def test_traduz_o_corte_diferente_e_a_mencao_no_edital():
     )
 
 
+def test_traduz_o_corte_nao_calculavel():
+    assert traduzir_aviso(
+        'corte por escore padronizado não calculável localmente; fica fora do "atingido"'
+    ) == (
+        'o edital define um corte por escore padronizado, que não dá para calcular só com a sua prova; '
+        'ele fica de fora na comparação com o corte.'
+    )
+
+
 def test_aviso_desconhecido_fica_sem_traducao():
     assert traduzir_aviso('algo novo que ninguém previu') is None
 

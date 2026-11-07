@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import yaml
-from conftest import ler_csv
+from conftest import ler_csv, log_completo
 from editais_bancas import PF_2025
 from PIL import Image
 
@@ -68,15 +68,15 @@ def test_dica_do_tesseract_traz_o_comando_do_sistema(projeto, caplog, monkeypatc
     with caplog.at_level(logging.WARNING):
         assert main(['--all-candidates']) == 0
 
-    assert 'brew install tesseract' in caplog.text
-    assert 'apt' not in caplog.text
+    assert 'brew install tesseract' in log_completo(caplog)
+    assert 'apt' not in log_completo(caplog)
 
 
 def test_edital_em_imagem_sem_tesseract_cai_no_modo_minimo_e_pede_confirmacao(projeto, caplog):
     with caplog.at_level(logging.WARNING):
         assert main(['--all-candidates']) == 0
 
-    assert 'Tesseract' in caplog.text and 'dica:' in caplog.text
+    assert 'Tesseract' in log_completo(caplog) and 'dica:' in log_completo(caplog)
     confirmar = yaml.safe_load((pasta(projeto) / CONFIRMAR).read_text(encoding='utf-8'))
     assert confirmar == {
         'data_prova': None,

@@ -35,9 +35,11 @@ from concursos.edital import (
 )
 from concursos.edital_a_confirmar import gravar_confirmacao
 from concursos.edital_llm import completar_com_llm
+from concursos.erros import avisar
 from concursos.folha import FolhaIlegivelError, ler_folha
 from concursos.gabarito import carregar_gabarito, validar_contagem
 from concursos.graficos import gerar_graficos
+from concursos.linguagem import SITUACAO_DO_GABARITO
 from concursos.llm import ClienteLlm
 from concursos.modelo import Etapa, ItemGabarito, RespostaMarcada
 from concursos.perfis import PerfilOcr, perfil_da_banca
@@ -189,13 +191,25 @@ def _analisar_se_necessario(
         logger.info('%s: sem mudanças desde a última análise', situacao.nome)
         return situacao, True
     if situacao.situacao is not Situacao.COMPLETO:
-        logger.warning('%s: %s, pulando: %s', situacao.nome, situacao.situacao, '; '.join(situacao.motivos))
+        avisar(
+            logger,
+            f'{situacao.nome}: o cadastro deste concurso não está completo; pulei a análise dele.',
+            'complete o que falta em Concursos (ou rode concurso-analise status para ver o quê).',
+            f'{situacao.situacao}: {"; ".join(situacao.motivos)}',
+        )
         return situacao, True
     manifesto.invalidar(destino)
     try:
         analisar_concurso(situacao.config, destino, configuracao, taxonomia, etapa)
     except (ValueError, FileNotFoundError, RuntimeError) as erro:
-        logger.error('%s: falha na análise: %s', situacao.nome, erro)
+        logger.error(
+            '%s',
+            f'{situacao.nome}: não consegui analisar este concurso; os outros seguem normalmente.',
+            extra={
+                'dica': getattr(erro, 'dica', None) or 'confira os arquivos do concurso em Concursos.',
+                'detalhe': f'falha na análise: {erro}',
+            },
+        )
         return situacao, False
     manifesto.gravar(pasta, destino, candidato, extras)
     return situacao, True
@@ -208,28 +222,28 @@ def analisar_concurso(
     taxonomia: dict[str, DisciplinaCanonica] | None = None,
     etapa: Callable[[Etapa], None] | None = None,
 ) -> None:
-    def avisar(atual: Etapa) -> None:
+    def anunciar(atual: Etapa) -> None:
         if etapa is not None:
             etapa(atual)
 
     logger.info('Analisando %s', config.nome)
     if taxonomia is None:
         taxonomia = _taxonomia_do_contexto()
-    avisar(Etapa.LENDO_ARQUIVOS)
+    anunciar(Etapa.LENDO_ARQUIVOS)
     documentos = _paginas_dos_documentos(config)
     edital = _ler_edital(config, documentos)
     gabaritos = {prova.chave: _ler_gabarito(config, prova) for prova in config.provas}
-    avisar(Etapa.LENDO_FOLHA)
+    anunciar(Etapa.LENDO_FOLHA)
     respostas = _ler_respostas(config, destino, configuracao.limiar_confianca, configuracao.perfil_calibrado)
-    avisar(Etapa.CORRIGINDO)
+    anunciar(Etapa.CORRIGINDO)
     resultados = corrigir(config, gabaritos, respostas, _disciplinas_por_questao(config))
-    avisar(Etapa.CLASSIFICANDO)
+    anunciar(Etapa.CLASSIFICANDO)
     resultados = _classificar_topicos(config, edital, resultados, configuracao.dicionario, taxonomia)
     validacao = validar_resultado(config, resultados)
     if validacao is not None and validacao.alerta:
-        logger.warning('%s: %s', config.nome, validacao.descricao)
+        avisar(logger, f'{config.nome}: {validacao.descricao}', detalhe=f'arquivo {validacao.arquivo}')
 
-    avisar(Etapa.GERANDO_RELATORIOS)
+    anunciar(Etapa.GERANDO_RELATORIOS)
     destino.mkdir(parents=True, exist_ok=True)
     tabela = _tabela_respostas(config, respostas, configuracao.limiar_confianca)
     tabela.to_csv(destino / ARQUIVO_RESPOSTAS, index=False)
@@ -299,7 +313,12 @@ def _taxonomia_do_contexto() -> dict[str, DisciplinaCanonica] | None:
     try:
         mapeamento = carregar_taxonomia(caminho)
     except TaxonomiaInvalidaError as erro:
-        logger.warning('%s; disciplinas do edital comparadas só pelo nome', erro)
+        avisar(
+            logger,
+            'não consegui ler a lista de disciplinas equivalentes; comparei as disciplinas do edital só pelo nome.',
+            'corrija a lista em Disciplinas e temas.',
+            str(erro),
+        )
         return None
     return mapeamento or None
 
@@ -338,20 +357,22 @@ def _ler_edital(config: ConcursoConfig, documentos: dict[str, list[str]]) -> Edi
         except OcrIndisponivelError:
             sem_ocr.append(arquivo)
     if sem_ocr:
-        logger.warning(
-            '%s: %s sem texto e o Tesseract não está instalado; seguindo em modo mínimo, sem o conteúdo '
-            'programático. dica: instale o Tesseract com o idioma português (%s) ou rode '
-            '`concurso-analise doctor`',
-            config.nome,
-            ', '.join(sem_ocr),
-            comando_de_correcao('tesseract'),
+        avisar(
+            logger,
+            f'{config.nome}: não consegui ler o edital escaneado porque falta o componente de leitura de PDF '
+            'escaneado. Segui sem o conteúdo do edital; os tópicos das questões ficam sem classificação.',
+            'o instalador já traz esse componente; na versão de terminal, instale-o com '
+            f'{comando_de_correcao("tesseract")} ou rode concurso-analise doctor.',
+            f'{", ".join(sem_ocr)} sem texto e o Tesseract não está instalado; modo mínimo, tópicos nao_mapeado',
         )
     else:
-        logger.warning(
-            '%s: %s; seguindo sem o conteúdo programático, com os tópicos como nao_mapeado. dica: forneça um '
-            'edital manual (edital.manual no concurso.yaml; formato em docs/modelo.md)',
-            config.nome,
-            '; '.join(erros),
+        avisar(
+            logger,
+            f'{config.nome}: não encontrei o conteúdo programático no edital. Segui sem ele; os tópicos das '
+            'questões ficam sem classificação.',
+            'confira se o arquivo é mesmo o edital; se for, você pode digitar o conteúdo num edital manual '
+            '(formato em docs/modelo.md).',
+            f'{"; ".join(erros)}; tópicos nao_mapeado',
         )
     return None
 
@@ -483,8 +504,11 @@ def _textos_das_questoes(config: ConcursoConfig) -> dict[int, str]:
 def _caderno_presente(config: ConcursoConfig, prova: ProvaConfig) -> bool:
     if config.caminho(prova.caderno).exists():
         return True
-    logger.warning(
-        '%s: caderno ausente; a prova %s segue sem o texto das questões', prova.caderno, prova.chave
+    avisar(
+        logger,
+        f'{prova.caderno}: não encontrei o caderno de questões; a prova {prova.chave} segue sem o texto delas.',
+        'coloque o PDF do caderno na pasta do concurso, com esse nome.',
+        'caderno ausente',
     )
     return False
 
@@ -493,11 +517,12 @@ def _ler_gabarito(config: ConcursoConfig, prova: ProvaConfig) -> list[ItemGabari
     arquivo = prova.gabarito.arquivo
     gabarito = carregar_gabarito(config.caminho(arquivo), config)
     if gabarito.status_detectado and gabarito.status_detectado != prova.gabarito.status:
-        logger.warning(
-            '%s: gabarito configurado como %s, mas o arquivo indica %s',
-            arquivo,
-            prova.gabarito.status,
-            gabarito.status_detectado,
+        avisar(
+            logger,
+            f'{arquivo}: o cadastro diz que o gabarito é {SITUACAO_DO_GABARITO[prova.gabarito.status]}, '
+            f'mas o arquivo parece ser {SITUACAO_DO_GABARITO[gabarito.status_detectado]}.',
+            'confira a situação do gabarito em Concursos.',
+            f'gabarito configurado como {prova.gabarito.status}, mas o arquivo indica {gabarito.status_detectado}',
         )
     validar_contagem(gabarito.itens, prova.questoes, prova.chave, arquivo)
     return gabarito.itens
