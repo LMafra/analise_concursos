@@ -121,9 +121,12 @@ def test_relatorio_referencia_graficos_existentes_e_questoes_para_revisar(raizes
     imagens = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', relatorio)
     assert {'graficos/desempenho_por_disciplina.png', 'graficos/desempenho_por_topico.png'} <= set(imagens)
     assert all((destino / imagem).stat().st_size > 0 for imagem in imagens)
-    revisar = secao(relatorio, 'Questões para revisar')
-    assert '| 4 |' in revisar
-    assert '- Gabarito: preliminar' in relatorio
+    conferir = secao(relatorio, 'O que conferir')
+    assert 'questões 4' in conferir or ', 4' in conferir
+    assert '| 4 |' in secao(relatorio, 'Detalhes técnicos')
+    assert '- Gabarito: preliminar (provisório)' in relatorio
+    principal = relatorio.split('## Detalhes técnicos', 1)[0]
+    assert not {'nota_liquida', 'confianca_ocr', 'score', 'percentual'} & set(re.findall(r'\w+', principal))
 
 
 def test_concurso_analisado_que_perde_o_cadastro_nao_quebra_o_consolidado(raizes):

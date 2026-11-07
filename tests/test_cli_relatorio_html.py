@@ -56,6 +56,17 @@ def test_indice_liga_cada_concurso_ao_seu_relatorio_com_os_numeros(projeto):
     assert '<table>' in relatorio.read_text(encoding='utf-8')
 
 
+def test_relatorio_do_concurso_fecha_os_detalhes_tecnicos(projeto):
+    assert main(['--candidate', 'alice']) == 0
+
+    html = (projeto / 'analises' / 'alice' / 'alfa' / 'relatorio.html').read_text(encoding='utf-8')
+    principal, tecnico = html.split('<details>\n<summary><h2>Detalhes técnicos</h2></summary>')
+    assert '<h2>Resumo</h2>' in principal and '<h2>O que conferir</h2>' in principal
+    for termo in ('nota_liquida', 'confianca_ocr', 'score', 'similaridade', 'TF-IDF'):
+        assert termo not in principal
+    assert 'nota_liquida' in tecnico
+
+
 def test_percentual_do_indice_segue_a_regra_da_banca(projeto):
     pasta = projeto / 'provas' / 'gama'
     pasta.mkdir(parents=True)

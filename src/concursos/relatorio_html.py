@@ -48,6 +48,7 @@ from concursos.integracoes.radar_pci import ARQUIVO_RADAR
 from concursos.linguagem import SELOS, percentual, plural, traduzir_aviso
 from concursos.pipeline import ARQUIVO_RESPOSTAS
 from concursos.pratica_tec import ARQUIVO_RESUMO, PASTA_PRATICA
+from concursos.relatorio import TITULO_DETALHES_TECNICOS
 from concursos.resultado_oficial import formatar
 from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
 
@@ -55,7 +56,6 @@ logger = logging.getLogger(__name__)
 
 ARQUIVO_INDICE = 'index.html'
 ARQUIVO_RELATORIO_HTML = 'relatorio.html'
-TITULO_DETALHES_TECNICOS = 'Detalhes técnicos'
 _SELOS_DA_CORRECAO = {
     'edital': ('regra do edital', 'ok'),
     'config': ('regra do cadastro', 'info'),
