@@ -13,6 +13,7 @@ import yaml
 
 from concursos.config.contexto import ler_toml
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
+from concursos.erros import avisar
 
 logger = logging.getLogger(__name__)
 
@@ -238,8 +239,10 @@ def _arquivo(citacao: Citacao, repositorio: Path) -> Path | None:
     else:
         candidatos = sorted(pasta.glob(f'**/*-{citacao.numero}-*.md'))
         if len(candidatos) > 1:
-            logger.warning(
-                'legislação: %s sem ano casa com %d arquivos; ficou de fora', citacao.rotulo, len(candidatos)
+            avisar(
+                logger,
+                f'legislação: {citacao.rotulo} sem o ano bate com {len(candidatos)} normas diferentes; deixei de '
+                'fora.',
             )
             return None
     return candidatos[0] if candidatos else None
@@ -298,7 +301,12 @@ def normas_citadas(citacoes: Iterable[Citacao], repositorio: Path) -> dict[str, 
     for citacao in citacoes:
         norma = resolver(citacao, repositorio)
         if norma is None:
-            logger.warning('legislação: %s não encontrada em %s; %s', citacao.rotulo, repositorio, DICA_CLONE)
+            avisar(
+                logger,
+                f'legislação: não achei o texto de {citacao.rotulo} na sua cópia das leis; deixei de fora.',
+                DICA_CLONE,
+                f'{citacao.rotulo} não encontrada em {repositorio}',
+            )
             continue
         normas.setdefault(norma.chave, (norma, citacao))
     return normas

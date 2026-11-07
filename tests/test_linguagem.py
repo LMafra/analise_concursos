@@ -2,7 +2,15 @@ import pytest
 from test_analytics_regras_edital import CARGOS_PF, config
 
 from concursos.analytics.regras_edital import extrair_regras
-from concursos.linguagem import TERMOS_TECNICOS_DA_MENSAGEM, rotulo_do_arquivo, traduzir_aviso
+from concursos.concurso_config import ConfiguracaoInvalidaError
+from concursos.erros import ErroDoUsuario
+from concursos.linguagem import (
+    TERMOS_TECNICOS_DA_MENSAGEM,
+    erro_para_a_tela,
+    rotulo_do_arquivo,
+    traduzir_aviso,
+)
+from concursos.perfis.banca import PerfilInvalidoError
 
 
 def _sem_prefixo(aviso: str) -> str:
@@ -54,3 +62,33 @@ def test_rotulo_do_arquivo():
     )
     assert rotulo_do_arquivo('provas/') == 'Suas provas (provas/)'
     assert rotulo_do_arquivo('outro.txt') == 'outro.txt'
+
+
+@pytest.mark.parametrize(
+    'erro',
+    [
+        ConfiguracaoInvalidaError('concurso.yaml: banca = 3 é inválido'),
+        PerfilInvalidoError("banca 'xyz' sem perfil (use cebraspe, fgv)"),
+        FileNotFoundError(2, 'No such file or directory', 'provas/alfa/gabarito.pdf'),
+    ],
+)
+def test_erro_de_validacao_vira_causa_leiga_com_o_tecnico_no_detalhe(erro: Exception):
+    traduzido = erro_para_a_tela(erro)
+    assert isinstance(traduzido, ErroDoUsuario)
+    assert traduzido.detalhe == str(erro)
+    assert traduzido.dica
+    assert not any(termo in traduzido.causa for termo in TERMOS_TECNICOS_DA_MENSAGEM)
+
+
+def test_erro_comum_continua_com_o_proprio_texto():
+    traduzido = erro_para_a_tela(ValueError('você digitou E na questão 3, que só tem A a D'))
+    assert (traduzido.causa, traduzido.dica, traduzido.detalhe) == (
+        'você digitou E na questão 3, que só tem A a D',
+        None,
+        None,
+    )
+
+
+def test_erro_do_usuario_passa_igual():
+    erro = ErroDoUsuario('Falta o seu nome.', 'escreva o nome.')
+    assert erro_para_a_tela(erro) is erro

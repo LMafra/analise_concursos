@@ -76,7 +76,7 @@ def test_perfil_que_nao_le_a_folha_cai_na_deteccao_automatica(raizes, caplog):
     with caplog.at_level(logging.INFO):
         assert analisar(provas, analises) == 0
 
-    assert 'detecção automática' in caplog.text
+    assert 'detecção automática' in log_completo(caplog)
     respostas = ler_csv(analises / 'ficticia' / 'respostas_extraidas.csv')
     assert ''.join(respostas['alternativa_marcada']) == ''.join(MARCAS[q] for q in range(1, TOTAL + 1))
 

@@ -4,6 +4,7 @@ from nicegui import ui
 
 from concursos.erros import ErroDoUsuario
 from concursos.gui.progresso import arquivo_de_log
+from concursos.linguagem import erro_para_a_tela
 
 Elemento = TypeVar('Elemento', bound=ui.element)
 
@@ -19,7 +20,8 @@ def linhas_do_erro(erro: BaseException) -> tuple[str, str | None]:
     if isinstance(erro, ErroDoUsuario):
         return f'erro: {erro.causa}', f'dica: {erro.dica}' if erro.dica else None
     if isinstance(erro, ValueError | FileNotFoundError):
-        return f'erro: {erro}', None
+        traduzido = erro_para_a_tela(erro)
+        return f'erro: {traduzido.causa}', f'dica: {traduzido.dica}' if traduzido.dica else None
     log = arquivo_de_log()
     return 'erro: falha inesperada', f'dica: detalhes em {log}' if log else None
 

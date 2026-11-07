@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from conftest import log_completo
 
 from concursos.legislacao import (
     TAMANHO_MINIMO_NORMA,
@@ -160,7 +161,7 @@ def test_citacao_sem_arquivo_vira_aviso(repositorio, caplog):
     normas = normas_citadas(extrair_citacoes('Decreto nº 12.572/2025'), repositorio)
 
     assert normas == {}
-    assert 'git pull' in caplog.text
+    assert 'git pull' in log_completo(caplog)
 
 
 def test_titulo_com_ementa_curta(repositorio):

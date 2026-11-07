@@ -246,7 +246,7 @@ def test_sem_tty_aceita_a_sugestao_do_txt_ambiguo_e_avisa(raizes, monkeypatch, c
     assert adicionar(pasta, '--aceitar-sugestoes') == 0
 
     assert ler_config(pasta)['provas']['unica']['gabarito']['arquivo'] == 'gab.txt'
-    assert 'gab.txt: tratado como gabarito' in caplog.text
+    assert 'gab.txt: pelo conteúdo, tratei o arquivo como gabarito' in caplog.text
 
 
 def test_sem_edital_grava_e_avisa_que_fica_incompleto(raizes, monkeypatch, capsys):

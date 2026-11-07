@@ -120,7 +120,7 @@ def principal(
     ] = None,
 ) -> int | None:
     if quieto and detalhado:
-        raise ErroDoUsuario('--quiet e --verbose não combinam', 'use só uma das duas opções')
+        raise ErroDoUsuario('As opções --quiet e --verbose não combinam.', 'use só uma das duas.')
     ajustar_nivel_console(logging.WARNING if quieto else logging.DEBUG if detalhado else logging.INFO)
     contexto = resolver_contexto(
         data_dir=data_dir, provas=provas, analises=analises, candidato=candidato and slug(candidato)
@@ -244,7 +244,8 @@ def add(
     opcoes: Opcoes = ctx.obj
     if pci is not None and not caminho.is_dir():
         raise ErroDoUsuario(
-            '--pci vale para a pasta de um concurso', f'rode `concurso-analise add <pasta> --pci {pci}`'
+            'A opção --pci vale só para a pasta de um concurso.',
+            f'rode `concurso-analise add <pasta> --pci {pci}`.',
         )
     if caminho.is_dir():
         return cadastro.cadastrar_pasta(opcoes, caminho, pci)
@@ -312,8 +313,8 @@ def pci_enable(
     if not opcoes.sim:
         if not onboarding.interativo(False):
             raise ErroDoUsuario(
-                'ligar o PCI exige confirmação, e não há terminal para perguntar',
-                'confirme com `concurso-analise --yes pci enable`',
+                'Ligar o PCI exige a sua confirmação, e aqui não dá para perguntar.',
+                'confirme com `concurso-analise --yes pci enable`.',
             )
         if not typer.confirm('ligar a integração com o PCI?', default=False):
             typer.echo('nada foi gravado')
@@ -410,8 +411,8 @@ def gui(
         if (erro.name or '').split('.')[0] not in MODULOS_DA_GUI:
             raise
         raise ErroDoUsuario(
-            'a interface gráfica não está instalada',
-            'instale com `uv tool install "concurso-analise[gui]"` (ou baixe o instalador da release)',
+            'A janela do app (interface gráfica) não está instalada.',
+            'instale com `uv tool install "concurso-analise[gui]"` ou baixe o instalador do app.',
         ) from erro
     executar(pasta, navegador=navegador)
     return 0
@@ -440,7 +441,9 @@ def upgrade(
     uv = shutil.which('uv')
     if uv is None:
         raise ErroDoAmbiente(
-            'uv não encontrado no PATH', 'instale o uv (https://docs.astral.sh/uv/) e rode de novo'
+            'Não encontrei o uv, que instala e atualiza o app pela linha de comando.',
+            'instale o uv (https://docs.astral.sh/uv/) e rode de novo.',
+            'uv não encontrado no PATH',
         )
     return subprocess.run([uv, *comando], check=False).returncode
 
@@ -464,8 +467,8 @@ def notebook_enable(
     if not opcoes.sim:
         if not onboarding.interativo(False):
             raise ErroDoUsuario(
-                'ligar o open-notebook exige confirmação, e não há terminal para perguntar',
-                'confirme com `concurso-analise --yes notebook enable`',
+                'Ligar o open-notebook exige a sua confirmação, e aqui não dá para perguntar.',
+                'confirme com `concurso-analise --yes notebook enable`.',
             )
         if not typer.confirm('ligar a sincronização?', default=False):
             typer.echo('nada foi gravado')
@@ -532,14 +535,14 @@ def estudo_preparar(
     opcoes: Opcoes = ctx.obj
     situacao = estudo.situacao_do_estudo(opcoes.contexto)
     if not situacao.disponivel_no_sistema:
-        raise ErroDoUsuario(situacao.mensagem, 'use o app no Windows ou no Linux')
+        raise ErroDoUsuario(situacao.mensagem, 'use o app no Windows ou no Linux.')
     consentiu = opcoes.sim or arquivo is not None
     if not consentiu and not opcoes.dry_run:
         typer.echo(situacao.mensagem)
         if not onboarding.interativo(False):
             raise ErroDoUsuario(
-                'preparar a biblioteca exige confirmação, e não há terminal para perguntar',
-                'confirme com `concurso-analise --yes estudo preparar`',
+                'Preparar a biblioteca exige a sua confirmação, e aqui não dá para perguntar.',
+                'confirme com `concurso-analise --yes estudo preparar`.',
             )
         consentiu = typer.confirm('preparar agora?', default=False)
         if not consentiu:
@@ -572,10 +575,10 @@ def livros_add(
 ) -> int:
     opcoes: Opcoes = ctx.obj
     if not caminho.exists():
-        raise ErroDoUsuario(f'{caminho} não existe', 'confira o caminho do livro ou da pasta')
+        raise ErroDoUsuario(f'Não encontrei {caminho}.', 'confira o caminho do livro ou da pasta.')
     arquivos = estudo.arquivos_da_pasta(caminho) if caminho.is_dir() else [caminho]
     if not arquivos:
-        raise ErroDoUsuario(f'{caminho} não tem livros', 'a pasta precisa ter PDF, EPUB, DOCX ou TXT')
+        raise ErroDoUsuario(f'{caminho} não tem livros.', 'a pasta precisa ter PDF, EPUB, DOCX ou TXT.')
     resultados = estudo.adicionar_livros(opcoes, arquivos, disciplina=disciplina, concursos=concurso or ())
     for resultado in resultados:
         if resultado.erro:
@@ -607,7 +610,8 @@ def livros_remove(ctx: typer.Context, codigo: Annotated[str, typer.Argument(help
     achados = [livro for livro in estudo.listar_livros(opcoes.contexto) if livro.sha.startswith(codigo)]
     if len(achados) != 1:
         raise ErroDoUsuario(
-            f'{len(achados)} livros começam com {codigo}', 'use mais caracteres do código de `livros list`'
+            f'{len(achados)} livros começam com {codigo}.',
+            'use mais letras do código mostrado em `livros list`.',
         )
     if opcoes.dry_run:
         typer.echo(f'removeria {achados[0].nome}')
@@ -671,7 +675,7 @@ def dicionario_sugerir(
     ]
     if desconhecidas := [c for c, _ in escolhidas if c not in sugestoes]:
         raise ErroDoUsuario(
-            f'sugestão desconhecida: {desconhecidas[0]}', 'use uma chave listada por `dicionario sugerir`'
+            f'Não conheço a sugestão {desconhecidas[0]}.', 'use uma chave listada por `dicionario sugerir`.'
         )
     for chave, acao in escolhidas:
         if opcoes.dry_run:

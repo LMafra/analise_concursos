@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass
 from pathlib import PurePath
 
+from concursos.erros import ErroDoUsuario
+
 
 @dataclass(frozen=True)
 class Selo:
@@ -152,3 +154,35 @@ def traduzir_aviso(aviso: str) -> str | None:
         if achado := padrao.search(texto):
             return modelo.format(**achado.groupdict()) + mencao
     return None
+
+
+_ERROS_DE_VALIDACAO = {
+    'ConfiguracaoInvalidaError': (
+        'Um dos dados guardados tem um valor que o app não aceita.',
+        'corrija pela tela (Configurações ou Concursos > Conferir) ou no arquivo citado no detalhe.',
+    ),
+    'PerfilInvalidoError': (
+        'O app não conhece a banca ou o modelo de folha indicado.',
+        'escolha uma das opções mostradas no detalhe, no cadastro do concurso.',
+    ),
+    'TaxonomiaInvalidaError': (
+        'Não consegui ler a lista de disciplinas equivalentes.',
+        'refaça a lista em Configurações > Disciplinas e temas.',
+    ),
+    'FileNotFoundError': (
+        'Não encontrei um arquivo de que o app precisa.',
+        'confira se o arquivo citado no detalhe existe e se não mudou de pasta.',
+    ),
+}
+
+
+def erro_para_a_tela(erro: Exception) -> ErroDoUsuario:
+    """Erro de validação na fronteira da CLI e da GUI: causa leiga, com o texto do validador no detalhe.
+    Os outros erros de dados já falam com o usuário e passam com o próprio texto."""
+    if isinstance(erro, ErroDoUsuario):
+        return erro
+    for tipo in type(erro).__mro__:
+        if tipo.__name__ in _ERROS_DE_VALIDACAO:
+            causa, dica = _ERROS_DE_VALIDACAO[tipo.__name__]
+            return ErroDoUsuario(causa, dica, str(erro))
+    return ErroDoUsuario(str(erro))

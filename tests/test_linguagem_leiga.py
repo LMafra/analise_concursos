@@ -7,12 +7,6 @@ from concursos.linguagem import TERMOS_TECNICOS_DA_MENSAGEM
 
 PACOTE = Path(__file__).parent.parent / 'src' / 'concursos'
 FORA = {'cli/legado.py'}
-PENDENTES: set[str] = {
-    'analytics/dicionario_topicos.py',
-    'cli/comandos.py',
-    'edital_llm.py',
-    'llm.py',
-}
 
 
 def _texto_literal(no: ast.expr) -> str:
@@ -61,13 +55,7 @@ def _arquivos() -> list[str]:
     return sorted(str(p.relative_to(PACOTE)) for p in PACOTE.rglob('*.py'))
 
 
-@pytest.mark.parametrize('relativo', [a for a in _arquivos() if a not in FORA | PENDENTES])
+@pytest.mark.parametrize('relativo', [a for a in _arquivos() if a not in FORA])
 def test_mensagens_na_tela_sem_jargao(relativo):
     """O técnico vai para o `detalhe` (ou `dica`), nunca para a causa ou o texto do aviso."""
     assert mensagens_com_jargao(PACOTE / relativo) == []
-
-
-def test_pendentes_ainda_tem_jargao():
-    """Um arquivo migrado sai da lista; ela termina vazia."""
-    limpos = sorted(relativo for relativo in PENDENTES if not mensagens_com_jargao(PACOTE / relativo))
-    assert limpos == []

@@ -242,7 +242,7 @@ def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
 def o_que_vai_para(provedor: str) -> str:
     return (
         f'Só o texto do edital e dos anexos vai para {provedor}; respostas, folhas, notas e inscrição não '
-        'saem do computador. Sem LLM, a leitura do edital continua só local.'
+        'saem do computador. Sem a IA, a leitura do edital continua só no computador.'
     )
 
 

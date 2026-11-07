@@ -24,6 +24,7 @@ from concursos.candidatos import (
 from concursos.concurso_config import ARQUIVO_CONFIG, ConfiguracaoInvalidaError
 from concursos.config.contexto import ARQUIVO_TAXONOMIA, Contexto, gravar_no_config_projeto, ler_toml
 from concursos.configuracao import carregar_configuracao_global
+from concursos.erros import avisar
 from concursos.livros import envio, fila
 from concursos.livros.fila import PastasBiblioteca
 
@@ -318,14 +319,18 @@ def _avisar(migracao: Migracao, backup: Path) -> None:
         return
     nomes = [m.origem.name for m in migracao.movimentos] + [e.pasta_concurso.name for e in migracao.extracoes]
     for nome in sorted(set(nomes)):
-        logger.warning(
-            '%s: pasta no formato antigo encontrada depois da migração; migrada para o candidato %s',
-            nome,
-            migracao.candidato,
+        avisar(
+            logger,
+            f'{nome}: achei uma pasta no formato antigo depois da atualização; ela foi migrada para o candidato '
+            f'{migracao.candidato}.',
         )
     for legado in (migracao.config_legada, migracao.taxonomia_legada):
         if legado:
-            logger.warning('%s encontrado depois da migração; migrado para a pasta .concurso/', legado.name)
+            avisar(
+                logger,
+                f'{legado.name}: achei o arquivo antigo depois da atualização; ele foi migrado para a pasta '
+                '.concurso/.',
+            )
 
 
 SECAO_MIGRACAO_BIBLIOTECA = 'migracao_biblioteca'

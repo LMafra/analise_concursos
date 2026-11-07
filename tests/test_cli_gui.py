@@ -11,7 +11,7 @@ def test_gui_sem_o_extra_explica_como_instalar(monkeypatch, capsys):
     assert main(['gui']) == 1
 
     erro = capsys.readouterr().err
-    assert 'erro: a interface gráfica não está instalada' in erro
+    assert 'erro: A janela do app (interface gráfica) não está instalada.' in erro
     assert 'concurso-analise[gui]' in erro
     assert 'Traceback' not in erro
 

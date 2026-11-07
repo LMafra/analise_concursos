@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import com_edital_minimo, ler_csv
+from conftest import com_edital_minimo, ler_csv, log_completo
 
 from concursos.cli import main
 
@@ -140,7 +140,7 @@ def test_subpasta_sem_perfil_cria_o_candidato_com_aviso(projeto, caplog):
     with caplog.at_level(logging.WARNING):
         assert main(['--candidate', 'dave']) == 0
 
-    assert 'dave' in caplog.text and 'candidato.yaml' in caplog.text
+    assert 'dave' in caplog.text and 'candidato.yaml' in log_completo(caplog)
     perfil = projeto / 'provas' / 'alfa' / 'candidatos' / 'dave' / 'candidato.yaml'
     assert yaml.safe_load(perfil.read_text(encoding='utf-8'))['respostas'] == {'arquivo': 'respostas.txt'}
     assert acertos(projeto, 'dave') == 3

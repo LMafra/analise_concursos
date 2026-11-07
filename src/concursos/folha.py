@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import pypdfium2 as pdfium
 
+from concursos.erros import avisar
 from concursos.modelo import Estado, Origem, RespostaMarcada
 from concursos.perfis import PerfilInvalidoError, PerfilOcr, ids_de_ocr, perfil_ocr
 
@@ -82,11 +83,11 @@ def ler_folha(
     erros: list[str] = []
     for perfil, por_coluna, rotulo in tentativas:
         if erros:
-            logger.warning(
-                '%s: o perfil %s não leu a folha (%s); tentando a detecção automática da grade',
-                caminho.name,
-                template,
-                erros[-1],
+            avisar(
+                logger,
+                f'{caminho.name}: o modelo de folha {template} não leu as marcações; vou procurar a grade '
+                'sozinho.',
+                detalhe=f'perfil {template}: {erros[-1]}; tentando a detecção automática da grade',
             )
         lidas = _ler_com_perfil(
             caminho, perfil, total_itens, por_coluna, pasta_depuracao, limiar, erros, rotulo
