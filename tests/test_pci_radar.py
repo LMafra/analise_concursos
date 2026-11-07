@@ -197,7 +197,7 @@ def test_falha_do_pci_vira_aviso_e_a_analise_segue(projeto: Path, monkeypatch: p
         assert main(['--candidate', 'alice']) == 0
 
     assert (projeto / 'analises' / 'alice' / 'alfa' / 'relatorio.md').exists()
-    assert 'radar não atualizado' in caplog.text
+    assert 'Não consegui atualizar os prazos dos editais' in caplog.text
 
 
 def test_offline_usa_so_o_cache(projeto: Path, transporte, monkeypatch: pytest.MonkeyPatch):

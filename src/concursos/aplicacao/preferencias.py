@@ -25,7 +25,11 @@ def ler_analise(contexto: Contexto) -> PreferenciasAnalise:
             ler_toml(contexto.config_projeto).get('analise', {}), contexto.config_projeto
         )
     except ConfiguracaoInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), f'corrija a seção [analise] de {contexto.config_projeto}') from erro
+        raise ErroDoUsuario(
+            'Não consegui ler as preferências da análise deste projeto.',
+            'salve as preferências de novo em Configurações.',
+            f'{erro} (seção [analise] de {contexto.config_projeto})',
+        ) from erro
     return PreferenciasAnalise(
         configuracao.limiar_confianca, configuracao.limiar_topico_baixo, configuracao.concurso_alvo
     )
@@ -48,7 +52,11 @@ def gravar_analise(contexto: Contexto, preferencias: PreferenciasAnalise) -> Non
     try:
         validar_analise(analise, contexto.config_projeto)
     except ConfiguracaoInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), 'use limiares entre 0 e 1 e o nome de uma pasta em provas/') from erro
+        raise ErroDoUsuario(
+            'Alguma preferência ficou fora do esperado; nada foi gravado.',
+            'use valores entre 0 e 1 e escolha um concurso já cadastrado.',
+            str(erro),
+        ) from erro
     dados['analise'] = analise
     contexto.config_projeto.parent.mkdir(parents=True, exist_ok=True)
     contexto.config_projeto.write_text(tomli_w.dumps(dados), encoding='utf-8')

@@ -40,8 +40,8 @@ def cadastrar_pasta(opcoes: Opcoes, caminho: Path, pci: int | None = None) -> in
     registro = ler_interesses(opcoes.contexto) if pci is not None else None
     if registro is not None and registro.obter(pci) is None:
         raise ErroDoUsuario(
-            f'o concurso {pci} do PCI não está nos interesses',
-            f'registre antes com `concurso-analise discover --register {pci}`',
+            f'O concurso {pci} do PCI Concursos não está entre os que você acompanha.',
+            f'acompanhe-o antes em Encontrar concursos ou com concurso-analise discover --register {pci}.',
         )
     if opcoes.dry_run:
         vinculo = f' e vincularia ao concurso {pci} do PCI' if pci is not None else ''
@@ -60,11 +60,13 @@ def adicionar_respostas(
     """Copia a folha ou as respostas de um candidato para `provas/<concurso>/candidatos/<slug>/`."""
     contexto = opcoes.contexto
     if not caminho.is_file():
-        raise ErroDoUsuario(f'arquivo não encontrado: {caminho}', 'confira o caminho do arquivo de respostas')
+        raise ErroDoUsuario(
+            f'Não encontrei o arquivo {caminho}.', 'confira o caminho do arquivo de respostas.'
+        )
     nome = candidato or contexto.candidato
     if not nome:
         raise ErroDoUsuario(
-            'falta dizer de qual candidato é o arquivo', 'rode de novo com --candidate <nome>'
+            'Falta dizer de qual candidato é o arquivo.', 'rode de novo com --candidate <nome>.'
         )
     exigir_provas(contexto.provas)
     pasta = concurso_do_arquivo(contexto.provas, caminho, concurso)
@@ -83,7 +85,7 @@ def pasta_do_concurso(contexto: Contexto, nome: str) -> Path:
         return contexto.provas / slug(nome)
     except ConfiguracaoInvalidaError as erro:
         raise ErroDoUsuario(
-            f'nome de concurso inválido: {nome!r}', 'use letras e números, ex.: tcu_2025'
+            f'Não consigo usar “{nome}” como nome de concurso.', 'use letras e números, por exemplo tcu_2025.'
         ) from erro
 
 
@@ -167,7 +169,8 @@ def cadastrar_envio(
     nome = candidato or contexto.candidato
     if do_candidato and not nome:
         raise ErroDoUsuario(
-            'falta dizer de qual candidato são as respostas', 'escreva o nome do candidato antes de cadastrar'
+            'Falta dizer de qual candidato são as respostas.',
+            'escreva o nome do candidato antes de cadastrar.',
         )
     nova = not pasta.exists()
     copiados = _copiar(list(da_prova), pasta)
@@ -215,7 +218,9 @@ def gravar_respostas_digitadas(
         )
     except RespostasInvalidasError as erro:
         raise ErroDoUsuario(
-            str(erro), 'use só as alternativas da prova e deixe em branco a questão que não respondeu'
+            'Algumas respostas digitadas não são alternativas desta prova.',
+            'use só as alternativas da prova e deixe em branco a questão que não respondeu.',
+            str(erro),
         ) from erro
     with tempfile.TemporaryDirectory() as temporaria:
         arquivo = Path(temporaria) / ARQUIVO_DIGITADAS
@@ -229,8 +234,9 @@ def _copiar(arquivos: list[Path], pasta: Path) -> list[Path]:
         destino = pasta / arquivo.name
         if destino.exists() and not filecmp.cmp(arquivo, destino, shallow=False):
             raise ErroDoUsuario(
-                f'já existe outro {arquivo.name} em {pasta}',
-                'renomeie o arquivo novo ou apague o antigo da pasta do concurso',
+                f'Já existe outro arquivo chamado {arquivo.name} neste concurso, com conteúdo diferente.',
+                'renomeie o arquivo novo ou apague o antigo da pasta do concurso.',
+                f'{pasta / arquivo.name}',
             )
     pasta.mkdir(parents=True, exist_ok=True)
     copiados = []
@@ -262,7 +268,7 @@ def datar_simulado(opcoes: Opcoes, pasta: Path) -> None:
     try:
         date.fromisoformat(data)
     except ValueError as erro:
-        raise ErroDoUsuario(f'data inválida: {data}', 'use aaaa-mm-dd, ex.: 2026-11-05') from erro
+        raise ErroDoUsuario(f'“{data}” não é uma data.', 'use aaaa-mm-dd, por exemplo 2026-11-05.') from erro
     gravar_dados(pasta, {**dados, 'data_prova': data})
     opcoes.saida(f'{pasta.name}: simulado datado de {data}')
 

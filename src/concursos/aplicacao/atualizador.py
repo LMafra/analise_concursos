@@ -64,18 +64,26 @@ class TransporteHttps:
             return self._abridor.open(pedido, timeout=self._timeout)
         except urllib.error.HTTPError as erro:
             raise ErroDoAmbiente(
-                f'o GitHub respondeu {erro.code} ao procurar a atualização', 'tente de novo mais tarde'
+                'O site das versões do app não respondeu como esperado.',
+                'tente de novo mais tarde.',
+                f'GitHub respondeu {erro.code}',
             ) from erro
         except (urllib.error.URLError, OSError) as erro:
             raise ErroDoAmbiente(
-                'sem conexão com o GitHub para procurar a atualização', 'confira a internet e tente de novo'
+                'Não consegui procurar a atualização: sem conexão com a internet.',
+                'confira a internet e tente de novo.',
+                f'sem conexão com o GitHub ({erro})',
             ) from erro
 
     def baixar(self, url: str, limite: int) -> bytes:
         with self._abrir(url) as resposta:
             dados = resposta.read(limite + 1)
         if len(dados) > limite:
-            raise ErroDoAmbiente(f'resposta maior que {limite} bytes em {url}; nada foi usado')
+            raise ErroDoAmbiente(
+                'O site das versões do app mandou uma resposta grande demais; não usei nada dela.',
+                'tente de novo mais tarde.',
+                f'resposta maior que {limite} bytes em {url}',
+            )
         return dados
 
     def baixar_para(self, url: str, destino: Path, limite: int, progresso: Progresso | None = None) -> None:
@@ -84,7 +92,11 @@ class TransporteHttps:
             while bloco := resposta.read(BLOCO):
                 total += len(bloco)
                 if total > limite:
-                    raise ErroDoAmbiente(f'o download passou de {limite} bytes; o arquivo foi descartado')
+                    raise ErroDoAmbiente(
+                        'O arquivo baixado ficou maior que o esperado; apaguei o arquivo e não instalei nada.',
+                        'tente de novo mais tarde.',
+                        f'o download passou de {limite} bytes',
+                    )
                 arquivo.write(bloco)
                 if progresso is not None:
                     progresso(total, limite)
@@ -155,7 +167,9 @@ def _manifesto_e_assinatura(canal: CanalAtualizacao, transporte: Transporte) -> 
         releases = json.loads(transporte.baixar(atualizador.URL_RELEASES, atualizador.LIMITE_LISTA_RELEASES))
     except json.JSONDecodeError as erro:
         raise ErroDoAmbiente(
-            'o GitHub respondeu algo que não é a lista de versões', 'tente mais tarde'
+            'O site das versões do app respondeu algo que não entendi.',
+            'tente de novo mais tarde.',
+            'a resposta do GitHub não é a lista de versões',
         ) from erro
     for release in releases if isinstance(releases, list) else []:
         if not isinstance(release, dict) or release.get('draft'):
@@ -257,9 +271,9 @@ def _conferir_signatario(setup: Path, executavel: Path, ler_assinatura: LerAssin
     status_setup, titular_setup = ler_assinatura(setup)
     if status_setup != 'Valid' or titular_setup != titular:
         raise ErroDoAmbiente(
-            f'o instalador baixado não tem a assinatura de {titular} ({status_setup}, {titular_setup}); '
-            'ele foi descartado',
+            'O instalador baixado não é o oficial do app; apaguei o arquivo e não instalei nada.',
             atualizador.DICA_MANUAL,
+            f'assinatura esperada de {titular}; encontrada: {status_setup}, {titular_setup}',
         )
 
 
@@ -308,12 +322,13 @@ def _trocar_appimage(
     valor = ambiente.get('APPIMAGE')
     if not valor:
         raise ErroDoUsuario(
-            'o app não está rodando de um AppImage, então não há o que trocar', atualizador.DICA_MANUAL
+            'Esta cópia do app não foi aberta pelo arquivo AppImage, então não sei o que trocar.',
+            atualizador.DICA_MANUAL,
         )
     appimage = Path(valor)
     if not os.access(appimage.parent, os.W_OK):
         raise ErroDoUsuario(
-            f'sem permissão de escrita em {appimage.parent} para trocar o AppImage',
+            f'Não tenho permissão para trocar o app na pasta {appimage.parent}.',
             f'mova o AppImage para uma pasta sua (por exemplo, ~/Aplicativos), ou {atualizador.DICA_MANUAL}',
         )
     descritor, nome = tempfile.mkstemp(
@@ -351,7 +366,8 @@ def atualizar_executavel(
         return 0
     if not opcoes.rede:
         raise ErroDoUsuario(
-            '--offline não consulta atualizações', 'rode `concurso-analise upgrade` sem --offline'
+            'Procurar atualizações usa a internet, e você pediu para não usar (--offline).',
+            'rode concurso-analise upgrade sem --offline.',
         )
     novidade = verificar(canal, transporte=transporte, sistema=sistema)
     if novidade is None:

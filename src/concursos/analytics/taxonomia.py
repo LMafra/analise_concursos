@@ -62,7 +62,7 @@ def classificar(questoes: pd.DataFrame, taxonomia: dict[str, DisciplinaCanonica]
             logger,
             f'{", ".join(fora)}: fora da lista de disciplinas equivalentes; cada uma conta como uma disciplina '
             'à parte.',
-            'junte as que forem a mesma disciplina em Disciplinas e temas.',
+            'junte as que forem a mesma disciplina em Configurações > Disciplinas e temas.',
             f'disciplinas fora da taxonomia: {fora}; cada uma conta como canônica de si mesma',
         )
     canonicas = questoes['disciplina'].map(

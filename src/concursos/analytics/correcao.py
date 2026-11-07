@@ -426,7 +426,7 @@ def _resolver_data_prova(
         logger,
         f'{config.nome}: não encontrei a data da prova no edital nem nos dados do concurso. '
         'Ele fica sem data e fora da análise de evolução.',
-        'informe a data em Concursos > Edital a confirmar.',
+        'informe a data em Concursos > Conferir > Dados do edital.',
         'data_prova ausente no edital e no concurso.yaml',
     )
     return None, None
@@ -457,7 +457,7 @@ def _resolver_regra(
             logger,
             f'{config.nome}: não encontrei a regra de correção no edital. '
             f'Vou usar a regra padrão da {perfil_da_banca(config.banca).nome or config.banca}.',
-            'se estiver errada, ajuste em Concursos > Edital a confirmar.',
+            'se estiver errada, ajuste em Concursos > Conferir > Dados do edital.',
             f'regra do perfil da banca {config.banca} (fator {fator:g}); o edital e o concurso.yaml não a trazem',
         )
     else:
@@ -610,7 +610,7 @@ def _pesos_por_parte(
 
 
 def _avisar_default(nome: str, documentos: dict[str, list[str]]) -> None:
-    dica = 'informe a regra em Concursos > Edital a confirmar.'
+    dica = 'informe a regra em Concursos > Conferir > Dados do edital.'
     if any(mencao_penalidade(paginas) for paginas in documentos.values()):
         avisar(
             logger,

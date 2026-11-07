@@ -159,26 +159,30 @@ def reaproveitar_csv(opcoes: Opcoes, concurso: str | None) -> None:
     contexto = opcoes.contexto
     if concurso is None or opcoes.todos:
         raise ErroDoUsuario(
-            '--reuse-csv vale para um concurso e um candidato por vez',
-            'rode `concurso-analise analyze <concurso> --reuse-csv --candidate <nome>`',
+            'A leitura revisada da folha vale para um concurso e um candidato por vez.',
+            'rode concurso-analise analyze <concurso> --reuse-csv --candidate <nome>.',
         )
     candidato = escolher_candidato(contexto)
     if candidato is None:
         raise ErroDoUsuario(
-            '--reuse-csv precisa de um candidato, e este projeto não tem nenhum',
-            'acrescente as respostas com `concurso-analise add <folha> --candidate <nome> --concurso <pasta>`',
+            'Para usar a leitura revisada da folha, preciso saber de qual candidato ela é, e este projeto não '
+            'tem nenhum.',
+            'acrescente as respostas com concurso-analise add <folha> --candidate <nome> --concurso <pasta>.',
         )
     csv = contexto.analises / candidato / concurso / ARQUIVO_RESPOSTAS
     if not csv.exists():
         raise ErroDoUsuario(
-            f'{csv}: CSV de leitura da folha não encontrado',
-            f'rode `concurso-analise analyze {concurso}` para ler a folha, corrija o CSV e rode de novo '
-            'com --reuse-csv',
+            f'{concurso}: ainda não li a folha de respostas deste concurso.',
+            f'rode concurso-analise analyze {concurso} para ler a folha, corrija a planilha {csv} e rode de '
+            'novo com --reuse-csv.',
+            f'{csv} não existe',
         )
     status = avaliar(contexto.provas / concurso, candidato)
     if status.config is None:
         raise ErroDoUsuario(
-            f'{concurso}: {"; ".join(status.motivos)}', 'corrija o concurso.yaml e rode de novo'
+            f'{concurso}: não consegui ler o cadastro deste concurso.',
+            'confira os dados do concurso em Concursos e rode de novo.',
+            '; '.join(status.motivos),
         )
     if opcoes.dry_run:
         opcoes.saida(f'copiaria {csv} para {pasta_de_respostas(contexto.provas / concurso, candidato)}')
@@ -186,7 +190,11 @@ def reaproveitar_csv(opcoes: Opcoes, concurso: str | None) -> None:
     try:
         destino = gravar_revisao(status.config, candidato, csv)
     except RespostasInvalidasError as erro:
-        raise ErroDoUsuario(str(erro), f'corrija o {csv} e rode de novo com --reuse-csv') from erro
+        raise ErroDoUsuario(
+            'A planilha com a leitura revisada da folha tem um problema.',
+            f'corrija a planilha {csv} e rode de novo com --reuse-csv.',
+            str(erro),
+        ) from erro
     opcoes.saida(f'revisão copiada para {destino}; ela vence a folha a partir de agora')
 
 
@@ -211,8 +219,9 @@ def relatorio(contexto: Contexto) -> Path:
     indice = pasta_do_candidato(contexto) / relatorio_html.ARQUIVO_INDICE
     if not indice.exists():
         raise ErroDoUsuario(
-            f'{indice}: relatório ainda não gerado',
-            'rode `concurso-analise` para analisar e gerar o relatório',
+            'O relatório ainda não foi gerado.',
+            'clique em Analisar na janela ou rode concurso-analise.',
+            f'{indice} não existe',
         )
     return indice
 
@@ -222,6 +231,8 @@ def exportar(contexto: Contexto, formato: FormatoExportacao) -> Path:
     pasta = pasta_do_candidato(contexto)
     if not concursos_analisados(contexto.provas, pasta):
         raise ErroDoUsuario(
-            f'{pasta}: nenhum concurso analisado para exportar', 'rode `concurso-analise` antes do export'
+            'Ainda não há nenhum concurso analisado para exportar.',
+            'clique em Analisar na janela ou rode concurso-analise antes de exportar.',
+            f'nada analisado em {pasta}',
         )
     return exportar_consolidado(contexto.provas, pasta, contexto.taxonomia, formato)

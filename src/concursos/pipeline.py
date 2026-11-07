@@ -316,7 +316,7 @@ def _taxonomia_do_contexto() -> dict[str, DisciplinaCanonica] | None:
         avisar(
             logger,
             'não consegui ler a lista de disciplinas equivalentes; comparei as disciplinas do edital só pelo nome.',
-            'corrija a lista em Disciplinas e temas.',
+            'corrija a lista em Configurações > Disciplinas e temas.',
             str(erro),
         )
         return None

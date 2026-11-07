@@ -245,7 +245,7 @@ def test_respostas_atuais_do_onboarding_sao_os_padroes_do_init(tmp_path):
 
 
 def test_validar_nome_recusa_vazio_e_tira_os_espacos():
-    with pytest.raises(ErroDoUsuario, match='falta o seu nome'):
+    with pytest.raises(ErroDoUsuario, match='Falta o seu nome'):
         inicio.validar_nome('  ')
     assert inicio.validar_nome(' Ana Teste ') == 'Ana Teste'
 

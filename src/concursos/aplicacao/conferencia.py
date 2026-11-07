@@ -58,7 +58,7 @@ BLOCOS = (Bloco.GERAL, Bloco.ESPECIFICO)
 def pasta_do_concurso(contexto: Contexto, concurso: str) -> Path:
     pasta = contexto.provas / concurso
     if not pasta.is_dir():
-        raise ErroDoUsuario(f'o concurso {concurso} não existe', 'escolha um concurso da lista')
+        raise ErroDoUsuario(f'Não encontrei o concurso {concurso}.', 'escolha um concurso da lista.')
     return pasta
 
 
@@ -164,7 +164,7 @@ def gravar_topicos(
     caminho = pasta_do_concurso(contexto, concurso) / ARQUIVO_REVISAO
     if not caminho.exists():
         raise ErroDoUsuario(
-            f'o concurso {concurso} ainda não tem tópicos para conferir', 'analise o concurso primeiro'
+            f'O concurso {concurso} ainda não tem tópicos para conferir.', 'analise o concurso primeiro.'
         )
     edicoes = {
         chave: (opcao.disciplina, opcao.topico) if opcao is not None else ('', NAO_MAPEADO)
@@ -241,7 +241,9 @@ def gravar_campos(contexto: Contexto, concurso: str, valores: dict[str, str]) ->
     pasta = pasta_do_concurso(contexto, concurso)
     caminho = pasta / ARQUIVO_CONFIRMACAO
     if not caminho.exists():
-        raise ErroDoUsuario(f'o concurso {concurso} não tem dados do edital a confirmar', 'nada a gravar')
+        raise ErroDoUsuario(
+            f'O concurso {concurso} não tem nada do edital para confirmar.', 'não há o que gravar nesta tela.'
+        )
     tipados = {campo: validar_campo(campo, texto) for campo, texto in valores.items()}
     anterior = caminho.read_text(encoding='utf-8')
     mudou = gravar_valores(caminho, tipados)
@@ -249,7 +251,11 @@ def gravar_campos(contexto: Contexto, concurso: str, valores: dict[str, str]) ->
         carregar_concurso(pasta)
     except ConfiguracaoInvalidaError as erro:
         caminho.write_text(anterior, encoding='utf-8')
-        raise ErroDoUsuario(str(erro), 'confira os valores digitados') from erro
+        raise ErroDoUsuario(
+            'Algum valor digitado não combina com o resto do cadastro; nada foi gravado.',
+            'confira os valores digitados.',
+            str(erro),
+        ) from erro
     return mudou
 
 
@@ -301,7 +307,11 @@ def taxonomia(contexto: Contexto) -> Taxonomia:
     try:
         mapa = carregar_taxonomia(contexto.taxonomia)
     except TaxonomiaInvalidaError as erro:
-        raise ErroDoUsuario(str(erro), 'junte as disciplinas de novo nesta tela') from erro
+        raise ErroDoUsuario(
+            'Não consegui ler a lista de disciplinas equivalentes.',
+            'junte as disciplinas de novo nesta tela.',
+            str(erro),
+        ) from erro
     grupos: dict[str, list[str]] = {}
     blocos: dict[str, Bloco] = {}
     for bruto, disciplina in mapa.items():

@@ -49,7 +49,10 @@ def ligar_ia(contexto: Contexto, provedor: str, chave: str | None) -> str | None
 
     Devolve onde a chave ficou, quando uma chave foi dada."""
     if provedor not in PROVEDORES:
-        raise ErroDoUsuario(f'provedor de IA desconhecido: {provedor}', f'use um de: {", ".join(PROVEDORES)}')
+        raise ErroDoUsuario(
+            f'Não conheço o serviço de inteligência artificial “{provedor}”.',
+            f'use um destes: {", ".join(PROVEDORES)}.',
+        )
     gravar_configuracao(contexto.config_global, provedor)
     variavel = PROVEDORES[provedor].variavel_chave
     if variavel is None or not (chave or '').strip():

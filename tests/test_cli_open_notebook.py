@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import criar_concurso
+from conftest import criar_concurso, log_completo
 from servidor_open_notebook import ServidorOpenNotebook
 
 from concursos.cli import main
@@ -87,7 +87,7 @@ def test_disable_desliga_sem_apagar_a_url(home_isolada, servidor):
 def test_sync_desligado_explica_como_ligar(projeto, capsys):
     assert main(['notebook', 'sync', '--candidate', 'zuleica']) == 1
 
-    assert 'notebook enable' in capsys.readouterr().err
+    assert 'Configurações > Avançado' in capsys.readouterr().err
 
 
 def test_sync_imprime_o_resumo_e_sai_com_zero(projeto, servidor, capsys):
@@ -195,7 +195,7 @@ def test_instancia_fora_do_ar_vira_aviso_e_a_analise_sai_com_zero(projeto, caplo
 
     assert main(['--yes', '--no-open', '--force', '--candidate', 'zuleica']) == 0
 
-    assert 'open-notebook' in caplog.text and 'docker compose' in caplog.text
+    assert 'open-notebook' in caplog.text and 'docker compose' in log_completo(caplog)
 
 
 def test_desligado_a_analise_nao_chama_a_instancia(projeto, servidor):

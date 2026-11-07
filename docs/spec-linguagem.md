@@ -151,10 +151,10 @@ Formato: `erro:` ou `aviso:` (texto leigo, primeira pessoa), `dica:` (ação no 
 
 Exemplos (antes → depois):
 
-- `regra de correção não encontrada no edital nem no concurso.yaml; usando a do perfil da banca fgv (fator 0)` → `aviso: alfa: não encontrei a regra de correção no edital. Vou usar a regra padrão da FGV.` / `dica: se estiver errada, ajuste em Concursos > Edital a confirmar.` / `detalhe: regra do perfil da banca fgv (fator 0); o edital e o concurso.yaml não a trazem`
+- `regra de correção não encontrada no edital nem no concurso.yaml; usando a do perfil da banca fgv (fator 0)` → `aviso: alfa: não encontrei a regra de correção no edital. Vou usar a regra padrão da FGV.` / `dica: se estiver errada, ajuste em Concursos > Conferir > Dados do edital.` / `detalhe: regra do perfil da banca fgv (fator 0); o edital e o concurso.yaml não a trazem`
 - `Tesseract ausente` → `aviso: alfa: não consegui ler o edital escaneado porque falta o componente de leitura de PDF escaneado.` / `dica: o instalador já traz esse componente; na versão de terminal, rode concurso-analise doctor para ver como instalar.` / `detalhe: Tesseract não está instalado; modo mínimo, tópicos nao_mapeado`
 - `pasta de provas não encontrada: provas` → `erro: Não encontrei a pasta onde ficam suas provas (provas).` / `dica: cadastre um concurso pela janela (Novo concurso) ou com concurso-analise add, ou indique a pasta com --provas.` O app nunca pergunta e nunca cria a pasta, nem com `--yes`.
-- `o edital não traz X; preencha edital_a_confirmar.yaml e rode de novo` → `aviso: alfa: o edital não trouxe algumas informações que mudam a nota. Preenchi o que faltava com valores padrão.` / `dica: confira em Concursos > Edital a confirmar.` / `detalhe: campos: X; arquivo edital_a_confirmar.yaml`
+- `o edital não traz X; preencha edital_a_confirmar.yaml e rode de novo` → `aviso: alfa: o edital não trouxe algumas informações que mudam a nota. Preenchi o que faltava com valores padrão.` / `dica: confira em Concursos > Conferir > Dados do edital.` / `detalhe: campos: X; arquivo edital_a_confirmar.yaml`
 
 ### 3.5 GUI (frente A)
 

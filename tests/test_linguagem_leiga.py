@@ -9,7 +9,6 @@ PACOTE = Path(__file__).parent.parent / 'src' / 'concursos'
 FORA = {'cli/legado.py'}
 PENDENTES: set[str] = {
     'analytics/dicionario_topicos.py',
-    'aplicacao/analise.py',
     'atualizador.py',
     'cli/comandos.py',
     'edital_llm.py',

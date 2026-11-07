@@ -182,7 +182,7 @@ def avaliar(contexto: Contexto) -> Ganho:
     """Mede o ganho, grava `.concurso/ganho_dicionario.md` e guarda o resumo para a tela."""
     dicionario = carregar(contexto)
     if not dicionario.entradas:
-        raise ErroDoUsuario('o dicionário de temas está vazio', 'comece com o dicionário inicial')
+        raise ErroDoUsuario('O dicionário de temas está vazio.', 'comece pelo dicionário inicial.')
     ganho = avaliar_ganho(_revisadas(contexto), dicionario, _canonicas(contexto))
     contexto.projeto.mkdir(parents=True, exist_ok=True)
     gravar_se_mudou(contexto.projeto / ARQUIVO_GANHO, ganho_em_markdown(ganho))

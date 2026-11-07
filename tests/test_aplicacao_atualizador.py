@@ -269,8 +269,9 @@ def test_windows_assinado_roda_o_setup_do_mesmo_signatario(tmp_path):
 def test_windows_assinado_recusa_setup_de_outro_ou_sem_assinatura(tmp_path, setup):
     ler = assinaturas(atual=('Valid', 'CN=SignPath'), exe=setup)
 
-    with pytest.raises(ErroDoAmbiente, match='assinatura'):
+    with pytest.raises(ErroDoAmbiente, match='não é o oficial') as erro:
         instalar_no_windows(tmp_path, ler)
+    assert 'assinatura' in erro.value.detalhe
     assert not (tmp_path / 'concurso-analise-0.6.0-windows-x64-setup.exe').exists()
 
 
@@ -379,9 +380,9 @@ def test_transporte_corta_resposta_maior_que_o_limite(monkeypatch, tmp_path):
     transporte = aplicacao.TransporteHttps('0.5.0')
     monkeypatch.setattr(transporte, '_abrir', lambda url: io.BytesIO(b'x' * 100))
 
-    with pytest.raises(ErroDoAmbiente, match='maior'):
+    with pytest.raises(ErroDoAmbiente, match='grande demais'):
         transporte.baixar('https://github.com/x', 10)
-    with pytest.raises(ErroDoAmbiente, match='passou'):
+    with pytest.raises(ErroDoAmbiente, match='maior que o esperado'):
         transporte.baixar_para('https://github.com/x', tmp_path / 'x', 10)
     assert transporte.baixar('https://github.com/x', 100) == b'x' * 100
 
