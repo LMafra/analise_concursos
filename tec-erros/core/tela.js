@@ -55,7 +55,8 @@
     const liMarcado = marcadaEl ? marcadaEl.closest('li') : null;
     let marc = liMarcado ? letraDe(liMarcado) || texto(liMarcado.querySelector(SELETORES.textoAlternativa)) : '';
     if (!marc && a.alternativaSelecionada) marc = letraPorIndice(a.alternativaSelecionada, alts);
-    let gab = T.lerGabarito(texto(primeiro(doc, SELETORES.errou)));
+    // Gabarito: bloco errou ou acertou (mesmo texto "Gabarito: X"); Angular completa se o DOM não trouxer.
+    let gab = T.lerGabarito(texto(primeiro(doc, SELETORES.errou))) || T.lerGabarito(texto(primeiro(doc, SELETORES.acertou)));
     if (!gab && a.numeroAlternativaCorreta) gab = letraPorIndice(a.numeroAlternativaCorreta, alts);
     const idQuestao = cab.idQuestao || a.idQuestao || '';
     return {

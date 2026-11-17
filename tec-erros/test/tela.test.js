@@ -35,6 +35,59 @@ test('lê a questão pelo texto e completa pelo AngularJS', () => {
   assert.equal(q.cad, 'Caderno 20. Simples Nacional');
 });
 
+test('acerto: lê marc da alternativa selecionada e gab do bloco acertou', () => {
+  const marcada = {
+    innerText: '',
+    getClientRects: () => [1],
+    querySelector: () => null,
+    closest: () => ({
+      querySelector: (s) =>
+        s === Tela.SELETORES.letra
+          ? { innerText: 'B', getClientRects: () => [1], querySelector: () => null }
+          : { innerText: 'texto B', getClientRects: () => [1], querySelector: () => null },
+    }),
+  };
+  const doc = documento(
+    {
+      acertou: ['Você acertou. Gabarito: B'],
+      enunciado: ['Enunciado acertado'],
+      marcada: [marcada],
+    },
+    'Matéria: Português\nAssunto: Crase\n#111 CEBRASPE - 2021 - INSS'
+  );
+  const q = Tela.lerQuestao(doc, null, 'https://www.tecconcursos.com.br/x');
+  assert.equal(q.marc, 'B');
+  assert.equal(q.gab, 'B');
+  assert.equal(Tela.situacao(doc), 'acertou');
+});
+
+test('branco: sem marcada e sem Angular deixa marc vazio', () => {
+  const doc = documento(
+    { enunciado: ['Ainda sem resposta'] },
+    'Matéria: Português\nAssunto: Crase\n#222 FGV - 2022 - TJ'
+  );
+  const q = Tela.lerQuestao(doc, null, 'https://www.tecconcursos.com.br/x');
+  assert.equal(q.marc, '');
+  assert.equal(q.gab, '');
+  assert.equal(Tela.situacao(doc), 'sem_resolver');
+});
+
+test('acerto: gab pelo Angular quando o bloco acertou não traz Gabarito', () => {
+  const doc = documento(
+    { acertou: ['Você acertou.'], enunciado: ['Enunciado'], alternativas: [] },
+    '#333 FGV - 2020 - X'
+  );
+  const alts = [
+    { l: 'A', t: 'um' },
+    { l: 'B', t: 'dois' },
+  ];
+  // Simula alternativas via Angular índice 2 → B
+  const q = Tela.lerQuestao(doc, { numeroAlternativaCorreta: 2, alternativaSelecionada: 2 }, 'https://x');
+  // sem lis no DOM, letraPorIndice devolve String(valor)
+  assert.equal(q.gab, '2');
+  assert.equal(q.marc, '2');
+});
+
 test('caderno pelo id da URL e pelos totais', () => {
   const doc = documento({}, 'Questão 2 de 484 (2 Resolvidas, 0 Acertos e 2 Erros)');
   const c = Tela.lerCaderno(doc, 'https://www.tecconcursos.com.br/questoes/cadernos/87654321', '2026-11-02T10:00:00-03:00', 5, 'dA');

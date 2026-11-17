@@ -44,4 +44,6 @@ def test_ler_entrada_aplica_os_removidos_do_caderno_estado():
     assert [e['id'] for e in pratica.erros] == ['q100', 'h1a2b3c4d', 'q300']
     assert pratica.estado['aliases']['Outro assunto'] is None
     assert len(pratica.cadernos) == 4
-    assert len(avisos) == 1
+    # Exportações antigas (só erros) podem gerar aviso de completude parcial; campo extra no tablet.
+    assert any('campo desconhecido ignorado: extra' in a for a in avisos)
+    assert all('arquivo ignorado' not in a for a in avisos)

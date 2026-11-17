@@ -89,3 +89,38 @@ test('exportação e nome do arquivo', async () => {
   assert.equal(arquivo.app, 'tec-erros');
   assert.match(nomeDoArquivo(arquivo), /^tec-erros-dTESTE-2026-11-02\.json$/);
 });
+
+test('acerto é guardado na hora', async () => {
+  const q = { id: 'qA', enun: 'Ok', marc: 'B', gab: 'B', mat: 'X', alts: [{ l: 'A', t: 'a' }, { l: 'B', t: 'b' }] };
+  const c = cenario([{ situacao: 'acertou', questao: q }, { situacao: 'acertou', questao: q }]);
+  await c.rodar();
+  assert.equal(c.armazenamento.dados.erros.qA.resultado, 'acerto');
+  assert.match(c.avisos[0], /Acerto guardado/);
+  assert.equal(c.avisos.length, 1);
+});
+
+test('branco ao sair da questão sem responder', async () => {
+  const q1 = { id: 'qB', enun: 'Pula', marc: '', gab: 'A', mat: 'X', alts: [{ l: 'A', t: 'a' }] };
+  const q2 = { id: 'qC', enun: 'Outra', marc: 'A', gab: 'B', mat: 'X' };
+  const c = cenario([
+    { situacao: 'sem_resolver', questao: q1 },
+    { situacao: 'sem_resolver', questao: q1 },
+    { situacao: 'sem_resolver', questao: q2 },
+  ]);
+  await c.rodar();
+  assert.equal(c.armazenamento.dados.erros.qB.resultado, 'branco');
+  assert.match(c.avisos[0], /Em branco/);
+});
+
+test('exportação no modo só erros filtra acertos', async () => {
+  const c = cenario([]);
+  c.armazenamento.dados.erros = {
+    q1: { id: 'q1', enun: 'e', marc: 'A', gab: 'B', alts: [{ l: 'A', t: 'a' }, { l: 'B', t: 'b' }] },
+    q2: { id: 'q2', enun: 'e2', marc: 'B', gab: 'B', alts: [{ l: 'A', t: 'a' }, { l: 'B', t: 'b' }] },
+  };
+  c.armazenamento.dados.modoExportacao = 'so_erros';
+  const arquivo = await c.coletor.exportacao();
+  assert.equal(arquivo.erros.length, 1);
+  assert.equal(arquivo.erros[0].id, 'q1');
+  assert.ok(arquivo.avisos_extensao.includes('exportação só de erros (modo antigo)'));
+});

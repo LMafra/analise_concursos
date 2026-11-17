@@ -27,6 +27,7 @@ Fonte: [Violentmonkey, Privileged APIs](https://violentmonkey.github.io/api/gm/)
 - Totais do caderno: `Questão 2 de 484 (2 Resolvidas, 0 Acertos e 2 Erros)`.
 - Id do caderno: o número depois de `/cadernos/` na URL (**hipótese**; o diagnóstico mostra o que foi lido).
 - Filtro "questões que errei" no TEC: **não confirmado**. Sem ele, o modo histórico exige percorrer o caderno no navegador depois de resolver no app.
+- **Acerto / branco (nov/2026, hipótese de código + testes sintéticos):** `marc` usa o mesmo seletor `.questao-alternativa-selecionada` (e Angular `alternativaSelecionada`) em acerto e erro. `gab` em acerto lê o texto do bloco `.questao-enunciado-resolucao-acertou` (`Gabarito: X`) ou Angular `numeroAlternativaCorreta`. Branco = `sem_resolver` com `marc` vazio. **Confirme com o Diagnóstico numa questão acertada e numa em branco** antes de confiar no export "todas as respostas".
 
 ## O que eu preciso de você
 

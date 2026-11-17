@@ -44,6 +44,15 @@ ARQUIVO_DESEMPENHO = 'desempenho_pratica_por_disciplina.csv'
 ARQUIVO_REVISAO = 'revisao_aliases.csv'
 ARQUIVO_RESUMO = 'resumo_pratica.md'
 ARQUIVO_SIMULADO = 'simulado_tec.html'
+ARQUIVO_RESPOSTAS = 'tec_respostas.csv'
+ARQUIVO_TENTATIVAS = 'tec_tentativas.csv'
+ARQUIVO_PCI_PROVAS = 'tec_pci_provas.csv'
+ARQUIVO_IMPORT_LOG = 'tec_import_log.json'
+RESULTADO_ACERTO = 'acerto'
+RESULTADO_ERRO = 'erro'
+RESULTADO_BRANCO = 'branco'
+TIPO_CERTO_ERRADO = 'certo_errado'
+TIPO_MULTIPLA = 'multipla_escolha'
 MAXIMO_SIMULADO = 40
 MAXIMO_SIMULADO_POR_TOPICO = 10
 SEM_DISCIPLINA = 'Sem disciplina'
@@ -56,7 +65,7 @@ OPCAO_DEPOIS = 'decidir depois'
 OPCOES_MODO = {'registrar tudo': ModoCaderno.TUDO, 'só acompanhar daqui': ModoCaderno.DAQUI}
 MAXIMO_OPCOES = 30
 
-_CAMPOS_EXPORTACAO = {'app', 'v', 'em', 'dev', 'erros', 'cads'}
+_CAMPOS_EXPORTACAO = {'app', 'v', 'em', 'dev', 'erros', 'cads', 'avisos_extensao', 'respostas'}
 _CAMPOS_CONFIGURACAO = {'entrada_tec', 'candidato', 'open_notebook'}
 _CAMPOS_TEXTO = ('mat', 'ass', 'cad', 'banca', 'orgao', 'ano', 'enun', 'marc', 'gab', 'prof', 'url')
 _TOTAIS = ('res', 'ac', 'er')
@@ -74,6 +83,11 @@ COLUNAS_DESEMPENHO = [
     'erros_registrados', 'repetidos',
 ]  # fmt: skip
 COLUNAS_REVISAO = ['assunto', 'disciplina', 'sugestao', 'score', 'topico']
+COLUNAS_RESPOSTAS = [
+    'id', 'tipo_questao', 'mat', 'ass', 'banca', 'ano', 'gab', 'marc', 'resultado', 'tem_comentario',
+]  # fmt: skip
+COLUNAS_TENTATIVAS = ['id', 'data', 'resposta', 'resultado']
+COLUNAS_PCI_PROVAS = ['ass', 'prova_url', 'orgao', 'banca', 'ano', 'tema_no_edital', 'fonte_tema']
 
 
 class ExportacaoInvalidaError(ValueError):
@@ -122,6 +136,101 @@ def impressao_digital(enunciado) -> str:
     return normalizar(enunciado)[:TAMANHO_DIGITAL]
 
 
+def tipo_questao(alts) -> str:
+    """Certo/Errado se há exatamente duas alternativas com textos Certo e Errado; senão múltipla escolha."""
+    if not isinstance(alts, list) or len(alts) != 2:
+        return TIPO_MULTIPLA
+    textos = sorted(normalizar((a or {}).get('t')) for a in alts)
+    if textos == ['certo', 'errado']:
+        return TIPO_CERTO_ERRADO
+    return TIPO_MULTIPLA
+
+
+def _normalizar_marc_gab(valor, tipo: str) -> str:
+    bruto = str(valor if valor is not None else '').strip()
+    if not bruto:
+        return ''
+    if tipo == TIPO_CERTO_ERRADO:
+        n = normalizar(bruto)
+        if n in {'c', 'certo'}:
+            return 'certo'
+        if n in {'e', 'errado'}:
+            return 'errado'
+        return n
+    return bruto.upper()
+
+
+def resultado_questao(gab, marc, tipo: str | None = None) -> str:
+    """Recalcula acerto/erro/branco a partir de gab e marc; `resultado` do JSON é só auditoria."""
+    tipo_efetivo = tipo or TIPO_MULTIPLA
+    if marc is None or str(marc).strip() == '':
+        return RESULTADO_BRANCO
+    g = _normalizar_marc_gab(gab, tipo_efetivo)
+    m = _normalizar_marc_gab(marc, tipo_efetivo)
+    if not g or not m:
+        return RESULTADO_BRANCO
+    return RESULTADO_ACERTO if g == m else RESULTADO_ERRO
+
+
+class CompletudeInvalidaError(ExportacaoInvalidaError):
+    """Mais questões no arquivo do que o caderno declara em `cads.res`."""
+
+
+def verificar_completude(itens: list[dict], cads: list[dict]) -> list[str]:
+    """Compara len(itens) com totais de `cads`; sem cadernos, não avisa.
+
+    Brancos não entram em `res` do TEC: `len` pode ser `tot` (> `res`). Só `len > tot` é erro."""
+    if not cads:
+        return []
+    total_er = sum(int(c.get('er') or 0) for c in cads)
+    total_res = sum(int(c.get('res') or 0) for c in cads)
+    total_tot = sum(int(c.get('tot') or 0) for c in cads)
+    n = len(itens)
+    if total_tot and n > total_tot:
+        raise CompletudeInvalidaError(
+            f'mais questões do que o caderno ({n} no arquivo, {total_tot} no total em cads)'
+        )
+    if total_er and n == total_er:
+        return ['prática: exportação só de erros (len == cads.er)']
+    if total_tot and n == total_tot:
+        return ['prática: exportação completa (len == cads.tot, com brancos)']
+    if total_res and n == total_res:
+        return ['prática: exportação completa (len == cads.res)']
+    if total_er and n < total_er:
+        return ['prática: exportação parcial (len < cads.er)']
+    return []
+
+
+def linha_de_resposta(item: dict) -> dict:
+    tipo = tipo_questao(item.get('alts'))
+    marc = item.get('marc')
+    return {
+        'id': item.get('id') or '',
+        'tipo_questao': tipo,
+        'mat': item.get('mat') or '',
+        'ass': item.get('ass') or '',
+        'banca': item.get('banca') or '',
+        'ano': item.get('ano') or '',
+        'gab': item.get('gab') or '',
+        'marc': '' if marc is None else str(marc),
+        'resultado': resultado_questao(item.get('gab'), marc, tipo),
+        'tem_comentario': 'sim' if (item.get('com') or '').strip() else 'nao',
+    }
+
+
+def so_erros(itens: list[dict]) -> list[dict]:
+    """Itens com resultado erro; sem gab/marc (export antigo) entram como erro."""
+    filtrados = []
+    for item in itens:
+        if 'gab' not in item and 'marc' not in item:
+            filtrados.append(item)
+            continue
+        tipo = tipo_questao(item.get('alts'))
+        if resultado_questao(item.get('gab'), item.get('marc'), tipo) == RESULTADO_ERRO:
+            filtrados.append(item)
+    return filtrados
+
+
 def ler_exportacao(caminho: Path) -> tuple[dict, list[str]]:
     try:
         dados = json.loads(caminho.read_text(encoding='utf-8'))
@@ -135,10 +244,17 @@ def ler_exportacao(caminho: Path) -> tuple[dict, list[str]]:
         f'{caminho}: campo desconhecido ignorado: {campo}'
         for campo in sorted(set(dados) - _CAMPOS_EXPORTACAO)
     ]
+    itens = dados.get('erros') if dados.get('erros') is not None else dados.get('respostas')
+    if itens is None:
+        itens = []
+    avisos_ext = dados.get('avisos_extensao') or []
+    if isinstance(avisos_ext, list):
+        avisos.extend(f'{caminho}: {a}' for a in avisos_ext if a)
     return {
-        'erros': dados.get('erros') or [],
+        'erros': itens,
         'cads': dados.get('cads') or [],
         'dev': dados.get('dev'),
+        'avisos_extensao': avisos_ext if isinstance(avisos_ext, list) else [],
     }, avisos
 
 
@@ -225,7 +341,7 @@ class Pratica:
 def ler_entrada(pasta: Path) -> tuple[Pratica, list[str]]:
     """Todas as exportações da pasta, mescladas, e o `caderno-estado.json` (sugestões do `caderno.html`).
 
-    Um arquivo inválido vira aviso e os outros seguem."""
+    Um arquivo inválido vira aviso e os outros seguem. Completude `len > cads.res` aborta o arquivo."""
     pratica, avisos = Pratica(), []
     for caminho in sorted(pasta.glob('*.json')) if pasta.is_dir() else []:
         if caminho.name == ARQUIVO_ESTADO:
@@ -234,16 +350,18 @@ def ler_entrada(pasta: Path) -> tuple[Pratica, list[str]]:
             continue
         try:
             dados, aviso = ler_exportacao(caminho)
+            itens = [e for e in dados['erros'] if isinstance(e, dict) and e.get('id')]
+            cads = [c for c in dados['cads'] if isinstance(c, dict) and c.get('id')]
+            avisos += verificar_completude(itens, cads)
+        except CompletudeInvalidaError as erro:
+            avisos.append(f'prática: {caminho}: {erro}; arquivo ignorado')
+            continue
         except ExportacaoInvalidaError as erro:
             avisos.append(f'prática: {erro}; arquivo ignorado')
             continue
         avisos += aviso
-        pratica.erros = mesclar_erros(
-            pratica.erros, [e for e in dados['erros'] if isinstance(e, dict) and e.get('id')]
-        )
-        pratica.cadernos = mesclar_cadernos(
-            pratica.cadernos, [c for c in dados['cads'] if isinstance(c, dict) and c.get('id')]
-        )
+        pratica.erros = mesclar_erros(pratica.erros, itens)
+        pratica.cadernos = mesclar_cadernos(pratica.cadernos, cads)
     removidos = set(pratica.estado.get('removidos') or [])
     pratica.erros = [
         e for e in pratica.erros if e['id'] not in removidos and f'fp:{e.get("fp")}' not in removidos
@@ -629,19 +747,34 @@ def importar_pratica(
             )
     _resolver_cadernos(pratica.cadernos, escolhas, pratica.estado, interacao)
 
-    erros = _linhas_de_erros(pratica, escolhas, disciplinas)
+    respostas = [linha_de_resposta(item) for item in pratica.erros]
+    so_erros_itens = so_erros(pratica.erros)
+    pratica_erros = Pratica(erros=so_erros_itens, cadernos=pratica.cadernos, estado=pratica.estado)
+    erros = _linhas_de_erros(pratica_erros, escolhas, disciplinas)
     cadernos = _linhas_de_cadernos(pratica, escolhas, disciplinas)
     pasta.mkdir(parents=True, exist_ok=True)
     mudou = gravar_escolhas(arquivo_escolhas, escolhas)
+    mudou |= gravar_se_mudou(pasta / ARQUIVO_RESPOSTAS, _csv(COLUNAS_RESPOSTAS, respostas))
     mudou |= gravar_se_mudou(pasta / ARQUIVO_ERROS, _csv(COLUNAS_ERROS, erros))
     mudou |= gravar_se_mudou(pasta / ARQUIVO_CADERNOS, _csv(COLUNAS_CADERNOS, cadernos))
     desempenho = _linhas_de_desempenho(erros, cadernos)
     mudou |= gravar_se_mudou(pasta / ARQUIVO_DESEMPENHO, _csv(COLUNAS_DESEMPENHO, desempenho))
     mudou |= gravar_se_mudou(pasta / ARQUIVO_RESUMO, resumo_markdown(erros, cadernos, desempenho, fracos))
-    if pratica.erros:
+    if so_erros_itens:
         mudou |= gravar_se_mudou(
-            pasta / ARQUIVO_SIMULADO, simulado_html(pratica.erros, escolhas.aliases, fracos)
+            pasta / ARQUIVO_SIMULADO, simulado_html(so_erros_itens, escolhas.aliases, fracos)
         )
+    log = {
+        'n_itens': len(pratica.erros),
+        'n_erros': len(so_erros_itens),
+        'n_acertos': sum(1 for r in respostas if r['resultado'] == RESULTADO_ACERTO),
+        'n_brancos': sum(1 for r in respostas if r['resultado'] == RESULTADO_BRANCO),
+        'avisos': avisos,
+    }
+    mudou |= gravar_se_mudou(pasta / ARQUIVO_IMPORT_LOG, json.dumps(log, ensure_ascii=False, indent=2) + '\n')
+    from concursos.analytics.tec_estatisticas import markdown_resumo
+
+    mudou |= gravar_se_mudou(pasta / 'tec_estatisticas.md', markdown_resumo(pasta_candidato))
     if pendentes or (pendentes is not None and revisao.exists()):
         linhas = [
             {'assunto': p.assunto, 'disciplina': p.disciplina, 'sugestao': p.sugestao, 'score': p.score}

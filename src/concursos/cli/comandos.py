@@ -509,6 +509,40 @@ def pratica_import(
     return analise.importar_pratica_e_analisar(opcoes, arquivo)
 
 
+@pratica_app.command('repetir', help='repete as questões erradas do TEC (gabarito oculto até responder)')
+def pratica_repetir(
+    ctx: typer.Context,
+    assunto: Annotated[str | None, typer.Option('--assunto', help='só este assunto')] = None,
+    candidato: Candidato = None,
+) -> int:
+    from concursos.aplicacao import tec_repeticao
+
+    opcoes: Opcoes = replace(ctx.obj, contexto=projeto.com_candidato(ctx.obj.contexto, candidato))
+    return tec_repeticao.repetir_interativo(opcoes, assunto)
+
+
+@pratica_app.command('explicar', help='gera explicações e similares no open-notebook (opt-in)')
+def pratica_explicar(ctx: typer.Context, candidato: Candidato = None) -> int:
+    from concursos.aplicacao import tec_estudo
+
+    opcoes: Opcoes = replace(ctx.obj, contexto=projeto.com_candidato(ctx.obj.contexto, candidato))
+    tec_estudo.explicar_erros_tec(opcoes)
+    return 0
+
+
+@pratica_app.command('pci', help='busca provas anteriores no PCI pelos assuntos errados (opt-in)')
+def pratica_pci(
+    ctx: typer.Context,
+    candidato: Candidato = None,
+    refresh: Annotated[bool, typer.Option('--refresh', help='ignora o cache do PCI')] = False,
+) -> int:
+    from concursos.aplicacao import tec_pci
+
+    opcoes: Opcoes = replace(ctx.obj, contexto=projeto.com_candidato(ctx.obj.contexto, candidato))
+    tec_pci.buscar_provas_por_assunto(opcoes, refresh=refresh)
+    return 0
+
+
 @notebook_app.command('sync', help='envia as análises para o open-notebook e mostra o resumo')
 def notebook_sync(
     ctx: typer.Context,
