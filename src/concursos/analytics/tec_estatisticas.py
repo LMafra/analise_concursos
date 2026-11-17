@@ -7,7 +7,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-from concursos.pratica_tec import ARQUIVO_RESPOSTAS, ARQUIVO_TENTATIVAS, RESULTADO_ERRO, PASTA_PRATICA
+from concursos.pratica_tec import ARQUIVO_RESPOSTAS, ARQUIVO_TENTATIVAS, PASTA_PRATICA, RESULTADO_ERRO
 
 
 @dataclass(frozen=True)

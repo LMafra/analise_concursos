@@ -18,9 +18,7 @@ from concursos.pratica_tec import RESULTADO_ACERTO, RESULTADO_ERRO, ler_entrada,
 
 logger = logging.getLogger(__name__)
 
-BLOCO_ALTERNATIVAS = (
-    'Explique por que cada alternativa errada está errada, uma por uma.'
-)
+BLOCO_ALTERNATIVAS = 'Explique por que cada alternativa errada está errada, uma por uma.'
 PROMPT_CE = """Você explica questões de concurso (Certo/Errado).
 Enunciado:
 {enun}
@@ -120,10 +118,7 @@ def _notebook(cliente: ClienteOpenNotebook, nome: str, descricao: str) -> dict:
 
 
 def _ja_tem_nota(cliente: ClienteOpenNotebook, notebook_id: str, titulo: str) -> bool:
-    for nota in cliente.listar_notas(notebook_id):
-        if (nota.get('title') or '') == titulo:
-            return True
-    return False
+    return any((nota.get('title') or '') == titulo for nota in cliente.listar_notas(notebook_id))
 
 
 def explicar_erros_tec(opcoes: Opcoes, incluir_acertos: bool = True) -> ResultadoExplicacao:
@@ -234,7 +229,5 @@ def explicar_erros_tec(opcoes: Opcoes, incluir_acertos: bool = True) -> Resultad
                 cliente.atualizar_nota(str(nota['id']), resumo_md)
                 break
 
-    opcoes.saida(
-        f'Explicações: {explicadas}; similares: {similares}; confirmações: {confirmacoes}.'
-    )
+    opcoes.saida(f'Explicações: {explicadas}; similares: {similares}; confirmações: {confirmacoes}.')
     return ResultadoExplicacao(explicadas, similares, confirmacoes, avisos)

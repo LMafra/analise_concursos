@@ -67,9 +67,9 @@ def listar_erros(
     """Lista questões com resultado=erro. `itens_completos` traz enun/alts (da prática mesclada)."""
     pasta = _pasta_pratica(opcoes)
     linhas = _ler_itens_completos(pasta)
-    erros = [l for l in linhas if l.get('resultado') == RESULTADO_ERRO]
+    erros = [linha for linha in linhas if linha.get('resultado') == RESULTADO_ERRO]
     if assunto:
-        erros = [l for l in erros if (l.get('ass') or '') == assunto]
+        erros = [linha for linha in erros if (linha.get('ass') or '') == assunto]
     por_id = {i.get('id'): i for i in (itens_completos or []) if i.get('id')}
     saida: list[QuestaoParaRepetir] = []
     for linha in erros:
@@ -132,9 +132,7 @@ def repetir_interativo(opcoes: Opcoes, assunto: str | None = None) -> int:
     """CLI: pergunta cada erro, compara e grava tentativas. Sem TTY, só lista."""
     questoes = carregar_erros_da_pratica(opcoes, assunto)
     if not questoes:
-        opcoes.saida(
-            'Nenhuma questão errada para repetir' + (f' no assunto {assunto}.' if assunto else '.')
-        )
+        opcoes.saida('Nenhuma questão errada para repetir' + (f' no assunto {assunto}.' if assunto else '.'))
         return 0
     interacao = opcoes.interacao
     acertos = erros = 0

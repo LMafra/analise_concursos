@@ -58,9 +58,9 @@ def _assuntos_com_erro(opcoes: Opcoes) -> list[tuple[str, str, str]]:
         with caminho.open(encoding='utf-8', newline='') as arquivo:
             linhas = list(csv.DictReader(arquivo))
         return [
-            (l.get('ass') or '', l.get('mat') or '', l.get('banca') or '')
-            for l in linhas
-            if l.get('resultado') == RESULTADO_ERRO and l.get('ass')
+            (linha.get('ass') or '', linha.get('mat') or '', linha.get('banca') or '')
+            for linha in linhas
+            if linha.get('resultado') == RESULTADO_ERRO and linha.get('ass')
         ]
     cfg = pratica_app.exigir_configuracao_pratica(opcoes.contexto)
     pratica, _ = ler_entrada(cfg.entrada)
@@ -120,9 +120,7 @@ def buscar_provas_por_assunto(opcoes: Opcoes, refresh: bool = False) -> list[Pro
                 continue
             provas = cliente.pesquisar_provas_anteriores(termo)
             if banca:
-                mesmas = [
-                    p for p in provas if normalizar(p.organizadora or '') == normalizar(banca)
-                ]
+                mesmas = [p for p in provas if normalizar(p.organizadora or '') == normalizar(banca)]
                 if mesmas:
                     provas = mesmas
             tema, fonte = _tema_no_edital_local(opcoes.contexto.raiz, ass)

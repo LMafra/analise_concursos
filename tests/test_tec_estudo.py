@@ -34,7 +34,7 @@ class ClienteFalso:
         return {'answer': 'explicação gerada\n## A\nok\n## B\nok'}
 
     def criar_nota(self, notebook_id, titulo, conteudo):
-        self.notas.append({'id': f'n{len(self.notas)+1}', 'title': titulo, 'content': conteudo})
+        self.notas.append({'id': f'n{len(self.notas) + 1}', 'title': titulo, 'content': conteudo})
         return self.notas[-1]
 
     def atualizar_nota(self, nota_id, conteudo):
@@ -56,10 +56,10 @@ def test_explicar_erros_cria_source_e_note(tmp_path, monkeypatch):
     entrada = tmp_path / 'tec'
     entrada.mkdir()
     (entrada / 'e.json').write_text(
-        '''{"app":"tec-erros","v":1,"erros":[{
+        """{"app":"tec-erros","v":1,"erros":[{
           "id":"q1","enun":"Pergunta","gab":"B","marc":"A","ass":"Neurais","mat":"Redes",
           "alts":[{"l":"A","t":"um"},{"l":"B","t":"dois"},{"l":"C","t":"tres"}]
-        }],"cads":[]}''',
+        }],"cads":[]}""",
         encoding='utf-8',
     )
     (tmp_path / 'analises' / 'ana' / 'pratica').mkdir(parents=True)

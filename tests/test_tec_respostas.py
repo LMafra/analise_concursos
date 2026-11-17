@@ -10,8 +10,8 @@ import yaml
 from concursos.pratica_tec import (
     ARQUIVO_IMPORT_LOG,
     ARQUIVO_RESPOSTAS,
-    CompletudeInvalidaError,
     PASTA_PRATICA,
+    CompletudeInvalidaError,
     linha_de_resposta,
     resultado_questao,
     so_erros,
