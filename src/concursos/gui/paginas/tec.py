@@ -184,21 +184,113 @@ class PainelTec:
 
 def saidas_da_ultima_analise() -> None:
     saidas = pratica.saidas_da_pratica(ESTADO.contexto())
-    if saidas.resumo is None and saidas.simulado is None:
+    tem_saida = saidas.resumo is not None or saidas.simulado is not None
+    if tem_saida:
+        with ui.row().style(tema.gap('sm')).mark('saidas-pratica'):
+            if saidas.resumo is not None:
+                ui.button(
+                    'Ver prioridades',
+                    icon='flag',
+                    on_click=lambda: ver_texto('Prioridades da prática', saidas.resumo),
+                ).props('outline').mark('ver-prioridades')
+            if saidas.simulado is not None:
+                ui.button(
+                    'Ver simulado com meus erros',
+                    icon='quiz',
+                    on_click=lambda: abrir_no_navegador(saidas.simulado),
+                ).props('outline').mark('ver-simulado-tec')
+    # Ações do ciclo (opt-in): sempre visíveis na página Importar do TEC.
+    with ui.row().style(tema.gap('sm')).mark('acoes-tec-ciclo'):
+        ui.button(
+            'Explicar erros no caderno de estudo',
+            icon='lightbulb',
+            on_click=explicar_erros,
+        ).props('outline').mark('explicar-tec')
+        ui.button(
+            'Buscar provas no PCI',
+            icon='search',
+            on_click=buscar_pci,
+        ).props('outline').mark('pci-tec')
+        ui.button(
+            'Repetir erros',
+            icon='replay',
+            on_click=abrir_repeticao,
+        ).props('outline').mark('repetir-tec')
+
+
+async def explicar_erros() -> None:
+    from concursos.aplicacao import tec_estudo
+
+    try:
+        await run.io_bound(tec_estudo.explicar_erros_tec, Opcoes(ESTADO.contexto()))
+        ui.notify('Explicações enviadas ao caderno de estudo.', type='positive')
+    except Exception as erro:  # noqa: BLE001
+        mostrar_erro(erro)
+
+
+async def buscar_pci() -> None:
+    from concursos.aplicacao import tec_pci
+
+    try:
+        provas = await run.io_bound(tec_pci.buscar_provas_por_assunto, Opcoes(ESTADO.contexto()))
+        if provas:
+            ui.notify(f'{len(provas)} prova(s) relacionadas.', type='positive')
+        else:
+            ui.notify('Nenhuma prova encontrada (ou PCI desligado).', type='warning')
+    except Exception as erro:  # noqa: BLE001
+        mostrar_erro(erro)
+
+
+def abrir_repeticao() -> None:
+    from concursos.aplicacao import tec_repeticao
+
+    try:
+        questoes = tec_repeticao.carregar_erros_da_pratica(Opcoes(ESTADO.contexto()))
+    except Exception as erro:  # noqa: BLE001
+        mostrar_erro(erro)
         return
-    with ui.row().style(tema.gap('sm')).mark('saidas-pratica'):
-        if saidas.resumo is not None:
-            ui.button(
-                'Ver prioridades',
-                icon='flag',
-                on_click=lambda: ver_texto('Prioridades da prática', saidas.resumo),
-            ).props('outline').mark('ver-prioridades')
-        if saidas.simulado is not None:
-            ui.button(
-                'Ver simulado com meus erros',
-                icon='quiz',
-                on_click=lambda: abrir_no_navegador(saidas.simulado),
-            ).props('outline').mark('ver-simulado-tec')
+    if not questoes:
+        ui.notify('Nenhuma questão errada para repetir.', type='warning')
+        return
+    with ui.dialog() as dialogo, ui.card().classes('w-full max-w-2xl'):
+        ui.label('Repetir erros').classes('text-lg font-bold')
+        indice = {'i': 0}
+
+        enunciado = ui.markdown('')
+        alts_col = ui.column().classes('w-full')
+        campo = ui.input('Sua resposta').classes('w-full')
+        feedback = ui.label('')
+
+        def mostrar() -> None:
+            if indice['i'] >= len(questoes):
+                dialogo.close()
+                ui.notify('Repetição concluída.', type='positive')
+                return
+            q = questoes[indice['i']]
+            enunciado.set_content(f'**{q.mat} — {q.ass}**\n\n{q.enun}')
+            alts_col.clear()
+            with alts_col:
+                for alt in q.alts:
+                    ui.label(f'{alt.get("l", "?")}) {alt.get("t", "")}')
+            campo.value = ''
+            feedback.text = ''
+
+        def responder() -> None:
+            q = questoes[indice['i']]
+            resultado = tec_repeticao.registrar_tentativa(
+                Opcoes(ESTADO.contexto()), q.id, campo.value or '', q.gab, q.tipo
+            )
+            if resultado == 'acerto':
+                feedback.text = 'Acertou.'
+            else:
+                feedback.text = f'Errou. Gabarito: {q.gab}'
+            indice['i'] += 1
+            ui.timer(0.8, mostrar, once=True)
+
+        ui.button('Responder', on_click=responder)
+        ui.button('Fechar', on_click=dialogo.close).props('flat')
+        mostrar()
+    dialogo.open()
 
 
 def analisar() -> None:

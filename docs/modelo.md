@@ -544,7 +544,7 @@ No open-notebook (`notebook sync` e a sincronização automática):
 
 ## Prática no TEC (tec-erros)
 
-Opcional; sem `[pratica]` no `config.toml` do projeto, nenhuma saída muda. A captura mora em `tec-erros/`, neste repositório (extensão do Chrome, userscript para o Firefox do Android e `caderno.html`); as fixtures do contrato ficam em `tests/contrato_tec/` e passam pelo `node --test` e pelo `pytest`. O `tec-erros/docs/contrato.md` define o arquivo `tec-erros-<aparelho>-<data>.json` (`app = "tec-erros"`, `v = 1`, `erros`, `cads`). O app só lê arquivos; não acessa o TEC nem a rede.
+Opcional; sem `[pratica]` no `config.toml` do projeto, nenhuma saída muda. A captura mora em `tec-erros/`, neste repositório (extensão do Chrome, userscript para o Firefox do Android e `caderno.html`); as fixtures do contrato ficam em `tests/contrato_tec/` e passam pelo `node --test` e pelo `pytest`. O `tec-erros/docs/contrato.md` define o arquivo `tec-erros-<aparelho>-<data>.json` (`app = "tec-erros"`, `v = 1`, `erros`, `cads`, opcional `avisos_extensao` e alias `respostas` para o array). O array `erros` pode trazer todas as respostas (acerto/erro/branco) no modo "todas"; o nome do campo permanece por compatibilidade. O app só lê arquivos; não acessa o TEC nem a rede.
 
 ```toml
 [pratica]
@@ -553,7 +553,8 @@ candidato = "ana"       # opcional; de quem é a prática (obrigatório com --al
 open_notebook = false   # true: o caderno de erros vai ao open-notebook (enunciado e comentário do professor)
 ```
 
-- **Comando:** `concurso-analise pratica import [arquivo]` valida o arquivo (`app` e `v`; campo desconhecido é aviso), copia para `entrada_tec` e roda a análise; sem arquivo, só analisa. A análise padrão lê a pasta sempre que a seção existe. `--dry-run` não copia nem grava.
+- **Comando:** `concurso-analise pratica import [arquivo]` valida o arquivo (`app` e `v`; campo desconhecido é aviso), copia para `entrada_tec` e roda a análise; sem arquivo, só analisa. A análise padrão lê a pasta sempre que a seção existe. `--dry-run` não copia nem grava. Também: `pratica repetir [--assunto]`, `pratica explicar` (open-notebook, opt-in + ação explícita) e `pratica pci` (PCI Concursos, opt-in).
+- **Acerto/erro/branco:** o consumidor recalcula a partir de `gab` e `marc` (`resultado` no JSON é auditoria). Certo/Errado normaliza `C`↔`Certo` e `E`↔`Errado`; múltipla escolha compara letras A–E. Completude com `cads`: `len == er` → aviso só erros; `len == res` ou `len == tot` → completa (brancos fazem `len` poder ser `tot`); `len < er` → parcial; `len > tot` → arquivo ignorado.
 - **Planilha** (`planilha_tec`): o arquivo pode ser também a planilha `.csv` ou `.xlsx` que o usuário exportou do TEC; o app não acessa o TEC. O CSV é lido em utf-8 (com ou sem BOM) ou, se falhar, em latin-1, com o separador (`;`, `,` ou tabulação) que mais aparece na primeira linha; o XLSX, pela primeira aba, com o openpyxl. `detectar_colunas` acha cada campo (`materia`, `assunto`, `enunciado`, `resultado`, `data`, `banca`, `orgao`, `ano`, `gabarito`, `marcada`) pelo nome do cabeçalho (sinônimo exato, depois prefixo; uma coluna por campo); `materia` e `resultado` são obrigatórios, e o resultado aceita certo/errado, C/E, sim/não, 1/0. Na GUI, o usuário confere as colunas em selects; o mapeamento fica nas escolhas, em `planilhas`, pela `assinatura` do cabeçalho (sem acento e sem caixa), e a mesma planilha já vem conferida. A conversão grava `tec-erros-planilha-<nome do arquivo>-<AAAA-MM-DD>.json` em `entrada_tec` (contrato v1, `dev = "planilha"`), criando `[pratica]` se faltar: cada linha errada vira um erro de `origem = historico`, com `id = q<número>` quando a coluna da questão é só o número e, senão, `h` + o FNV-1a de 32 bits dos 600 primeiros caracteres do enunciado, o mesmo do `nucleo.js` (a questão da planilha e a da captura se juntam); cada matéria vira um caderno `planilha:<arquivo>:<matéria>` com `tot`, `res`, `ac`, `er` e a data mais recente. Linha sem matéria ou com resultado desconhecido é ignorada e contada no resumo; sem nenhuma linha reconhecida, nada é gravado.
 - **Mesclagem** (`pratica_tec`, as mesmas regras de `core/nucleo.js`): por `id` ou pela impressão digital `fp` (enunciado sem acento, minúsculo, espaços simples, 300 caracteres); `ds` é a união dos eventos (data e hora locais) e `v = len(ds)`, ou 1 sem evento; um registro de histórico (`OrigemErroTec.HISTORICO`) nunca soma ao tempo real; campo vazio é preenchido, `com` fica com o texto mais longo, `d` é a menor data; sem mudança, o registro (e o `t`) fica como estava. Cadernos: vence o de maior `res` e, no empate, o de maior `t`. Arquivo inválido é aviso e os outros seguem.
 - **`caderno-estado.json`** (exportado pelo `caderno.html`, na mesma pasta): `removidos` saem das tabelas; `aliases`, `materias` e `cadernos` são sugestões que o app aproveita.
@@ -573,7 +574,12 @@ Saídas em `analises/<candidato>/pratica/`, com `gravar_se_mudou`; o parquet, o 
 
 | Arquivo | Colunas |
 |---|---|
-| `erros_tec.csv` | `id`, `v`, `primeira_data`, `ultima_data`, `origem`, `materia_tec`, `disciplina`, `assunto`, `topico` (`nao_mapeado` pendente, `fora_do_edital` para `null`), `banca`, `orgao`, `ano`, `caderno`; do mais repetido para o menos |
+| `tec_respostas.csv` | `id`, `tipo_questao`, `mat`, `ass`, `banca`, `ano`, `gab`, `marc`, `resultado`, `tem_comentario` (todas as respostas recalculadas) |
+| `tec_import_log.json` | contagens e avisos da última importação |
+| `tec_tentativas.csv` | `id`, `data`, `resposta`, `resultado` (repetições) |
+| `tec_pci_provas.csv` | `ass`, `prova_url`, `orgao`, `banca`, `ano`, `tema_no_edital`, `fonte_tema` |
+| `tec_estatisticas.md` | matérias/assuntos com mais erros e frases de evolução |
+| `erros_tec.csv` | só itens com resultado erro: `id`, `v`, `primeira_data`, `ultima_data`, `origem`, `materia_tec`, `disciplina`, `assunto`, `topico` (`nao_mapeado` pendente, `fora_do_edital` para `null`), `banca`, `orgao`, `ano`, `caderno`; do mais repetido para o menos |
 | `cadernos_tec.csv` | `id`, `caderno`, `materia_tec`, `disciplina`, `modo`, `total`, `resolvidas`, `acertos`, `erros` (já descontada a base), `percentual`, `amostra_insuficiente` (n < `N_MINIMO_TOPICO`) |
 | `desempenho_pratica_por_disciplina.csv` | `disciplina`, `n`, `acertos`, `erros`, `percentual`, `amostra_insuficiente`, `cadernos`, `erros_registrados`, `repetidos` (v ≥ 2) |
 | `resumo_pratica.md` | a seção "Prática no TEC" do `index.html` |

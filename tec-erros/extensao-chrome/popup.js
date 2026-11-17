@@ -3,7 +3,9 @@ const T = escopo.TecErros;
 const $ = (id) => document.getElementById(id);
 
 function ler() {
-  return new Promise((ok) => chrome.storage.local.get({ erros: {}, cads: {}, dev: '?', modoHistorico: true }, ok));
+  return new Promise((ok) =>
+    chrome.storage.local.get({ erros: {}, cads: {}, dev: '?', modoHistorico: true, modoExportacao: 'todas' }, ok)
+  );
 }
 
 function mensagem(texto) {
@@ -18,11 +20,14 @@ async function atualizar() {
   $('cadernos').textContent = Object.keys(d.cads).length;
   $('dev').textContent = d.dev;
   $('historico').checked = d.modoHistorico !== false;
+  const modo = d.modoExportacao === 'so_erros' ? 'so_erros' : 'todas';
+  $('modoTodas').checked = modo === 'todas';
+  $('modoSoErros').checked = modo === 'so_erros';
 }
 
 async function exportacao() {
   const d = await ler();
-  return T.exportar(d.erros, d.cads, d.dev, new Date());
+  return T.exportar(d.erros, d.cads, d.dev, new Date(), { modoExportacao: d.modoExportacao || 'todas' });
 }
 
 $('baixar').addEventListener('click', async () => {
@@ -42,6 +47,16 @@ $('copiar').addEventListener('click', async () => {
 });
 
 $('historico').addEventListener('change', (ev) => chrome.storage.local.set({ modoHistorico: ev.target.checked }));
+
+function gravarModoExportacao(modo) {
+  chrome.storage.local.set({ modoExportacao: modo });
+}
+$('modoTodas').addEventListener('change', () => {
+  if ($('modoTodas').checked) gravarModoExportacao('todas');
+});
+$('modoSoErros').addEventListener('change', () => {
+  if ($('modoSoErros').checked) gravarModoExportacao('so_erros');
+});
 
 let confirmando = null;
 $('limpar').addEventListener('click', () => {

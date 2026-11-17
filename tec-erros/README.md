@@ -27,9 +27,15 @@ node scripts/build.mjs --ponte   # inclui a ponte para o caderno.html aberto do 
 - Formato do arquivo exportado: [docs/contrato.md](docs/contrato.md).
 - O que foi conferido e o que ainda é hipótese (seletores do TEC): [docs/pesquisa.md](docs/pesquisa.md).
 
-## Como um erro é contado
+## O que a captura guarda
 
-A questão precisa aparecer sem resolver por 2 segundos seguidos e depois ficar errada. Reabrir uma questão que você já errou não conta de novo. Uma questão que já aparece errada (resolvida no app) entra pelo modo histórico, sem data e sem aumentar a contagem de uma questão conhecida. Cada erro guarda a data e a hora locais, com o fuso, e o aparelho; arquivos de aparelhos diferentes se mesclam sem perder nem duplicar eventos.
+Por padrão a extensão **exporta todas as respostas** (acertos, erros e brancos) ao navegar o caderno. No popup (ou no botão do userscript) dá para escolher **Exportar apenas erros** (comportamento antigo).
+
+- **Erro:** a questão precisa aparecer sem resolver por 2 segundos e depois ficar errada (ou já aparecer errada, no modo histórico).
+- **Acerto:** grava na hora em que a tela mostra que você acertou.
+- **Branco:** grava quando você sai da questão sem ter respondido.
+
+O array do JSON continua se chamando `erros` por compatibilidade, mesmo no modo "todas". Cada item traz `tipo` e `resultado` (auditoria); o `concurso-analise` recalcula acerto/erro pelo `gab` e pelo `marc`.
 
 ## Quando o TEC mudar a página
 

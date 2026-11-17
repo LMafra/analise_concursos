@@ -94,6 +94,70 @@
     return valor.length === 1 ? valor.toUpperCase() : valor[0].toUpperCase() + valor.slice(1).toLowerCase();
   }
 
+  function tipoQuestao(alts) {
+    if (!Array.isArray(alts) || alts.length !== 2) return 'multipla_escolha';
+    const textos = alts.map((a) => normalizar(a && a.t)).sort();
+    if (textos[0] === 'certo' && textos[1] === 'errado') return 'certo_errado';
+    return 'multipla_escolha';
+  }
+
+  function normalizarMarcGab(valor, tipo) {
+    const bruto = String(valor == null ? '' : valor).trim();
+    if (!bruto) return '';
+    if (tipo === 'certo_errado') {
+      const n = normalizar(bruto);
+      if (n === 'c' || n === 'certo') return 'certo';
+      if (n === 'e' || n === 'errado') return 'errado';
+      return n;
+    }
+    return bruto.toUpperCase();
+  }
+
+  function resultadoQuestao(gab, marc, tipo) {
+    const t = tipo || 'multipla_escolha';
+    if (marc === null || marc === undefined || String(marc).trim() === '') return 'branco';
+    const g = normalizarMarcGab(gab, t);
+    const m = normalizarMarcGab(marc, t);
+    if (!g || !m) return 'branco';
+    return g === m ? 'acerto' : 'erro';
+  }
+
+  function filtrarItens(itens, modo) {
+    const lista = Array.isArray(itens) ? itens : Object.values(itens || {});
+    if (modo === 'so_erros') {
+      return lista.filter((item) => {
+        const tipo = item.tipo || tipoQuestao(item.alts);
+        const res = item.resultado || resultadoQuestao(item.gab, item.marc, tipo);
+        return res === 'erro';
+      });
+    }
+    return lista.slice();
+  }
+
+  function enriquecerItem(item) {
+    const r = Object.assign({}, item);
+    const tipo = tipoQuestao(r.alts);
+    r.tipo = tipo;
+    if (item.marc === '' || item.marc === undefined || item.marc === null) r.marc = null;
+    else r.marc = item.marc;
+    r.resultado = resultadoQuestao(r.gab, r.marc, tipo);
+    return r;
+  }
+
+  function montarAvisosExtensao(itens, modo, opcoes) {
+    const avisos = [];
+    const lista = itens || [];
+    const semMarc = lista.filter((i) => i.marc === null || i.marc === undefined || i.marc === '').length;
+    if (semMarc > 0) {
+      avisos.push('marc ausente em ' + semMarc + ' questões; o sistema vai tratá-las como branco');
+    }
+    if (opcoes && opcoes.fonteContagem === 'extensao') {
+      avisos.push('contagem de acertos/erros feita pela extensão; pode divergir do TEC');
+    }
+    if (modo === 'so_erros') avisos.push('exportação só de erros (modo antigo)');
+    return avisos;
+  }
+
   // Máquina de estados de uma questão na tela. situacao: sem_resolver, errou, acertou ou nenhuma.
   // Devolve o estado novo e a ação: 'erro' (conta), 'historico' (já veio errada) ou null.
   function proximoEstado(estado, id, situacao, agora) {
@@ -137,11 +201,18 @@
       v: contagem(ds),
       ds: ds,
       dev: dev,
-      origem: acao === 'erro' ? 'tempo_real' : 'historico',
+      origem: acao === 'erro' || acao === 'acerto' || acao === 'branco' ? 'tempo_real' : 'historico',
     };
     for (const campo of CAMPOS_TEXTO) if (!vazio(leitura[campo])) r[campo] = leitura[campo];
+    if (acao === 'branco' || (leitura.marc !== undefined && (leitura.marc === '' || leitura.marc === null))) {
+      r.marc = leitura.marc === null || leitura.marc === '' ? null : leitura.marc;
+    }
     if (!vazio(leitura.alts)) r.alts = leitura.alts;
     if (!vazio(leitura.com)) r.com = leitura.com;
+    const enriquecido = enriquecerItem(Object.assign({}, leitura, r));
+    r.tipo = enriquecido.tipo;
+    r.resultado = enriquecido.resultado;
+    if (enriquecido.marc === null) r.marc = null;
     return r;
   }
 
@@ -164,18 +235,28 @@
     return r;
   }
 
+  const ACOES_NOVAS = { erro: true, historico: true, acerto: true, branco: true };
+
   // Aplica a ação de um tick à coleção de erros (objeto por id).
   function registrar(erros, leitura, acao, agoraIso, dev, agoraMs) {
     const atual = erros[leitura.id];
     let registro;
     if (!atual) {
-      if (acao !== 'erro' && acao !== 'historico') return { erros: erros, registro: null, mudou: false };
+      if (!ACOES_NOVAS[acao]) return { erros: erros, registro: null, mudou: false };
       registro = novoRegistro(leitura, acao, agoraIso, dev, agoraMs);
     } else {
-      const extra = novoRegistro(leitura, acao === 'erro' ? 'erro' : 'historico', agoraIso, dev, agoraMs);
+      // Acerto/branco já gravados não somam evento de erro; só complementam campos.
+      const acaoExtra = acao === 'erro' ? 'erro' : acao === 'historico' ? 'historico' : acao;
+      const extra = novoRegistro(leitura, acaoExtra === 'erro' ? 'erro' : acaoExtra === 'historico' ? 'historico' : acaoExtra, agoraIso, dev, agoraMs);
       if (acao !== 'erro') extra.ds = [];
       registro = fundir(atual, extra);
-      if (registro !== atual) registro.t = agoraMs;
+      if (registro !== atual) {
+        registro.t = agoraMs;
+        const enriquecido = enriquecerItem(Object.assign({}, leitura, registro));
+        registro.tipo = enriquecido.tipo;
+        registro.resultado = enriquecido.resultado;
+        if (enriquecido.marc === null && (leitura.marc === '' || leitura.marc == null)) registro.marc = null;
+      }
     }
     if (registro === atual) return { erros: erros, registro: atual, mudou: false };
     const novos = Object.assign({}, erros);
@@ -239,14 +320,20 @@
     return { cads: Object.values(porId), mudou: mudou };
   }
 
-  function exportar(erros, cads, dev, agora) {
+  function exportar(erros, cads, dev, agora, opcoes) {
+    const opts = opcoes || {};
+    const modo = opts.modoExportacao === 'so_erros' ? 'so_erros' : 'todas';
+    const brutos = Object.values(erros || {}).map(enriquecerItem);
+    const filtrados = filtrarItens(brutos, modo);
+    const avisos = montarAvisosExtensao(filtrados, modo, opts);
     return {
       app: APP,
       v: VERSAO,
       em: dataLocalIso(agora || new Date()),
       dev: dev,
-      erros: Object.values(erros || {}),
+      erros: filtrados,
       cads: Object.values(cads || {}),
+      avisos_extensao: avisos,
     };
   }
 
@@ -255,11 +342,21 @@
     const dados = typeof texto === 'string' ? JSON.parse(texto) : texto;
     if (!dados || dados.app !== APP) throw new Error('não é um arquivo do tec-erros (campo app)');
     if (dados.v !== VERSAO) throw new Error('versão ' + dados.v + ' do arquivo; esperada ' + VERSAO);
-    const conhecidos = ['app', 'v', 'em', 'dev', 'erros', 'cads'];
+    const conhecidos = ['app', 'v', 'em', 'dev', 'erros', 'cads', 'avisos_extensao', 'respostas'];
     const avisos = Object.keys(dados)
       .filter((k) => !conhecidos.includes(k))
       .map((k) => 'campo desconhecido ignorado: ' + k);
-    return { dados: { erros: dados.erros || [], cads: dados.cads || [], dev: dados.dev, em: dados.em }, avisos: avisos };
+    const itens = dados.erros || dados.respostas || [];
+    return {
+      dados: {
+        erros: itens,
+        cads: dados.cads || [],
+        dev: dados.dev,
+        em: dados.em,
+        avisos_extensao: Array.isArray(dados.avisos_extensao) ? dados.avisos_extensao : [],
+      },
+      avisos: avisos,
+    };
   }
 
   function novoDispositivo(aleatorio) {
@@ -272,7 +369,8 @@
   const TecErros = {
     APP, VERSAO, ESPERA_SEM_RESOLVER_MS,
     normalizar, hash, impressaoDigital, identidade, dataLocalIso, dia,
-    lerCabecalho, lerTotaisCaderno, lerGabarito, proximoEstado,
+    lerCabecalho, lerTotaisCaderno, lerGabarito, tipoQuestao, resultadoQuestao,
+    normalizarMarcGab, filtrarItens, enriquecerItem, montarAvisosExtensao, proximoEstado,
     fundir, registrar, atualizarCaderno, mesclarErros, mesclarCadernos,
     exportar, lerExportacao, novoDispositivo,
   };

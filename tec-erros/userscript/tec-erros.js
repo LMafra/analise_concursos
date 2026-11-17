@@ -61,6 +61,12 @@ function criarPainel() {
       pre.style.display = 'block';
       return 'Relatório copiado; cole na conversa para corrigir os seletores.';
     }],
+    ['Exportar: ?', async () => {
+      const atual = (await armazenamento.ler('modoExportacao', 'todas')) || 'todas';
+      const proximo = atual === 'todas' ? 'so_erros' : 'todas';
+      await armazenamento.gravar('modoExportacao', proximo);
+      return proximo === 'todas' ? 'Baixar todas as respostas.' : 'Baixar apenas erros.';
+    }],
     ['Modo histórico: ?', async () => {
       const ligado = (await armazenamento.ler('modoHistorico', true)) !== false;
       await armazenamento.gravar('modoHistorico', !ligado);
@@ -114,6 +120,8 @@ function criarPainel() {
     botao.textContent = '✗ ' + erros.length + (repetidas ? ' (' + repetidas + ' rep.)' : '');
     const ligado = (await armazenamento.ler('modoHistorico', true)) !== false;
     botoes['Modo histórico: ?'].textContent = 'Modo histórico: ' + (ligado ? 'ligado' : 'desligado');
+    const modo = (await armazenamento.ler('modoExportacao', 'todas')) || 'todas';
+    botoes['Exportar: ?'].textContent = modo === 'so_erros' ? 'Exportar: apenas erros' : 'Exportar: todas as respostas';
   }
   return atualizar;
 }

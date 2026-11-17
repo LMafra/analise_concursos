@@ -10,12 +10,15 @@ Os exemplos de `tests/contrato_tec/` (na raiz do monorepo) valem como especifica
   "v": 1,
   "em": "2026-11-02T21:15:03-03:00",
   "dev": "d3f9a1c2",
-  "erros": [Erro],
-  "cads": [Caderno]
+  "erros": [Item],
+  "cads": [Caderno],
+  "avisos_extensao": []
 }
 ```
 
-## Erro
+O array continua se chamando `erros` por compatibilidade, mesmo no modo "Exportar todas as respostas" (acertos, erros e brancos). O consumidor também aceita o alias `respostas`. `avisos_extensao` é um array de strings (vazio quando não há aviso).
+
+## Item (acerto, erro ou branco)
 
 ```json
 {
@@ -31,9 +34,15 @@ Os exemplos de `tests/contrato_tec/` (na raiz do monorepo) valem como especifica
   "banca": "CEBRASPE", "orgao": "SEFAZ-DF", "ano": "2020",
   "enun": "texto do enunciado", "alts": [{"l": "A", "t": "..."}],
   "marc": "B", "gab": "C", "com": "comentário do professor", "prof": "Nome",
-  "url": "https://www.tecconcursos.com.br/..."
+  "url": "https://www.tecconcursos.com.br/...",
+  "tipo": "multipla_escolha",
+  "resultado": "erro"
 }
 ```
+
+- `tipo`: `certo_errado` (duas alternativas Certo/Errado) ou `multipla_escolha`.
+- `resultado`: `acerto`, `erro` ou `branco` — auditoria da extensão; o `concurso-analise` recalcula a partir de `gab` e `marc`.
+- `marc` ausente vira `null` e gera aviso em `avisos_extensao`.
 
 - `id`: `q<idQuestao>` do TEC; sem ele, `h<hash>` dos primeiros 600 caracteres do enunciado (FNV-1a de 32 bits, em hexadecimal).
 - `fp`: impressão digital, o enunciado sem acentos, em minúsculas, com espaços simples, cortado em 300 caracteres. O mesmo texto pode aparecer com ids diferentes; a mesclagem casa por `id` ou por `fp`.
