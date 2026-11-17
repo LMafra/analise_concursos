@@ -771,9 +771,7 @@ def importar_pratica(
         'n_brancos': sum(1 for r in respostas if r['resultado'] == RESULTADO_BRANCO),
         'avisos': avisos,
     }
-    mudou |= gravar_se_mudou(
-        pasta / ARQUIVO_IMPORT_LOG, json.dumps(log, ensure_ascii=False, indent=2) + '\n'
-    )
+    mudou |= gravar_se_mudou(pasta / ARQUIVO_IMPORT_LOG, json.dumps(log, ensure_ascii=False, indent=2) + '\n')
     from concursos.analytics.tec_estatisticas import markdown_resumo
 
     mudou |= gravar_se_mudou(pasta / 'tec_estatisticas.md', markdown_resumo(pasta_candidato))
