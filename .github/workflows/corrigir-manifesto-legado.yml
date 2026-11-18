@@ -1,5 +1,5 @@
 # Corrige uma release já publicada cujo manifesto só tem gabarito-vivo-*: clientes ≤0.7.0b2
-# rejeitam esse prefixo. Copia os artefatos para concurso-analise-*, reassa o manifesto e sobe.
+# rejeitam esse prefixo. Copia os artefatos para concurso-analise-*, reassina o manifesto e sobe.
 name: corrigir-manifesto-legado
 
 on:
