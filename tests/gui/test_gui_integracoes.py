@@ -208,7 +208,7 @@ async def test_importar_simulado_pode_ser_cancelado(user: User, projeto, monkeyp
     await user.should_see(marker='cancelar-importacao')
     user.find(marker='cancelar-importacao').click()
 
-    await user.should_see('Importação cancelada')
+    await user.should_see('Importação interrompida')
 
 
 SEGUNDA = ProvaAnteriorPci(

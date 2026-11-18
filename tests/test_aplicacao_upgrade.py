@@ -85,7 +85,7 @@ def test_run_pergunta_antes_e_respeita_o_nao(opcoes, monkeypatch):
 
     assert aplicacao.atualizar_executavel(o, executar=True, instalar_com=pytest.fail) == 0
     assert '250 MB' in interacao.perguntas[0]
-    assert mensagens[-1] == 'atualização cancelada'
+    assert mensagens[-1] == 'atualização interrompida'
 
 
 def test_run_confirmado_instala(opcoes, monkeypatch, tmp_path):

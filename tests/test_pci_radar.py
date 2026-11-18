@@ -156,11 +156,12 @@ def test_radar_depois_da_analise_no_indice_status_e_doctor(
     radar = json.loads((destino / ARQUIVO_RADAR_JSON).read_text(encoding='utf-8'))
     assert [item['id'] for item in radar['itens']] == [1]
     indice = (destino / 'index.html').read_text(encoding='utf-8')
-    assert '<section id="prazos">\n<h2>Prazos dos editais</h2>' in indice and 'Câmara Alfa' in indice
+    assert '<details id="prazos"><summary><h2>Prazos dos editais</h2></summary>' in indice
+    assert 'Câmara Alfa' in indice
     markdown = (destino / ARQUIVO_RADAR).read_text(encoding='utf-8')
     assert re.search(r'\d{2}/\d{2}/\d{4}', markdown) and not re.search(r'\d{4}-\d{2}-\d{2}', markdown)
     assert not re.search(
-        r'\d{4}-\d{2}-\d{2}', indice.split('<section id="prazos">')[1].split('</section>')[0]
+        r'\d{4}-\d{2}-\d{2}', indice.split('<details id="prazos">')[1].split('</details>')[0]
     )
     assert re.match(r'\d{4}-\d{2}-\d{2}$', radar['data_referencia'])
     capsys.readouterr()

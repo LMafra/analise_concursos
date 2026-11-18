@@ -328,7 +328,7 @@ def test_instalador_por_usuario_com_versao_no_nome():
     texto = (RAIZ / 'empacotamento' / 'inno' / 'concurso-analise.iss').read_text(encoding='utf-8-sig')
 
     assert 'PrivilegesRequired=lowest' in texto
-    assert 'OutputBaseFilename=concurso-analise-{#Versao}-windows-x64-setup' in texto
+    assert 'OutputBaseFilename=gabarito-vivo-{#Versao}-windows-x64-setup' in texto
     assert 'BrazilianPortuguese.isl' in texto
     assert 'VersionInfoProductName={#Nome}' in texto
     assert 'VersionInfoVersion={#VersaoNumerica}' in texto
@@ -360,12 +360,12 @@ def test_versao_numerica_do_windows_tem_quatro_partes(versao, numerica):
 def test_recurso_de_versao_identifica_o_produto_e_o_editor(tmp_path):
     versao = modulo_versao()
 
-    texto = versao.recurso_de_versao('0.6.0b1', 'concurso-analise-cli', 'concurso-analise (linha de comando)')
+    texto = versao.recurso_de_versao('0.6.0b1', 'gabarito-vivo-cli', 'Gabarito Vivo (linha de comando)')
 
     assert 'filevers=(0, 6, 0, 0)' in texto
-    assert "StringStruct('ProductName', 'concurso-analise')" in texto
+    assert "StringStruct('ProductName', 'Gabarito Vivo')" in texto
     assert "StringStruct('ProductVersion', '0.6.0b1')" in texto
-    assert "StringStruct('OriginalFilename', 'concurso-analise-cli.exe')" in texto
+    assert "StringStruct('OriginalFilename', 'gabarito-vivo-cli.exe')" in texto
     assert "StringStruct('CompanyName', 'LMafra')" in texto
     assert 'VarStruct' in texto
 
@@ -398,19 +398,20 @@ def test_appdir_tem_desktop_valido_icone_e_versao():
     assert '.DirIcon' in montar
     assert 'hicolor/256x256/apps' in montar
     assert 'X-AppImage-Version=$VERSAO' in montar
-    assert 'Icon=concurso-analise' in desktop
+    assert 'Icon=gabarito-vivo' in desktop
+    assert 'Name=Gabarito Vivo' in desktop
     assert 'Categories=Education;' in desktop
 
 
 def test_mutex_so_no_windows():
     assert empacotado.segurar_mutex('linux') is None
-    assert empacotado.MUTEX == 'concurso-analise'
+    assert empacotado.MUTEX == 'gabarito-vivo'
 
 
 def test_setup_espera_o_mutex_e_reabre_com_reabrir():
     texto = (RAIZ / 'empacotamento' / 'inno' / 'concurso-analise.iss').read_text(encoding='utf-8-sig')
 
-    assert '#define Mutex "concurso-analise"' in texto
+    assert '#define Mutex "gabarito-vivo"' in texto
     assert "CheckForMutexes('{#Mutex}')" in texto
     assert 'Check: DeveReabrir' in texto
     assert '{param:REABRIR|0}' in texto

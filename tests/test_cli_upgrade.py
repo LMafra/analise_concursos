@@ -24,7 +24,7 @@ def test_sem_run_so_imprime_o_comando(chamadas, capsys, tmp_path, monkeypatch):
 
     assert main(['upgrade']) == 0
 
-    assert 'uv tool upgrade concurso-analise' in capsys.readouterr().out
+    assert 'uv tool upgrade gabarito-vivo' in capsys.readouterr().out
     assert chamadas == []
 
 
@@ -33,7 +33,7 @@ def test_com_run_executa_o_uv(chamadas, tmp_path, monkeypatch):
 
     assert main(['upgrade', '--run']) == 0
 
-    assert chamadas == [['/usr/bin/uv', 'tool', 'upgrade', 'concurso-analise']]
+    assert chamadas == [['/usr/bin/uv', 'tool', 'upgrade', 'gabarito-vivo']]
 
 
 def test_com_run_e_dry_run_nao_executa(chamadas, capsys, tmp_path, monkeypatch):
@@ -42,7 +42,7 @@ def test_com_run_e_dry_run_nao_executa(chamadas, capsys, tmp_path, monkeypatch):
     assert main(['--dry-run', 'upgrade', '--run']) == 0
 
     assert chamadas == []
-    assert 'uv tool upgrade concurso-analise' in capsys.readouterr().out
+    assert 'uv tool upgrade gabarito-vivo' in capsys.readouterr().out
 
 
 def test_sem_uv_e_erro_de_ambiente_com_dica(chamadas, capsys, tmp_path, monkeypatch):

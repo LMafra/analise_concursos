@@ -122,8 +122,11 @@ async def test_topico_fraco_abre_a_pergunta_nos_livros(user: User, projeto, monk
     assert perguntas == ['crase']
 
 
-async def test_simulado_e_pratica_leva_para_estudar(user: User, projeto):
+async def test_simulado_e_pratica_leva_para_estudar(user: User, projeto, monkeypatch):
     com_relatorio(projeto)
+    monkeypatch.setattr(estudo, 'listar_livros', lambda contexto: [])
+    monkeypatch.setattr(estudo, 'iniciar_trabalho', lambda contexto, ao_mudar=None: None)
+    monkeypatch.setattr(estudo, 'sugestoes_de_pergunta', lambda contexto: [])
 
     await user.open('/resultados')
     user.find(marker='ir-estudar-simulado').click()
