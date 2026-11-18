@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       de:
-        description: 'tag instalada antes (ex.: v0.6.0b1)'
+        description: 'tag instalada antes (ex.: v0.7.0b2)'
         required: true
       esperada:
-        description: 'versão esperada depois da atualização (ex.: 0.6.0b2)'
+        description: 'versão esperada depois da atualização (ex.: 0.7.0b3)'
         required: true
       canal:
         description: 'canal consultado'
@@ -44,10 +44,20 @@ jobs:
 
       - name: Atualizar pelo app
         run: |
-          $pasta = Join-Path $env:LOCALAPPDATA 'Programs\concurso-analise'
-          & (Join-Path $pasta 'concurso-analise-cli.exe') --yes upgrade --run --canal $env:CANAL
+          $programas = Join-Path $env:LOCALAPPDATA 'Programs'
+          $cliAntigo = @(
+            (Join-Path $programas 'concurso-analise\concurso-analise-cli.exe'),
+            (Join-Path $programas 'gabarito-vivo\gabarito-vivo-cli.exe')
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $cliAntigo) { throw 'não achei o CLI da versão de partida' }
+          & $cliAntigo --yes upgrade --run --canal $env:CANAL
           if ($LASTEXITCODE -ne 0) { throw "upgrade saiu com $LASTEXITCODE" }
-          $janela = Join-Path $pasta 'concurso-analise.exe'
+          $janela = @(
+            (Join-Path $programas 'gabarito-vivo\gabarito-vivo.exe'),
+            (Join-Path $programas 'concurso-analise\gabarito-vivo.exe'),
+            (Join-Path $programas 'concurso-analise\concurso-analise.exe')
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $janela) { throw 'não achei o executável depois do upgrade' }
           $limite = (Get-Date).AddMinutes(10)
           do {
             Start-Sleep -Seconds 10
@@ -59,8 +69,14 @@ jobs:
 
       - name: O app reaberto pelo setup responde
         run: |
-          Get-Process concurso-analise -ErrorAction SilentlyContinue | Stop-Process -Force
-          $cli = Join-Path $env:LOCALAPPDATA 'Programs\concurso-analise\concurso-analise-cli.exe'
+          Get-Process gabarito-vivo, concurso-analise -ErrorAction SilentlyContinue | Stop-Process -Force
+          $programas = Join-Path $env:LOCALAPPDATA 'Programs'
+          $cli = @(
+            (Join-Path $programas 'gabarito-vivo\gabarito-vivo-cli.exe'),
+            (Join-Path $programas 'concurso-analise\gabarito-vivo-cli.exe'),
+            (Join-Path $programas 'concurso-analise\concurso-analise-cli.exe')
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $cli) { throw 'não achei o CLI da versão nova' }
           & $cli --smoke
           if ($LASTEXITCODE -ne 0) { throw 'smoke da versão nova falhou' }
 
@@ -75,12 +91,12 @@ jobs:
         run: |
           mkdir -p ~/Aplicativos
           gh release download "$DE" --repo "$GITHUB_REPOSITORY" --pattern '*-linux-x86_64.AppImage' --dir ~/Aplicativos
-          mv ~/Aplicativos/*.AppImage ~/Aplicativos/concurso-analise.AppImage
-          chmod +x ~/Aplicativos/concurso-analise.AppImage
+          mv ~/Aplicativos/*.AppImage ~/Aplicativos/gabarito-vivo.AppImage
+          chmod +x ~/Aplicativos/gabarito-vivo.AppImage
 
       - name: Atualizar pelo app e conferir
         run: |
-          app=~/Aplicativos/concurso-analise.AppImage
+          app=~/Aplicativos/gabarito-vivo.AppImage
           "$app" --yes upgrade --run --canal "$CANAL"
           "$app" --smoke | tee smoke.txt
           grep -qx "smoke: versão $ESPERADA" smoke.txt

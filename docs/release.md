@@ -24,8 +24,8 @@ Sem o secret, o job `publicar` falha no passo "Manifesto de atualização assina
 Opcional: sem o secret `SIGNPATH_API_TOKEN`, o build segue sem assinar. Com o projeto aprovado na [SignPath Foundation](https://signpath.org/apply.html):
 
 1. Na SignPath: projeto `concurso-analise`, Trusted Build System "GitHub.com" ligado ao projeto e o GitHub App instalado no repositório.
-2. Artifact configurations, as duas com Authenticode e a restrição de metadados `ProductName=concurso-analise`:
-   - `executaveis`: zip com `concurso-analise.exe` e `concurso-analise-cli.exe` na raiz;
+2. Artifact configurations, as duas com Authenticode e a restrição de metadados `ProductName=Gabarito Vivo` (ou a que a SignPath tiver cadastrada; alinhe antes da tag se ainda estiver em `concurso-analise`):
+   - `executaveis`: zip com `gabarito-vivo.exe` e `gabarito-vivo-cli.exe` na raiz;
    - `instalador`: o `setup.exe` solto.
 3. Signing policies: `release-signing` (aprovação manual) e `test-signing`.
 4. No GitHub: o secret `SIGNPATH_API_TOKEN` (usuário com papel de submitter) e as variáveis de repositório `SIGNPATH_ORGANIZATION_ID` e `SIGNPATH_PROJECT_SLUG`.

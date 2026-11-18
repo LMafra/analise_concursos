@@ -19,7 +19,7 @@ def montar(versao: str, commit: str, pasta: Path) -> str:
     if faltando:
         raise SystemExit(f'relatório de smoke faltando em {pasta}: {", ".join(faltando)}')
     partes = [
-        f'# Relatório de smoke: concurso-analise {versao}\n',
+        f'# Relatório de smoke: Gabarito Vivo {versao}\n',
         f'Gerado pelo release.yml no commit `{commit}`. Cada seção é o gate de máquina limpa de um sistema: '
         'instalação, `--smoke` (versão, partida, perfis, Tesseract com português e OCR numa imagem gerada, '
         'GUI em 127.0.0.1) e `scripts/smoke.py congelado` (onboarding, análise e idempotência).\n',

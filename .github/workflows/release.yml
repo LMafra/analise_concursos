@@ -81,8 +81,8 @@ jobs:
         with:
           name: executaveis-sem-assinatura
           path: |
-            dist/concurso-analise/concurso-analise.exe
-            dist/concurso-analise/concurso-analise-cli.exe
+            dist/gabarito-vivo/gabarito-vivo.exe
+            dist/gabarito-vivo/gabarito-vivo-cli.exe
           if-no-files-found: error
 
       - name: Assinar os executáveis (SignPath)
@@ -96,7 +96,7 @@ jobs:
           artifact-configuration-slug: executaveis
           github-artifact-id: ${{ steps.executaveis.outputs.artifact-id }}
           wait-for-completion-timeout-in-seconds: 3600
-          output-artifact-directory: dist/concurso-analise
+          output-artifact-directory: dist/gabarito-vivo
 
       - name: Bootstrapper do WebView2
         run: ./empacotamento/windows/obter_webview2.ps1
@@ -117,7 +117,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: instalador-sem-assinatura
-          path: dist/concurso-analise-*-windows-x64-setup.exe
+          path: dist/gabarito-vivo-*-windows-x64-setup.exe
           if-no-files-found: error
 
       - name: Assinar o setup (SignPath)
@@ -158,20 +158,20 @@ jobs:
         run: |
           $assinatura = @{ ExigirAssinatura = ($env:ASSINADO -eq 'true' -and $env:GITHUB_REF.StartsWith('refs/tags/v')) }
           if ($env:PACOTE_ESTUDO) { $assinatura.PacoteEstudo = (Resolve-Path $env:PACOTE_ESTUDO).Path }
-          ./scripts/smoke_maquina_limpa.ps1 -Instalador "dist\concurso-analise-$env:VERSAO-windows-x64-setup.exe" `
+          ./scripts/smoke_maquina_limpa.ps1 -Instalador "dist\gabarito-vivo-$env:VERSAO-windows-x64-setup.exe" `
             -LimitePartida 10 -Relatorio dist\smoke-windows.md @assinatura
           Get-Content dist\smoke-windows.md | Add-Content $env:GITHUB_STEP_SUMMARY
 
       - name: Tamanho
         run: |
-          $instalado = (Get-ChildItem -Recurse dist\concurso-analise | Measure-Object -Sum Length).Sum / 1MB
-          $instalador = (Get-Item "dist\concurso-analise-$env:VERSAO-windows-x64-setup.exe").Length / 1MB
+          $instalado = (Get-ChildItem -Recurse dist\gabarito-vivo | Measure-Object -Sum Length).Sum / 1MB
+          $instalador = (Get-Item "dist\gabarito-vivo-$env:VERSAO-windows-x64-setup.exe").Length / 1MB
           "Instalado: {0:N0} MB; instalador: {1:N0} MB" -f $instalado, $instalador | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: dist/concurso-analise-*-windows-x64-setup.exe
+          path: dist/gabarito-vivo-*-windows-x64-setup.exe
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
@@ -199,12 +199,12 @@ jobs:
         run: bash empacotamento/linux/construir.sh
 
       - name: Tamanho
-        run: du -h dist/concurso-analise-*-linux-x86_64.AppImage | tee -a "$GITHUB_STEP_SUMMARY"
+        run: du -h dist/gabarito-vivo-*-linux-x86_64.AppImage | tee -a "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux
-          path: dist/concurso-analise-*-linux-x86_64.AppImage
+          path: dist/gabarito-vivo-*-linux-x86_64.AppImage
           if-no-files-found: error
 
   linux-smoke:
@@ -232,8 +232,8 @@ jobs:
             -e CONCURSO_SMOKE_LIMITE_PARTIDA=10 '${{ matrix.imagem }}' sh -euc '
             if command -v python3 || command -v tesseract; then exit 1; fi
             cd /tmp
-            /dist/concurso-analise-*.AppImage --smoke
-            /dist/concurso-analise-*.AppImage doctor
+            /dist/gabarito-vivo-*.AppImage --smoke
+            /dist/gabarito-vivo-*.AppImage doctor
           ' | tee saida.txt
           {
             echo "## Linux (${{ matrix.imagem }}, AppImage)"
@@ -245,7 +245,7 @@ jobs:
 
       - name: Onboarding e análise pelo executável
         run: |
-          python3 scripts/smoke.py congelado dist/concurso-analise-*-linux-x86_64.AppImage
+          python3 scripts/smoke.py congelado dist/gabarito-vivo-*-linux-x86_64.AppImage
           echo '- scripts/smoke.py congelado: onboarding, análise e idempotência ok' >> "$RELATORIO"
 
       # O pacote de estudo mais novo já publicado (estudo.yml); numa tag v*, ele é obrigatório.
@@ -268,7 +268,7 @@ jobs:
       - name: Biblioteca pelo executável
         if: steps.estudo.outputs.pacote != ''
         run: |
-          python3 scripts/smoke.py estudo "${{ steps.estudo.outputs.pacote }}" dist/concurso-analise-*-linux-x86_64.AppImage
+          python3 scripts/smoke.py estudo "${{ steps.estudo.outputs.pacote }}" dist/gabarito-vivo-*-linux-x86_64.AppImage
           echo "- biblioteca ($(basename '${{ steps.estudo.outputs.pacote }}')): pacote instalado, PDF com página escaneada enviado, pergunta com trecho e página" >> "$RELATORIO"
 
       - name: Fecha o relatório
@@ -317,23 +317,23 @@ jobs:
 
       - name: Gate de máquina limpa (app copiado do DMG, PATH sem Homebrew)
         run: |
-          hdiutil attach -nobrowse -mountpoint /tmp/dmg "dist/concurso-analise-$VERSAO-macos-arm64.dmg"
+          hdiutil attach -nobrowse -mountpoint /tmp/dmg "dist/gabarito-vivo-$VERSAO-macos-arm64.dmg"
           rm -rf /tmp/instalado && mkdir /tmp/instalado
-          cp -R /tmp/dmg/concurso-analise.app /tmp/instalado/
+          cp -R /tmp/dmg/gabarito-vivo.app /tmp/instalado/
           hdiutil detach /tmp/dmg
-          codesign --verify --deep --strict /tmp/instalado/concurso-analise.app
-          CLI=/tmp/instalado/concurso-analise.app/Contents/MacOS/concurso-analise-cli
+          codesign --verify --deep --strict /tmp/instalado/gabarito-vivo.app
+          CLI=/tmp/instalado/gabarito-vivo.app/Contents/MacOS/gabarito-vivo-cli
           # O macOS sempre define TMPDIR; sem ele, o Python usa /tmp, que a Leptonica troca pela pasta
           # temporária do usuário, e o OCR não acha a imagem.
           env -i HOME="$HOME" TMPDIR="$TMPDIR" PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/python3 scripts/smoke.py congelado "$CLI"
 
       - name: Tamanho
-        run: du -h "dist/concurso-analise-$VERSAO-macos-arm64.dmg" | tee -a "$GITHUB_STEP_SUMMARY"
+        run: du -h "dist/gabarito-vivo-$VERSAO-macos-arm64.dmg" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: dist/concurso-analise-*-macos-arm64.dmg
+          path: dist/gabarito-vivo-*-macos-arm64.dmg
           if-no-files-found: error
 
   publicar:
@@ -395,7 +395,7 @@ jobs:
       - name: SHA256SUMS
         working-directory: dist
         run: |
-          sha256sum concurso-analise-* atualizacao.json atualizacao.json.sig RELATORIO-SMOKE.md > SHA256SUMS
+          sha256sum gabarito-vivo-* atualizacao.json atualizacao.json.sig RELATORIO-SMOKE.md > SHA256SUMS
           cat SHA256SUMS | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Pré-release (b, rc) nasce como prerelease; nenhuma vira "latest" sozinha: a promoção é manual,
@@ -408,4 +408,4 @@ jobs:
           if [ -f "$notas" ]; then origem=(--notes-file "$notas"); else origem=(--generate-notes); fi
           if [ "$PREVIA" = sim ]; then tipo=(--prerelease); else tipo=(--latest=false); fi
           gh release create "$GITHUB_REF_NAME" --draft "${origem[@]}" "${tipo[@]}" \
-            --title "concurso-analise ${GITHUB_REF_NAME#v}" dist/*
+            --title "Gabarito Vivo ${GITHUB_REF_NAME#v}" dist/*
