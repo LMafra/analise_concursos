@@ -45,6 +45,13 @@ jobs:
       - name: Atualizar pelo app
         run: |
           $programas = Join-Path $env:LOCALAPPDATA 'Programs'
+          function JanelasPossiveis {
+            @(
+              (Join-Path $programas 'gabarito-vivo\gabarito-vivo.exe'),
+              (Join-Path $programas 'concurso-analise\gabarito-vivo.exe'),
+              (Join-Path $programas 'concurso-analise\concurso-analise.exe')
+            ) | Where-Object { Test-Path $_ }
+          }
           $cliAntigo = @(
             (Join-Path $programas 'concurso-analise\concurso-analise-cli.exe'),
             (Join-Path $programas 'gabarito-vivo\gabarito-vivo-cli.exe')
@@ -52,19 +59,24 @@ jobs:
           if (-not $cliAntigo) { throw 'não achei o CLI da versão de partida' }
           & $cliAntigo --yes upgrade --run --canal $env:CANAL
           if ($LASTEXITCODE -ne 0) { throw "upgrade saiu com $LASTEXITCODE" }
-          $janela = @(
-            (Join-Path $programas 'gabarito-vivo\gabarito-vivo.exe'),
-            (Join-Path $programas 'concurso-analise\gabarito-vivo.exe'),
-            (Join-Path $programas 'concurso-analise\concurso-analise.exe')
-          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $janela) { throw 'não achei o executável depois do upgrade' }
           $limite = (Get-Date).AddMinutes(10)
+          $versao = $null
           do {
             Start-Sleep -Seconds 10
+            Get-Process | Where-Object { $_.ProcessName -match 'setup|gabarito-vivo|concurso-analise' } |
+              ForEach-Object { Write-Host "processo: $($_.ProcessName) ($($_.Id))" }
+            # O setup ainda pode estar copiando: reavalia o caminho a cada volta (o .exe novo pode
+            # aparecer numa pasta diferente da versão de partida).
+            $janela = JanelasPossiveis | Select-Object -First 1
+            if (-not $janela) { Write-Host 'ainda sem executável instalado'; continue }
             $versao = (Get-Item $janela).VersionInfo.ProductVersion
-            Write-Host "versão instalada: $versao"
+            Write-Host "versão instalada: $versao ($janela)"
           } while ($versao -ne $env:ESPERADA -and (Get-Date) -lt $limite)
-          if ($versao -ne $env:ESPERADA) { throw "esperava $env:ESPERADA, ficou $versao" }
+          if ($versao -ne $env:ESPERADA) {
+            Get-ChildItem -Recurse $programas -Filter '*.exe' -ErrorAction SilentlyContinue |
+              ForEach-Object { Write-Host $_.FullName }
+            throw "esperava $env:ESPERADA, ficou $versao"
+          }
           "Windows: $env:DE -> $versao pelo canal $env:CANAL" | Add-Content $env:GITHUB_STEP_SUMMARY
 
       - name: O app reaberto pelo setup responde
