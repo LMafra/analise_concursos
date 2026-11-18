@@ -2,7 +2,7 @@
 # smoke do executável (versão, GUI em 127.0.0.1 com o tempo de partida, perfis, Tesseract embutido lendo uma
 # imagem, doctor e a análise de dois concursos com idempotência) e desinstala.
 #
-# Uso: pwsh scripts/smoke_maquina_limpa.ps1 -Instalador dist\concurso-analise-0.6.0-windows-x64-setup.exe `
+# Uso: pwsh scripts/smoke_maquina_limpa.ps1 -Instalador dist\gabarito-vivo-0.7.0b3-windows-x64-setup.exe `
 #        [-LimitePartida 10] [-ExigirAssinatura] [-Relatorio smoke-windows.md] [-PacoteEstudo estudo-...zip]
 #
 # Com -PacoteEstudo, instala também a biblioteca daquele arquivo, envia um PDF ao open-notebook e pergunta.
@@ -34,7 +34,7 @@ function ConferirAssinatura([string]$Arquivo) {
 
 $Python = (Get-Command python -ErrorAction SilentlyContinue).Source
 $Smoke = Join-Path $PSScriptRoot 'smoke.py'
-$Destino = Join-Path ([IO.Path]::GetTempPath()) 'concurso-analise-maquina-limpa'
+$Destino = Join-Path ([IO.Path]::GetTempPath()) 'gabarito-vivo-maquina-limpa'
 if (Test-Path $Destino) { Remove-Item -Recurse -Force $Destino }
 
 Registrar "## Windows ($([Environment]::OSVersion.VersionString))"
@@ -45,12 +45,12 @@ $Instalacao = Start-Process -FilePath $Instalador -Wait -PassThru -ArgumentList 
     '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', "/DIR=`"$Destino`""
 )
 if ($Instalacao.ExitCode -ne 0) { throw "o instalador saiu com código $($Instalacao.ExitCode)" }
-$Janela = Join-Path $Destino 'concurso-analise.exe'
-$Cli = Join-Path $Destino 'concurso-analise-cli.exe'
+$Janela = Join-Path $Destino 'gabarito-vivo.exe'
+$Cli = Join-Path $Destino 'gabarito-vivo-cli.exe'
 foreach ($Arquivo in @($Janela, $Cli, (Join-Path $Destino 'unins000.exe'))) {
     if (-not (Test-Path $Arquivo)) { throw "$Arquivo não foi instalado" }
 }
-$Atalho = Join-Path ([Environment]::GetFolderPath('Programs')) 'concurso-analise.lnk'
+$Atalho = Join-Path ([Environment]::GetFolderPath('Programs')) 'Gabarito Vivo.lnk'
 if (-not (Test-Path $Atalho)) { throw "o atalho do menu Iniciar não foi criado em $Atalho" }
 Registrar '- instalação silenciosa por usuário, com atalho no menu Iniciar'
 $WebView2 = 'Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
@@ -78,7 +78,7 @@ try {
         if (Get-Command $Programa -ErrorAction SilentlyContinue) { throw "$Programa ainda está no PATH limpo" }
     }
 
-    $SaidaSmoke = Join-Path ([IO.Path]::GetTempPath()) 'concurso-analise-smoke.txt'
+    $SaidaSmoke = Join-Path ([IO.Path]::GetTempPath()) 'gabarito-vivo-smoke.txt'
     $Gui = Start-Process -FilePath $Janela -ArgumentList '--smoke' -Wait -PassThru `
         -RedirectStandardOutput $SaidaSmoke
     $TextoSmoke = if (Test-Path $SaidaSmoke) { Get-Content -Raw -Encoding utf8 $SaidaSmoke } else { '' }

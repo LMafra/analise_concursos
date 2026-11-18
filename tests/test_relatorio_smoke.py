@@ -31,7 +31,7 @@ def test_junta_windows_e_depois_linux_com_cabecalho(script, tmp_path):
 
     texto = script.montar('0.6.0', 'abc1234', tmp_path)
 
-    assert texto.startswith('# Relatório de smoke: concurso-analise 0.6.0\n')
+    assert texto.startswith('# Relatório de smoke: Gabarito Vivo 0.6.0\n')
     assert 'commit `abc1234`' in texto
     posicoes = [texto.index(f'## {s}') for s in ('windows', 'linux-debian-12', 'linux-ubuntu-22-04')]
     assert posicoes == sorted(posicoes)
