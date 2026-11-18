@@ -1,0 +1,66 @@
+# Corrige uma release já publicada cujo manifesto só tem gabarito-vivo-*: clientes ≤0.7.0b2
+# rejeitam esse prefixo. Copia os artefatos para concurso-analise-*, reassa o manifesto e sobe.
+name: corrigir-manifesto-legado
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'tag da release (ex.: v0.7.0b3)'
+        required: true
+        default: v0.7.0b3
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: '0.13.0'
+  TAG: ${{ inputs.tag }}
+
+jobs:
+  corrigir:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Dependências travadas
+        run: uv sync --frozen --no-dev --no-install-project
+
+      - name: Baixar, copiar legado, assinar e republicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHAVE_ATUALIZACAO: ${{ secrets.CHAVE_ATUALIZACAO }}
+        run: |
+          set -euo pipefail
+          versao=${TAG#v}
+          mkdir -p dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern 'gabarito-vivo-*-windows-x64-setup.exe' \
+            --pattern 'gabarito-vivo-*-linux-x86_64.AppImage' \
+            --pattern 'RELATORIO-SMOKE.md'
+          cd dist
+          for arquivo in gabarito-vivo-*-windows-x64-setup.exe gabarito-vivo-*-linux-x86_64.AppImage; do
+            cp -f "$arquivo" "${arquivo/gabarito-vivo/concurso-analise}"
+          done
+          cd ..
+          uv run --no-sync python scripts/assinar_manifesto.py assinar "$versao" dist
+          uv run --no-sync python scripts/assinar_manifesto.py conferir dist | tee -a "$GITHUB_STEP_SUMMARY"
+          (
+            cd dist
+            sha256sum gabarito-vivo-* concurso-analise-* atualizacao.json atualizacao.json.sig RELATORIO-SMOKE.md > SHA256SUMS
+          )
+          jq -r '.artefatos | to_entries[] | "\(.key): \(.value.arquivo)"' dist/atualizacao.json \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+            dist/concurso-analise-*-windows-x64-setup.exe \
+            dist/concurso-analise-*-linux-x86_64.AppImage \
+            dist/atualizacao.json \
+            dist/atualizacao.json.sig \
+            dist/SHA256SUMS
