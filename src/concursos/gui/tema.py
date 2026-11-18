@@ -15,7 +15,6 @@ from concursos.design_tokens import (
     ESPACOS,
     FONTE,
     RAIO_CARTAO,
-    RAIO_PILL,
     css_root_do_relatorio,
 )
 from concursos.modelo import TemaGui

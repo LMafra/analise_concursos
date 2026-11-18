@@ -83,7 +83,5 @@ def executar_gui_legado() -> None:
 def executar_legado() -> None:
     argv = sys.argv[1:]
     if not (argv and argv[0] in COMANDOS_LEGADOS):
-        sys.stderr.write(
-            f'aviso: o executável `concursos` está obsoleto e sai na fase 5; use `{COMANDO}`\n'
-        )
+        sys.stderr.write(f'aviso: o executável `concursos` está obsoleto e sai na fase 5; use `{COMANDO}`\n')
     sys.exit(main(argv))

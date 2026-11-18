@@ -32,7 +32,6 @@ from concursos.gui.paginas import (
     respostas,
     resultados,
     sobre,
-    tec,
 )
 from concursos.gui.tema import Tom
 from concursos.modelo import DecisaoJanela

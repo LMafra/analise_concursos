@@ -10,11 +10,11 @@ from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.datas import data_br
 from concursos.gui import tema
+from concursos.gui.componentes import toasts
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.consentimento import consentimento
 from concursos.gui.componentes.dialogo import ver_texto
 from concursos.gui.componentes.situacao import situacao
-from concursos.gui.componentes import toasts
 from concursos.gui.estado import ESTADO
 from concursos.gui.interacao import InteracaoCanceladaError, InteracaoGui
 from concursos.gui.progresso import Andamento
@@ -461,28 +461,32 @@ class PainelProvasAnteriores:
             ui.notify('Importação interrompida; o que você já baixou continua na pasta de downloads.')
         if not lote.importadas:
             if lote.falhas:
-                with self.importacao, aviso(
-                    'Nenhuma prova foi importada.',
-                    lote.resumo() if hasattr(lote, 'resumo') else None,
-                    tom=Tom.ALERTA,
-                ).mark('simulado-falha'):
+                with (
+                    self.importacao,
+                    aviso(
+                        'Nenhuma prova foi importada.',
+                        lote.resumo() if hasattr(lote, 'resumo') else None,
+                        tom=Tom.ALERTA,
+                    ).mark('simulado-falha'),
+                ):
                     pass
                 toasts.erro('Nenhuma prova foi importada; veja o aviso acima.')
             return
         if lote.falhas:
-            with self.importacao, aviso(
-                'Importação parcial: algumas provas falharam.',
-                lote.resumo(),
-                tom=Tom.ALERTA,
-            ).mark('simulado-parcial'):
+            with (
+                self.importacao,
+                aviso(
+                    'Importação parcial: algumas provas falharam.',
+                    lote.resumo(),
+                    tom=Tom.ALERTA,
+                ).mark('simulado-parcial'),
+            ):
                 ui.button('Ver concursos', on_click=lambda: ui.navigate.to('/'))
             toasts.erro('Algumas provas não entraram; as demais foram importadas.')
         else:
             with (
                 self.importacao,
-                aviso(f'Importação terminada: {lote.resumo()}.', tom=Tom.SUCESSO).mark(
-                    'simulado-importado'
-                ),
+                aviso(f'Importação terminada: {lote.resumo()}.', tom=Tom.SUCESSO).mark('simulado-importado'),
             ):
                 ui.button('Ver concursos', on_click=lambda: ui.navigate.to('/'))
         try:

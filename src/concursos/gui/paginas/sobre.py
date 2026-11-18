@@ -22,9 +22,7 @@ PRIVACIDADE = (
     'avisos de versão nova; cada um mostra antes o que é enviado. Os seus livros não saem do computador.'
 )
 CONSULTA = 'Consulta o GitHub (só o arquivo da versão mais nova; nenhum dado seu vai junto).'
-FORA_DO_EXECUTAVEL = (
-    f'Instalado pelo uv: atualize com `uv tool upgrade {COMANDO}` (ou {COMANDO_LEGADO}).'
-)
+FORA_DO_EXECUTAVEL = f'Instalado pelo uv: atualize com `uv tool upgrade {COMANDO}` (ou {COMANDO_LEGADO}).'
 SEGUNDOS_PARA_FECHAR = 3
 NOME_DO_APP = NOME
 

@@ -26,7 +26,9 @@ def test_tokens_sem_azul_material_padrao() -> None:
 
 
 def test_cli_tem_entry_points_no_pyproject() -> None:
-    texto = open('pyproject.toml', encoding='utf-8').read()
+    from pathlib import Path
+
+    texto = Path('pyproject.toml').read_text(encoding='utf-8')
     assert 'gabarito-vivo = "concursos.cli:executar"' in texto
     assert 'concurso-analise = "concursos.cli:executar_legado_analise"' in texto
 

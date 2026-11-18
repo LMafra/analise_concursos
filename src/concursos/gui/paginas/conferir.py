@@ -4,13 +4,13 @@ from concursos.aplicacao import conferencia
 from concursos.aplicacao.conferencia import CampoAConfirmar, LinhaTopico, OpcaoTopico
 from concursos.datas import data_br
 from concursos.gui import tema
+from concursos.gui.componentes import toasts
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.cartao import cartao
 from concursos.gui.componentes.estado_vazio import estado_vazio
 from concursos.gui.componentes.navegacao import breadcrumb, voltar
 from concursos.gui.componentes.reanalise import Reanalise
 from concursos.gui.componentes.situacao import situacao
-from concursos.gui.componentes import toasts
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
@@ -107,8 +107,10 @@ class TopicosDasQuestoes:
                 ):
                     for linha in confiaveis:
                         self.linha(linha)
-            with ui.row().classes('w-full sticky bottom-0 q-pa-sm').style(
-                'background: var(--ca-superficie); box-shadow: var(--ca-borda)'
+            with (
+                ui.row()
+                .classes('w-full sticky bottom-0 q-pa-sm')
+                .style('background: var(--ca-superficie); box-shadow: var(--ca-borda)')
             ):
                 ui.button('Salvar alterações', icon='save', on_click=self.salvar).classes('ca-alvo').mark(
                     'salvar-topicos'
@@ -181,9 +183,7 @@ class DadosDoEdital:
             )
             for campo in campos:
                 self.campo(campo)
-            with ui.row().classes('w-full sticky bottom-0 q-pa-sm').style(
-                'background: var(--ca-superficie)'
-            ):
+            with ui.row().classes('w-full sticky bottom-0 q-pa-sm').style('background: var(--ca-superficie)'):
                 ui.button('Salvar alterações', icon='save', on_click=self.salvar).classes('ca-alvo').mark(
                     'salvar-campos'
                 )
@@ -193,7 +193,9 @@ class DadosDoEdital:
                 ).props('flat')
 
     def _campos_sujos(self) -> bool:
-        return any((entrada.value or '') != self.iniciais.get(chave, '') for chave, entrada in self.entradas.items())
+        return any(
+            (entrada.value or '') != self.iniciais.get(chave, '') for chave, entrada in self.entradas.items()
+        )
 
     def campo(self, campo: CampoAConfirmar) -> None:
         with cartao():

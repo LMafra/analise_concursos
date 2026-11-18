@@ -52,19 +52,21 @@ class PainelDeAnalise:
             self.barra = ui.linear_progress(value=0, show_value=False).props(
                 'aria-label="andamento da análise"'
             )
-            self.esqueleto = (
-                ui.skeleton().classes('w-full h-40').props('aria-hidden=true')
-            )
+            self.esqueleto = ui.skeleton().classes('w-full h-40').props('aria-hidden=true')
             self.esqueleto.set_visibility(False)
             self.resultado = ui.column().classes('w-full')
-            with ui.expansion('Ver detalhes técnicos de processamento', icon='list').classes(
-                'w-full'
-            ).mark('painel-log'):
+            with (
+                ui.expansion('Ver detalhes técnicos de processamento', icon='list')
+                .classes('w-full')
+                .mark('painel-log')
+            ):
                 self.log = ui.log(max_lines=2000).classes('h-72 w-full').mark('log')
             with ui.row().style(tema.gap('sm')):
-                self.botao = ui.button('Analisar', icon='play_arrow', on_click=self.iniciar).classes(
-                    'ca-alvo'
-                ).mark('iniciar')
+                self.botao = (
+                    ui.button('Analisar', icon='play_arrow', on_click=self.iniciar)
+                    .classes('ca-alvo')
+                    .mark('iniciar')
+                )
                 self.parar = (
                     ui.button('Parar de acompanhar', icon='visibility_off', on_click=self.parar_de_acompanhar)
                     .props('flat')
@@ -116,7 +118,9 @@ class PainelDeAnalise:
             if self.acompanhando:
                 self._mostrar_falha(erro)
             else:
-                ui.notify('A análise não concluiu. Veja Minhas Provas ou rode de novo.', type='negative', timeout=0)
+                ui.notify(
+                    'A análise não concluiu. Veja Minhas Provas ou rode de novo.', type='negative', timeout=0
+                )
         else:
             if self.acompanhando:
                 self._mostrar_fim(codigo)
@@ -129,7 +133,9 @@ class PainelDeAnalise:
                     on_dismiss=lambda: ui.navigate.to('/resultados'),
                 )
             else:
-                ui.notify('A análise terminou com avisos. Abra Resultados para conferir.', type='warning', timeout=0)
+                ui.notify(
+                    'A análise terminou com avisos. Abra Resultados para conferir.', type='warning', timeout=0
+                )
         finally:
             logger.removeHandler(handler)
             ESTADO.ocupado = False

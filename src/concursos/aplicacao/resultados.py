@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from concursos import relatorio_html
 from concursos.aplicacao.projeto import pasta_do_candidato
 from concursos.biblioteca import ARQUIVO_RECOMENDACOES
 from concursos.config.contexto import Contexto
@@ -13,7 +14,6 @@ from concursos.pratica_tec import (
     ARQUIVO_SIMULADO,
     PASTA_PRATICA,
 )
-from concursos import relatorio_html
 from concursos.relatorio_html import ARQUIVO_INDICE, ARQUIVO_RELATORIO_HTML
 from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
 

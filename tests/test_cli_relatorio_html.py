@@ -103,7 +103,9 @@ def test_indice_diz_o_que_o_app_decidiu_sozinho_e_a_origem(projeto):
     assert 'Detalhe técnico: regra de correção do perfil da banca' in apendice
     assert 'regra padrão da banca (0,50)' in apendice
     assert 'Observações sobre os dados' in apendice
-    assert re.search(r'Relatório gerado localmente pelo aplicativo Gabarito Vivo \d[\w.+]* em \d{2}/\d{2}/\d{4}', html)
+    assert re.search(
+        r'Relatório gerado localmente pelo aplicativo Gabarito Vivo \d[\w.+]* em \d{2}/\d{2}/\d{4}', html
+    )
 
 
 def test_indice_e_um_painel_com_resumo_cards_e_selos(projeto):
@@ -120,7 +122,13 @@ def test_indice_e_um_painel_com_resumo_cards_e_selos(projeto):
     assert 'diagnostico-titulo' in html
     assert 'Margem para o corte' in html or 'corte-medidor' in html or 'Sem corte' in html
     assert 'KPI' not in html and 'percentil' not in html.lower()
-    for titulo in ('O que fazer agora', 'Como estou saindo', 'Meus pontos fortes', 'Meus pontos a melhorar', 'Estou evoluindo?'):
+    for titulo in (
+        'O que fazer agora',
+        'Como estou saindo',
+        'Meus pontos fortes',
+        'Meus pontos a melhorar',
+        'Estou evoluindo?',
+    ):
         assert titulo in html
     assert '<nav aria-label="Ir para">' in html
     assert html.count('Sem corte no edital</span>') >= 2

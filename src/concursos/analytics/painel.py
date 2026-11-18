@@ -294,9 +294,7 @@ def fracos_priorizados(
     return sorted(grupos, key=lambda grupo: (-grupo.prioridade, grupo.disciplina))
 
 
-def topicos_por_impacto(
-    grupos: list[GrupoFraco], limite: int = MAXIMO_FRACOS_NO_TOPO
-) -> list[TopicoFraco]:
+def topicos_por_impacto(grupos: list[GrupoFraco], limite: int = MAXIMO_FRACOS_NO_TOPO) -> list[TopicoFraco]:
     """Os N tópicos com maior prioridade (impacto na nota), independentemente da disciplina."""
     todos = [topico for grupo in grupos for topico in grupo.topicos]
     return sorted(todos, key=lambda t: t.prioridade, reverse=True)[:limite]

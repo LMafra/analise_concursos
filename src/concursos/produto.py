@@ -33,10 +33,7 @@ ARQUIVO_LOG_LEGADO = 'concurso-analise.log'
 
 USER_AGENT = 'gabarito-vivo'
 
-_DEPRECATION = (
-    'aviso: o comando `{antigo}` continua funcionando, mas está obsoleto; '
-    'use `{novo}`.'
-)
+_DEPRECATION = 'aviso: o comando `{antigo}` continua funcionando, mas está obsoleto; use `{novo}`.'
 
 logger = logging.getLogger(__name__)
 

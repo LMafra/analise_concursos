@@ -4,9 +4,8 @@ from collections.abc import Callable
 from pathlib import Path, PureWindowsPath
 from urllib.parse import quote
 
-from nicegui import events, run, ui
-
 import pandas as pd
+from nicegui import events, run, ui
 
 from concursos.aplicacao import cadastro, estudo
 from concursos.aplicacao.nomes import opcoes_de_concurso

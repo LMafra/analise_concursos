@@ -140,9 +140,7 @@ def painel_do_relatorio(achados: Resultados) -> None:
                 .classes('min-w-48'),
                 'concurso analisado',
             ).mark('seletor-concurso-relatorio')
-        ui.button('Abrir no navegador', icon='open_in_new', on_click=abrir_escolhido).mark(
-            'abrir-navegador'
-        )
+        ui.button('Abrir no navegador', icon='open_in_new', on_click=abrir_escolhido).mark('abrir-navegador')
         with (
             ui.button(icon='download')
             .props('flat round aria-label="Exportar"')

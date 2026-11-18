@@ -1,5 +1,4 @@
 import pytest
-from nicegui import ui
 from nicegui.testing.user import User
 
 from concursos.gui.app import MENU, UTILITARIO

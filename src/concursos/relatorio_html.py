@@ -10,7 +10,7 @@ import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 
 import pandas as pd
@@ -43,7 +43,6 @@ from concursos.analytics.painel import (
     montar_painel,
     topicos_por_impacto,
 )
-from concursos.design_tokens import css_root_do_relatorio
 from concursos.analytics.regras_edital import UnidadeCorte
 from concursos.analytics.validacao_edital import ARQUIVO_DISCREPANCIAS
 from concursos.analytics.visualizacao import rotulo_com_variante
@@ -52,6 +51,7 @@ from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso, ler_dad
 from concursos.consolidado import MINIMO_CONCURSOS, PASTA_CONSOLIDADO
 from concursos.correcao import ARQUIVO_QUESTOES, TOPICO_NAO_MAPEADO
 from concursos.datas import data_br
+from concursos.design_tokens import css_root_do_relatorio
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
 from concursos.integracoes.radar_pci import ARQUIVO_RADAR
 from concursos.linguagem import SELOS, percentual, plural, traduzir_aviso
@@ -102,6 +102,8 @@ _FIGURAS = (
         'Mostra como a sua posição entre os concursos muda quando consideramos a regra de correção e o chute.',
     ),
 )
+
+
 def _css_do_relatorio() -> str:
     return f"""
 {css_root_do_relatorio()}
@@ -671,9 +673,7 @@ def _pontos_a_melhorar(painel: Painel, suficiente: bool) -> list[str]:
     if not painel.grupos:
         return [*linhas, '<p>Nenhum tópico ficou abaixo do esperado em mais de um concurso.</p>']
     prioridade = topicos_por_impacto(painel.grupos)
-    linhas.append(
-        f'<p>Os {len(prioridade)} tópicos com maior ganho de pontos se você melhorar agora:</p>'
-    )
+    linhas.append(f'<p>Os {len(prioridade)} tópicos com maior ganho de pontos se você melhorar agora:</p>')
     linhas.append(
         _lista_html(
             [

@@ -83,9 +83,9 @@ class Onboarding:
                 self.botao_exemplo = ui.button(
                     'Usar concurso de exemplo', icon='auto_awesome', on_click=self.ver_exemplo
                 ).mark('ver-exemplo')
-                ui.button(
-                    'Cadastrar minha prova', icon='add', on_click=self.cadastrar_prova
-                ).props('outline').mark('cadastrar-prova')
+                ui.button('Cadastrar minha prova', icon='add', on_click=self.cadastrar_prova).props(
+                    'outline'
+                ).mark('cadastrar-prova')
             self.resultado = ui.column().classes('w-full').style(tema.gap('sm'))
 
     async def antes_de_avancar(self, indice: int, pulou: bool) -> bool:
