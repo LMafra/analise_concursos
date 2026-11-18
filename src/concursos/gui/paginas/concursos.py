@@ -1,5 +1,4 @@
 import logging
-from collections.abc import Callable
 
 from nicegui import ui
 
@@ -12,7 +11,7 @@ from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.estado_vazio import estado_vazio
 from concursos.gui.componentes.situacao import situacao
 from concursos.gui.estado import ESTADO
-from concursos.gui.paginas.encontrar import PainelEncontrar, PainelProvasAnteriores
+from concursos.gui.paginas import tec
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
@@ -25,15 +24,19 @@ EXPLICACAO_GABARITO = (
 )
 TOM_DA_SITUACAO = {Situacao.COMPLETO: Tom.SUCESSO, Situacao.INCOMPLETO: Tom.ALERTA}
 
-
-ABAS = {'lista': 'Meus concursos', 'encontrar': 'Encontrar concursos', 'provas': 'Provas anteriores'}
+ABAS = {'lista': 'Minhas provas', 'tec': 'Importar do TEC'}
 
 
 def pagina(aba: str | None = None) -> None:
     if not exigir_projeto():
         return
+    if aba in ('encontrar', 'provas', 'descobrir'):
+        ui.navigate.to(f'/concursos?aba={"encontrar" if aba == "descobrir" else aba}')
+        return
     with ui.column().classes('w-full').style(tema.gap('md')):
         with ui.row().classes('items-center').style(tema.gap('sm')):
+            ui.label('Minhas Provas').classes('text-2xl font-bold')
+            ui.space()
             ui.label(f'Projeto: {ESTADO.projeto}').classes('text-sm ca-texto-suave')
             ui.button('Trocar', on_click=lambda: ui.navigate.to('/projeto')).props('flat dense')
         with ui.tabs().classes('w-full') as abas:
@@ -41,27 +44,8 @@ def pagina(aba: str | None = None) -> None:
         with ui.tab_panels(abas, value=guias.get(aba or '', guias['lista'])).classes('w-full'):
             with ui.tab_panel(guias['lista']):
                 meus_concursos()
-            with ui.tab_panel(guias['encontrar']):
-                no_lugar(PainelEncontrar)
-            with ui.tab_panel(guias['provas']):
-                no_lugar(PainelProvasAnteriores)
-
-
-def no_lugar(construir: Callable[[Callable[[], None]], object]) -> None:
-    """Monta o painel numa caixa que ele mesmo refaz (ao ligar ou desligar o PCI): navegar para o mesmo endereço
-    não remonta a aba."""
-    caixa = ui.column().classes('w-full')
-
-    def montar() -> None:
-        caixa.clear()
-        with caixa:
-            try:
-                construir(montar)
-            except Exception as erro:  # noqa: BLE001
-                logger.debug('falha ao montar o painel %s', construir.__name__, exc_info=True)
-                mostrar_erro(erro)
-
-    montar()
+            with ui.tab_panel(guias['tec']):
+                tec.conteudo()
 
 
 def meus_concursos() -> None:
@@ -69,8 +53,8 @@ def meus_concursos() -> None:
         if onboarding.precisa_de_onboarding(ESTADO.contexto()):
             with (
                 aviso(
-                    'Primeira vez neste projeto?',
-                    'Quatro passos e você vê um resultado, com um concurso de exemplo ou a sua prova.',
+                    'Seu Gabarito Vivo está pronto para começar.',
+                    'Cadastre sua primeira prova ou use o exemplo para ver o diagnóstico.',
                     icone='waving_hand',
                 )
                 .classes('max-w-4xl')
@@ -83,8 +67,10 @@ def meus_concursos() -> None:
         with ui.row().style(tema.gap('sm')):
             ui.button('Novo concurso', icon='add', on_click=lambda: ui.navigate.to('/novo')).props(
                 'outline'
-            ).mark('novo-concurso')
-            ui.button('Analisar', icon='play_arrow', on_click=pedir_analise).mark('analisar')
+            ).classes('ca-alvo').mark('novo-concurso')
+            ui.button('Analisar', icon='play_arrow', on_click=pedir_analise).classes('ca-alvo').mark(
+                'analisar'
+            )
 
 
 def seletor_de_candidato() -> None:
@@ -125,14 +111,17 @@ def lista_de_concursos() -> bool:
     if not situacoes:
         estado_vazio(
             'library_add',
-            'Nenhum concurso ainda',
-            'Crie um concurso e solte os arquivos da prova: edital, caderno, gabarito e a sua folha.',
-            acao='Novo concurso',
+            'Seu Gabarito Vivo está pronto para começar.',
+            'Cadastre sua primeira prova para ativarmos o diagnóstico de pontos fracos e o mapeamento '
+            'de notas de corte.',
+            acao='Cadastrar primeira prova',
             ao_clicar=lambda: ui.navigate.to('/novo'),
             icone_da_acao='add',
             marca='sem-concursos',
         )
         return False
+    # Mais recente primeiro quando há data no cadastro; senão ordem alfabética invertida (nome costuma ter ano).
+    situacoes = sorted(situacoes, key=lambda item: item.nome, reverse=True)
     with ui.list().props('bordered separator').classes('w-full max-w-4xl'):
         for item in situacoes:
             nome = nome_mostrado(item)
@@ -154,13 +143,7 @@ def lista_de_concursos() -> bool:
                         with ui.label(f'gabarito: {item.gabarito}').classes('text-sm'):
                             ui.tooltip(EXPLICACAO_GABARITO)
                 with ui.item_section().props('side'):
-                    if item.motivos:
-                        with ui.expansion('Resolver').props('dense').classes('max-w-md'):
-                            for motivo in item.motivos:
-                                ui.label(motivo).classes('text-sm')
-                            acoes_do_concurso(item.nome, nome, sem_edital(item))
-                    else:
-                        acoes_do_concurso(item.nome, nome, sem_edital(item))
+                    acoes_do_concurso(item, nome)
     return True
 
 
@@ -201,34 +184,57 @@ def corrigir_nome(concurso: str, atual: str) -> None:
 
         with ui.row().style(tema.gap('sm')):
             ui.button('Salvar', icon='check', on_click=salvar).mark('salvar-nome')
-            ui.button('Cancelar', on_click=dialogo.close).props('flat')
+            ui.button('Voltar', on_click=dialogo.close).props('flat')
     dialogo.open()
 
 
-def acoes_do_concurso(nome: str, mostrado: NomeDoConcurso | None = None, falta_edital: bool = False) -> None:
+def acoes_do_concurso(item, mostrado: NomeDoConcurso | None = None) -> None:
+    nome = item.nome
+    falta_edital = sem_edital(item)
     try:
         pendentes = conferencia.pendencias(ESTADO.contexto(), nome).total
     except Exception:  # noqa: BLE001
         pendentes = 0
-    with ui.row().style(tema.gap('xs')):
-        ui.button(
-            f'Conferir ({pendentes})' if pendentes else 'Conferir',
-            icon='fact_check',
-            on_click=lambda: ui.navigate.to(f'/conferir?concurso={nome}'),
-        ).props('flat dense').mark(f'conferir-{nome}')
-        ui.button(
-            'Adicionar o edital e a prova' if falta_edital else 'Acrescentar arquivos',
-            icon='upload_file',
-            on_click=lambda: ui.navigate.to(f'/novo?concurso={nome}'),
-        ).props('flat dense').mark(f'acrescentar-{nome}')
-        ui.button(
-            'Digitar respostas', icon='edit', on_click=lambda: ui.navigate.to(f'/respostas?concurso={nome}')
-        ).props('flat dense').mark(f'digitar-{nome}')
-        ui.button(
-            'Corrigir nome',
-            icon='badge',
-            on_click=lambda: corrigir_nome(nome, mostrado.titulo if mostrado else nome),
-        ).props('flat dense').mark(f'corrigir-nome-{nome}')
+    completo = item.situacao is Situacao.COMPLETO
+    with ui.row().classes('items-center').style(tema.gap('xs')):
+        if completo:
+            ui.button(
+                'Ver resultado',
+                icon='insights',
+                on_click=lambda: ui.navigate.to('/resultados'),
+            ).props('flat dense').classes('ca-alvo').mark(f'ver-{nome}')
+        elif falta_edital:
+            ui.button(
+                'Adicionar o edital e a prova',
+                icon='upload_file',
+                on_click=lambda: ui.navigate.to(f'/novo?concurso={nome}'),
+            ).props('flat dense').classes('ca-alvo').mark(f'acrescentar-{nome}')
+        else:
+            ui.button(
+                'Digitar respostas',
+                icon='edit',
+                on_click=lambda: ui.navigate.to(f'/respostas?concurso={nome}'),
+            ).props('flat dense').classes('ca-alvo').mark(f'digitar-{nome}')
+        with (
+            ui.button(icon='more_vert').props('flat dense round aria-label="Mais ações"').classes('ca-alvo'),
+            ui.menu(),
+        ):
+            ui.menu_item(
+                f'Conferir ({pendentes})' if pendentes else 'Conferir',
+                on_click=lambda: ui.navigate.to(f'/conferir?concurso={nome}'),
+            ).mark(f'conferir-{nome}')
+            ui.menu_item(
+                'Acrescentar arquivos',
+                on_click=lambda: ui.navigate.to(f'/novo?concurso={nome}'),
+            ).mark(f'acrescentar-menu-{nome}')
+            ui.menu_item(
+                'Digitar respostas',
+                on_click=lambda: ui.navigate.to(f'/respostas?concurso={nome}'),
+            )
+            ui.menu_item(
+                'Corrigir nome',
+                on_click=lambda: corrigir_nome(nome, mostrado.titulo if mostrado else nome),
+            ).mark(f'corrigir-nome-{nome}')
 
 
 def pedir_analise() -> None:

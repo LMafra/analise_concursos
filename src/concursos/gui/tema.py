@@ -1,4 +1,5 @@
-"""Tokens de design da GUI e o tema claro, escuro ou do sistema; os valores estão em `docs/modelo.md`.
+"""Tokens de design da GUI e o tema claro, escuro ou do sistema; os valores estão em `docs/modelo.md`
+e o manual em `docs/marca-gabarito-vivo.md`.
 
 Fora deste módulo, `gui/` não tem cor em hex, classe de cor do Quasar nem `gap-*` (teste): a cor vem
 das classes `ca-*` daqui, e o espaçamento, de `gap()` num `style`.
@@ -9,7 +10,16 @@ from enum import StrEnum
 
 from nicegui import ui
 
+from concursos.design_tokens import (
+    ELEVACAO_1,
+    ESPACOS,
+    FONTE,
+    RAIO_CARTAO,
+    css_root_do_relatorio,
+)
 from concursos.modelo import TemaGui
+
+__all__ = ['css_root_do_relatorio', 'aplicar_tema', 'gap', 'Tom', 'ICONE_DO_TOM', 'CLARO', 'ESCURO']
 
 
 class Tom(StrEnum):
@@ -50,48 +60,48 @@ class Paleta:
 CLARO = Paleta(
     fundo='#FAFAFA',
     superficie='#FFFFFF',
-    texto='#1E293B',
+    texto='#14282B',
     texto_suave='#475569',
     borda='#CBD5E1',
-    primaria='#1976D2',
+    primaria='#14282B',
     sobre_primaria='#FFFFFF',
-    primaria_texto='#1565C0',
-    foco='#1976D2',
-    info_fundo='#E3F2FD',
-    info_icone='#1976D2',
-    info_texto='#0D47A1',
-    sucesso_fundo='#E8F5E9',
-    sucesso_icone='#2E7D32',
-    sucesso_texto='#2E7D32',
-    erro_fundo='#FFEBEE',
-    erro_icone='#D32F2F',
-    erro_texto='#C62828',
-    alerta_fundo='#FFF8E1',
-    alerta_icone='#E65100',
-    alerta_texto='#B45309',
+    primaria_texto='#14282B',
+    foco='#117A4B',
+    info_fundo='#E6F0F0',
+    info_icone='#14282B',
+    info_texto='#14282B',
+    sucesso_fundo='#E6F4ED',
+    sucesso_icone='#0E5A37',
+    sucesso_texto='#0E5A37',
+    erro_fundo='#FCEBE6',
+    erro_icone='#8C2D0D',
+    erro_texto='#8C2D0D',
+    alerta_fundo='#FEF3C7',
+    alerta_icone='#92400E',
+    alerta_texto='#92400E',
 )
 
 ESCURO = Paleta(
-    fundo='#0F172A',
-    superficie='#1E293B',
-    texto='#F1F5F9',
-    texto_suave='#CBD5E1',
-    borda='#334155',
-    primaria='#64B5F6',
-    sobre_primaria='#0F172A',
-    primaria_texto='#64B5F6',
-    foco='#64B5F6',
-    info_fundo='#0C2A4A',
-    info_icone='#64B5F6',
-    info_texto='#BFDBFE',
-    sucesso_fundo='#14301B',
-    sucesso_icone='#66BB6A',
-    sucesso_texto='#86EFAC',
-    erro_fundo='#3B1518',
-    erro_icone='#EF5350',
-    erro_texto='#FCA5A5',
-    alerta_fundo='#3A2A0A',
-    alerta_icone='#FFB74D',
+    fundo='#121E20',
+    superficie='#1A2C2F',
+    texto='#E6ECEC',
+    texto_suave='#94A3B8',
+    borda='#2D4246',
+    primaria='#4ADE80',
+    sobre_primaria='#121E20',
+    primaria_texto='#4ADE80',
+    foco='#4ADE80',
+    info_fundo='#1A2C2F',
+    info_icone='#94A3B8',
+    info_texto='#E6ECEC',
+    sucesso_fundo='#143324',
+    sucesso_icone='#4ADE80',
+    sucesso_texto='#4ADE80',
+    erro_fundo='#3A1C14',
+    erro_icone='#F87171',
+    erro_texto='#F87171',
+    alerta_fundo='#3B2D11',
+    alerta_icone='#FCD34D',
     alerta_texto='#FCD34D',
 )
 
@@ -99,20 +109,17 @@ ESCURO = Paleta(
 # variável. As notificações do Quasar usam texto branco em positive/negative/info e escuro em warning.
 CORES_DO_QUASAR = {
     'primary': 'var(--ca-primaria)',
-    'positive': CLARO.sucesso_texto,
-    'negative': CLARO.erro_texto,
-    'info': CLARO.info_texto,
-    'warning': '#FFB74D',
+    'positive': '#0E5A37',
+    'negative': '#8C2D0D',
+    'info': '#14282B',
+    'warning': '#FCD34D',
     'dark': ESCURO.superficie,
     'dark_page': ESCURO.fundo,
 }
 
-ESPACOS = {'xs': '4px', 'sm': '8px', 'md': '16px', 'lg': '24px', 'xl': '32px'}
-RAIO_CARTAO = '8px'
 RAIO_DIALOGO = '12px'
-ELEVACAO_1 = '0 1px 2px rgb(0 0 0 / .08)'
 ELEVACAO_2 = '0 8px 24px rgb(0 0 0 / .16)'
-FONTE = '"Segoe UI", Roboto, "Noto Sans", Ubuntu, sans-serif'
+ALVO_MINIMO = '44px'
 
 VALOR_DO_MODO: dict[TemaGui, bool | None] = {
     TemaGui.SISTEMA: None,
@@ -149,16 +156,21 @@ body {{ font-family: {FONTE}; background: var(--ca-fundo); color: var(--ca-texto
   box-shadow: {ELEVACAO_1}; }}
 .q-dialog .q-card {{ border-radius: {RAIO_DIALOGO}; box-shadow: {ELEVACAO_2}; }}
 .q-header {{ background: var(--ca-primaria); color: var(--ca-sobre-primaria); }}
+.q-drawer {{ background: var(--ca-superficie); color: var(--ca-texto); }}
 .q-notification__actions {{ color: inherit; }}
 .q-notification__message {{ white-space: pre-line; }}
 @layer overrides {{
   .q-btn.bg-primary {{ color: var(--ca-sobre-primaria) !important; }}
   .text-primary, a, .nicegui-link {{ color: var(--ca-primaria-texto) !important; }}
   .q-header .q-btn {{ color: var(--ca-sobre-primaria) !important; }}
+  @media (prefers-reduced-motion: reduce) {{
+    *, *::before, *::after {{ animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }}
+  }}
 }}
 :focus-visible {{ outline: 3px solid var(--ca-foco); outline-offset: 2px; }}
 .ca-texto-suave {{ color: var(--ca-texto-suave); }}
 .ca-borda {{ border: 1px solid var(--ca-borda); border-radius: {RAIO_CARTAO}; }}
+.ca-alvo {{ min-width: {ALVO_MINIMO}; min-height: {ALVO_MINIMO}; }}
 {_tons()}
 .ca-aviso {{ background: var(--ca-tom-fundo); color: var(--ca-texto); border-left: 4px solid var(--ca-tom-icone);
   border-radius: {RAIO_CARTAO}; padding: {ESPACOS['md']}; box-shadow: none; }}

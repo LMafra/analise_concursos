@@ -13,15 +13,15 @@ import tempfile
 import threading
 import time
 import urllib.request
-from importlib.metadata import version
 from pathlib import Path
+
+from concursos.produto import MUTEX, MUTEX_LEGADO, versao_do_pacote
 
 ARGUMENTO_SMOKE = '--smoke'
 VARIAVEL_SEM_OCR = 'CONCURSO_SMOKE_SEM_OCR'
 VARIAVEL_LIMITE_PARTIDA = 'CONCURSO_SMOKE_LIMITE_PARTIDA'
 TIMEOUT_SERVIDOR = 120
 TEXTO_OCR = 'CONCURSO 2026'
-MUTEX = 'concurso-analise'
 _IMPORTADO_EM = time.monotonic()
 
 
@@ -94,6 +94,8 @@ def segurar_mutex(sistema: str = sys.platform) -> object | None:
         return None
     import ctypes
 
+    # Novo nome; o legado cobre setups antigos que ainda esperam o mutex antigo.
+    ctypes.windll.kernel32.CreateMutexW(None, False, MUTEX_LEGADO)
     return ctypes.windll.kernel32.CreateMutexW(None, False, MUTEX)
 
 
@@ -110,7 +112,7 @@ def principal(argv: list[str]) -> int:
 
 
 def conferir_versao() -> str:
-    return version('concurso-analise')
+    return versao_do_pacote()
 
 
 def conferir_perfis() -> tuple[str, ...]:

@@ -10,6 +10,7 @@ from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.datas import data_br
 from concursos.gui import tema
+from concursos.gui.componentes import toasts
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.consentimento import consentimento
 from concursos.gui.componentes.dialogo import ver_texto
@@ -286,11 +287,22 @@ class PainelEncontrar:
 
     def esquecer(self, identificador: int) -> None:
         try:
-            integracoes.esquecer_interesse(Opcoes(ESTADO.contexto()), identificador)
+            item = integracoes.esquecer_interesse(Opcoes(ESTADO.contexto()), identificador)
         except Exception as erro:  # noqa: BLE001
             mostrar_erro(erro)
             return
         self.acompanhados.refresh()
+
+        def desfazer() -> None:
+            try:
+                integracoes.restaurar_interesse(Opcoes(ESTADO.contexto()), item)
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+                return
+            self.acompanhados.refresh()
+            toasts.sucesso('Acompanhamento restaurado.')
+
+        toasts.com_desfazer('Deixou de acompanhar. Desfazer?', desfazer)
 
 
 class PainelProvasAnteriores:
@@ -446,16 +458,37 @@ class PainelProvasAnteriores:
     async def concluir(self, lote: integracoes.LoteDeSimulados) -> None:
         self.mostrar()
         if lote.cancelado:
-            ui.notify('Importação cancelada; o que você já baixou continua na pasta de downloads.')
+            ui.notify('Importação interrompida; o que você já baixou continua na pasta de downloads.')
         if not lote.importadas:
             if lote.falhas:
-                ui.notify('Nenhuma prova foi importada; veja as mensagens da importação.', type='warning')
+                with (
+                    self.importacao,
+                    aviso(
+                        'Nenhuma prova foi importada.',
+                        lote.resumo() if hasattr(lote, 'resumo') else None,
+                        tom=Tom.ALERTA,
+                    ).mark('simulado-falha'),
+                ):
+                    pass
+                toasts.erro('Nenhuma prova foi importada; veja o aviso acima.')
             return
-        with (
-            self.importacao,
-            aviso(f'Importação terminada: {lote.resumo()}.', tom=Tom.SUCESSO).mark('simulado-importado'),
-        ):
-            ui.button('Ver concursos', on_click=lambda: ui.navigate.to('/'))
+        if lote.falhas:
+            with (
+                self.importacao,
+                aviso(
+                    'Importação parcial: algumas provas falharam.',
+                    lote.resumo(),
+                    tom=Tom.ALERTA,
+                ).mark('simulado-parcial'),
+            ):
+                ui.button('Ver concursos', on_click=lambda: ui.navigate.to('/'))
+            toasts.erro('Algumas provas não entraram; as demais foram importadas.')
+        else:
+            with (
+                self.importacao,
+                aviso(f'Importação terminada: {lote.resumo()}.', tom=Tom.SUCESSO).mark('simulado-importado'),
+            ):
+                ui.button('Ver concursos', on_click=lambda: ui.navigate.to('/'))
         try:
             focado = await run.io_bound(simulados.simulado_focado_do_projeto, Opcoes(ESTADO.contexto()))
         except Exception:  # noqa: BLE001

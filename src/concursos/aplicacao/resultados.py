@@ -14,6 +14,7 @@ from concursos.pratica_tec import (
     ARQUIVO_SIMULADO,
     PASTA_PRATICA,
 )
+from concursos.relatorio_html import ARQUIVO_INDICE, ARQUIVO_RELATORIO_HTML
 from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
 
 TABELAS_DA_PRATICA = {
@@ -21,6 +22,14 @@ TABELAS_DA_PRATICA = {
     ARQUIVO_ERROS: 'Erros',
     ARQUIVO_CADERNOS: 'Cadernos',
 }
+
+
+@dataclass(frozen=True)
+class RelatorioEscolhido:
+    """Uma opção do seletor de Resultados: visão geral ou um concurso."""
+
+    rotulo: str
+    caminho: Path
 
 
 @dataclass(frozen=True)
@@ -38,7 +47,7 @@ class Resultados:
 
 def resultados(contexto: Contexto) -> Resultados:
     pasta = pasta_do_candidato(contexto)
-    indice = pasta / relatorio_html.ARQUIVO_INDICE
+    indice = pasta / ARQUIVO_INDICE
     pratica = pasta / PASTA_PRATICA
     return Resultados(
         pasta=pasta,
@@ -53,6 +62,20 @@ def resultados(contexto: Contexto) -> Resultados:
         simulado_focado=_texto(pasta / ARQUIVO_SIMULADO_FOCADO),
         simulado_tec=pratica / ARQUIVO_SIMULADO if (pratica / ARQUIVO_SIMULADO).is_file() else None,
     )
+
+
+def relatorios_disponiveis(contexto: Contexto) -> list[RelatorioEscolhido]:
+    """Visão geral (`index.html`) e cada `relatorio.html` de concurso analisado."""
+    pasta = pasta_do_candidato(contexto)
+    indice = pasta / ARQUIVO_INDICE
+    if not indice.is_file():
+        return []
+    opcoes = [RelatorioEscolhido('Visão geral', indice)]
+    for filho in sorted(pasta.iterdir()):
+        relatorio = filho / ARQUIVO_RELATORIO_HTML
+        if filho.is_dir() and relatorio.is_file():
+            opcoes.append(RelatorioEscolhido(filho.name, relatorio))
+    return opcoes
 
 
 def abrir_no_navegador(caminho: Path | str) -> None:

@@ -9,9 +9,10 @@
 #ifndef VersaoNumerica
   #define VersaoNumerica "0.0.0.0"
 #endif
-#define Nome "concurso-analise"
-#define Executavel "concurso-analise.exe"
-#define Mutex "concurso-analise"
+#define Nome "Gabarito Vivo"
+#define Pasta "gabarito-vivo"
+#define Executavel "gabarito-vivo.exe"
+#define Mutex "gabarito-vivo"
 #define WebView2 "Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 [Setup]
@@ -28,7 +29,7 @@ VersionInfoProductTextVersion={#Versao}
 VersionInfoCompany=LMafra
 VersionInfoDescription=Instalador do {#Nome}
 VersionInfoCopyright=Copyright (c) 2026 LMafra. Licença MIT.
-DefaultDirName={localappdata}\Programs\{#Nome}
+DefaultDirName={localappdata}\Programs\{#Pasta}
 DefaultGroupName={#Nome}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
@@ -36,14 +37,18 @@ PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\..\dist
-OutputBaseFilename=concurso-analise-{#Versao}-windows-x64-setup
+OutputBaseFilename=gabarito-vivo-{#Versao}-windows-x64-setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#Executavel}
 UninstallDisplayName={#Nome}
+#ifexist "..\icones\gabarito-vivo.ico"
+SetupIconFile=..\icones\gabarito-vivo.ico
+#else
 #ifexist "..\icones\concurso-analise.ico"
 SetupIconFile=..\icones\concurso-analise.ico
+#endif
 #endif
 
 [Languages]
@@ -53,7 +58,7 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 Name: "atalho"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\..\dist\{#Nome}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\dist\{#Pasta}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 #ifexist "..\construcao\MicrosoftEdgeWebview2Setup.exe"
   #define ComBootstrapper
 Source: "..\construcao\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
@@ -86,7 +91,14 @@ begin
     Tentativas := Tentativas + 1;
   end;
   if Tentativas > 0 then
-    Log(Format('esperou o concurso-analise fechar por %d ms', [Tentativas * 500]));
+    Log(Format('esperou o Gabarito Vivo fechar por %d ms', [Tentativas * 500]));
+  // Setups antigos ainda esperam o mutex legado.
+  Tentativas := 0;
+  while CheckForMutexes('concurso-analise') and (Tentativas < 60) do
+  begin
+    Sleep(500);
+    Tentativas := Tentativas + 1;
+  end;
   Result := True;
 end;
 
@@ -130,7 +142,7 @@ begin
   Log('WebView2 ausente depois do setup: o app abre no navegador, com aviso');
   if not WizardSilent() then
     if MsgBox('Componente de janela indisponível; o app abre no navegador.' + #13#10#13#10 +
-              'O concurso-analise abre numa janela própria com o Microsoft Edge WebView2, que não pôde ser ' +
+              'O Gabarito Vivo abre numa janela própria com o Microsoft Edge WebView2, que não pôde ser ' +
               'instalado agora (sem internet?). Tudo funciona igual no navegador.' + #13#10#13#10 +
               'Abrir a página de download do WebView2 (gratuito, da Microsoft)?',
               mbConfirmation, MB_YESNO) = IDYES then

@@ -1,9 +1,10 @@
-# Build onedir do concurso-analise: `pyinstaller empacotamento/concurso-analise.spec` a partir de
+# Build onedir do Gabarito Vivo: `pyinstaller empacotamento/concurso-analise.spec` a partir de
 # `uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento`.
 #
-# Dois executáveis no mesmo diretório: `concurso-analise` (janela, sem console no Windows) e
-# `concurso-analise-cli` (console, para a CLI e o smoke). O Tesseract (em `_internal/tesseract`) e a captura do
+# Dois executáveis no mesmo diretório: `gabarito-vivo` (janela, sem console no Windows) e
+# `gabarito-vivo-cli` (console, para a CLI e o smoke). O Tesseract (em `_internal/tesseract`) e a captura do
 # TEC entram quando os scripts de `empacotamento/tesseract/` e o `node tec-erros/scripts/build.mjs` já rodaram.
+# O nome do arquivo .spec e o pacote Python (`concurso-analise` / `concursos`) permanecem por compatibilidade.
 import shutil
 import sys
 from importlib.metadata import version
@@ -14,8 +15,9 @@ from PyInstaller.utils.hooks import collect_data_files
 PASTA = Path(SPECPATH)
 RAIZ = PASTA.parent
 CONSTRUCAO = PASTA / 'construcao'
-NOME = 'concurso-analise'
-VERSAO = version(NOME)
+PACOTE = 'concurso-analise'
+NOME = 'gabarito-vivo'
+VERSAO = version(PACOTE)
 
 
 def opcional(origem: Path, destino: str) -> list[tuple[str, str]]:
@@ -54,7 +56,14 @@ def recurso(nome: str, descricao: str) -> str | None:
     return str(destino)
 
 
-icone = PASTA / 'icones' / ('concurso-analise.ico' if sys.platform == 'win32' else 'concurso-analise.icns')
+icone_win = PASTA / 'icones' / 'gabarito-vivo.ico'
+icone_mac = PASTA / 'icones' / 'gabarito-vivo.icns'
+icone_legado_win = PASTA / 'icones' / 'concurso-analise.ico'
+icone_legado_mac = PASTA / 'icones' / 'concurso-analise.icns'
+if sys.platform == 'win32':
+    icone = icone_win if icone_win.exists() else icone_legado_win
+else:
+    icone = icone_mac if icone_mac.exists() else icone_legado_mac
 
 janela = EXE(
     pyz,
@@ -63,7 +72,7 @@ janela = EXE(
     exclude_binaries=True,
     name=NOME,
     console=False,
-    version=recurso(NOME, 'concurso-analise'),
+    version=recurso(NOME, 'Gabarito Vivo'),
     icon=str(icone) if icone.exists() else None,
 )
 cli = EXE(
@@ -73,7 +82,7 @@ cli = EXE(
     exclude_binaries=True,
     name=f'{NOME}-cli',
     console=True,
-    version=recurso(f'{NOME}-cli', 'concurso-analise (linha de comando)'),
+    version=recurso(f'{NOME}-cli', 'Gabarito Vivo (linha de comando)'),
     icon=str(icone) if icone.exists() else None,
 )
 coll = COLLECT(janela, cli, a.binaries, a.datas, name=NOME)

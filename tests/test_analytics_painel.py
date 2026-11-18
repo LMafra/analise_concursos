@@ -69,7 +69,9 @@ def test_tendencia_so_afirma_melhora_ou_piora_com_significancia(rho, p, pontos, 
 
 
 def test_sem_correlacao_ainda_nao_da_para_afirmar():
-    assert tendencia_geral(None).rotulo == 'Ainda não dá para afirmar'
+    tendencia = tendencia_geral(None)
+    assert tendencia.rotulo == 'Tendência em análise'
+    assert tendencia.chave == 'indefinida'
 
 
 def _tendencias(*linhas):

@@ -6,7 +6,7 @@ O Windows só aceita quatro números; a parte de pré-release da versão PEP 440
 import re
 
 EDITOR = 'LMafra'
-PRODUTO = 'concurso-analise'
+PRODUTO = 'Gabarito Vivo'
 COPYRIGHT = 'Copyright (c) 2026 LMafra. Licença MIT.'
 
 

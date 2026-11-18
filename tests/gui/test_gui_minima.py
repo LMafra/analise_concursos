@@ -235,7 +235,7 @@ async def test_concursos_mostra_situacao_gabarito_e_motivos(user: User, projeto)
     await user.should_see('completo')
     await user.should_see('beta')
     await user.should_see('incompleto')
-    await user.should_see('Resolver')
+    await user.should_see('Adicionar o edital e a prova')
 
 
 async def test_concursos_com_um_candidato_le_as_respostas_da_pasta_dele(user: User, projeto):
@@ -293,7 +293,7 @@ async def test_analisar_mostra_a_etapa_atual_do_concurso(user: User, projeto, mo
     await user.open('/analise')
     user.find(marker='iniciar').click()
 
-    await user.should_see('Analisando alfa (1 de 2): Lendo a folha…', retries=60)
+    await user.should_see('Lendo a folha de respostas (1 de 2: alfa)', retries=60)
     liberar.set()
     await user.should_see('Análise concluída.', retries=60)
 
@@ -354,7 +354,7 @@ async def test_sobre_mostra_versao_e_caminho_do_log(user: User):
     await user.open('/sobre')
 
     await user.should_see(marker='versao')
-    await user.should_see('concurso-analise')
+    await user.should_see('Gabarito Vivo')
     await user.should_see('Registro de erros')
     await user.should_see('Leitor de folhas')
     await user.should_see('Biblioteca: ')

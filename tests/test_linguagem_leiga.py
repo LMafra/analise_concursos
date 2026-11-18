@@ -106,13 +106,13 @@ def test_parte_principal_do_relatorio_do_concurso_sem_jargao(analisado):
     assert [termo for termo in TERMOS_TECNICOS_DO_RELATORIO_DO_CONCURSO if termo in principal] == []
 
 
-def test_indice_tem_os_cinco_cards_e_um_selo_por_prova(analisado):
+def test_indice_tem_tres_cards_e_um_selo_por_prova(analisado):
     html = indice(analisado).read_text(encoding='utf-8')
 
     secao = html.split('id="como-estou-saindo"', 1)[1].split('</table>', 1)[0]
-    assert html.count('<div class="card">') == 5
+    assert html.count('<div class="card">') == 3
     assert secao.count('<tr><td>') == 3
-    assert len(re.findall(r'class="selo selo-\w+"><span aria-hidden="true">', secao)) == 3
+    assert len(re.findall(r'class="selo selo-\w+" role="status"', secao)) == 3
 
 
 def _luminancia(cor: str) -> float:
@@ -121,10 +121,29 @@ def _luminancia(cor: str) -> float:
     return 0.2126 * lineares[0] + 0.7152 * lineares[1] + 0.0722 * lineares[2]
 
 
+def _cor_do_selo(classe: str) -> tuple[str, str]:
+    """Resolve `var(--token)` dos selos para o hex em `TOKENS_RELATORIO`."""
+    from concursos.design_tokens import TOKENS_RELATORIO
+
+    regra = re.search(
+        rf'\.{classe} {{ background: (#[0-9a-fA-F]{{6}}|var\(--[\w-]+\)); color: (#[0-9a-fA-F]{{6}}|var\(--[\w-]+\));',
+        _CSS,
+    )
+    assert regra is not None
+
+    def resolver(valor: str) -> str:
+        if valor.startswith('#'):
+            return valor.lower()
+        nome = re.fullmatch(r'var\((--[\w-]+)\)', valor)
+        assert nome is not None and nome.group(1) in TOKENS_RELATORIO
+        return TOKENS_RELATORIO[nome.group(1)].lower()
+
+    return resolver(regra.group(1)), resolver(regra.group(2))
+
+
 @pytest.mark.parametrize('classe', sorted({selo.classe for selo in SELOS.values()}))
 def test_selo_tem_contraste_aa(classe):
-    regra = re.search(rf'\.{classe} {{ background: (#[0-9a-f]{{6}}); color: (#[0-9a-f]{{6}}); }}', _CSS)
-    assert regra is not None
-    clara, escura = sorted((_luminancia(regra.group(1)), _luminancia(regra.group(2))), reverse=True)
+    fundo, texto = _cor_do_selo(classe)
+    clara, escura = sorted((_luminancia(fundo), _luminancia(texto)), reverse=True)
 
     assert (clara + 0.05) / (escura + 0.05) >= 4.5

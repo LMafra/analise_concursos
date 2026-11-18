@@ -238,7 +238,7 @@ def test_com_biblioteca_a_analise_grava_recomendacoes_e_a_secao_sem_rede(projeto
 
     assert recomendacoes(projeto).read_text(encoding='utf-8').startswith('# Onde estudar')
     indice = (projeto / 'analises' / 'zuleica' / 'index.html').read_text(encoding='utf-8')
-    assert '<section id="onde-estudar">\n<h2>Onde estudar</h2>' in indice
+    assert '<details id="onde-estudar"><summary><h2>Onde estudar</h2></summary>' in indice
     assert servidor.pedidos == []
     antes = mtimes(projeto / 'analises')
     assert main(['--yes', '--no-open', '--offline', '--candidate', 'zuleica']) == 0

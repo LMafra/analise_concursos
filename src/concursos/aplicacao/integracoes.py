@@ -443,9 +443,11 @@ def registrar_interesse(opcoes: Opcoes, concursos: list[ConcursoPci], identifica
     )
 
 
-def esquecer_interesse(opcoes: Opcoes, identificador: int) -> None:
+def esquecer_interesse(opcoes: Opcoes, identificador: int) -> dict:
+    """Remove o acompanhamento e devolve o item (para Desfazer na GUI)."""
     registro = interesses(opcoes.contexto)
-    if registro.obter(identificador) is None:
+    item = registro.obter(identificador)
+    if item is None:
         raise ErroDoUsuario(
             f'O concurso {identificador} não está entre os que você acompanha.',
             'confira a lista em Concursos > Encontrar concursos.',
@@ -453,10 +455,24 @@ def esquecer_interesse(opcoes: Opcoes, identificador: int) -> None:
         )
     if opcoes.dry_run:
         opcoes.saida(f'deixaria de acompanhar {identificador}')
-        return
+        return dict(item)
+    snapshot = dict(item)
     registro.esquecer(identificador)
     registro.gravar()
     opcoes.saida(f'interesse removido: {identificador}')
+    return snapshot
+
+
+def restaurar_interesse(opcoes: Opcoes, item: dict) -> None:
+    """Recoloca um interesse removido (Desfazer do toast)."""
+    if opcoes.dry_run:
+        opcoes.saida(f'restauraria o interesse {item.get("id")}')
+        return
+    registro = interesses(opcoes.contexto)
+    if registro.obter(int(item['id'])) is not None:
+        return
+    registro.itens.append(dict(item))
+    registro.gravar()
 
 
 def regiao_do_concurso(concurso: ConcursoPci) -> str:

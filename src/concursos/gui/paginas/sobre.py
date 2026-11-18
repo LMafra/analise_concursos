@@ -1,4 +1,3 @@
-from importlib.metadata import version
 from pathlib import Path
 
 from nicegui import app, run, ui
@@ -16,24 +15,26 @@ from concursos.gui.estado import ESTADO
 from concursos.gui.progresso import arquivo_de_log
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro
+from concursos.produto import COMANDO, COMANDO_LEGADO, NOME, versao_do_pacote
 
 PRIVACIDADE = (
     'Privacidade: tudo fica no seu computador. Só sai algo se você ligar a IA, a busca de concursos ou os '
     'avisos de versão nova; cada um mostra antes o que é enviado. Os seus livros não saem do computador.'
 )
 CONSULTA = 'Consulta o GitHub (só o arquivo da versão mais nova; nenhum dado seu vai junto).'
-FORA_DO_EXECUTAVEL = 'Instalado pelo uv: atualize com `uv tool upgrade concurso-analise`.'
+FORA_DO_EXECUTAVEL = f'Instalado pelo uv: atualize com `uv tool upgrade {COMANDO}` (ou {COMANDO_LEGADO}).'
 SEGUNDOS_PARA_FECHAR = 3
+NOME_DO_APP = NOME
 
 
 def versao() -> str:
-    return version('concurso-analise')
+    return versao_do_pacote()
 
 
 def pagina() -> None:
     resumo = sobre.resumo_do_app(resolver_home())
     with ui.column().classes('w-full max-w-2xl').style(tema.gap('md')):
-        ui.label(f'concurso-analise {versao()}').classes('text-2xl font-bold').mark('versao')
+        ui.label(f'{NOME_DO_APP} {versao()}').classes('text-2xl font-bold').mark('versao')
         with ui.row().classes('items-center').style(tema.gap('md')):
             ui.label(resumo.sistema).mark('sistema')
             situacao(

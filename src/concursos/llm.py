@@ -12,12 +12,12 @@ from typing import Protocol
 
 from concursos.config.contexto import gravar_secao, ler_toml
 from concursos.erros import avisar
+from concursos.produto import SERVICO_KEYRING, SERVICO_KEYRING_LEGADO
 
 logger = logging.getLogger(__name__)
 
 SECAO = 'llm'
 NENHUM = 'nenhum'
-SERVICO_KEYRING = 'concurso-analise'
 ARQUIVO_ENV = '.env'
 TIMEOUT_SEGUNDOS = 60
 _MAXIMO_TOKENS = 1024
@@ -283,7 +283,10 @@ def _do_keyring(variavel: str) -> str | None:
     try:
         import keyring
 
-        return keyring.get_password(SERVICO_KEYRING, variavel)
+        for servico in (SERVICO_KEYRING, SERVICO_KEYRING_LEGADO):
+            if chave := keyring.get_password(servico, variavel):
+                return chave
+        return None
     except Exception:  # noqa: BLE001 - sem keyring ou sem backend
         return None
 

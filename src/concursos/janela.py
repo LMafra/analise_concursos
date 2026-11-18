@@ -17,7 +17,7 @@ URL_WEBVIEW2 = 'https://developer.microsoft.com/microsoft-edge/webview2/'
 VARIAVEL_JANELA_FALHOU = 'CONCURSO_JANELA_FALHOU'
 TITULO_AVISO = 'Componente de janela indisponível; o app abre no navegador.'
 TEXTO_AVISO = (
-    'O concurso-analise abre numa janela própria com o Microsoft Edge WebView2, que não está instalado ou não '
+    'O Gabarito Vivo abre numa janela própria com o Microsoft Edge WebView2, que não está instalado ou não '
     'abriu neste computador. Tudo funciona igual no navegador. Para ter a janela, instale o WebView2 '
     '(gratuito, da Microsoft) e abra o app de novo.'
 )
