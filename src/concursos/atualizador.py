@@ -17,6 +17,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from packaging.version import InvalidVersion, Version
 
+from concursos import produto
 from concursos.erros import ErroDoAmbiente, ErroDoUsuario
 from concursos.modelo import CanalAtualizacao
 
@@ -212,20 +213,24 @@ def registrar_consulta(estado: Path, agora: datetime) -> None:
 
 
 def montar_manifesto(versao: str, publicado_em: str, arquivos: list[Path]) -> bytes:
-    """O `atualizacao.json` da release, com os artefatos de Windows e Linux entre `arquivos`."""
+    """O `atualizacao.json` da release, com os artefatos de Windows e Linux entre `arquivos`.
+
+    Prefere `concurso-analise-*` quando os dois nomes existem: clientes ≤0.7.0b2 só aceitam esse
+    prefixo no manifesto.
+    """
+    por_nome = {caminho.name: caminho for caminho in arquivos}
     artefatos = {}
-    for caminho in arquivos:
-        for chave, sufixo in SUFIXOS.items():
-            if caminho.name in {
-                f'gabarito-vivo-{versao}-{sufixo}',
-                f'concurso-analise-{versao}-{sufixo}',
-            }:
-                resumo = hashlib.sha256(caminho.read_bytes()).hexdigest()
-                artefatos[chave] = {
-                    'arquivo': caminho.name,
-                    'sha256': resumo,
-                    'tamanho': caminho.stat().st_size,
-                }
+    for chave, sufixo in SUFIXOS.items():
+        legado = f'{produto.PREFIXO_ARTEFATO_LEGADO}-{versao}-{sufixo}'
+        atual = f'{produto.PREFIXO_ARTEFATO}-{versao}-{sufixo}'
+        caminho = por_nome.get(legado) or por_nome.get(atual)
+        if caminho is None:
+            continue
+        artefatos[chave] = {
+            'arquivo': caminho.name,
+            'sha256': hashlib.sha256(caminho.read_bytes()).hexdigest(),
+            'tamanho': caminho.stat().st_size,
+        }
     canal = CanalAtualizacao.BETA if Version(versao).is_prerelease else CanalAtualizacao.STABLE
     dados = {
         'formato': FORMATO,

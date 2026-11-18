@@ -276,3 +276,17 @@ def test_montar_manifesto_le_os_arquivos_da_release(tmp_path):
     assert lido.artefatos['linux-x86_64'].sha256 == hashlib.sha256(b'linux!').hexdigest()
     assert lido.artefatos['linux-x86_64'].tamanho == 6
     assert lido.notas.endswith('/releases/tag/v0.6.0b1')
+
+
+def test_montar_manifesto_prefere_o_nome_legado_quando_os_dois_existem(tmp_path):
+    (tmp_path / 'gabarito-vivo-0.7.0b3-windows-x64-setup.exe').write_bytes(b'win')
+    (tmp_path / 'gabarito-vivo-0.7.0b3-linux-x86_64.AppImage').write_bytes(b'linux')
+    (tmp_path / 'concurso-analise-0.7.0b3-windows-x64-setup.exe').write_bytes(b'win')
+    (tmp_path / 'concurso-analise-0.7.0b3-linux-x86_64.AppImage').write_bytes(b'linux')
+
+    lido = atualizador.ler_manifesto(
+        atualizador.montar_manifesto('0.7.0b3', '2026-11-18', sorted(tmp_path.iterdir()))
+    )
+
+    assert lido.artefatos['windows-x64'].arquivo.startswith('concurso-analise-')
+    assert lido.artefatos['linux-x86_64'].arquivo.startswith('concurso-analise-')

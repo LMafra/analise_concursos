@@ -379,6 +379,16 @@ jobs:
           previa=$(uv run --no-sync python -c "import sys; from packaging.version import Version; print('sim' if Version(sys.argv[1]).is_prerelease else 'nao')" "$versao")
           echo "PREVIA=$previa" >> "$GITHUB_ENV"
 
+      # Clientes ≤0.7.0b2 só aceitam concurso-analise-* no manifesto; a cópia legado mantém a atualização.
+      - name: Cópias legado dos artefatos
+        working-directory: dist
+        run: |
+          for arquivo in gabarito-vivo-*-windows-x64-setup.exe gabarito-vivo-*-linux-x86_64.AppImage; do
+            [ -f "$arquivo" ] || continue
+            cp -f "$arquivo" "${arquivo/gabarito-vivo/concurso-analise}"
+          done
+          ls -lh gabarito-vivo-* concurso-analise-* | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Manifesto de atualização assinado
         env:
           CHAVE_ATUALIZACAO: ${{ secrets.CHAVE_ATUALIZACAO }}
@@ -395,7 +405,7 @@ jobs:
       - name: SHA256SUMS
         working-directory: dist
         run: |
-          sha256sum gabarito-vivo-* atualizacao.json atualizacao.json.sig RELATORIO-SMOKE.md > SHA256SUMS
+          sha256sum gabarito-vivo-* concurso-analise-* atualizacao.json atualizacao.json.sig RELATORIO-SMOKE.md > SHA256SUMS
           cat SHA256SUMS | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Pré-release (b, rc) nasce como prerelease; nenhuma vira "latest" sozinha: a promoção é manual,
