@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=concurso-analise
+Name=Gabarito Vivo
 GenericName=Análise de provas de concurso
-Comment=Correção e análise de provas de concurso
-Exec=concurso-analise
-Icon=concurso-analise
+Comment=Gabarito Vivo: correção e análise de provas de concurso
+Exec=gabarito-vivo
+Icon=gabarito-vivo
 Categories=Education;
-Keywords=concurso;prova;gabarito;edital;
+Keywords=concurso;prova;gabarito;edital;gabarito-vivo;
 Terminal=false
 StartupNotify=false

@@ -41,7 +41,7 @@ async def test_pasta_nova_leva_ao_onboarding(user: User, tmp_path):
     user.find(marker='campo-pasta').clear().type(str(tmp_path / 'Concursos'))
     user.find(marker='usar-projeto').click()
 
-    await user.should_see('Bem-vindo ao concurso-analise')
+    await user.should_see('Bem-vindo ao Gabarito Vivo')
 
 
 async def test_concursos_convida_ao_onboarding_quando_falta_configurar(user: User, projeto):

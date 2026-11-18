@@ -103,7 +103,7 @@ def test_indice_diz_o_que_o_app_decidiu_sozinho_e_a_origem(projeto):
     assert 'Detalhe técnico: regra de correção do perfil da banca' in apendice
     assert 'regra padrão da banca (0,50)' in apendice
     assert 'Observações sobre os dados' in apendice
-    assert re.search(r'Gerado por concurso-analise \d[\w.+]* em \d{2}/\d{2}/\d{4}', html)
+    assert re.search(r'Relatório gerado localmente pelo aplicativo Gabarito Vivo \d[\w.+]* em \d{2}/\d{2}/\d{4}', html)
 
 
 def test_indice_e_um_painel_com_resumo_cards_e_selos(projeto):
@@ -114,13 +114,21 @@ def test_indice_e_um_painel_com_resumo_cards_e_selos(projeto):
 
     html = indice(projeto).read_text(encoding='utf-8')
     assert re.search(r'<p class="resumo">Você fez 2 concursos\.', html)
-    assert html.count('<div class="card">') == 5
-    for titulo in ('Como estou saindo', 'Meus pontos fortes', 'Meus pontos a melhorar', 'Estou evoluindo?'):
-        assert f'>{titulo}</h2>' in html
+    assert html.count('<div class="card">') == 3
+    assert 'Indicadores principais' in html
+    assert 'Diagnóstico da última prova' in html or 'diagnostico' in html
+    assert 'diagnostico-titulo' in html
+    assert 'Margem para o corte' in html or 'corte-medidor' in html or 'Sem corte' in html
+    assert 'KPI' not in html and 'percentil' not in html.lower()
+    for titulo in ('O que fazer agora', 'Como estou saindo', 'Meus pontos fortes', 'Meus pontos a melhorar', 'Estou evoluindo?'):
+        assert titulo in html
     assert '<nav aria-label="Ir para">' in html
-    assert html.count('Sem corte no edital</span>') == 2
+    assert html.count('Sem corte no edital</span>') >= 2
     assert '<span aria-hidden="true">–</span>' in html
+    assert 'role="status"' in html
     assert '<details id="detalhes-tecnicos">' in html and '<details id="detalhes-tecnicos" open' not in html
+    assert ':root' in html and '--color-primary' in html
+    assert 'var(--color-status-pass)' in html  # selos/medidor pelos tokens
 
 
 def test_html_funciona_sem_rede(projeto):

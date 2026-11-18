@@ -1,5 +1,8 @@
 """Gera o ícone do executável (`.ico` do Windows, `.icns` do macOS e `.png` do Linux) só com o Pillow.
 
+Paleta Gabarito Vivo: tinta-teal (#0F766E) + acento verde (#15803D).
+Também grava os nomes legados `concurso-analise.*` para scripts que ainda os citam.
+
 Uso: uv run python empacotamento/icones/gerar_icones.py
 """
 
@@ -9,15 +12,16 @@ from PIL import Image, ImageDraw
 
 PASTA = Path(__file__).parent
 LADO = 1024
-AZUL = (25, 118, 210, 255)
+TEAL = (15, 118, 110, 255)
 BRANCO = (255, 255, 255, 255)
-VERDE = (102, 187, 106, 255)
+VERDE = (21, 128, 61, 255)
+NOMES = ('gabarito-vivo', 'concurso-analise')
 
 
 def desenhar() -> Image.Image:
     imagem = Image.new('RGBA', (LADO, LADO), (0, 0, 0, 0))
     pincel = ImageDraw.Draw(imagem)
-    pincel.rounded_rectangle((48, 48, LADO - 48, LADO - 48), radius=200, fill=AZUL)
+    pincel.rounded_rectangle((48, 48, LADO - 48, LADO - 48), radius=200, fill=TEAL)
     # Folha de respostas: três linhas de alternativas, a do meio marcada.
     for linha, y in enumerate((250, 420, 590)):
         for coluna, x in enumerate((300, 450, 600, 750)):
@@ -34,10 +38,11 @@ def desenhar() -> Image.Image:
 
 def main() -> None:
     imagem = desenhar()
-    imagem.save(PASTA / 'concurso-analise.png')
-    imagem.resize((256, 256), Image.Resampling.LANCZOS).save(PASTA / 'concurso-analise-256.png')
-    imagem.save(PASTA / 'concurso-analise.ico', sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
-    imagem.save(PASTA / 'concurso-analise.icns')
+    for nome in NOMES:
+        imagem.save(PASTA / f'{nome}.png')
+        imagem.resize((256, 256), Image.Resampling.LANCZOS).save(PASTA / f'{nome}-256.png')
+        imagem.save(PASTA / f'{nome}.ico', sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
+        imagem.save(PASTA / f'{nome}.icns')
 
 
 if __name__ == '__main__':

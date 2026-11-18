@@ -6,9 +6,12 @@ from urllib.parse import quote
 
 from nicegui import events, run, ui
 
+import pandas as pd
+
 from concursos.aplicacao import cadastro, estudo
 from concursos.aplicacao.nomes import opcoes_de_concurso
 from concursos.aplicacao.opcoes import Opcoes
+from concursos.aplicacao.resultados import abrir_no_navegador, resultados
 from concursos.datas import data_br
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
@@ -76,12 +79,75 @@ def pagina(aba: str | None = None, pergunta: str | None = None) -> None:
         with ui.tabs().classes('w-full') as abas:
             aba_livros = ui.tab('Meus livros', icon='menu_book').mark('aba-livros')
             aba_perguntar = ui.tab('Perguntar', icon='search').mark('aba-perguntar')
-        inicial = aba_perguntar if aba == 'perguntar' or pergunta else aba_livros
+            aba_simulado = ui.tab('Simulado', icon='quiz').mark('aba-simulado')
+            aba_pratica = ui.tab('Prática no TEC', icon='school').mark('aba-pratica')
+        if aba == 'perguntar' or pergunta:
+            inicial = aba_perguntar
+        elif aba == 'simulado':
+            inicial = aba_simulado
+        elif aba == 'pratica':
+            inicial = aba_pratica
+        else:
+            inicial = aba_livros
         with ui.tab_panels(abas, value=inicial).classes('w-full'):
             with ui.tab_panel(aba_livros):
                 MeusLivros()
             with ui.tab_panel(aba_perguntar):
                 Perguntar(pergunta or '', ao_adicionar=lambda: abas.set_value(aba_livros))
+            with ui.tab_panel(aba_simulado):
+                painel_simulado()
+            with ui.tab_panel(aba_pratica):
+                painel_pratica()
+
+
+def painel_simulado() -> None:
+    try:
+        achados = resultados(ESTADO.contexto())
+    except Exception as erro:  # noqa: BLE001
+        mostrar_erro(erro)
+        return
+    if achados.simulado_focado is None and achados.simulado_tec is None:
+        estado_vazio(
+            'quiz',
+            'Sem simulado ainda',
+            'Importe provas anteriores em Concursos > Provas anteriores, ou traga a prática do TEC.',
+            acao='Ir para Concursos',
+            ao_clicar=lambda: ui.navigate.to('/concursos?aba=provas'),
+            marca='sem-simulado',
+        )
+        return
+    if achados.simulado_tec is not None:
+        simulado_tec = achados.simulado_tec
+        ui.button(
+            'Ver simulado com meus erros do TEC',
+            icon='quiz',
+            on_click=lambda: abrir_no_navegador(simulado_tec),
+        ).props('outline').mark('abrir-simulado-tec')
+    if achados.simulado_focado is not None:
+        ui.markdown(achados.simulado_focado).classes('w-full').mark('simulado-focado-resultados')
+
+
+def painel_pratica() -> None:
+    try:
+        achados = resultados(ESTADO.contexto())
+    except Exception as erro:  # noqa: BLE001
+        mostrar_erro(erro)
+        return
+    if achados.pratica is None:
+        estado_vazio(
+            'school',
+            'Sem prática no TEC ainda',
+            'Solte a planilha ou a captura em Minhas Provas > Importar do TEC.',
+            acao='Importar do TEC',
+            ao_clicar=lambda: ui.navigate.to('/?aba=tec'),
+            marca='sem-pratica',
+        )
+    else:
+        ui.markdown(achados.pratica).classes('w-full').mark('pratica')
+    for titulo, caminho in achados.tabelas_pratica.items():
+        with ui.expansion(titulo, icon='table_chart').classes('w-full'):
+            tabela = pd.read_csv(caminho, keep_default_na=False)
+            ui.table.from_pandas(tabela, pagination=15).classes('w-full')
 
 
 class MeusLivros:

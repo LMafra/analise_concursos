@@ -106,13 +106,13 @@ def test_parte_principal_do_relatorio_do_concurso_sem_jargao(analisado):
     assert [termo for termo in TERMOS_TECNICOS_DO_RELATORIO_DO_CONCURSO if termo in principal] == []
 
 
-def test_indice_tem_os_cinco_cards_e_um_selo_por_prova(analisado):
+def test_indice_tem_tres_cards_e_um_selo_por_prova(analisado):
     html = indice(analisado).read_text(encoding='utf-8')
 
     secao = html.split('id="como-estou-saindo"', 1)[1].split('</table>', 1)[0]
-    assert html.count('<div class="card">') == 5
+    assert html.count('<div class="card">') == 3
     assert secao.count('<tr><td>') == 3
-    assert len(re.findall(r'class="selo selo-\w+"><span aria-hidden="true">', secao)) == 3
+    assert len(re.findall(r'class="selo selo-\w+" role="status"', secao)) == 3
 
 
 def _luminancia(cor: str) -> float:
@@ -123,7 +123,9 @@ def _luminancia(cor: str) -> float:
 
 @pytest.mark.parametrize('classe', sorted({selo.classe for selo in SELOS.values()}))
 def test_selo_tem_contraste_aa(classe):
-    regra = re.search(rf'\.{classe} {{ background: (#[0-9a-f]{{6}}); color: (#[0-9a-f]{{6}}); }}', _CSS)
+    regra = re.search(
+        rf'\.{classe} {{ background: (#[0-9a-f]{{6}}); color: (#[0-9a-f]{{6}});', _CSS
+    )
     assert regra is not None
     clara, escura = sorted((_luminancia(regra.group(1)), _luminancia(regra.group(2))), reverse=True)
 

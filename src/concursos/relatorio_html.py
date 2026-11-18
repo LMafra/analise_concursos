@@ -34,7 +34,16 @@ from concursos.analytics.insights import (
     gravar_relatorio_evolucao,
 )
 from concursos.analytics.nome_concurso import NomeDoConcurso, nome_do_concurso
-from concursos.analytics.painel import FontesDasAcoes, Painel, Prova, ha_amostra_por_disciplina, montar_painel
+from concursos.analytics.painel import (
+    FAIXA_NO_LIMITE,
+    FontesDasAcoes,
+    Painel,
+    Prova,
+    ha_amostra_por_disciplina,
+    montar_painel,
+    topicos_por_impacto,
+)
+from concursos.design_tokens import css_root_do_relatorio
 from concursos.analytics.regras_edital import UnidadeCorte
 from concursos.analytics.validacao_edital import ARQUIVO_DISCREPANCIAS
 from concursos.analytics.visualizacao import rotulo_com_variante
@@ -93,41 +102,93 @@ _FIGURAS = (
         'Mostra como a sua posição entre os concursos muda quando consideramos a regra de correção e o chute.',
     ),
 )
-_CSS = """
-body { font-family: system-ui, sans-serif; margin: 0; color: #1f2933; background: #f7f8fa; }
-main { max-width: 64rem; margin: 0 auto; padding: 1.5rem; background: #fff; }
-h1, h2, h3 { line-height: 1.25; }
-table { border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
-caption { text-align: left; color: #4b5563; font-size: 0.85rem; padding-bottom: 0.3rem; }
-th, td { border: 1px solid #d5dae1; padding: 0.3rem 0.6rem; text-align: left; vertical-align: top; }
-th { background: #eef1f5; }
-img { max-width: 100%; height: auto; }
-figure { margin: 1.5rem 0; }
-figcaption { color: #4b5563; font-size: 0.85rem; }
-code { background: #eef1f5; padding: 0 0.2rem; }
-a { color: #1d4ed8; }
-nav ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
-.resumo { font-size: 1.05rem; }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.8rem;
-  margin: 1.5rem 0; }
-.card { border: 1px solid #d5dae1; border-radius: 0.5rem; padding: 0.8rem; }
-.card p { margin: 0; }
-.card-rotulo { color: #4b5563; font-size: 0.85rem; }
-.card-valor { font-size: 1.6rem; font-weight: 600; margin: 0.2rem 0; }
-.card-contexto { color: #4b5563; font-size: 0.85rem; }
-.selo { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 0.8rem; font-size: 0.8rem; }
-.ok { background: #d8f3dc; } .info { background: #dbeafe; }
-.atencao { background: #fef3c7; } .alerta { background: #fde2e1; }
-.selo-acima { background: #d8f3dc; color: #14532d; }
-.selo-limite { background: #fef3c7; color: #713f12; }
-.selo-abaixo { background: #fde2e1; color: #7f1d1d; }
-.selo-neutro { background: #eef1f5; color: #374151; }
-details { margin-top: 2rem; border-top: 1px solid #d5dae1; padding-top: 0.5rem; }
-summary { cursor: pointer; }
-summary h2 { display: inline; }
-footer { margin-top: 2rem; color: #616e7c; font-size: 0.8rem; }
-.nota { color: #616e7c; font-size: 0.85rem; }
+def _css_do_relatorio() -> str:
+    return f"""
+{css_root_do_relatorio()}
+body {{ font-family: var(--font-family-body); margin: 0; color: var(--color-text-main);
+  background: var(--color-bg-base); }}
+main {{ max-width: 64rem; margin: 0 auto; padding: var(--space-lg); background: var(--color-bg-surface); }}
+h1, h2, h3 {{ line-height: 1.25; color: var(--color-text-main); }}
+table {{ border-collapse: collapse; margin: var(--space-md) 0; font-size: 0.9rem; }}
+caption {{ text-align: left; color: var(--color-text-muted); font-size: 0.85rem;
+  padding-bottom: 0.3rem; }}
+th, td {{ border: 1px solid var(--color-border); padding: 0.3rem 0.6rem; text-align: left;
+  vertical-align: top; }}
+th {{ background: var(--color-bg-base); }}
+img {{ max-width: 100%; height: auto; }}
+figure {{ margin: var(--space-lg) 0; }}
+figcaption {{ color: var(--color-text-muted); font-size: 0.85rem; }}
+code {{ background: var(--color-bg-base); padding: 0 0.2rem; }}
+a {{ color: var(--color-primary); }}
+nav ul {{ list-style: none; padding: 0; display: flex; flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md); }}
+.resumo {{ font-size: 1.05rem; }}
+.diagnostico {{ display: grid; grid-template-columns: 1fr auto; gap: var(--space-md);
+  align-items: start; border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  padding: var(--space-md); margin: var(--space-md) 0; background: var(--color-bg-surface);
+  box-shadow: var(--shadow-sm); }}
+.diagnostico-meta {{ display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm);
+  margin-bottom: var(--space-xs); }}
+.diagnostico-titulo {{ margin: 0; font-size: 1.15rem; }}
+.diagnostico-frase {{ margin: var(--space-xs) 0 0; color: var(--color-text-muted); }}
+.diagnostico-margem {{ text-align: right; min-width: 8rem; }}
+.diagnostico-margem-rotulo {{ display: block; color: var(--color-text-muted); font-size: 0.8rem; }}
+.diagnostico-margem-valor {{ display: block; font-size: 1.35rem; font-weight: 600; }}
+.cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-sm); margin: var(--space-lg) 0; }}
+.card {{ border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  padding: var(--space-sm); box-shadow: var(--shadow-sm); }}
+.card p {{ margin: 0; }}
+.card-rotulo {{ color: var(--color-text-muted); font-size: 0.85rem; }}
+.card-valor {{ font-size: 1.6rem; font-weight: 600; margin: 0.2rem 0; }}
+.card-contexto {{ color: var(--color-text-muted); font-size: 0.85rem; }}
+.corte-medidor {{ margin-top: var(--space-sm); }}
+.corte-trilha {{ position: relative; height: 0.55rem; border-radius: var(--radius-pill);
+  background: var(--color-bg-base); border: 1px solid var(--color-border); overflow: hidden; }}
+.corte-faixa {{ position: absolute; top: 0; bottom: 0; width: 0.35rem;
+  background: var(--color-text-muted); opacity: 0.7; }}
+.corte-preenchimento {{ height: 100%; border-radius: var(--radius-pill); }}
+.corte-preenchimento[data-status="acima"] {{ background: var(--color-status-pass); }}
+.corte-preenchimento[data-status="limite"] {{ background: var(--color-status-warn); }}
+.corte-preenchimento[data-status="abaixo"] {{ background: var(--color-status-alert); }}
+.corte-preenchimento[data-status="neutro"] {{ background: var(--color-text-muted); }}
+.selo {{ display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.55rem;
+  font-size: 0.8rem; font-weight: 500; }}
+.ok {{ background: var(--color-status-pass-bg); color: var(--color-status-pass); }}
+.info {{ background: var(--color-bg-base); color: var(--color-text-main); }}
+.atencao {{ background: var(--color-status-warn-bg); color: var(--color-status-warn); }}
+.alerta {{ background: var(--color-status-alert-bg); color: var(--color-status-alert); }}
+.selo-acima {{ background: var(--color-status-pass-bg); color: var(--color-status-pass);
+  border-radius: var(--radius-pill); }}
+.selo-limite {{ background: var(--color-status-warn-bg); color: var(--color-status-warn);
+  border-radius: var(--radius-sm); border: 1px dashed var(--color-status-warn); }}
+.selo-abaixo {{ background: var(--color-status-alert-bg); color: var(--color-status-alert);
+  border-radius: 2px; border: 2px solid var(--color-status-alert); }}
+.selo-neutro {{ background: var(--color-bg-base); color: var(--color-text-muted);
+  border-radius: var(--radius-sm); }}
+.atalhos {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-sm); margin: var(--space-lg) 0; }}
+.atalho {{ border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  padding: var(--space-md); }}
+details {{ margin-top: var(--space-lg); border-top: 1px solid var(--color-border); padding-top: 0.5rem; }}
+summary {{ cursor: pointer; }}
+summary h2, summary h3 {{ display: inline; }}
+footer {{ margin-top: var(--space-lg); color: var(--color-text-muted); font-size: 0.8rem; }}
+.nota {{ color: var(--color-text-muted); font-size: 0.85rem; }}
+@media (max-width: 36rem) {{
+  .diagnostico {{ grid-template-columns: 1fr; }}
+  .diagnostico-margem {{ text-align: left; }}
+}}
+@media print {{
+  body {{ background: #FFFFFF; color: #111111; }}
+  main {{ max-width: none; box-shadow: none; }}
+  nav, .atalhos {{ display: none; }}
+  a {{ color: inherit; text-decoration: none; }}
+}}
 """
+
+
+_CSS = _css_do_relatorio()
 
 
 @dataclass(frozen=True)
@@ -213,10 +274,13 @@ def gerar_relatorio_html(
     corpo = '\n'.join(
         [
             f'<h1>Relatório de {escape(raiz_analises.name)}</h1>',
-            f'<p class="nota">Gerado em {agora:%d/%m/%Y}</p>',
+            f'<p class="nota">Situação em {agora:%d/%m/%Y}'
+            f' · {escape(plural(painel.kpis.concursos, "concurso"))}</p>',
             f'<p class="resumo">{escape(painel.resumo)}</p>',
-            _navegacao(secoes),
+            _diagnostico_ultima_prova(painel),
             _cards(painel, suficiente),
+            *_o_que_fazer(painel),
+            _navegacao(secoes),
             *_como_estou_saindo(painel, concursos),
             *_tabela_de_simulados(
                 [
@@ -228,8 +292,7 @@ def gerar_relatorio_html(
             *_pontos_fortes(painel, consolidado),
             *_pontos_a_melhorar(painel, suficiente),
             *_estou_evoluindo(painel, suficiente),
-            *_o_que_fazer(painel),
-            *(f'<section id="{s.ancora}">\n{s.html}\n</section>' for s in secoes),
+            _atalhos_das_secoes(secoes),
             _detalhes_tecnicos(
                 concursos,
                 decisoes,
@@ -237,8 +300,8 @@ def gerar_relatorio_html(
                 gap,
                 evolucao_tecnica,
             ),
-            f'<footer>Gerado por concurso-analise {_versao()} em {agora:%d/%m/%Y %H:%M} a partir de '
-            f'{escape(str(raiz_provas))}.</footer>',
+            f'<footer>Relatório gerado localmente pelo aplicativo Gabarito Vivo {_versao()} em '
+            f'{agora:%d/%m/%Y %H:%M}.</footer>',
         ]
     )
     indice = raiz_analises / ARQUIVO_INDICE
@@ -359,11 +422,11 @@ def _variante(valor) -> str | None:
 
 def _navegacao(secoes: list[_SecaoPropria]) -> str:
     destinos = [
+        ('o-que-fazer', 'O que fazer agora'),
         ('como-estou-saindo', 'Como estou saindo'),
         ('pontos-fortes', 'Pontos fortes'),
         ('pontos-a-melhorar', 'Pontos a melhorar'),
         ('evolucao', 'Estou evoluindo?'),
-        ('o-que-fazer', 'O que fazer agora'),
         *((s.ancora, s.titulo) for s in secoes),
         ('detalhes-tecnicos', TITULO_DETALHES_TECNICOS),
     ]
@@ -371,55 +434,108 @@ def _navegacao(secoes: list[_SecaoPropria]) -> str:
     return f'<nav aria-label="Ir para">\n<p class="nota">Ir para:</p>\n<ul>\n{itens}\n</ul>\n</nav>'
 
 
-def _cards(painel: Painel, suficiente: bool) -> str:
-    k = painel.kpis
-    sem_corte = k.provas - k.com_corte
-    if k.com_corte:
-        acima = (
-            f'{k.acima} de {k.com_corte}',
-            f'{k.abaixo} abaixo' + (f'; {sem_corte} sem corte' if sem_corte else ''),
+def _ultima_prova(painel: Painel) -> Prova | None:
+    if not painel.provas:
+        return None
+    com_data = [p for p in painel.provas if p.data]
+    if com_data:
+        return max(com_data, key=lambda p: p.data or '')
+    return painel.provas[-1]
+
+
+def _diagnostico_ultima_prova(painel: Painel) -> str:
+    prova = _ultima_prova(painel)
+    if prova is None:
+        return (
+            '<section class="diagnostico" aria-label="Diagnóstico">'
+            '<p>Cadastre e analise uma prova para ver o diagnóstico.</p></section>'
         )
-    else:
-        acima = ('–', 'nenhuma prova com corte no edital')
-    melhor = (
-        (percentual(k.melhor.percentual), k.melhor.rotulo) if k.melhor else ('–', 'nenhuma prova analisada')
+    margem = (
+        f'<div class="diagnostico-margem">'
+        f'<span class="diagnostico-margem-rotulo">Margem para o corte</span>'
+        f'<span class="diagnostico-margem-valor">{escape(prova.quanto_falta)}</span></div>'
+        if prova.quanto_falta
+        else ''
     )
-    if k.mais_fraco:
-        fraco = (k.mais_fraco.disciplina, f'{plural(len(k.mais_fraco.topicos), "tópico")} abaixo do esperado')
-    elif suficiente:
-        fraco = ('Nenhum', 'nenhum tópico abaixo do esperado em mais de um concurso')
+    frase = f'Nota {escape(percentual(prova.percentual))} na última prova analisada.'
+    return (
+        f'<section class="diagnostico" aria-label="Diagnóstico da última prova" aria-live="polite">'
+        f'<div><div class="diagnostico-meta">{_selo(prova)}</div>'
+        f'<h2 class="diagnostico-titulo">{escape(prova.rotulo)}</h2>'
+        f'<p class="diagnostico-frase">{frase}</p></div>{margem}</section>'
+    )
+
+
+def _cards(painel: Painel, suficiente: bool) -> str:
+    del suficiente  # a tendência já comunica amostra insuficiente
+    k = painel.kpis
+    ultima = _ultima_prova(painel)
+    if k.com_corte:
+        status_valor = f'{k.acima} de {k.com_corte} acima'
+        status_ctx = f'{k.abaixo} abaixo · {k.no_limite} no limite'
     else:
-        fraco = ('–', f'precisa de pelo menos {MINIMO_CONCURSOS} concursos')
+        status_valor = '–'
+        status_ctx = 'nenhuma prova com corte no edital'
     tendencia = k.tendencia
+    if ultima:
+        nota_valor = escape(percentual(ultima.percentual))
+        nota_ctx = escape(ultima.rotulo)
+        nota_extra = _medidor_de_corte(ultima)
+    else:
+        nota_valor = '–'
+        nota_ctx = 'nenhuma prova analisada'
+        nota_extra = ''
     cards = [
+        ('Situação no corte', escape(status_valor), escape(status_ctx), ''),
         (
-            'Concursos realizados',
-            escape(str(k.concursos)),
-            escape(f'{plural(k.provas, "prova")} no total (cada opção de cargo conta)'),
-        ),
-        ('Acima do corte', escape(acima[0]), escape(acima[1])),
-        ('Melhor desempenho', escape(melhor[0]), escape(melhor[1])),
-        ('Ponto mais fraco', escape(fraco[0]), escape(fraco[1])),
-        (
-            'Tendência geral',
+            'Tendência',
             f'<span aria-hidden="true">{tendencia.icone}</span> {escape(tendencia.rotulo)}',
-            'veja <a href="#evolucao">Estou evoluindo?</a>',
+            escape(tendencia.frase),
+            '',
         ),
+        ('Nota da última prova', nota_valor, nota_ctx, nota_extra),
     ]
     return (
-        '<section class="cards" aria-label="Resumo em números">\n'
+        '<section class="cards" aria-label="Indicadores principais">\n'
         + '\n'.join(
             f'<div class="card"><p class="card-rotulo">{rotulo}</p><p class="card-valor">{valor}</p>'
-            f'<p class="card-contexto">{contexto}</p></div>'
-            for rotulo, valor, contexto in cards
+            f'<p class="card-contexto">{contexto}</p>{extra}</div>'
+            for rotulo, valor, contexto, extra in cards
         )
         + '\n</section>'
     )
 
 
+def _medidor_de_corte(prova: Prova) -> str:
+    """Barra da nota com marca do corte; só visual — o texto do card e do banner já dizem o gap."""
+    if prova.gap is None or pd.isna(prova.gap):
+        return ''
+    nota = max(0.0, min(100.0, float(prova.percentual)))
+    corte = max(0.0, min(100.0, nota - float(prova.gap)))
+    status = prova.status.value
+    chave = status if status in {'acima', 'limite', 'abaixo'} else 'neutro'
+    faixa = max(FAIXA_NO_LIMITE, 0.5)
+    esquerda = max(0.0, corte - faixa)
+    largura_faixa = min(100.0, corte + faixa) - esquerda
+    aria = (
+        f'Nota {percentual(nota)} frente ao corte em {percentual(corte)}; '
+        f'{prova.quanto_falta or "sem margem"}.'
+    )
+    return (
+        f'<div class="corte-medidor" role="img" aria-label="{escape(aria)}">'
+        f'<div class="corte-trilha" aria-hidden="true">'
+        f'<div class="corte-faixa" style="left: {esquerda:.1f}%; width: {largura_faixa:.1f}%"></div>'
+        f'<div class="corte-preenchimento" data-status="{chave}" style="width: {nota:.1f}%"></div>'
+        f'</div></div>'
+    )
+
+
 def _selo(prova: Prova) -> str:
     selo = SELOS[prova.status.value]
-    return f'<span class="selo {selo.classe}"><span aria-hidden="true">{selo.icone}</span> {escape(selo.rotulo)}</span>'
+    return (
+        f'<span class="selo {selo.classe}" role="status" aria-label="Situação: {escape(selo.rotulo)}">'
+        f'<span aria-hidden="true">{selo.icone}</span> {escape(selo.rotulo)}</span>'
+    )
 
 
 def _como_estou_saindo(painel: Painel, concursos: list[ConcursoNoIndice]) -> list[str]:
@@ -554,14 +670,23 @@ def _pontos_a_melhorar(painel: Painel, suficiente: bool) -> list[str]:
         ]
     if not painel.grupos:
         return [*linhas, '<p>Nenhum tópico ficou abaixo do esperado em mais de um concurso.</p>']
-    total = sum(len(grupo.topicos) for grupo in painel.grupos)
+    prioridade = topicos_por_impacto(painel.grupos)
     linhas.append(
-        f'<p>{escape(plural(total, "tópico precisa", "tópicos precisam"))} de atenção: '
-        'ficaram abaixo do esperado em mais de um concurso.</p>'
+        f'<p>Os {len(prioridade)} tópicos com maior ganho de pontos se você melhorar agora:</p>'
     )
+    linhas.append(
+        _lista_html(
+            [
+                f'<strong>{escape(t.topico)}</strong> ({escape(t.disciplina)}): '
+                f'{escape(t.frase(painel.limiar))}'
+                for t in prioridade
+            ]
+        )
+    )
+    linhas.append('<details><summary><h3>Por disciplina</h3></summary>')
     for grupo in painel.grupos:
         linhas += [
-            f'<h3>{escape(grupo.titulo)}</h3>',
+            f'<h4>{escape(grupo.titulo)}</h4>',
             _lista_html(
                 [
                     f'<strong>{escape(t.topico)}</strong>: {escape(t.frase(painel.limiar))}'
@@ -570,13 +695,14 @@ def _pontos_a_melhorar(painel: Painel, suficiente: bool) -> list[str]:
             ),
             f'<p>{escape(grupo.sugestao)}</p>',
         ]
+    linhas.append('</details>')
     return linhas
 
 
 def _estou_evoluindo(painel: Painel, suficiente: bool) -> list[str]:
     linhas = ['<h2 id="evolucao">Estou evoluindo?</h2>']
     if not suficiente:
-        return [*linhas, f'<p>A evolução precisa de pelo menos {MINIMO_CONCURSOS} concursos analisados.</p>']
+        return [*linhas, f'<p>{escape(painel.kpis.tendencia.frase)}</p>']
     tendencia = painel.kpis.tendencia
     if painel.situacoes:
         linhas.append(f'<p><strong>{escape(painel.frase_de_evolucao)}</strong></p>')
@@ -585,12 +711,39 @@ def _estou_evoluindo(painel: Painel, suficiente: bool) -> list[str]:
         linhas.append(
             _lista_html([f'{escape(s.disciplina)}: {escape(s.situacao)}' for s in painel.situacoes])
         )
-    for imagem, alt, legenda in _FIGURAS:
-        linhas.append(
-            f'<figure><img src="{PASTA_CONSOLIDADO}/{imagem}" alt="{escape(alt)}">'
-            f'<figcaption>{escape(legenda)}</figcaption></figure>'
-        )
+    principal, *demais = _FIGURAS
+    imagem, alt, legenda = principal
+    linhas.append(
+        f'<figure><img src="{PASTA_CONSOLIDADO}/{imagem}" alt="{escape(alt)}">'
+        f'<figcaption>{escape(legenda)}</figcaption></figure>'
+    )
+    if demais:
+        linhas.append('<details><summary>Outros gráficos</summary>')
+        for imagem, alt, legenda in demais:
+            linhas.append(
+                f'<figure><img src="{PASTA_CONSOLIDADO}/{imagem}" alt="{escape(alt)}">'
+                f'<figcaption>{escape(legenda)}</figcaption></figure>'
+            )
+        linhas.append('</details>')
     return linhas
+
+
+def _atalhos_das_secoes(secoes: list[_SecaoPropria]) -> str:
+    if not secoes:
+        return ''
+    cards = '\n'.join(
+        f'<div class="atalho"><p><strong>{escape(s.titulo)}</strong></p>'
+        f'<p class="nota"><a href="#{s.ancora}">Abrir detalhes</a></p></div>'
+        for s in secoes
+    )
+    detalhes = '\n'.join(
+        f'<details id="{s.ancora}"><summary><h2>{escape(s.titulo)}</h2></summary>\n{s.html}\n</details>'
+        for s in secoes
+    )
+    return (
+        f'<section aria-label="Atalhos"><h2>Próximos passos no app</h2>\n'
+        f'<div class="atalhos">\n{cards}\n</div>\n{detalhes}\n</section>'
+    )
 
 
 def _o_que_fazer(painel: Painel) -> list[str]:
@@ -870,6 +1023,8 @@ def _numero(valor: float, casas: int) -> str:
 
 def _versao() -> str:
     try:
-        return version('concurso-analise')
+        from concursos.produto import versao_do_pacote
+
+        return versao_do_pacote()
     except PackageNotFoundError:
         return 'desconhecida'

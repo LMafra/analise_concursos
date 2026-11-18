@@ -18,6 +18,7 @@ FAIXA_NO_LIMITE = 2.0
 RHO_LEVE = 0.3
 MAXIMO_FORTES = 5
 MAXIMO_ACOES = 5
+MAXIMO_FRACOS_NO_TOPO = 5
 
 
 class StatusProva(StrEnum):
@@ -76,14 +77,22 @@ class Tendencia:
     frase: str
 
 
-def tendencia_geral(correlacao: Correlacao | None) -> Tendencia:
+def tendencia_geral(correlacao: Correlacao | None, provas_com_data: int | None = None) -> Tendencia:
     """Melhorando ou piorando só com p < 0,05; sem significância, "leve" a partir de |ρ| = `RHO_LEVE`."""
+    pontos = correlacao.pontos if correlacao is not None else (provas_com_data or 0)
     if correlacao is None or correlacao.pontos < MINIMO_PONTOS_TENDENCIA or pd.isna(correlacao.rho):
+        faltam = max(0, MINIMO_PONTOS_TENDENCIA - pontos)
+        progresso = f' ({pontos}/{MINIMO_PONTOS_TENDENCIA})' if pontos else ''
+        meta = (
+            f'Registre mais {plural(faltam, "prova")} com data para liberar o indicador{progresso}.'
+            if faltam
+            else 'Ainda não dá para afirmar a tendência com os dados atuais.'
+        )
         return Tendencia(
             'indefinida',
-            'Ainda não dá para afirmar',
+            'Tendência em análise',
             '–',
-            'Ainda não dá para afirmar se você está melhorando ou piorando: são poucos concursos com data.',
+            f'Primeiro raio-X em andamento: {meta}' if pontos <= 1 else meta,
         )
     subindo = correlacao.rho > 0
     if correlacao.p_valor < P_SIGNIFICATIVO:
@@ -285,6 +294,14 @@ def fracos_priorizados(
     return sorted(grupos, key=lambda grupo: (-grupo.prioridade, grupo.disciplina))
 
 
+def topicos_por_impacto(
+    grupos: list[GrupoFraco], limite: int = MAXIMO_FRACOS_NO_TOPO
+) -> list[TopicoFraco]:
+    """Os N tópicos com maior prioridade (impacto na nota), independentemente da disciplina."""
+    todos = [topico for grupo in grupos for topico in grupo.topicos]
+    return sorted(todos, key=lambda t: t.prioridade, reverse=True)[:limite]
+
+
 @dataclass(frozen=True)
 class Kpis:
     concursos: int
@@ -464,7 +481,11 @@ def montar_painel(
     grupos = fracos_priorizados(fracos, limiar, fortes)
     painel = Painel(
         provas=provas,
-        kpis=kpis(provas, grupos, tendencia_geral(correlacao)),
+        kpis=kpis(
+            provas,
+            grupos,
+            tendencia_geral(correlacao, sum(1 for p in provas if p.data)),
+        ),
         fortes=fortes,
         grupos=grupos,
         situacoes=situacao_por_disciplina(tendencias),

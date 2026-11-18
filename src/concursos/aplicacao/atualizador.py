@@ -14,7 +14,6 @@ import urllib.request
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from importlib.metadata import version
 from pathlib import Path
 from typing import Protocol
 
@@ -24,6 +23,7 @@ from concursos.atualizador import Artefato
 from concursos.config.contexto import gravar_secao, ler_toml
 from concursos.erros import ErroDoAmbiente, ErroDoUsuario
 from concursos.modelo import CanalAtualizacao
+from concursos.produto import COMANDO, PREFIXO_ARTEFATO, USER_AGENT, versao_do_pacote
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class _SoGithub(urllib.request.HTTPRedirectHandler):
 class TransporteHttps:
     def __init__(self, instalada: str, timeout: float = TIMEOUT) -> None:
         self._abridor = urllib.request.build_opener(_SoGithub())
-        self._cabecalhos = {'User-Agent': f'concurso-analise/{instalada}', 'Accept': '*/*'}
+        self._cabecalhos = {'User-Agent': f'{USER_AGENT}/{instalada}', 'Accept': '*/*'}
         self._timeout = timeout
 
     def _abrir(self, url: str):  # noqa: ANN202
@@ -136,7 +136,7 @@ def no_executavel() -> bool:
 
 
 def versao_instalada() -> str:
-    return version('concurso-analise')
+    return versao_do_pacote()
 
 
 def ler_preferencias(config_global: Path) -> Preferencias:
@@ -308,7 +308,7 @@ def instalar(
     """No Windows, deixa o setup rodando e o app precisa fechar; no Linux, troca o AppImage no lugar."""
     transporte = transporte or TransporteHttps(versao_instalada())
     if atualizador.plataforma(sistema) == 'windows-x64':
-        pasta = pasta_temporaria or Path(tempfile.mkdtemp(prefix='concurso-analise-atualizacao-'))
+        pasta = pasta_temporaria or Path(tempfile.mkdtemp(prefix=f'{PREFIXO_ARTEFATO}-atualizacao-'))
         setup = pasta / novidade.artefato.arquivo
         _baixar_conferido(novidade, setup, transporte, progresso)
         try:
@@ -372,19 +372,19 @@ def atualizar_executavel(
     if not opcoes.rede:
         raise ErroDoUsuario(
             'Procurar atualizações usa a internet, e você pediu para não usar (--offline).',
-            'rode concurso-analise upgrade sem --offline.',
+            f'rode {COMANDO} upgrade sem --offline.',
         )
     novidade = verificar(canal, transporte=transporte, sistema=sistema)
     if novidade is None:
-        opcoes.saida(f'concurso-analise {versao_instalada()} é a versão mais nova do canal {canal.value}')
+        opcoes.saida(f'{COMANDO} {versao_instalada()} é a versão mais nova do canal {canal.value}')
         return 0
     opcoes.saida(f'versão nova: {novidade.versao} ({novidade.canal.value}); notas em {novidade.notas}')
     if not executar:
-        opcoes.saida('para instalar: concurso-analise upgrade --run')
+        opcoes.saida(f'para instalar: {COMANDO} upgrade --run')
         return 0
     pergunta = f'Baixar e instalar a {novidade.versao} ({novidade.artefato.tamanho // 1_000_000} MB)?'
     if not opcoes.interacao_ou_automatica().confirmar(pergunta, padrao=True):
-        opcoes.saida('atualização cancelada')
+        opcoes.saida('atualização interrompida')
         return 0
     instalacao = (instalar_com or instalar)(novidade, transporte=transporte, sistema=sistema)
     if instalacao.setup_em_andamento:

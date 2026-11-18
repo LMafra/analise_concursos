@@ -22,8 +22,12 @@ def mascarar(texto: str, raiz: Path) -> str:
     for pasta in {str(raiz.parent.resolve()), str(raiz.parent)}:
         texto = texto.replace(pasta, '<TMP>')
     texto = re.sub(r'<TMP>[^\s)]*', lambda caminho: caminho.group(0).replace('\\', '/'), texto)
-    texto = re.sub(r'concurso-analise \d[\w.+]*', 'concurso-analise <VERSAO>', texto)
-    return re.sub(r'\d{2}/\d{2}/\d{4}( \d{2}:\d{2})?(?= a partir|</p>)', '<DATA>', texto)
+    texto = re.sub(r'(?:concurso-analise|Gabarito Vivo) \d[\w.+]*', 'Gabarito Vivo <VERSAO>', texto)
+    return re.sub(
+        r'\d{2}/\d{2}/\d{4}( \d{2}:\d{2})?(?=\.? a partir|\.?</p>|\.?</footer>)',
+        '<DATA>',
+        texto,
+    )
 
 
 def secoes_do_indice(html: str) -> dict[str, str]:
@@ -55,11 +59,11 @@ def test_secoes_do_indice(analisado, snapshot):
 
     assert list(secoes) == [
         'cabecalho',
+        'o-que-fazer',
         'como-estou-saindo',
         'pontos-fortes',
         'pontos-a-melhorar',
         'evolucao',
-        'o-que-fazer',
         'detalhes-tecnicos',
     ]
     for nome, conteudo in secoes.items():

@@ -48,6 +48,11 @@ def pagina() -> None:
         return
     with ui.column().classes('w-full max-w-4xl').style(tema.gap('md')):
         ui.label('Importar do TEC').classes('text-2xl font-bold')
+        conteudo()
+
+
+def conteudo() -> None:
+    with ui.column().classes('w-full').style(tema.gap('md')):
         PainelTec()
 
 

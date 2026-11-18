@@ -42,7 +42,8 @@ CHAVES_PUBLICAS: tuple[str, ...] = ('aHV1PoJmOdb1vVzPuVzT5Ue8LXw7p3FCWH6z4JB9z0M
 PLATAFORMAS = {'win32': 'windows-x64', 'linux': 'linux-x86_64'}
 SUFIXOS = {'windows-x64': 'windows-x64-setup.exe', 'linux-x86_64': 'linux-x86_64.AppImage'}
 PADRAO_ARQUIVO = re.compile(
-    r'^concurso-analise-[0-9A-Za-z.+-]+-(windows-x64-setup\.exe|linux-x86_64\.AppImage)$'
+    r'^(?:gabarito-vivo|concurso-analise)-[0-9A-Za-z.+-]+-'
+    r'(windows-x64-setup\.exe|linux-x86_64\.AppImage)$'
 )
 PADRAO_SHA256 = re.compile(r'^[0-9a-f]{64}$')
 DICA_MANUAL = f'baixe a versão nova no site do app: {URL_RELEASES_PAGINA}'
@@ -215,7 +216,10 @@ def montar_manifesto(versao: str, publicado_em: str, arquivos: list[Path]) -> by
     artefatos = {}
     for caminho in arquivos:
         for chave, sufixo in SUFIXOS.items():
-            if caminho.name == f'concurso-analise-{versao}-{sufixo}':
+            if caminho.name in {
+                f'gabarito-vivo-{versao}-{sufixo}',
+                f'concurso-analise-{versao}-{sufixo}',
+            }:
                 resumo = hashlib.sha256(caminho.read_bytes()).hexdigest()
                 artefatos[chave] = {
                     'arquivo': caminho.name,

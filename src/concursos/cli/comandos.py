@@ -31,6 +31,7 @@ from concursos.integracoes.simulado_pci import formatar_provas
 from concursos.integracoes.sincronizacao_pci import como_json
 from concursos.integracoes.sincronizacao_pci import formatar_tabela as tabela_pci
 from concursos.modelo import CanalAtualizacao, OndeProcurar
+from concursos.produto import COMANDO, COMANDO_LEGADO, NOME
 from concursos.status import formatar_tabela
 
 logger = logging.getLogger(__name__)
@@ -38,8 +39,8 @@ logger = logging.getLogger(__name__)
 MODULOS_DA_GUI = {'nicegui', 'webview'}
 
 app = typer.Typer(
-    name='concurso-analise',
-    help='Correção e análise de provas de concurso. Sem subcomando, analisa o que mudou.',
+    name=COMANDO,
+    help=f'{NOME}: correção e análise de provas de concurso. Sem subcomando, analisa o que mudou.',
     add_completion=False,
     pretty_exceptions_enable=False,
     rich_markup_mode=None,
@@ -412,7 +413,8 @@ def gui(
             raise
         raise ErroDoUsuario(
             'A janela do app (interface gráfica) não está instalada.',
-            'instale com `uv tool install "concurso-analise[gui]"` ou baixe o instalador do app.',
+            f'instale com `uv tool install "{COMANDO}[gui]"` (ou `{COMANDO_LEGADO}[gui]`) '
+            'ou baixe o instalador do app.',
         ) from erro
     executar(pasta, navegador=navegador)
     return 0
@@ -434,7 +436,7 @@ def upgrade(
     estudo.avisar_atualizacao_da_biblioteca(ctx.obj)
     if atualizacao.no_executavel():
         return atualizacao.atualizar_executavel(ctx.obj, canal=canal, executar=executar)
-    comando = ['tool', 'upgrade', 'concurso-analise']
+    comando = ['tool', 'upgrade', COMANDO]
     if not executar or ctx.obj.dry_run:
         typer.echo(f'para atualizar: uv {" ".join(comando)}')
         return 0

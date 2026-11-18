@@ -354,7 +354,7 @@ async def test_sobre_mostra_versao_e_caminho_do_log(user: User):
     await user.open('/sobre')
 
     await user.should_see(marker='versao')
-    await user.should_see('concurso-analise')
+    await user.should_see('Gabarito Vivo')
     await user.should_see('Registro de erros')
     await user.should_see('Leitor de folhas')
     await user.should_see('Biblioteca: ')

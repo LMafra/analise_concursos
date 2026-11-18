@@ -12,6 +12,7 @@ from concursos.erros import (
     linhas_extras,
     prefixo_do_nivel,
 )
+from concursos.produto import ARQUIVO_LOG
 
 __all__ = [
     'ARQUIVO_LOG',
@@ -26,8 +27,7 @@ __all__ = [
     'mostrar_inesperado',
 ]
 
-ARQUIVO_LOG = 'concurso-analise.log'
-_MARCA_HANDLER = '_concurso_analise'
+_MARCA_HANDLER = '_gabarito_vivo'
 
 logger = logging.getLogger('concursos')
 

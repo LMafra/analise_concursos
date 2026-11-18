@@ -16,6 +16,7 @@ from concursos.config.contexto import resolver_home
 from concursos.erros import avisar
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
+from concursos.gui.componentes.marca import bloco_da_marca
 from concursos.gui.estado import ESTADO, projeto_inicial
 from concursos.gui.paginas import (
     analise,
@@ -27,6 +28,7 @@ from concursos.gui.paginas import (
     inicio,
     novo_concurso,
     projeto,
+    radar,
     respostas,
     resultados,
     sobre,
@@ -34,28 +36,29 @@ from concursos.gui.paginas import (
 )
 from concursos.gui.tema import Tom
 from concursos.modelo import DecisaoJanela
+from concursos.produto import NOME
 
 HOST = '127.0.0.1'
 TAMANHO_JANELA = (1200, 820)
+NOME_DO_APP = NOME
 
 logger = logging.getLogger('concursos')
 
 MENU: list[tuple[str, str, str]] = [
-    ('/', 'Concursos', 'list'),
-    ('/estudar', 'Estudar', 'menu_book'),
-    ('/analise', 'Analisar', 'play_arrow'),
+    ('/', 'Minhas Provas', 'assignment'),
     ('/resultados', 'Resultados', 'insights'),
-    ('/tec', 'Importar do TEC', 'school'),
+    ('/estudar', 'Estudar', 'menu_book'),
+    ('/concursos', 'Concursos', 'travel_explore'),
 ]
 UTILITARIO: list[tuple[str, str, str]] = [
     ('/configuracoes', 'Configurações', 'settings'),
     ('/sobre', 'Sobre', 'info'),
 ]
 ENDERECOS_ANTIGOS = {
-    'descobrir': '/?aba=encontrar',
-    'provas': '/?aba=provas',
+    'descobrir': '/concursos?aba=encontrar',
+    'provas': '/concursos?aba=provas',
     'notebook': '/configuracoes?secao=avancado',
-    'tec': '/tec',
+    'tec': '/?aba=tec',
 }
 
 
@@ -67,6 +70,10 @@ def descobrir_antigo() -> None:
     ui.navigate.to(ENDERECOS_ANTIGOS['descobrir'])
 
 
+def tec_antigo() -> None:
+    ui.navigate.to('/?aba=tec')
+
+
 ROTAS: dict[str, Callable[..., None]] = {
     '/': concursos.pagina,
     '/inicio': inicio.pagina,
@@ -75,7 +82,8 @@ ROTAS: dict[str, Callable[..., None]] = {
     '/analise': analise.pagina,
     '/resultados': resultados.pagina,
     '/estudar': estudar.pagina,
-    '/tec': tec.pagina,
+    '/concursos': radar.pagina,
+    '/tec': tec_antigo,
     '/integracoes': integracoes_antigas,
     '/descobrir': descobrir_antigo,
     '/projeto': projeto.pagina,
@@ -87,41 +95,42 @@ ROTAS: dict[str, Callable[..., None]] = {
 
 
 def titulo() -> str:
-    return f'concurso-analise {sobre.versao()}'
+    return f'{NOME_DO_APP} {sobre.versao()}'
 
 
 def raiz() -> None:
     ui.page_title(titulo())
     tema.aplicar_tema(tema_da_gui(resolver_home() / 'config.toml'))
-    with ui.header().classes('items-center flex-wrap').style(tema.gap('xs')):
-        ui.label('concurso-analise').classes('text-lg font-bold mr-4')
+    with (
+        ui.left_drawer(value=True)
+        .props('bordered show-if-above width=240')
+        .style('background: var(--ca-superficie)') as menu
+    ):
+        bloco_da_marca()
         for caminho, nome, icone in MENU:
-            ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props('flat').mark(
-                f'menu-{caminho.strip("/") or "concursos"}'
-            )
+            ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props(
+                'flat align=left'
+            ).classes('w-full ca-alvo').mark(f'menu-{caminho.strip("/") or "provas"}')
+        ui.separator().classes('q-my-sm')
+        for caminho, nome, icone in UTILITARIO:
+            ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props(
+                'flat align=left'
+            ).classes('w-full ca-alvo').mark(f'menu-{caminho.strip("/")}')
+        if ESTADO.no_navegador:
+            ui.button('Fechar o app', icon='power_settings_new', on_click=fechar_app).props(
+                'flat align=left'
+            ).classes('w-full').mark('fechar-app')
+    with ui.header().classes('items-center').style(tema.gap('sm')):
+        ui.button(icon='menu', on_click=menu.toggle).props('flat round aria-label="Abrir menu"').classes(
+            'ca-alvo'
+        )
+        ui.label(NOME_DO_APP).classes('text-lg font-bold')
         ui.space()
         ui.button(icon='new_releases', on_click=lambda: ui.navigate.to('/sobre')).props(
             'flat dense no-caps'
         ).bind_text_from(
             ESTADO, 'novidade', lambda n: f'Versão {n.versao} disponível' if n else ''
         ).bind_visibility_from(ESTADO, 'novidade', backward=bool).mark('chip-atualizacao')
-        with (
-            ui.button(icon='more_vert').props('flat round aria-label="Mais opções"').mark('menu-utilitario'),
-            ui.menu(),
-        ):
-            for caminho, nome, icone in UTILITARIO:
-                with (
-                    ui.menu_item(on_click=lambda c=caminho: ui.navigate.to(c)).mark(
-                        f'menu-{caminho.strip("/")}'
-                    ),
-                    ui.row().classes('items-center').style(tema.gap('sm')),
-                ):
-                    ui.icon(icone)
-                    ui.label(nome)
-        if ESTADO.no_navegador:
-            ui.button('Fechar o app', icon='power_settings_new', on_click=fechar_app).props('flat').mark(
-                'fechar-app'
-            )
     with ui.column().classes('w-full p-4').style(tema.gap('md')):
         aviso_de_janela()
         ui.sub_pages(ROTAS).classes('w-full')
@@ -158,7 +167,7 @@ def fechar_app() -> None:
     if ESTADO.ocupado:
         ui.notify('Espere a análise terminar para fechar o app.', type='warning')
         return
-    ui.notify('O concurso-analise foi fechado. Pode fechar esta aba.', type='positive', timeout=0)
+    ui.notify(f'O {NOME_DO_APP} foi fechado. Pode fechar esta aba.', type='positive', timeout=0)
     ui.timer(0.5, app.shutdown, once=True)
 
 

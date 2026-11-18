@@ -19,12 +19,22 @@ def endereco_da_pasta(pasta: Path) -> str:
     return _SERVIDAS[pasta]
 
 
-def relatorio(indice: Path) -> ui.element:
-    url = f'{endereco_da_pasta(indice.parent)}/{indice.name}?v={indice.stat().st_mtime_ns}'
+def url_do_relatorio(caminho: Path, *, raiz: Path | None = None) -> str:
+    """`raiz` é a pasta do candidato (serve links relativos entre index e concursos)."""
+    base = (raiz or caminho.parent).resolve()
+    relativo = caminho.resolve().relative_to(base).as_posix()
+    return f'{endereco_da_pasta(base)}/{relativo}?v={caminho.stat().st_mtime_ns}'
+
+
+def relatorio(indice: Path, *, raiz: Path | None = None) -> ui.element:
     return (
         ui.element('iframe')
-        .props(f'src="{url}" title="Relatório da análise"')
+        .props(f'src="{url_do_relatorio(indice, raiz=raiz)}" title="Relatório da análise"')
         .classes('w-full rounded border')
         .style('height: 75vh')
         .mark('relatorio')
     )
+
+
+def mostrar_relatorio(quadro: ui.element, caminho: Path, *, raiz: Path) -> None:
+    quadro.props(f'src="{url_do_relatorio(caminho, raiz=raiz)}" title="Relatório da análise"')

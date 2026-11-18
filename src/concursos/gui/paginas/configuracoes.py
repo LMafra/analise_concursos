@@ -44,6 +44,11 @@ def pagina(secao: str | None = None) -> None:
         return
     with ui.column().classes('w-full max-w-2xl').style(tema.gap('lg')):
         ui.label('Configurações').classes('text-2xl font-bold')
+        with cartao('Seus dados pertencem a você', icone='lock'):
+            ui.label(
+                'O Gabarito Vivo funciona diretamente no seu computador. Suas notas, gabaritos e '
+                'relatórios nunca são enviados para a internet, salvo se você ligar um recurso opcional.'
+            ).classes('text-sm')
         try:
             secao_da_analise()
         except Exception as erro:  # noqa: BLE001
@@ -156,7 +161,7 @@ def secao_do_projeto() -> None:
         ui.button('Trocar', icon='folder_open', on_click=lambda: ui.navigate.to('/projeto')).props('flat')
 
 
-TEMAS = {TemaGui.SISTEMA.value: 'O do sistema', TemaGui.CLARO.value: 'Claro', TemaGui.ESCURO.value: 'Escuro'}
+TEMAS = {TemaGui.SISTEMA.value: 'Auto', TemaGui.CLARO.value: 'Claro', TemaGui.ESCURO.value: 'Escuro'}
 
 
 def secao_da_aparencia() -> None:

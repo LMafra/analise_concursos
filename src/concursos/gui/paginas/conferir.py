@@ -7,8 +7,10 @@ from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.cartao import cartao
 from concursos.gui.componentes.estado_vazio import estado_vazio
+from concursos.gui.componentes.navegacao import breadcrumb, voltar
 from concursos.gui.componentes.reanalise import Reanalise
 from concursos.gui.componentes.situacao import situacao
+from concursos.gui.componentes import toasts
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
@@ -27,11 +29,9 @@ def pagina(concurso: str | None = None, aba: str | None = None) -> None:
     if not exigir_projeto():
         return
     with ui.column().classes('w-full max-w-5xl').style(tema.gap('md')):
-        with ui.row().classes('items-center').style(tema.gap('sm')):
-            ui.button(icon='arrow_back', on_click=lambda: ui.navigate.to('/')).props(
-                'flat round aria-label="voltar aos concursos"'
-            )
-            ui.label(f'Conferir {concurso or ""}'.strip()).classes('text-2xl font-bold')
+        breadcrumb(('Minhas Provas', '/'), (f'Conferir {concurso or ""}'.strip(), None))
+        voltar('Voltar para Minhas Provas', '/')
+        ui.label(f'Conferir {concurso or ""}'.strip()).classes('text-2xl font-bold')
         if not concurso:
             estado_vazio(
                 'fact_check',
@@ -107,7 +107,19 @@ class TopicosDasQuestoes:
                 ):
                     for linha in confiaveis:
                         self.linha(linha)
-            ui.button('Salvar e refazer a análise', icon='save', on_click=self.salvar).mark('salvar-topicos')
+            with ui.row().classes('w-full sticky bottom-0 q-pa-sm').style(
+                'background: var(--ca-superficie); box-shadow: var(--ca-borda)'
+            ):
+                ui.button('Salvar alterações', icon='save', on_click=self.salvar).classes('ca-alvo').mark(
+                    'salvar-topicos'
+                )
+                ui.button(
+                    'Descartar',
+                    on_click=lambda: toasts.sujo_ao_sair(self._topicos_sujos, '/'),
+                ).props('flat').classes('ca-alvo')
+
+    def _topicos_sujos(self) -> bool:
+        return any(self.escolhas[chave].value != self.iniciais[chave] for chave in self.escolhas)
 
     def linha(self, linha: LinhaTopico) -> None:
         opcoes = {NENHUM: ROTULO_NENHUM, **{str(i): o.rotulo for i, o in enumerate(self.opcoes)}}
@@ -135,7 +147,7 @@ class TopicosDasQuestoes:
         }
         with self.raiz:
             if not mudadas:
-                ui.notify('Nada mudou.')
+                toasts.sucesso('Nada mudou.')
                 return
             try:
                 conferencia.gravar_topicos(ESTADO.contexto(), self.concurso, mudadas)
@@ -143,7 +155,7 @@ class TopicosDasQuestoes:
                 mostrar_erro(erro)
                 return
             self.iniciais.update({chave: self.escolhas[chave].value for chave in mudadas})
-            ui.notify(SALVO, type='positive')
+            toasts.sucesso(SALVO)
             ui.timer(0.1, lambda: self.reanalise.iniciar(self.concurso), once=True)
 
 
@@ -152,6 +164,7 @@ class DadosDoEdital:
         self.concurso = concurso
         self.reanalise = reanalise
         self.entradas: dict[str, ui.input] = {}
+        self.iniciais: dict[str, str] = {}
         with ui.column().classes('w-full').style(tema.gap('sm')) as self.raiz:
             if not campos:
                 estado_vazio(
@@ -168,19 +181,47 @@ class DadosDoEdital:
             )
             for campo in campos:
                 self.campo(campo)
-            ui.button('Salvar e refazer a análise', icon='save', on_click=self.salvar).mark('salvar-campos')
+            with ui.row().classes('w-full sticky bottom-0 q-pa-sm').style(
+                'background: var(--ca-superficie)'
+            ):
+                ui.button('Salvar alterações', icon='save', on_click=self.salvar).classes('ca-alvo').mark(
+                    'salvar-campos'
+                )
+                ui.button(
+                    'Descartar',
+                    on_click=lambda: toasts.sujo_ao_sair(self._campos_sujos, '/'),
+                ).props('flat')
+
+    def _campos_sujos(self) -> bool:
+        return any((entrada.value or '') != self.iniciais.get(chave, '') for chave, entrada in self.entradas.items())
 
     def campo(self, campo: CampoAConfirmar) -> None:
         with cartao():
             if campo.tipo is TipoCampo.DATA:
-                entrada = ui.input(campo.rotulo, value=data_br(campo.valor), placeholder='DD/MM/AAAA').props(
+                inicial = data_br(campo.valor)
+                entrada = ui.input(campo.rotulo, value=inicial, placeholder='DD/MM/AAAA').props(
                     'mask="##/##/####"'
                 )
+                ajuda = ui.label('').classes('text-sm').mark(f'erro-{campo.campo}')
+
+                def validar_data(e=None, entrada=entrada, ajuda=ajuda) -> None:  # noqa: ANN001
+                    texto = (entrada.value or '').strip()
+                    if not texto:
+                        ajuda.set_text('')
+                        return
+                    if len(texto) != 10 or texto[2] != '/' or texto[5] != '/':
+                        ajuda.set_text('Use o formato DD/MM/AAAA.')
+                        return
+                    ajuda.set_text('')
+
+                entrada.on('blur', validar_data)
             else:
-                entrada = ui.input(campo.rotulo, value=campo.valor).props('inputmode=decimal')
+                inicial = campo.valor or ''
+                entrada = ui.input(campo.rotulo, value=inicial).props('inputmode=decimal')
             entrada.classes('w-full').mark(f'campo-{campo.campo}')
             ui.label(campo.explicacao).classes('text-sm ca-texto-suave')
         self.entradas[campo.campo] = entrada
+        self.iniciais[campo.campo] = inicial
 
     def salvar(self) -> None:
         valores = {campo: entrada.value or '' for campo, entrada in self.entradas.items()}
@@ -191,7 +232,7 @@ class DadosDoEdital:
                 mostrar_erro(erro)
                 return
             if not mudou:
-                ui.notify('Nada mudou.')
+                toasts.sucesso('Nada mudou.')
                 return
-            ui.notify(SALVO, type='positive')
+            toasts.sucesso(SALVO)
             ui.timer(0.1, lambda: self.reanalise.iniciar(self.concurso), once=True)

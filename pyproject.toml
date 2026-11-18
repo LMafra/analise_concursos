@@ -1,7 +1,7 @@
 [project]
 name = "concurso-analise"
 version = "0.7.0b2"
-description = "Análise de desempenho em concursos públicos por disciplina e tópico"
+description = "Gabarito Vivo: correção e análise de provas de concurso por disciplina e tópico"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -43,8 +43,10 @@ gui = [
 ]
 
 [project.scripts]
-concurso-analise = "concursos.cli:executar"
-concurso-analise-gui = "concursos.cli:executar_gui"
+gabarito-vivo = "concursos.cli:executar"
+gabarito-vivo-gui = "concursos.cli:executar_gui"
+concurso-analise = "concursos.cli:executar_legado_analise"
+concurso-analise-gui = "concursos.cli:executar_gui_legado"
 concursos = "concursos.cli:executar_legado"
 
 [build-system]
