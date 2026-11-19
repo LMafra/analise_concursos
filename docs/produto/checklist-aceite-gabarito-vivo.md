@@ -1,6 +1,6 @@
 # Checklist de aceite — Gabarito Vivo (§8 + roteiro §7)
 
-Marque no PR de release. Critérios derivados de `docs/decisoes-ux-gabarito-vivo.md` e do diagnóstico.
+Marque no PR de release. Critérios derivados de `docs/decisoes/decisoes-ux-gabarito-vivo.md` e do diagnóstico.
 
 ## §8 — Design system / produto
 

@@ -91,7 +91,7 @@ concurso-analise notebook disable
 - Se a instância tem senha, defina `OPEN_NOTEBOOK_PASSWORD` no ambiente; ela nunca vai para o TOML.
 - O estado fica em `.concurso/open_notebook.json`; sem mudança, nada é enviado. `notebook sync` sai com 0, 1 (falha parcial ou senha recusada) ou 2 (instância fora do ar).
 
-Testado com a versão 1.15. Os campos estão em [modelo.md](modelo.md), e as decisões, em [spec-open-notebook.md](spec-open-notebook.md).
+Testado com a versão 1.15. Os campos estão em [modelo.md](modelo.md), e as decisões, em [spec-open-notebook.md](specs/spec-open-notebook.md).
 
 ## PCI Concursos
 
@@ -115,7 +115,7 @@ concurso-analise pci provas meu_concurso --download 20549582   # abre a página 
 - **Falhas:** num comando explícito, saem com código 2 (o site fora do ar) ou 1 (um filtro recusado); depois da análise, só geram aviso.
 - **No Cursor:** crie `.cursor/mcp.json` com `{"mcpServers": {"pci-concursos": {"url": "https://mcp.pciconcursos.com.br/mcp"}}}`.
 
-As decisões estão em [spec-pci-mcp.md](spec-pci-mcp.md), e o que o servidor responde, em [pesquisa-pci-mcp.md](pesquisa-pci-mcp.md).
+As decisões estão em [spec-pci-mcp.md](specs/spec-pci-mcp.md), e o que o servidor responde, em [pesquisa-pci-mcp.md](pesquisa/pesquisa-pci-mcp.md).
 
 ## Problemas comuns pelo terminal
 

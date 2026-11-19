@@ -1,6 +1,6 @@
 # Spec da fase 7: estudar com o open-notebook, dicionário de temas e fluxos assistidos
 
-As decisões, com as alternativas descartadas, estão em `docs/decisoes-fase7.md`; as fontes, em `docs/pesquisa-open-notebook-embarcado.md`; os campos de arquivo, em `docs/modelo.md`. As fases anteriores continuam valendo; esta fase só acrescenta.
+As decisões, com as alternativas descartadas, estão em `docs/decisoes/decisoes-fase7.md`; as fontes, em `docs/pesquisa/pesquisa-open-notebook-embarcado.md`; os campos de arquivo, em `docs/modelo.md`. As fases anteriores continuam valendo; esta fase só acrescenta.
 
 ## Objetivo
 
@@ -74,7 +74,7 @@ Branch `fase-7`, PR único no fim, um commit verde por fatia (`uv run pytest`, `
 - Pacote de estudo no macOS (a tela diz "ainda não disponível neste sistema").
 - Classificar tópicos com embeddings ou IA.
 - Baixar o PDF do PCI pelo app.
-- Os itens 13 e 14 de `docs/pendencias.md`.
+- Os itens 13 e 14 de `docs/produto/pendencias.md`.
 
 ## Critérios de aceitação
 

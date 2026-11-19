@@ -23,7 +23,7 @@ def montar(versao: str, commit: str, pasta: Path) -> str:
         f'Gerado pelo release.yml no commit `{commit}`. Cada seção é o gate de máquina limpa de um sistema: '
         'instalação, `--smoke` (versão, partida, perfis, Tesseract com português e OCR numa imagem gerada, '
         'GUI em 127.0.0.1) e `scripts/smoke.py congelado` (onboarding, análise e idempotência).\n',
-        'A release só é publicada depois do checklist manual de `docs/spec-fase6.md`.\n',
+        'A release só é publicada depois do checklist manual de `docs/specs/spec-fase6.md`.\n',
     ]
     # O Set-Content do PowerShell 5 grava BOM.
     partes += [(pasta / nome).read_text(encoding='utf-8-sig').strip() + '\n' for nome in OBRIGATORIOS]

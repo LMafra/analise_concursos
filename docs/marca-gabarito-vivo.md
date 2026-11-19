@@ -114,4 +114,4 @@ Botão / input / card / selo: hover (leve escurecimento da borda), focus-visible
 | Pacote Python | `concursos` |
 | Pasta global | `~/.concurso/` |
 | Artefatos de release | `gabarito-vivo-<versão>-…` (atualizador ainda aceita o prefixo legado) |
-| Aceite | `docs/checklist-aceite-gabarito-vivo.md` |
+| Aceite | `docs/produto/checklist-aceite-gabarito-vivo.md` |

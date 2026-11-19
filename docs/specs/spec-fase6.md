@@ -1,6 +1,6 @@
 # Spec da fase 6: confiança do sistema, atualização e polimento da GUI (Windows e Linux)
 
-As decisões, com as alternativas descartadas, estão em `docs/decisoes-fase6.md`; os campos de arquivo (`[atualizacao]`, `atualizacao.json`), em `docs/modelo.md`. A fase 5 (`docs/spec-fase5.md`) continua valendo; esta fase só acrescenta. O macOS fica de fora: o job dele no `release.yml` não muda.
+As decisões, com as alternativas descartadas, estão em `docs/decisoes/decisoes-fase6.md`; os campos de arquivo (`[atualizacao]`, `atualizacao.json`), em `docs/modelo.md`. A fase 5 (`docs/specs/spec-fase5.md`) continua valendo; esta fase só acrescenta. O macOS fica de fora: o job dele no `release.yml` não muda.
 
 ## Objetivo
 
@@ -72,7 +72,7 @@ Betas `v0.6.0bN` saem depois de B, E e F. Tags PEP 440 com `a`, `b` ou `rc` vira
 
 ### Assinatura
 
-- Só os binários próprios: `concurso-analise.exe`, `concurso-analise-cli.exe` e o `setup.exe`. DLLs de terceiros e o `unins000.exe` ficam sem assinatura (`docs/decisoes-fase6.md`).
+- Só os binários próprios: `concurso-analise.exe`, `concurso-analise-cli.exe` e o `setup.exe`. DLLs de terceiros e o `unins000.exe` ficam sem assinatura (`docs/decisoes/decisoes-fase6.md`).
 - Os `.exe` levam recurso de versão (`ProductName=concurso-analise`, `ProductVersion` igual à do pacote), gerado por `empacotamento/windows/versao.py`; o Inno leva `VersionInfo*`.
 - No CI, a assinatura só roda com o secret `SIGNPATH_API_TOKEN` e as variáveis `SIGNPATH_ORGANIZATION_ID` e `SIGNPATH_PROJECT_SLUG`; sem eles, o build segue sem assinatura. Numa tag, a política é `release-signing` (aprovação manual); à mão, `test-signing`.
 - O `smoke_maquina_limpa.ps1 -ExigirAssinatura` exige `Get-AuthenticodeSignature` com `Status` `Valid` no setup e nos dois `.exe` instalados.
@@ -138,7 +138,7 @@ Windows Sandbox (Win11) para o fluxo; VM Win10 LTSC com snapshot limpo, sem WebV
 
 Linux: o mesmo fluxo num contêiner `ubuntu:22.04` (pelo `smoke.py congelado`) e num desktop real (abrir pelo menu depois de integrar com o AppImageLauncher ou o Gear Lever).
 
-Registrar data, versão e resultado na descrição da release. Os ambientes, o roteiro do Linux e a configuração da chave e da SignPath estão em `docs/release.md`.
+Registrar data, versão e resultado na descrição da release. Os ambientes, o roteiro do Linux e a configuração da chave e da SignPath estão em `docs/release/release.md`.
 
 ## Fora do escopo
 

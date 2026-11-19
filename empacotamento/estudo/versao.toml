@@ -1,6 +1,6 @@
 # O que entra no pacote de estudo. O workflow `estudo.yml` troca [open_notebook] quando sai uma
 # release nova do upstream; o resto muda só à mão, com o SHA-256 conferido na fonte.
-# Trocar o modelo exige uma decisão em docs/decisoes-fase7.md: todos os livros são reprocessados.
+# Trocar o modelo exige uma decisão em docs/decisoes/decisoes-fase7.md: todos os livros são reprocessados.
 
 revisao = 1
 app_minimo = "0.7.0b1"

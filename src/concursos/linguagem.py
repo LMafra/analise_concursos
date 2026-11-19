@@ -1,5 +1,5 @@
 """Vocabulário leigo comum aos relatórios, à GUI e às mensagens: selos de status, rótulos de arquivo e os
-termos técnicos que não aparecem na parte principal. O mapa completo está em `docs/spec-linguagem.md`."""
+termos técnicos que não aparecem na parte principal. O mapa completo está em `docs/specs/spec-linguagem.md`."""
 
 import re
 from dataclasses import dataclass

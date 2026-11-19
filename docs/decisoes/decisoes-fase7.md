@@ -1,6 +1,6 @@
 # Decisões da fase 7
 
-Registro curto das escolhas da fase 7 (estudar com o open-notebook, dicionário de temas e fluxos assistidos), com o contexto e as alternativas descartadas. A spec está em `docs/spec-fase7.md`; as fontes, em `docs/pesquisa-open-notebook-embarcado.md`.
+Registro curto das escolhas da fase 7 (estudar com o open-notebook, dicionário de temas e fluxos assistidos), com o contexto e as alternativas descartadas. A spec está em `docs/specs/spec-fase7.md`; as fontes, em `docs/pesquisa/pesquisa-open-notebook-embarcado.md`.
 
 ## 1. open-notebook gerenciado pelo app, sem Docker
 

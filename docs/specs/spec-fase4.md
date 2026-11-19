@@ -1,6 +1,6 @@
 # Spec: Generalização, Portabilidade e UX de 1 Comando (Fase 4)
 
-Pesquisa de apoio (bancas, UX de CLI, OMR, distribuição): `docs/pesquisa-fase4.md`.
+Pesquisa de apoio (bancas, UX de CLI, OMR, distribuição): `docs/pesquisa/pesquisa-fase4.md`.
 
 ## Problem Statement
 
@@ -417,7 +417,7 @@ Casos:
 
 ## Out of Scope
 
-- Interface web, app mobile, servidor multiusuário com autenticação e sincronização em nuvem. (Revisto na fase 5: a GUI local em `127.0.0.1` entrou; veja `docs/spec-fase5.md`.)
+- Interface web, app mobile, servidor multiusuário com autenticação e sincronização em nuvem. (Revisto na fase 5: a GUI local em `127.0.0.1` entrou; veja `docs/specs/spec-fase5.md`.)
 - OCR treinado próprio e idiomas além do português.
 - Marketplace público de plugins: o entry point existe, mas não há catálogo.
 - Telemetria, mesmo opt-in, e atualização automática silenciosa.

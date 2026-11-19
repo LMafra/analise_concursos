@@ -17,7 +17,7 @@ A prioridade dos itens da fase 3 segue o risco de número errado na análise: a 
 2. **13** depois: muda a assinatura de `_extrair_pesos`.
 3. **14** por último: acrescenta a reserva da configuração no fim de `_extrair_pesos` e de `_extrair_distribuicao`. Fazer a 13 e a 14 em paralelo gera conflito na mesma função.
 
-Para a 13 e a 14, valem as regras de [AGENTS.md](../AGENTS.md):
+Para a 13 e a 14, valem as regras de [AGENTS.md](../../AGENTS.md):
 
 - antes, `concurso-analise --force` e `scripts/paridade.py retrato analises/<candidato> <arquivo>`; depois, `comparar`;
 - se um valor já validado nos nove `edital_estruturado.json` reais mudar, a mudança vira proposta (status `proposto`, com o diff estimado) e não é aplicada em silêncio (regra 11 da spec da fase 3);
@@ -114,7 +114,7 @@ Nada a programar nestes itens.
 
 O `release.yml` passa nos três sistemas: em cada um, o executável roda o `--smoke` (Tesseract embutido com `por`, OCR numa imagem gerada, partida medida, GUI em `127.0.0.1`), o `doctor` e a análise do projeto sintético sem Python nem Tesseract no `PATH`. O AppImage da fase 6 também passou, num build local, em `debian:12` e `ubuntu:22.04` limpos, e a GUI congelada foi percorrida com `HOME` vazio (onboarding, exemplo, modo escuro, Sobre).
 
-Falta o que o runner não reproduz, com o roteiro em [release.md](release.md):
+Falta o que o runner não reproduz, com o roteiro em [release.md](../release/release.md):
 
 - **Windows:** o checklist no Windows Sandbox (SmartScreen, menu Iniciar, janela nativa, partida abaixo de 3 s, onboarding com o exemplo) e, na VM Win10 sem WebView2, o bootstrapper e o aviso de navegador.
 - **Linux:** abrir pelo menu de um desktop real depois de integrar o AppImage.

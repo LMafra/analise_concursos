@@ -1,6 +1,6 @@
 # Decisões: linguagem leiga e o index.html como painel
 
-Registro curto das escolhas, com o contexto e as alternativas descartadas. A spec está em `docs/spec-linguagem.md`.
+Registro curto das escolhas, com o contexto e as alternativas descartadas. A spec está em `docs/specs/spec-linguagem.md`.
 
 ## 1. O técnico muda de lugar, não some
 

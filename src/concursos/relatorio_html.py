@@ -1,5 +1,5 @@
 """Relatório HTML por candidato: o painel de gestão (`index.html`) e um HTML por relatório markdown, sem
-rede. O vocabulário segue `docs/spec-linguagem.md`; o técnico fica no apêndice "Detalhes técnicos"."""
+rede. O vocabulário segue `docs/specs/spec-linguagem.md`; o técnico fica no apêndice "Detalhes técnicos"."""
 
 import json
 import logging

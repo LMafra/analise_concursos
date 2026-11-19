@@ -2692,7 +2692,7 @@ Cada gap: evidência + severidade + impacto + esforço + **sugestão**.
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-001 | Cancel cooperativo do pipeline ausente | `docs/decisoes-ux-gabarito-vivo.md` dívida; GUI “Parar de acompanhar” ≠ cancel | alta | usuário não interrompe análise | M | flag cooperativa nas etapas `Etapa` |
+| G-001 | Cancel cooperativo do pipeline ausente | `docs/decisoes/decisoes-ux-gabarito-vivo.md` dívida; GUI “Parar de acompanhar” ≠ cancel | alta | usuário não interrompe análise | M | flag cooperativa nas etapas `Etapa` |
 | G-002 | Brief cita `tec import`; CLI real é `pratica` | `cli/comandos.py` | média | docs/tutoriais errados | P | alinhar docs e aliases |
 | G-003 | Domínio UML “Variante/Análise” sem classe única | `modelo.py` só enums | baixa | onboarding eng. | P | documentar mapeamento (este doc) |
 
@@ -2882,7 +2882,8 @@ Acoplamento: script AST ad-hoc (ver histórico de geração).
 | `empacotamento/` | F-PKG, P-013 |
 | `tec-erros/` | F-TEC |
 | `docs/modelo.md` | domínio ER |
-| `docs/decisoes-ux-*` | G-035+ |
+| `docs/decisoes/decisoes-ux-*` | G-035+ |
+| `docs/README.md` | índice da pasta docs |
 
 ### D. Histórico de geração
 

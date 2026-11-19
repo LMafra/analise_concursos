@@ -337,7 +337,7 @@ jobs:
           if-no-files-found: error
 
   publicar:
-    # Rascunho: a release só é publicada depois do checklist manual de docs/spec-fase6.md. O environment
+    # Rascunho: a release só é publicada depois do checklist manual de docs/specs/spec-fase6.md. O environment
     # `release` exige aprovação e guarda a chave que assina o manifesto de atualização.
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [windows, linux-smoke, macos]
@@ -414,7 +414,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notas="docs/release-$GITHUB_REF_NAME.md"
+          notas="docs/release/release-$GITHUB_REF_NAME.md"
           if [ -f "$notas" ]; then origem=(--notes-file "$notas"); else origem=(--generate-notes); fi
           if [ "$PREVIA" = sim ]; then tipo=(--prerelease); else tipo=(--latest=false); fi
           gh release create "$GITHUB_REF_NAME" --draft "${origem[@]}" "${tipo[@]}" \

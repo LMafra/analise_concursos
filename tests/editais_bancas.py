@@ -1,4 +1,4 @@
-"""Trechos curtos dos editais da pesquisa da fase 4 (docs/pesquisa-fase4.md), copiados do PDF."""
+"""Trechos curtos dos editais da pesquisa da fase 4 (docs/pesquisa/pesquisa-fase4.md), copiados do PDF."""
 
 PF_2025 = """8.2 A prova objetiva será constituída de itens para julgamento, agrupados por comandos que deverão ser
 respeitados. O julgamento de cada item será CERTO ou ERRADO, de acordo com o(s) comando(s) a que

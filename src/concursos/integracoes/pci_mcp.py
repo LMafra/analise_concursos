@@ -1,4 +1,4 @@
-"""Configuração e cliente do servidor MCP da PCI Concursos; os fatos do servidor estão em `docs/pesquisa-pci-mcp.md`."""
+"""Configuração e cliente do servidor MCP da PCI Concursos; os fatos do servidor estão em `docs/pesquisa/pesquisa-pci-mcp.md`."""
 
 import json
 import logging
@@ -124,7 +124,7 @@ class PciMcpIndisponivelError(PciMcpErro):
 
 
 class PciMcpFormatoError(PciMcpErro):
-    """A resposta não tem o formato de `docs/pesquisa-pci-mcp.md`."""
+    """A resposta não tem o formato de `docs/pesquisa/pesquisa-pci-mcp.md`."""
 
 
 class PciMcpParametroError(PciMcpErro):

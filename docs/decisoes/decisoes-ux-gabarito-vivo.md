@@ -8,7 +8,7 @@ Consolida o diagnóstico UI/UX, as respostas NotebookLM (blocos A–E) e o grill
 - Pacote Python `concursos` e pasta `.concurso/` **não** mudam de nome.
 - Distribuição PyPI/uv permanece `concurso-analise` (`importlib.metadata`); o comando principal é `gabarito-vivo`.
 - Alias CLI `concurso-analise` / `concurso-analise-gui` com aviso de deprecation até a próxima major.
-- Aceite: `docs/checklist-aceite-gabarito-vivo.md`.
+- Aceite: `docs/produto/checklist-aceite-gabarito-vivo.md`.
 
 ## Navegação
 

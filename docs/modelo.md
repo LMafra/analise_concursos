@@ -404,7 +404,7 @@ Desligado por padrão; nenhuma chamada de rede acontece sem `[llm]` com `consent
 
 ## open-notebook opcional
 
-Desligado por padrão; nada sai da máquina sem `[open_notebook]` com `enabled = true` e `consentimento = true` na configuração global, gravados por `concurso-analise notebook enable` depois de mostrar o que vai. `--offline` e `--dry-run` desligam a sincronização numa execução. Comandos e decisões em `docs/spec-open-notebook.md`.
+Desligado por padrão; nada sai da máquina sem `[open_notebook]` com `enabled = true` e `consentimento = true` na configuração global, gravados por `concurso-analise notebook enable` depois de mostrar o que vai. `--offline` e `--dry-run` desligam a sincronização numa execução. Comandos e decisões em `docs/specs/spec-open-notebook.md`.
 
 ```toml
 [open_notebook]
@@ -449,7 +449,7 @@ embed = false                              # true: a instância gera embeddings 
 
 ## PCI Concursos opcional
 
-Desligado por padrão; nada sai da máquina sem `[pci_mcp] enabled = true` na configuração global, gravado por `concurso-analise pci enable` depois de mostrar o que vai (só termos de busca: cargo, UF, cidade, região, termo de prova). Não há `consentimento`, porque nenhum dado do candidato vai. `--offline` fica só no cache e `--dry-run` não chama a rede nem grava. O SDK `mcp` vem no extra `pci`. Detalhes do servidor em `docs/pesquisa-pci-mcp.md`; comandos e decisões em `docs/spec-pci-mcp.md`.
+Desligado por padrão; nada sai da máquina sem `[pci_mcp] enabled = true` na configuração global, gravado por `concurso-analise pci enable` depois de mostrar o que vai (só termos de busca: cargo, UF, cidade, região, termo de prova). Não há `consentimento`, porque nenhum dado do candidato vai. `--offline` fica só no cache e `--dry-run` não chama a rede nem grava. O SDK `mcp` vem no extra `pci`. Detalhes do servidor em `docs/pesquisa/pesquisa-pci-mcp.md`; comandos e decisões em `docs/specs/spec-pci-mcp.md`.
 
 ```toml
 # ~/.concurso/config.toml
@@ -868,7 +868,7 @@ No consolidado, em `analises/consolidado/`:
 No relatório HTML do candidato, em `analises/<slug>/` (`concursos.relatorio_html`):
 
 - **`<concurso>/relatorio.html`:** o `relatorio.md` em HTML, com as imagens relativas de `graficos/`, um link de volta ao índice e a seção "Detalhes técnicos" num `<details>` fechado.
-- **`index.html`:** o painel de gestão, montado por `analytics/painel.py` com o vocabulário de `linguagem.py` (regras em `docs/spec-linguagem.md`). Na parte principal, em linguagem leiga:
+- **`index.html`:** o painel de gestão, montado por `analytics/painel.py` com o vocabulário de `linguagem.py` (regras em `docs/specs/spec-linguagem.md`). Na parte principal, em linguagem leiga:
   - cabeçalho com a data da geração, o resumo em 2 ou 3 frases e a navegação por âncoras;
   - 5 cards: concursos realizados (cada opção de cargo conta como uma prova), provas acima do corte, melhor desempenho, ponto mais fraco e tendência geral;
   - "Como estou saindo": uma linha por prova, com link para o `relatorio.html`, data, nota pela regra (a nota de `notas_pela_regra`, com o desconto por erro e os pesos do `correcao.json` e a anulada valendo ponto, sobre a soma dos pesos: no Cebraspe, 35 certos e 15 errados em 50 itens dão 40%; sem `concurso.yaml` em `provas/`, o percentual de mérito do `desempenho_por_disciplina.csv`), acertos, selo de situação (acima, no limite a até `FAIXA_NO_LIMITE` = 2 p.p., abaixo, sem corte ou corte não calculável, pelo corte mais distante) e quanto falta para o corte; os simulados vêm numa tabela à parte;
