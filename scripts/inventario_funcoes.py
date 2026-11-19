@@ -84,17 +84,20 @@ def _visitar(
 
 def main() -> int:
     rows = coletar()
-    print(f'<!-- gerado por scripts/inventario_funcoes.py; {len(rows)} funções -->')
-    print('| ID | Função | Onde vive | Camada | Tipo | Privado |')
-    print('|---|---|---|---|---|---|')
+    print(f'<!-- gerado por scripts/inventario_funcoes.py; {len(rows)} funções -->')  # noqa: T201
+    print('| ID | Função | Onde vive | Camada | Tipo | Privado |')  # noqa: T201
+    print('|---|---|---|---|---|---|')  # noqa: T201
     for i, (qual, arquivo, cam, linha, tipo, privado) in enumerate(rows, start=1):
         fid = f'F-{i:04d}'
         onde = f'`{arquivo}:{linha}`'
-        print(
+        print(  # noqa: T201
             f'| {fid} | `{qual}` | {onde} | {cam} | {tipo} | '
             f'{"sim" if privado else "não"} |'
         )
-    print(f'\nTotal: {len(rows)} funções. Fonte: AST de `src/concursos/`.', file=sys.stderr)
+    print(  # noqa: T201
+        f'\nTotal: {len(rows)} funções. Fonte: AST de `src/concursos/`.',
+        file=sys.stderr,
+    )
     return 0
 
 
