@@ -2,11 +2,11 @@ import argparse
 import logging
 from pathlib import Path
 
+from concursos.aplicacao.analise import analisar_todos
 from concursos.assistente import InteracaoAutomatica, InteracaoConsole
 from concursos.cadastro import cadastrar
 from concursos.cli.erros import ajustar_nivel_console
 from concursos.configuracao import carregar_configuracao_global
-from concursos.pipeline import analisar_todos
 
 logger = logging.getLogger('concursos')
 

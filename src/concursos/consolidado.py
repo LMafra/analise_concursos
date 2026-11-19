@@ -15,7 +15,7 @@ from concursos.modelo import StatusGabarito
 from concursos.relatorio import tabela_markdown
 from concursos.resultado_oficial import formatar, ler_validacao
 from concursos.status import Situacao, StatusConcurso, avaliar, listar_concursos
-from concursos.topicos import chave_de_palavras
+from concursos.analytics.tipos_topicos import chave_de_palavras
 
 logger = logging.getLogger(__name__)
 

@@ -280,13 +280,51 @@ def destaque_do_ranking(ranking: pd.DataFrame) -> str:
     return '> **O ranking muda entre as métricas.** ' + ' '.join(frases)
 
 
+def _linha_descoberta(concurso: str, metadado: dict, candidato) -> dict:
+    return {
+        'concurso': concurso,
+        'peculiaridade': candidato.informacao,
+        'valor': texto_do_valor(metadado['valor']),
+        'uso': candidato.uso,
+        'trecho': metadado['trecho_origem'],
+    }
+
+
+def _linha_corte_peculiar(concurso: str, corte: dict) -> dict | None:
+    if corte['escopo'] == EscopoCorte.DISCURSIVA:
+        peculiaridade, valor = 'Corte da discursiva', f'{corte["valor"]:g} {corte["unidade"]}'
+        uso = 'Registrado e exibido, fora do "atingido"'
+    elif not UnidadeCorte(corte['unidade']).calculavel:
+        peculiaridade = 'Corte não calculável'
+        valor = NAO_CALCULAVEIS[corte['unidade']]
+        if corte['valor'] is not None:
+            valor += f' (mínimo {corte["valor"]:g})'
+        uso = 'Depende das notas dos outros candidatos: registrado com aviso, fora do "atingido"'
+    elif corte['unidade'] == UnidadeCorte.ACERTOS:
+        peculiaridade = 'Corte em acertos'
+        acertos = 'acerto' if corte['valor'] == 1 else 'acertos'
+        valor = f'{corte["valor"]:g} {acertos} {_ALVO_DO_CORTE[corte["escopo"]]}'
+        if corte['escopo'] == EscopoCorte.DISCIPLINA and corte.get('bloco'):
+            valor += f' {_DO_BLOCO[corte["bloco"]]}'
+        uso = 'O gap desse corte conta acertos, com a anulada valendo acerto'
+    else:
+        return None
+    return {
+        'concurso': concurso,
+        'peculiaridade': peculiaridade,
+        'valor': valor,
+        'uso': uso,
+        'trecho': corte.get('trecho_origem'),
+    }
+
+
 def peculiaridades_do_edital(regras: Mapping[str, dict], concurso_alvo: str | None = None) -> pd.DataFrame:
     """As regras que surpreendem: as descobertas de alto impacto encontradas e os cortes em acertos e da
     discursiva, com o trecho do edital."""
     alto_impacto = {
         c.chave: c for c in CANDIDATOS if c.impacto is Impacto.ALTO and c.chave not in _FORA_DO_PAINEL
     }
-    linhas = []
+    linhas: list[dict] = []
     for concurso, dados in regras.items():
         if concurso_alvo is not None and concurso != concurso_alvo:
             continue
@@ -294,43 +332,10 @@ def peculiaridades_do_edital(regras: Mapping[str, dict], concurso_alvo: str | No
             candidato = alto_impacto.get(metadado['chave'])
             if candidato is None or metadado['status'] != StatusExtracao.ENCONTRADO:
                 continue
-            linhas.append(
-                {
-                    'concurso': concurso,
-                    'peculiaridade': candidato.informacao,
-                    'valor': texto_do_valor(metadado['valor']),
-                    'uso': candidato.uso,
-                    'trecho': metadado['trecho_origem'],
-                }
-            )
+            linhas.append(_linha_descoberta(concurso, metadado, candidato))
         for corte in dados.get('cortes', []):
-            if corte['escopo'] == EscopoCorte.DISCURSIVA:
-                peculiaridade, valor = 'Corte da discursiva', f'{corte["valor"]:g} {corte["unidade"]}'
-                uso = 'Registrado e exibido, fora do "atingido"'
-            elif not UnidadeCorte(corte['unidade']).calculavel:
-                peculiaridade = 'Corte não calculável'
-                valor = NAO_CALCULAVEIS[corte['unidade']]
-                if corte['valor'] is not None:
-                    valor += f' (mínimo {corte["valor"]:g})'
-                uso = 'Depende das notas dos outros candidatos: registrado com aviso, fora do "atingido"'
-            elif corte['unidade'] == UnidadeCorte.ACERTOS:
-                peculiaridade = 'Corte em acertos'
-                acertos = 'acerto' if corte['valor'] == 1 else 'acertos'
-                valor = f'{corte["valor"]:g} {acertos} {_ALVO_DO_CORTE[corte["escopo"]]}'
-                if corte['escopo'] == EscopoCorte.DISCIPLINA and corte.get('bloco'):
-                    valor += f' {_DO_BLOCO[corte["bloco"]]}'
-                uso = 'O gap desse corte conta acertos, com a anulada valendo acerto'
-            else:
-                continue
-            linhas.append(
-                {
-                    'concurso': concurso,
-                    'peculiaridade': peculiaridade,
-                    'valor': valor,
-                    'uso': uso,
-                    'trecho': corte.get('trecho_origem'),
-                }
-            )
+            if linha := _linha_corte_peculiar(concurso, corte):
+                linhas.append(linha)
     return pd.DataFrame(linhas, columns=['concurso', 'peculiaridade', 'valor', 'uso', 'trecho'])
 
 

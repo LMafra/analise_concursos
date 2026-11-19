@@ -17,7 +17,7 @@ from concursos.configuracao import ConfiguracaoGlobal
 from concursos.consolidado import MINIMO_CONCURSOS
 from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.modelo import Resultado
-from concursos.topicos import chave_de_palavras
+from concursos.analytics.tipos_topicos import chave_de_palavras
 
 VERSOES = ('bruta', 'corrigida', 'ajustada')
 VERSOES_COMPARADAS_AO_BRUTO = ('corrigida', 'ajustada')

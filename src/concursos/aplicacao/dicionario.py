@@ -28,6 +28,7 @@ from concursos.analytics.dicionario_topicos import (
 from concursos.analytics.taxonomia import carregar_taxonomia
 from concursos.aplicacao.projeto import pasta_do_candidato
 from concursos.arquivos import gravar_se_mudou
+from concursos.topicos import sugerir_topicos
 from concursos.config.contexto import SECAO_DICIONARIO, Contexto, gravar_no_config_projeto, ler_toml
 from concursos.datas import data_br
 from concursos.erros import ErroDoUsuario
@@ -183,7 +184,9 @@ def avaliar(contexto: Contexto) -> Ganho:
     dicionario = carregar(contexto)
     if not dicionario.entradas:
         raise ErroDoUsuario('O dicionário de temas está vazio.', 'comece pelo dicionário inicial.')
-    ganho = avaliar_ganho(_revisadas(contexto), dicionario, _canonicas(contexto))
+    ganho = avaliar_ganho(
+        _revisadas(contexto), dicionario, sugerir_topicos, _canonicas(contexto)
+    )
     contexto.projeto.mkdir(parents=True, exist_ok=True)
     gravar_se_mudou(contexto.projeto / ARQUIVO_GANHO, ganho_em_markdown(ganho))
     gravar_no_config_projeto(

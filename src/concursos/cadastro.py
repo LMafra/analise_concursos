@@ -178,6 +178,28 @@ class _Cadastro:
             pergunta, list(ids_de_banca()), anterior if anterior in ids_de_banca() else None
         )
 
+    def _formato_e_pontuacao(self, banca: str, gabaritos: dict[str, _Gabarito]) -> tuple[str, str]:
+        valores = {i.resposta for g in gabaritos.values() for s in g.secoes for i in s.itens if not i.anulada}
+        certo_errado = perfil_da_banca(banca).formato == Formato.CERTO_ERRADO.value or valores <= set(
+            Formato.CERTO_ERRADO.alternativas
+        )
+        formato = (Formato.CERTO_ERRADO if certo_errado else Formato.MULTIPLA_ESCOLHA).value
+        pontuacao = (Pontuacao.CEBRASPE if certo_errado else Pontuacao.SIMPLES).value
+        return formato, pontuacao
+
+    def _provas_do_cadastro(
+        self, gabaritos: dict[str, _Gabarito], cadernos: list[ArquivoDetectado], banca: str, dados: dict
+    ) -> dict:
+        provas = {}
+        for chave, gabarito in sorted(gabaritos.items(), key=lambda par: min(_itens(par[1].secoes[0]))):
+            secao = self._escolher_secao(gabarito, cadernos)
+            if secao.cargo:
+                dados['cargo'] = secao.cargo
+                if secao.tipo:
+                    dados['tipo'] = secao.tipo
+            provas[chave] = self._prova(chave, gabarito, secao, cadernos, banca)
+        return provas
+
     def _montar(self, banca: str, por_papel: dict[Papel, list[ArquivoDetectado]]) -> dict:
         if not por_papel[Papel.GABARITO]:
             raise ValueError(
@@ -188,26 +210,13 @@ class _Cadastro:
         )
         cadernos = list(por_papel[Papel.PROVA])
         dados: dict = {'nome': self.anterior.get('nome', self.pasta.name), 'banca': banca}
-        provas = {}
-        for chave, gabarito in sorted(gabaritos.items(), key=lambda par: min(_itens(par[1].secoes[0]))):
-            secao = self._escolher_secao(gabarito, cadernos)
-            if secao.cargo:
-                dados['cargo'] = secao.cargo
-                if secao.tipo:
-                    dados['tipo'] = secao.tipo
-            provas[chave] = self._prova(chave, gabarito, secao, cadernos, banca)
+        dados['provas'] = self._provas_do_cadastro(gabaritos, cadernos, banca, dados)
         if 'cargo' not in dados and self.anterior.get('cargo'):
             dados['cargo'] = self.anterior['cargo']
-        valores = {i.resposta for g in gabaritos.values() for s in g.secoes for i in s.itens if not i.anulada}
-        certo_errado = perfil_da_banca(banca).formato == Formato.CERTO_ERRADO.value or valores <= set(
-            Formato.CERTO_ERRADO.alternativas
-        )
-        dados['formato'] = (Formato.CERTO_ERRADO if certo_errado else Formato.MULTIPLA_ESCOLHA).value
-        dados['pontuacao'] = (Pontuacao.CEBRASPE if certo_errado else Pontuacao.SIMPLES).value
+        dados['formato'], dados['pontuacao'] = self._formato_e_pontuacao(banca, gabaritos)
         if edital := self._edital(por_papel[Papel.EDITAL]):
             dados['edital'] = edital
-        dados['provas'] = provas
-        total_itens = max(prova['itens'][1] for prova in provas.values())
+        total_itens = max(prova['itens'][1] for prova in dados['provas'].values())
         if respostas := self._respostas(
             por_papel[Papel.RESPOSTAS] + por_papel[Papel.FOLHA], banca, total_itens
         ):
@@ -280,22 +289,27 @@ class _Cadastro:
             prova['disciplinas'] = disciplinas
         return prova
 
+    def _cadernos_candidatos(
+        self, chave: str, secao: Secao, cadernos: list[ArquivoDetectado], banca: str
+    ) -> list[ArquivoDetectado]:
+        perfil = perfil_da_banca(banca)
+        if perfil.marca_caderno_padrao:
+            return [
+                c
+                for c in cadernos
+                if (perfil.marca_caderno_padrao in normalizar(c.texto)) == (chave == perfil.chave_padrao)
+            ]
+        candidatos = [c for c in cadernos if _mesmo_tipo(c, secao)]
+        if len(candidatos) > 1 and secao.cargo:
+            candidatos = [c for c in candidatos if _cita_cargo(c, secao)]
+        return candidatos
+
     def _escolher_caderno(
         self, chave: str, secao: Secao, cadernos: list[ArquivoDetectado], banca: str
     ) -> str | None:
         if not cadernos:
             return None
-        perfil = perfil_da_banca(banca)
-        if perfil.marca_caderno_padrao:
-            candidatos = [
-                c
-                for c in cadernos
-                if (perfil.marca_caderno_padrao in normalizar(c.texto)) == (chave == perfil.chave_padrao)
-            ]
-        else:
-            candidatos = [c for c in cadernos if _mesmo_tipo(c, secao)]
-            if len(candidatos) > 1 and secao.cargo:
-                candidatos = [c for c in candidatos if _cita_cargo(c, secao)]
+        candidatos = self._cadernos_candidatos(chave, secao, cadernos, banca)
         if len(candidatos) == 1:
             escolhido = candidatos[0]
         else:
@@ -308,19 +322,22 @@ class _Cadastro:
         cadernos.remove(escolhido)
         return self._nome(escolhido)
 
+    def _edital_sem_arquivos(self, anterior: object, manual: str | None) -> str | dict | None:
+        if manual:
+            return {'manual': manual}
+        if _fora_da_pasta(anterior):
+            return anterior
+        self.interacao.mostrar(
+            'Aviso: nenhum edital; o concurso ficará incompleto. Adicione o PDF do edital à pasta e rode '
+            f'`concurso-analise add {self.pasta}` de novo.'
+        )
+        return None
+
     def _edital(self, editais: list[ArquivoDetectado]) -> str | dict | None:
         anterior = self.anterior.get('edital')
         manual = anterior.get('manual') if isinstance(anterior, dict) else None
         if not editais:
-            if manual:
-                return {'manual': manual}
-            if _fora_da_pasta(anterior):
-                return anterior
-            self.interacao.mostrar(
-                'Aviso: nenhum edital; o concurso ficará incompleto. Adicione o PDF do edital à pasta e rode '
-                f'`concurso-analise add {self.pasta}` de novo.'
-            )
-            return None
+            return self._edital_sem_arquivos(anterior, manual)
         nomes = [self._nome(e) for e in editais]
         principais = [self._nome(e) for e in editais if not eh_anexo(e.texto)]
         if len(editais) == 1 or len(principais) == 1:

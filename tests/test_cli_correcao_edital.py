@@ -9,7 +9,6 @@ from test_analytics_correcao import AGSUS, CEBRASPE
 from test_cli_edital import MANUAL
 from test_edital import PAGINAS
 
-from concursos import pipeline
 from concursos.analytics.correcao import FonteCorrecao, aplicar_correcao, ler_correcao
 from concursos.cli import main
 from concursos.concurso_config import carregar_concurso
@@ -161,9 +160,11 @@ def test_edital_manual_com_pdf_declarado_le_cada_documento_uma_vez(raizes, monke
     arquivos = {**edital_com(CEBRASPE), 'anexo.txt': 'ANEXO I', 'edital_manual.yaml': MANUAL}
     criar(provas, CERTO_ERRADO, edital, arquivos)
     lidos = []
-    original = pipeline.extrair_paginas
+    from concursos.pipeline.etapas import leitura as etapa_leitura
+
+    original = etapa_leitura.extrair_paginas
     monkeypatch.setattr(
-        pipeline,
+        etapa_leitura,
         'extrair_paginas',
         lambda caminho, ocr=True: lidos.append(caminho.name) or original(caminho, ocr),
     )

@@ -38,8 +38,7 @@ def listar_concursos(raiz_provas: Path) -> list[Path]:
     return sorted(p for p in raiz_provas.iterdir() if p.is_dir() and not p.name.startswith('.'))
 
 
-def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
-    """Sem candidato, as respostas vêm do `concurso.yaml` (layout das fases 1 a 3)."""
+def _status_sem_config(pasta: Path) -> StatusConcurso | None:
     if not (pasta / ARQUIVO_CONFIG).exists():
         motivo = f'{ARQUIVO_CONFIG} ausente; rode `concurso-analise add {pasta}`'
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
@@ -50,18 +49,22 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
         pagina = simulado.get('link') or 'a página da prova no PCI'
         motivo = f'faltam os arquivos da prova; baixe-os em {pagina} e rode `concurso-analise add {pasta}`'
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
+    return None
+
+
+def _carregar_config_status(pasta: Path, candidato: str | None) -> StatusConcurso | ConcursoConfig:
     try:
         config = carregar_concurso(pasta)
         if candidato is not None:
             config = aplicar_candidato(config, candidato)
+        return config
     except ConfiguracaoInvalidaError as erro:
         return StatusConcurso(pasta.name, Situacao.DESATUALIZADO, (str(erro),), '-', None)
 
-    ausentes = {
-        arquivo: papel
-        for arquivo, papel in config.arquivos_referenciados.items()
-        if not config.caminho(arquivo).exists()
-    }
+
+def _motivos_obrigatorios(
+    config: ConcursoConfig, ausentes: dict[str, str], pasta: Path
+) -> tuple[list[str], list[str]]:
     motivos, opcionais = [], []
     for arquivo, papel in ausentes.items():
         lista = opcionais if papel.startswith(_PAPEIS_OPCIONAIS) else motivos
@@ -81,7 +84,23 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
         motivos.append(
             f'{config.folha.arquivo}: leitura do template {config.folha.template!r} ainda não disponível'
         )
+    return motivos, opcionais
 
+
+def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
+    """Sem candidato, as respostas vêm do `concurso.yaml` (layout das fases 1 a 3)."""
+    if incompleto := _status_sem_config(pasta):
+        return incompleto
+    carregado = _carregar_config_status(pasta, candidato)
+    if isinstance(carregado, StatusConcurso):
+        return carregado
+    config = carregado
+    ausentes = {
+        arquivo: papel
+        for arquivo, papel in config.arquivos_referenciados.items()
+        if not config.caminho(arquivo).exists()
+    }
+    motivos, opcionais = _motivos_obrigatorios(config, ausentes, pasta)
     if motivos:
         return StatusConcurso(
             config.nome, Situacao.INCOMPLETO, tuple(motivos), config.status_gabarito, config

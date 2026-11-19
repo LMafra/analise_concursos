@@ -251,6 +251,56 @@ def _slug(texto: str) -> str:
     return re.sub(r'[^a-z0-9]+', '-', normalizar(texto)).strip('-') or 'sem-materia'
 
 
+def _erro_da_linha_planilha(
+    linha: dict[str, str], valor, materia: str, dia: str, erros: list[dict]
+) -> dict:
+    enunciado = valor(linha, 'enunciado')
+    codigo = re.sub(r'\D', '', enunciado) if re.fullmatch(r'[#\s\d]+', enunciado or 'x') else ''
+    base = enunciado or f'{materia} {valor(linha, "assunto")} {len(erros)}'
+    erro = {
+        'id': f'q{codigo}' if codigo else 'h' + fnv1a(base[:TAMANHO_HASH]),
+        'd': dia,
+        't': 0,
+        'v': 1,
+        'ds': [],
+        'dev': DISPOSITIVO,
+        'origem': 'historico',
+        'mat': materia,
+    }
+    if enunciado and not codigo:
+        erro['fp'] = impressao_digital(enunciado)
+        erro['enun'] = enunciado
+    for campo, chave in (
+        ('assunto', 'ass'),
+        ('banca', 'banca'),
+        ('orgao', 'orgao'),
+        ('ano', 'ano'),
+        ('marcada', 'marc'),
+        ('gabarito', 'gab'),
+    ):
+        if texto := valor(linha, campo):
+            erro[chave] = texto
+    return erro
+
+
+def _cadernos_da_planilha(arquivo: str, totais: dict) -> list[dict]:
+    return [
+        {
+            'id': f'planilha:{arquivo}:{_slug(materia)}',
+            'cad': f'planilha:{arquivo}',
+            'mat': materia,
+            'tot': t['tot'],
+            'res': t['tot'],
+            'ac': t['ac'],
+            'er': t['er'],
+            'd': t['d'],
+            't': 0,
+            'dev': DISPOSITIVO,
+        }
+        for materia, t in sorted(totais.items())
+    ]
+
+
 def converter(
     planilha: Planilha, mapeamento: dict[str, str | None], arquivo: str, agora: datetime
 ) -> Conversao:
@@ -275,57 +325,15 @@ def converter(
         total['tot'] += 1
         total['ac' if resultado else 'er'] += 1
         total['d'] = max(total['d'], dia)
-        if resultado:
-            continue
-        enunciado = valor(linha, 'enunciado')
-        codigo = re.sub(r'\D', '', enunciado) if re.fullmatch(r'[#\s\d]+', enunciado or 'x') else ''
-        base = enunciado or f'{materia} {valor(linha, "assunto")} {len(erros)}'
-        erro = {
-            'id': f'q{codigo}' if codigo else 'h' + fnv1a(base[:TAMANHO_HASH]),
-            'd': dia,
-            't': 0,
-            'v': 1,
-            'ds': [],
-            'dev': DISPOSITIVO,
-            'origem': 'historico',
-            'mat': materia,
-        }
-        if enunciado and not codigo:
-            erro['fp'] = impressao_digital(enunciado)
-            erro['enun'] = enunciado
-        for campo, chave in (
-            ('assunto', 'ass'),
-            ('banca', 'banca'),
-            ('orgao', 'orgao'),
-            ('ano', 'ano'),
-            ('marcada', 'marc'),
-            ('gabarito', 'gab'),
-        ):
-            if texto := valor(linha, campo):
-                erro[chave] = texto
-        erros.append(erro)
-    cadernos = [
-        {
-            'id': f'planilha:{arquivo}:{_slug(materia)}',
-            'cad': f'planilha:{arquivo}',
-            'mat': materia,
-            'tot': t['tot'],
-            'res': t['tot'],
-            'ac': t['ac'],
-            'er': t['er'],
-            'd': t['d'],
-            't': 0,
-            'dev': DISPOSITIVO,
-        }
-        for materia, t in sorted(totais.items())
-    ]
+        if not resultado:
+            erros.append(_erro_da_linha_planilha(linha, valor, materia, dia, erros))
     exportacao = {
         'app': APP,
         'v': VERSAO,
         'em': agora.isoformat(timespec='seconds'),
         'dev': DISPOSITIVO,
         'erros': erros,
-        'cads': cadernos,
+        'cads': _cadernos_da_planilha(arquivo, totais),
     }
     return Conversao(exportacao, len(planilha.linhas), len(erros), ignoradas)
 

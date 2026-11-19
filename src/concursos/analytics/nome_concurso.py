@@ -92,30 +92,36 @@ def _do_arquivo(config: ConcursoConfig) -> tuple[str, str] | None:
     return None
 
 
-def nome_do_concurso(config: ConcursoConfig, identificacao: Mapping | None) -> NomeDoConcurso:
-    """Nesta ordem: a correção do usuário (`titulo`), a retificação ou o edital, o título do PCI, a IA, o
-    nome do arquivo do edital ou da prova e a pasta. `identificacao` é a do edital estruturado."""
-    subtitulo = subtitulo_pelo_edital(identificacao)
-    if config.titulo:
-        return NomeDoConcurso(config.titulo, subtitulo, FonteRegra.CONFIG, 1.0, False, 'corrigido por você')
+def _nome_pelo_edital(config: ConcursoConfig, identificacao: Mapping | None, subtitulo: str) -> NomeDoConcurso | None:
     titulo = titulo_pelo_edital(identificacao)
     fonte = _fonte(identificacao, 'sigla' if _valor(identificacao, 'sigla') else 'nome_oficial')
     if titulo and fonte in FONTES_CONFIRMADAS:
         origem = 'da retificação do edital' if fonte is FonteRegra.RETIFICACAO else 'do edital'
         confianca = ((identificacao or {}).get('sigla') or {}).get('confianca_extracao') or 0.0
         return NomeDoConcurso(titulo, subtitulo, fonte, confianca, False, origem)
+    if titulo and fonte is FonteRegra.LLM:
+        confianca = ((identificacao or {}).get('sigla') or {}).get('confianca_extracao') or 0.0
+        return NomeDoConcurso(titulo, subtitulo, fonte, confianca, True, 'lido pela IA no edital')
     if config.pci_titulo:
         return NomeDoConcurso(
             config.pci_titulo, subtitulo, FonteRegra.PCI, CONFIANCA_PCI, True, 'do título no PCI Concursos'
         )
-    if titulo and fonte is FonteRegra.LLM:
-        confianca = ((identificacao or {}).get('sigla') or {}).get('confianca_extracao') or 0.0
-        return NomeDoConcurso(titulo, subtitulo, fonte, confianca, True, 'lido pela IA no edital')
     if do_arquivo := _do_arquivo(config):
         nome, arquivo = do_arquivo
         return NomeDoConcurso(
             nome, subtitulo, FonteRegra.DEFAULT, CONFIANCA_ARQUIVO, True, f'do nome do arquivo {arquivo}'
         )
+    return None
+
+
+def nome_do_concurso(config: ConcursoConfig, identificacao: Mapping | None) -> NomeDoConcurso:
+    """Nesta ordem: a correção do usuário (`titulo`), a retificação ou o edital, o título do PCI, a IA, o
+    nome do arquivo do edital ou da prova e a pasta. `identificacao` é a do edital estruturado."""
+    subtitulo = subtitulo_pelo_edital(identificacao)
+    if config.titulo:
+        return NomeDoConcurso(config.titulo, subtitulo, FonteRegra.CONFIG, 1.0, False, 'corrigido por você')
+    if nome := _nome_pelo_edital(config, identificacao, subtitulo):
+        return nome
     return NomeDoConcurso(config.nome, subtitulo, FonteRegra.DEFAULT, 0.0, True, 'da pasta do concurso')
 
 

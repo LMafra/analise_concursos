@@ -19,6 +19,7 @@ from concursos.analytics.dicionario_topicos import (
     ganho_em_markdown,
     ler_dicionario,
     questoes_revisadas,
+    sugerir_com_dicionario,
     sugerir_termos,
 )
 from concursos.edital import Conhecimento, Disciplina, Edital, Topico
@@ -108,16 +109,17 @@ def test_termo_casa_so_a_palavra_inteira():
 def test_sem_dicionario_a_sugestao_nao_muda():
     textos = {1: ACENTO, 2: 'Quanto à concordância verbal do sujeito composto.'}
     sem = sugerir_topicos(_edital(), textos, {1: PORTUGUES})
-    vazio = sugerir_topicos(_edital(), textos, {1: PORTUGUES}, Dicionario(()))
+    vazio = sugerir_com_dicionario(_edital(), textos, {1: PORTUGUES}, Dicionario(()), sugerir_topicos)
     assert {q: (s.topico, s.score) for q, s in sem.items()} == {
         q: (s.topico, s.score) for q, s in vazio.items()
     }
     assert all(s.topico_tfidf is None for s in sem.values())
+    assert all(s.topico_tfidf is not None for s in vazio.values())
 
 
 def test_sinonimo_leva_ao_topico_certo_e_guarda_o_tfidf():
     sem = sugerir_topicos(_edital(), {1: ACENTO}, {1: PORTUGUES})
-    com = sugerir_topicos(_edital(), {1: ACENTO}, {1: PORTUGUES}, _dicionario())
+    com = sugerir_com_dicionario(_edital(), {1: ACENTO}, {1: PORTUGUES}, _dicionario(), sugerir_topicos)
     assert sem[1].topico != CRASE
     assert com[1].topico == CRASE
     assert (com[1].topico_tfidf, com[1].score_tfidf) == (sem[1].topico, sem[1].score)
@@ -142,7 +144,7 @@ def _revisadas(concurso='c1', n=6) -> dict:
 
 
 def test_ganho_mede_antes_e_depois():
-    ganho = avaliar_ganho(_revisadas(), _dicionario())
+    ganho = avaliar_ganho(_revisadas(), _dicionario(), sugerir_topicos)
     assert (ganho.geral.n, ganho.geral.antes, ganho.geral.depois) == (6, 0, 6)
     assert ganho.geral.delta_pp == 100.0
     assert len(ganho.corrigidas) == 6 and not ganho.quebradas
@@ -156,16 +158,16 @@ def test_ganho_mede_antes_e_depois():
 def test_ganho_nao_usa_termo_tirado_do_proprio_concurso():
     dados = dicionario_em_dados(_dicionario())
     dados['lingua_portuguesa']['crase']['origem'] = ['c1']
-    ganho = avaliar_ganho(_revisadas('c1'), ler_dicionario(dados))
+    ganho = avaliar_ganho(_revisadas('c1'), ler_dicionario(dados), sugerir_topicos)
     assert ganho.geral.depois == ganho.geral.antes
-    assert avaliar_ganho(_revisadas('c2'), ler_dicionario(dados)).geral.depois == 6
+    assert avaliar_ganho(_revisadas('c2'), ler_dicionario(dados), sugerir_topicos).geral.depois == 6
 
 
 def test_alerta_quando_o_dicionario_piora():
     errado = ler_dicionario({'lingua_portuguesa': {'pontuacao': {'termos': ['acento grave']}}})
     texto = 'O acento grave indica a crase.'
     revisadas = {'c1': (_edital(), [Questao('c1', i, 'p1', PORTUGUES, texto, CRASE) for i in range(6)])}
-    ganho = avaliar_ganho(revisadas, errado)
+    ganho = avaliar_ganho(revisadas, errado, sugerir_topicos)
     assert ganho.quebradas
     assert ganho.alerta
     assert 'Atenção' in ganho_em_markdown(ganho)
@@ -245,7 +247,7 @@ def test_questoes_revisadas_le_revisao_e_edital(tmp_path):
 
 def test_nao_mapeado_conta_como_acerto_so_quando_igual():
     questoes = [Questao('c1', 1, 'p1', PORTUGUES, '', NAO_MAPEADO)]
-    ganho = avaliar_ganho({'c1': (_edital(), questoes)}, _dicionario())
+    ganho = avaliar_ganho({'c1': (_edital(), questoes)}, _dicionario(), sugerir_topicos)
     assert ganho.geral.antes == ganho.geral.depois == 1
 
 
@@ -268,5 +270,5 @@ def test_termo_que_ja_nomeia_outro_topico_deixa_o_edital_decidir():
     assert expansao.marcas(texto) == []
     assert expansao.marcas('A proposição P é falsa.') == ['tema_raciocinio_logico_proposicoes']
     sem = sugerir_topicos(edital, {1: texto}, {1: logica})
-    com = sugerir_topicos(edital, {1: texto}, {1: logica}, dicionario)
+    com = sugerir_com_dicionario(edital, {1: texto}, {1: logica}, dicionario, sugerir_topicos)
     assert com[1].topico == sem[1].topico == tabelas

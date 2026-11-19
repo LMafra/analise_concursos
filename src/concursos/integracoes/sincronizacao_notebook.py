@@ -445,6 +445,90 @@ class Sincronizador:
         self.relatorio.notas_criadas += 1
 
 
+def _nomes_para_sincronizar(
+    raiz_provas: Path,
+    pasta_candidato: Path,
+    concurso: str | None,
+    sincronizador: Sincronizador,
+) -> list[str]:
+    nomes = concursos_analisados(raiz_provas, pasta_candidato)
+    if concurso is None:
+        return nomes
+    nomes = [nome for nome in nomes if nome == concurso]
+    if not nomes:
+        sincronizador.relatorio.avisos.append(f'{concurso}: sem análise para sincronizar')
+    return nomes
+
+
+def _notebooks_por_concurso(
+    sincronizador: Sincronizador,
+    nomes: list[str],
+    pasta_candidato: Path,
+    prefixo: str,
+    rotulo: str,
+    limiar: float,
+) -> dict[str, str]:
+    notebooks: dict[str, str] = {}
+    for nome in nomes:
+        pasta = pasta_candidato / nome
+        documentos, ausentes = artefatos_do_concurso(pasta, nome)
+        sincronizador.relatorio.avisos += [f'{nome}: {arquivo} não encontrado' for arquivo in ausentes]
+        nota = resumo_do_concurso(pasta, nome, limiar)
+        if notebook_id := sincronizador.notebook(f'{prefixo}{nome}', f'{nome} — {rotulo}', documentos, [nota]):
+            notebooks[nome] = notebook_id
+    return notebooks
+
+
+def _vincular_fontes(
+    sincronizador: Sincronizador,
+    notebooks: dict[str, str],
+    pasta_candidato: Path,
+    prefixo: str,
+    fontes: FontesDeEstudo | None,
+    livros: dict[str, set[str]] | None,
+) -> None:
+    pastas = {nome: pasta_candidato / nome for nome in notebooks}
+    desejados = _sources_de_estudo(sincronizador, pastas, fontes or FontesDeEstudo(None, None))
+    if desejados is None:
+        return
+    if livros:
+        for nome in desejados:
+            desejados[nome] |= livros.get(nome, set())
+    for nome in notebooks:
+        sincronizador.vinculos(f'{prefixo}{nome}', desejados.get(nome, set()))
+
+
+def _sincronizar_consolidado_e_caderno(
+    sincronizador: Sincronizador,
+    concurso: str | None,
+    nomes: list[str],
+    prefixo: str,
+    rotulo: str,
+    pasta_candidato: Path,
+    raiz_provas: Path,
+    arquivo_taxonomia: Path,
+    limiar: float,
+    incluir_nome: bool,
+    caderno_de_erros: dict[str, str] | None,
+) -> None:
+    if concurso is not None:
+        return
+    if nomes:
+        documentos, _ = artefatos_do_consolidado(pasta_candidato, incluir_nome)
+        notas = [resumo_do_consolidado(raiz_provas, pasta_candidato, arquivo_taxonomia, limiar)]
+        recomendacoes = pasta_candidato / PASTA_CONSOLIDADO / ARQUIVO_RECOMENDACOES
+        if recomendacoes.exists():
+            notas.append(Documento('recomendacoes', TITULO_NOTA, recomendacoes.read_text(encoding='utf-8')))
+        sincronizador.notebook(f'{prefixo}{CHAVE_CONSOLIDADO}', f'Consolidado — {rotulo}', documentos, notas)
+    if not caderno_de_erros:
+        return
+    documentos = [
+        Documento(f'erros/{disciplina}', titulo_da_source(PASTA_CADERNO_DE_ERROS, disciplina), texto)
+        for disciplina, texto in sorted(caderno_de_erros.items())
+    ]
+    sincronizador.notebook(f'{prefixo}{CHAVE_CADERNO_DE_ERROS}', f'Caderno de erros — {rotulo}', documentos, [])
+
+
 def sincronizar_candidato(
     sincronizador: Sincronizador,
     raiz_provas: Path,
@@ -467,43 +551,22 @@ def sincronizar_candidato(
     biblioteca associados a cada concurso."""
     rotulo = sincronizador.estado.rotulo(sincronizador.url, candidato, incluir_nome)
     prefixo = f'{candidato or ""}/'
-    notebooks: dict[str, str] = {}
-    nomes = concursos_analisados(raiz_provas, pasta_candidato)
-    if concurso is not None:
-        nomes = [nome for nome in nomes if nome == concurso]
-        if not nomes:
-            sincronizador.relatorio.avisos.append(f'{concurso}: sem análise para sincronizar')
-    for nome in nomes:
-        pasta = pasta_candidato / nome
-        documentos, ausentes = artefatos_do_concurso(pasta, nome)
-        sincronizador.relatorio.avisos += [f'{nome}: {arquivo} não encontrado' for arquivo in ausentes]
-        nota = resumo_do_concurso(pasta, nome, limiar)
-        if notebook_id := sincronizador.notebook(
-            f'{prefixo}{nome}', f'{nome} — {rotulo}', documentos, [nota]
-        ):
-            notebooks[nome] = notebook_id
-    pastas = {nome: pasta_candidato / nome for nome in notebooks}
-    desejados = _sources_de_estudo(sincronizador, pastas, fontes or FontesDeEstudo(None, None))
-    if desejados is not None and livros:
-        for nome in desejados:
-            desejados[nome] |= livros.get(nome, set())
-    for nome in notebooks if desejados is not None else []:
-        sincronizador.vinculos(f'{prefixo}{nome}', desejados.get(nome, set()))
-    if concurso is None and nomes:
-        documentos, _ = artefatos_do_consolidado(pasta_candidato, incluir_nome)
-        notas = [resumo_do_consolidado(raiz_provas, pasta_candidato, arquivo_taxonomia, limiar)]
-        recomendacoes = pasta_candidato / PASTA_CONSOLIDADO / ARQUIVO_RECOMENDACOES
-        if recomendacoes.exists():
-            notas.append(Documento('recomendacoes', TITULO_NOTA, recomendacoes.read_text(encoding='utf-8')))
-        sincronizador.notebook(f'{prefixo}{CHAVE_CONSOLIDADO}', f'Consolidado — {rotulo}', documentos, notas)
-    if concurso is None and caderno_de_erros:
-        documentos = [
-            Documento(f'erros/{disciplina}', titulo_da_source(PASTA_CADERNO_DE_ERROS, disciplina), texto)
-            for disciplina, texto in sorted(caderno_de_erros.items())
-        ]
-        sincronizador.notebook(
-            f'{prefixo}{CHAVE_CADERNO_DE_ERROS}', f'Caderno de erros — {rotulo}', documentos, []
-        )
+    nomes = _nomes_para_sincronizar(raiz_provas, pasta_candidato, concurso, sincronizador)
+    notebooks = _notebooks_por_concurso(sincronizador, nomes, pasta_candidato, prefixo, rotulo, limiar)
+    _vincular_fontes(sincronizador, notebooks, pasta_candidato, prefixo, fontes, livros)
+    _sincronizar_consolidado_e_caderno(
+        sincronizador,
+        concurso,
+        nomes,
+        prefixo,
+        rotulo,
+        pasta_candidato,
+        raiz_provas,
+        arquivo_taxonomia,
+        limiar,
+        incluir_nome,
+        caderno_de_erros,
+    )
     return notebooks
 
 

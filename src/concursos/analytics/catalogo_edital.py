@@ -23,20 +23,18 @@ _NO_EDITAL = {
 }
 
 
-def gerar_catalogo(config: ConcursoConfig, regras: RegrasEdital) -> str:
+def _titulo_catalogo(config: ConcursoConfig, regras: RegrasEdital) -> str:
     identificacao = regras.identificacao
     titulo = identificacao.nome_oficial.valor or config.nome
     if cargo := identificacao.cargo.valor or config.cargo:
         titulo += f', {cargo}'
     if especialidade := identificacao.especialidade.valor:
         titulo += f' – {especialidade}'
-    metadados = {m.chave: m for m in regras.metadados}
+    return titulo
+
+
+def _linhas_descobertas(metadados: dict) -> list[str]:
     linhas = [
-        f'# Catálogo do edital: {titulo}',
-        '',
-        f'Concurso `{config.nome}`; registro de candidatos na versão {regras.versao_candidatos}. '
-        '"(descoberta)" marca o que veio além da lista inicial de candidatos.',
-        '',
         '## Descobertas',
         '',
         '| Informação | Valor | Trecho de origem | Uso no projeto | Impacto | Status | No edital |',
@@ -55,7 +53,11 @@ def gerar_catalogo(config: ConcursoConfig, regras: RegrasEdital) -> str:
             _no_edital(metadado, candidato.severidade_se_ausente),
         ]
         linhas.append('| ' + ' | '.join(_celula(c) for c in celulas) + ' |')
-    linhas += ['', '## Propostas de evolução', '']
+    return linhas
+
+
+def _linhas_propostas_e_descartados() -> list[str]:
+    linhas = ['', '## Propostas de evolução', '']
     propostas = [c for c in CANDIDATOS if c.proposta and c.impacto is Impacto.ALTO]
     linhas += [f'- **{c.informacao}** ({c.status}): {c.proposta}' for c in propostas] or ['Nenhuma.']
     linhas += ['', '## Descartados', '']
@@ -64,6 +66,21 @@ def gerar_catalogo(config: ConcursoConfig, regras: RegrasEdital) -> str:
     ]
     linhas += [
         f'- **{informacao}**: {motivo}' for informacao, motivo in [*descartados, *DESCARTADOS_SEM_CANDIDATO]
+    ]
+    return linhas
+
+
+def gerar_catalogo(config: ConcursoConfig, regras: RegrasEdital) -> str:
+    titulo = _titulo_catalogo(config, regras)
+    metadados = {m.chave: m for m in regras.metadados}
+    linhas = [
+        f'# Catálogo do edital: {titulo}',
+        '',
+        f'Concurso `{config.nome}`; registro de candidatos na versão {regras.versao_candidatos}. '
+        '"(descoberta)" marca o que veio além da lista inicial de candidatos.',
+        '',
+        *_linhas_descobertas(metadados),
+        *_linhas_propostas_e_descartados(),
     ]
     return '\n'.join(linhas) + '\n'
 

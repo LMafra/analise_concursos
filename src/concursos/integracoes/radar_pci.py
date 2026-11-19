@@ -104,19 +104,25 @@ def _data(texto: object) -> date | None:
         return None
 
 
-def _do_interesse(interesse: dict, referencia: str) -> ItemRadar | None:
-    """Interesse fora da busca de hoje: os prazos gravados no `--register`; sai do radar depois do `fim`."""
-    hoje = _data(referencia)
-    inicio, fim = _data(interesse.get('inicio')), _data(interesse.get('fim'))
+def _texto_situacao_interesse(inicio: date | None, fim: date | None, hoje: date | None) -> str | None:
     dias_ate_fim = (fim - hoje).days if fim and hoje else None
     if dias_ate_fim is not None and dias_ate_fim < 0:
         return None
     if inicio and hoje and inicio > hoje:
-        texto = f'abre em {(inicio - hoje).days} dias'
-    elif dias_ate_fim is None:
-        texto = 'prazo não informado'
-    else:
-        texto = 'fecha hoje' if dias_ate_fim == 0 else f'aberto, fecha em {dias_ate_fim} dias'
+        return f'abre em {(inicio - hoje).days} dias'
+    if dias_ate_fim is None:
+        return 'prazo não informado'
+    return 'fecha hoje' if dias_ate_fim == 0 else f'aberto, fecha em {dias_ate_fim} dias'
+
+
+def _do_interesse(interesse: dict, referencia: str) -> ItemRadar | None:
+    """Interesse fora da busca de hoje: os prazos gravados no `--register`; sai do radar depois do `fim`."""
+    hoje = _data(referencia)
+    inicio, fim = _data(interesse.get('inicio')), _data(interesse.get('fim'))
+    texto = _texto_situacao_interesse(inicio, fim, hoje)
+    if texto is None:
+        return None
+    dias_ate_fim = (fim - hoje).days if fim and hoje else None
     return ItemRadar(
         id=interesse['id'],
         titulo=str(interesse.get('titulo') or ''),

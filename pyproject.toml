@@ -76,12 +76,37 @@ empacotamento = [
     "pyinstaller>=6.11",
 ]
 arquitetura = [
+    "import-linter>=2.1",
     "interrogate>=1.7",
     "pydeps>=3.0",
     "pytest-cov>=6.0",
     "radon>=6.0",
     "vulture>=2.14",
 ]
+
+[tool.importlinter]
+root_package = "concursos"
+
+[[tool.importlinter.contracts]]
+name = "topicos nao importa dicionario_topicos"
+type = "forbidden"
+source_modules = ["concursos.topicos"]
+forbidden_modules = ["concursos.analytics.dicionario_topicos"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "dicionario_topicos nao importa topicos"
+type = "forbidden"
+source_modules = ["concursos.analytics.dicionario_topicos"]
+forbidden_modules = ["concursos.topicos"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "tec_estatisticas nao importa pratica_tec"
+type = "forbidden"
+source_modules = ["concursos.analytics.tec_estatisticas"]
+forbidden_modules = ["concursos.pratica_tec"]
+allow_indirect_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from concursos.aplicacao import pratica as pratica_app
 from concursos.aplicacao.opcoes import Opcoes
@@ -14,7 +14,7 @@ from concursos.integracoes.open_notebook import (
     OpenNotebookIndisponivelError,
     ler_configuracao,
 )
-from concursos.pratica_tec import RESULTADO_ACERTO, RESULTADO_ERRO, ler_entrada, tipo_questao
+from concursos.pratica_tec import RESULTADO_ACERTO, RESULTADO_ERRO, ler_entrada, resultado_questao, tipo_questao
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,10 @@ PROMPT_CONFIRMACAO = """Resuma em 2–3 frases por que a resposta {gab} está co
 Assunto: {ass}
 """
 
+_PROMPTS_POR_TIPO = {
+    'certo_errado': PROMPT_CE,
+}
+
 
 @dataclass
 class ResultadoExplicacao:
@@ -77,6 +81,15 @@ class ResultadoExplicacao:
     similares: int
     confirmacoes: int
     avisos: list[str]
+
+
+@dataclass
+class _Contadores:
+    explicadas: int = 0
+    similares: int = 0
+    confirmacoes: int = 0
+    avisos: list[str] = field(default_factory=list)
+    assuntos_erro: set[str] = field(default_factory=set)
 
 
 def _cliente(opcoes: Opcoes) -> tuple[ClienteOpenNotebook, str]:
@@ -121,85 +134,129 @@ def _ja_tem_nota(cliente: ClienteOpenNotebook, notebook_id: str, titulo: str) ->
     return any((nota.get('title') or '') == titulo for nota in cliente.listar_notas(notebook_id))
 
 
-def explicar_erros_tec(opcoes: Opcoes, incluir_acertos: bool = True) -> ResultadoExplicacao:
-    """Cria sources/notes de explicação e similares; exige opt-in e ação explícita (quem chama o botão)."""
-    configuracao = pratica_app.exigir_configuracao_pratica(opcoes.contexto)
-    pratica, avisos_entrada = ler_entrada(configuracao.entrada)
-    cliente, modelo_id = _cliente(opcoes)
-    candidato = configuracao.candidato or 'candidato'
-    nb = _notebook(cliente, f'TEC — {candidato}', 'Erros e revisões do TEC')
-    notebook_id = str(nb.get('id'))
-    explicadas = similares = confirmacoes = 0
-    avisos = list(avisos_entrada)
-    assuntos_erro: set[str] = set()
+def _pergunta_explicacao(item: dict, tipo: str, ass: str) -> str:
+    alts = item.get('alts') or []
+    campos = {
+        'enun': item.get('enun') or '',
+        'gab': item.get('gab') or '',
+        'marc': item.get('marc') or '',
+        'com': item.get('com') or '',
+        'ass': ass,
+        'alts': _texto_alts(alts),
+        'bloco': BLOCO_ALTERNATIVAS,
+    }
+    modelo = _PROMPTS_POR_TIPO.get(tipo, PROMPT_ME)
+    return modelo.format(**{k: campos[k] for k in _campos_do_prompt(modelo)})
 
-    for item in pratica.erros:
-        tipo = tipo_questao(item.get('alts'))
-        from concursos.pratica_tec import resultado_questao
 
-        resultado = resultado_questao(item.get('gab'), item.get('marc'), tipo)
-        qid = item.get('id') or '?'
-        ass = item.get('ass') or 'sem assunto'
+def _campos_do_prompt(modelo: str) -> list[str]:
+    nomes = []
+    for chave in ('enun', 'gab', 'marc', 'com', 'ass', 'alts', 'bloco'):
+        if '{' + chave + '}' in modelo:
+            nomes.append(chave)
+    return nomes
 
-        if resultado == RESULTADO_ERRO:
-            titulo_source = f'Erro TEC — {qid} — {ass}'
-            alts = item.get('alts') or []
-            corpo = (
-                f'Enunciado:\n{item.get("enun") or ""}\n\n'
-                f'Alternativas:\n{_texto_alts(alts)}\n\n'
-                f'Gabarito: {item.get("gab")}\nMarcada: {item.get("marc")}\n'
-                f'Comentário: {item.get("com") or ""}\n'
-            )
-            cliente.adicionar_source_texto(notebook_id, titulo_source, corpo, embed=False)
-            if tipo == 'certo_errado':
-                pergunta = PROMPT_CE.format(
-                    enun=item.get('enun') or '',
-                    gab=item.get('gab') or '',
-                    marc=item.get('marc') or '',
-                    com=item.get('com') or '',
-                    ass=ass,
-                )
-            else:
-                pergunta = PROMPT_ME.format(
-                    enun=item.get('enun') or '',
-                    alts=_texto_alts(alts),
-                    gab=item.get('gab') or '',
-                    marc=item.get('marc') or '',
-                    com=item.get('com') or '',
-                    ass=ass,
-                    bloco=BLOCO_ALTERNATIVAS,
-                )
-            titulo_nota = f'Explicação — {qid} — {ass}'
-            if not _ja_tem_nota(cliente, notebook_id, titulo_nota):
-                try:
-                    resposta = cliente.perguntar(pergunta, modelo_id)
-                    cliente.criar_nota(notebook_id, titulo_nota, resposta.get('answer') or '')
-                    explicadas += 1
-                except OpenNotebookIndisponivelError as erro:
-                    avisos.append(str(erro))
-                    avisar(logger, 'Não consegui gerar a explicação desta questão.', detalhe=str(erro))
-            assuntos_erro.add(ass)
 
-        elif resultado == RESULTADO_ACERTO and incluir_acertos:
-            titulo = f'Confirmação — {qid} — {ass}'
-            if not _ja_tem_nota(cliente, notebook_id, titulo):
-                try:
-                    resposta = cliente.perguntar(
-                        PROMPT_CONFIRMACAO.format(
-                            gab=item.get('gab') or '', enun=item.get('enun') or '', ass=ass
-                        ),
-                        modelo_id,
-                    )
-                    cliente.criar_nota(notebook_id, titulo, resposta.get('answer') or '')
-                    confirmacoes += 1
-                except OpenNotebookIndisponivelError as erro:
-                    avisos.append(str(erro))
+def _criar_nota_perguntando(
+    cliente: ClienteOpenNotebook,
+    notebook_id: str,
+    modelo_id: str,
+    titulo: str,
+    pergunta: str,
+    avisos: list[str],
+    *,
+    avisar_falha: bool = False,
+) -> bool:
+    if _ja_tem_nota(cliente, notebook_id, titulo):
+        return False
+    try:
+        resposta = cliente.perguntar(pergunta, modelo_id)
+        cliente.criar_nota(notebook_id, titulo, resposta.get('answer') or '')
+        return True
+    except OpenNotebookIndisponivelError as erro:
+        avisos.append(str(erro))
+        if avisar_falha:
+            avisar(logger, 'Não consegui gerar a explicação desta questão.', detalhe=str(erro))
+        return False
 
-    for ass in sorted(assuntos_erro):
+
+def _corpo_source_erro(item: dict) -> str:
+    alts = item.get('alts') or []
+    return (
+        f'Enunciado:\n{item.get("enun") or ""}\n\n'
+        f'Alternativas:\n{_texto_alts(alts)}\n\n'
+        f'Gabarito: {item.get("gab")}\nMarcada: {item.get("marc")}\n'
+        f'Comentário: {item.get("com") or ""}\n'
+    )
+
+
+def _processar_erro(
+    cliente: ClienteOpenNotebook,
+    notebook_id: str,
+    modelo_id: str,
+    item: dict,
+    tipo: str,
+    qid: str,
+    ass: str,
+    contadores: _Contadores,
+) -> None:
+    titulo_source = f'Erro TEC — {qid} — {ass}'
+    cliente.adicionar_source_texto(notebook_id, titulo_source, _corpo_source_erro(item), embed=False)
+    pergunta = _pergunta_explicacao(item, tipo, ass)
+    titulo_nota = f'Explicação — {qid} — {ass}'
+    if _criar_nota_perguntando(
+        cliente, notebook_id, modelo_id, titulo_nota, pergunta, contadores.avisos, avisar_falha=True
+    ):
+        contadores.explicadas += 1
+    contadores.assuntos_erro.add(ass)
+
+
+def _processar_acerto(
+    cliente: ClienteOpenNotebook,
+    notebook_id: str,
+    modelo_id: str,
+    item: dict,
+    qid: str,
+    ass: str,
+    contadores: _Contadores,
+) -> None:
+    titulo = f'Confirmação — {qid} — {ass}'
+    pergunta = PROMPT_CONFIRMACAO.format(gab=item.get('gab') or '', enun=item.get('enun') or '', ass=ass)
+    if _criar_nota_perguntando(cliente, notebook_id, modelo_id, titulo, pergunta, contadores.avisos):
+        contadores.confirmacoes += 1
+
+
+def _processar_item(
+    cliente: ClienteOpenNotebook,
+    notebook_id: str,
+    modelo_id: str,
+    item: dict,
+    incluir_acertos: bool,
+    contadores: _Contadores,
+) -> None:
+    tipo = tipo_questao(item.get('alts'))
+    resultado = resultado_questao(item.get('gab'), item.get('marc'), tipo)
+    qid = item.get('id') or '?'
+    ass = item.get('ass') or 'sem assunto'
+    if resultado == RESULTADO_ERRO:
+        _processar_erro(cliente, notebook_id, modelo_id, item, tipo, qid, ass, contadores)
+        return
+    if resultado == RESULTADO_ACERTO and incluir_acertos:
+        _processar_acerto(cliente, notebook_id, modelo_id, item, qid, ass, contadores)
+
+
+def _gerar_similares(
+    cliente: ClienteOpenNotebook,
+    notebook_id: str,
+    modelo_id: str,
+    erros: list,
+    contadores: _Contadores,
+) -> None:
+    for ass in sorted(contadores.assuntos_erro):
         titulo = f'Similares — {ass}'
         if _ja_tem_nota(cliente, notebook_id, titulo):
             continue
-        amostra = next((i for i in pratica.erros if (i.get('ass') or '') == ass), None)
+        amostra = next((i for i in erros if (i.get('ass') or '') == ass), None)
         if not amostra:
             continue
         pergunta = PROMPT_SIMILARES.format(
@@ -209,25 +266,46 @@ def explicar_erros_tec(opcoes: Opcoes, incluir_acertos: bool = True) -> Resultad
             enun=amostra.get('enun') or '',
             gab=amostra.get('gab') or '',
         )
-        try:
-            resposta = cliente.perguntar(pergunta, modelo_id)
-            cliente.criar_nota(notebook_id, titulo, resposta.get('answer') or '')
-            similares += 1
-        except OpenNotebookIndisponivelError as erro:
-            avisos.append(str(erro))
+        if _criar_nota_perguntando(cliente, notebook_id, modelo_id, titulo, pergunta, contadores.avisos):
+            contadores.similares += 1
 
+
+def _persistir_resumo(
+    cliente: ClienteOpenNotebook, notebook_id: str, candidato: str, pasta_cand
+) -> None:
     from concursos.analytics.tec_estatisticas import markdown_resumo
 
-    pasta_cand = pasta_do_candidato(opcoes.contexto, candidato)
     resumo_md = markdown_resumo(pasta_cand)
     titulo_resumo = f'Resumo prática TEC — {candidato}'
     if not _ja_tem_nota(cliente, notebook_id, titulo_resumo):
         cliente.criar_nota(notebook_id, titulo_resumo, resumo_md)
-    else:
-        for nota in cliente.listar_notas(notebook_id):
-            if (nota.get('title') or '') == titulo_resumo and nota.get('id'):
-                cliente.atualizar_nota(str(nota['id']), resumo_md)
-                break
+        return
+    for nota in cliente.listar_notas(notebook_id):
+        if (nota.get('title') or '') == titulo_resumo and nota.get('id'):
+            cliente.atualizar_nota(str(nota['id']), resumo_md)
+            break
 
-    opcoes.saida(f'Explicações: {explicadas}; similares: {similares}; confirmações: {confirmacoes}.')
-    return ResultadoExplicacao(explicadas, similares, confirmacoes, avisos)
+
+def explicar_erros_tec(opcoes: Opcoes, incluir_acertos: bool = True) -> ResultadoExplicacao:
+    """Cria sources/notes de explicação e similares; exige opt-in e ação explícita (quem chama o botão)."""
+    configuracao = pratica_app.exigir_configuracao_pratica(opcoes.contexto)
+    pratica, avisos_entrada = ler_entrada(configuracao.entrada)
+    cliente, modelo_id = _cliente(opcoes)
+    candidato = configuracao.candidato or 'candidato'
+    nb = _notebook(cliente, f'TEC — {candidato}', 'Erros e revisões do TEC')
+    notebook_id = str(nb.get('id'))
+    contadores = _Contadores(avisos=list(avisos_entrada))
+
+    for item in pratica.erros:
+        _processar_item(cliente, notebook_id, modelo_id, item, incluir_acertos, contadores)
+
+    _gerar_similares(cliente, notebook_id, modelo_id, pratica.erros, contadores)
+    _persistir_resumo(cliente, notebook_id, candidato, pasta_do_candidato(opcoes.contexto, candidato))
+
+    opcoes.saida(
+        f'Explicações: {contadores.explicadas}; similares: {contadores.similares}; '
+        f'confirmações: {contadores.confirmacoes}.'
+    )
+    return ResultadoExplicacao(
+        contadores.explicadas, contadores.similares, contadores.confirmacoes, contadores.avisos
+    )

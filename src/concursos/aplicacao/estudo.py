@@ -659,6 +659,68 @@ def _trechos_das_analises(contexto: Contexto, pergunta: str) -> list[TrechoEncon
     ]
 
 
+def _livros_para_pergunta(contexto: Contexto, disciplina: str | None) -> list:
+    return [
+        livro
+        for livro in listar_livros(contexto)
+        if livro.estado is not EstadoLivro.ERRO and (not disciplina or livro.disciplina == disciplina)
+    ]
+
+
+def _consultar_ia_livros(
+    contexto: Contexto,
+    cliente,
+    opcoes: Opcoes,
+    pergunta: str,
+    livros: list,
+) -> tuple[list[str], str | None, list[str], list[str]]:
+    """Devolve apontados, resposta_ia, citados, avisos."""
+    avisos: list[str] = []
+    por_source = perguntas.por_source(envio.livros_por_source(biblioteca(contexto)))
+    try:
+        apontados = _livros_apontados(cliente, pergunta, livros, por_source)
+        configuracao = ia_nos_livros(contexto)
+        if configuracao is None or not opcoes.rede:
+            return apontados, None, [], avisos
+        resposta = cliente.perguntar(pergunta, _modelo_da_ia(cliente, configuracao))
+        texto = resposta.get('answer') or ''
+        citados_shas = [por_source[s].sha for s in perguntas.citacoes(texto) if s in por_source]
+        citados = [livro.nome for livro in livros if livro.sha in citados_shas]
+        resposta_ia = perguntas.sem_citacoes(texto) or None
+        apontados = list(dict.fromkeys([*citados_shas, *apontados]))
+        return apontados, resposta_ia, citados, avisos
+    except OpenNotebookIndisponivelError as erro:
+        avisar(
+            logger,
+            'Não consegui abrir a biblioteca de estudo; procurei só no texto dos seus livros.',
+            detalhe=f'open-notebook: {erro.detalhe or erro.causa}',
+        )
+        avisos.append(TEXTO_FORA)
+        return [], None, [], avisos
+
+
+def _pergunta_livros(
+    contexto: Contexto,
+    opcoes: Opcoes,
+    pergunta: str,
+    disciplina: str | None,
+) -> tuple[list[TrechoEncontrado], str | None, list[str], list[str]]:
+    livros = _livros_para_pergunta(contexto, disciplina)
+    avisos: list[str] = []
+    apontados: list[str] = []
+    resposta_ia = None
+    citados: list[str] = []
+    cliente = _cliente_se_preparado(contexto) if livros else None
+    if cliente is not None:
+        apontados, resposta_ia, citados, avisos = _consultar_ia_livros(
+            contexto, cliente, opcoes, pergunta, livros
+        )
+    elif livros and situacao_do_estudo(contexto).preparado:
+        avisos.append(TEXTO_FORA)
+    trechos = _trechos_dos_livros(contexto, pergunta, livros, apontados)
+    return trechos, resposta_ia, citados, avisos
+
+
 def perguntar(
     opcoes: Opcoes,
     pergunta: str,
@@ -679,35 +741,11 @@ def perguntar(
     resposta_ia = None
     citados: list[str] = []
     if onde in {OndeProcurar.LIVROS, OndeProcurar.TUDO}:
-        livros = [
-            livro
-            for livro in listar_livros(contexto)
-            if livro.estado is not EstadoLivro.ERRO and (not disciplina or livro.disciplina == disciplina)
-        ]
-        apontados: list[str] = []
-        cliente = _cliente_se_preparado(contexto) if livros else None
-        if cliente is not None:
-            por_source = perguntas.por_source(envio.livros_por_source(biblioteca(contexto)))
-            try:
-                apontados = _livros_apontados(cliente, pergunta, livros, por_source)
-                configuracao = ia_nos_livros(contexto)
-                if configuracao is not None and opcoes.rede:
-                    resposta = cliente.perguntar(pergunta, _modelo_da_ia(cliente, configuracao))
-                    texto = resposta.get('answer') or ''
-                    citados_shas = [por_source[s].sha for s in perguntas.citacoes(texto) if s in por_source]
-                    citados = [livro.nome for livro in livros if livro.sha in citados_shas]
-                    resposta_ia = perguntas.sem_citacoes(texto) or None
-                    apontados = list(dict.fromkeys([*citados_shas, *apontados]))
-            except OpenNotebookIndisponivelError as erro:
-                avisar(
-                    logger,
-                    'Não consegui abrir a biblioteca de estudo; procurei só no texto dos seus livros.',
-                    detalhe=f'open-notebook: {erro.detalhe or erro.causa}',
-                )
-                avisos.append(TEXTO_FORA)
-        elif livros and situacao_do_estudo(contexto).preparado:
-            avisos.append(TEXTO_FORA)
-        trechos += _trechos_dos_livros(contexto, pergunta, livros, apontados)
+        livros_trechos, resposta_ia, citados, avisos_livros = _pergunta_livros(
+            contexto, opcoes, pergunta, disciplina
+        )
+        trechos += livros_trechos
+        avisos += avisos_livros
     if onde in {OndeProcurar.ANALISES, OndeProcurar.TUDO}:
         trechos += _trechos_das_analises(contexto, pergunta)
     if not trechos and resposta_ia is None:

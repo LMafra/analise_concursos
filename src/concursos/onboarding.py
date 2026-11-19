@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -69,10 +70,9 @@ def interativo(sim: bool) -> bool:
     return not sim and not os.environ.get('CI') and sys.stdin.isatty()
 
 
-def perguntar(
-    contexto: Contexto, fornecidos: set[str], interacao: InteracaoConsole | None, ambiente=os.environ
-) -> Respostas:
-    """Pergunta só o que não veio por flag ou variável; sem `interacao`, fica com os padrões."""
+def _padrao_onboarding(
+    contexto: Contexto, fornecidos: set[str], ambiente: Mapping[str, str]
+) -> tuple[Respostas, set[str]]:
     padrao = Respostas(
         nome=_nome_atual(contexto) if 'nome' not in fornecidos else contexto.candidato,
         provas=contexto.provas,
@@ -90,15 +90,12 @@ def perguntar(
         fornecidos = {*fornecidos, 'llm'}
         if padrao.llm != NENHUM:
             logger.warning('%s: %s', VARIAVEL_LLM, o_que_vai_para(padrao.llm))
-    if interacao is None:
-        logger.info(
-            'onboarding sem terminal: usando os padrões (nome %s, provas %s, análises %s, doctor %s)',
-            padrao.nome or '(nenhum)',
-            padrao.provas,
-            padrao.analises,
-            'sim' if padrao.doctor else 'não',
-        )
-        return padrao
+    return padrao, fornecidos
+
+
+def _perguntas_do_onboarding(
+    interacao: InteracaoConsole, contexto: Contexto, padrao: Respostas, fornecidos: set[str]
+) -> Respostas:
     respostas = padrao
     if 'nome' not in fornecidos:
         respostas = replace(respostas, nome=_texto(interacao, 1, 'Seu nome', padrao.nome))
@@ -121,6 +118,24 @@ def perguntar(
     if 'doctor' not in fornecidos:
         resposta = _texto(interacao, 6, 'Conferir o ambiente com o doctor no fim? (s/n)', 's')
         respostas = replace(respostas, doctor=resposta.lower() in _SIM)
+    return respostas
+
+
+def perguntar(
+    contexto: Contexto, fornecidos: set[str], interacao: InteracaoConsole | None, ambiente=os.environ
+) -> Respostas:
+    """Pergunta só o que não veio por flag ou variável; sem `interacao`, fica com os padrões."""
+    padrao, fornecidos = _padrao_onboarding(contexto, fornecidos, ambiente)
+    if interacao is None:
+        logger.info(
+            'onboarding sem terminal: usando os padrões (nome %s, provas %s, análises %s, doctor %s)',
+            padrao.nome or '(nenhum)',
+            padrao.provas,
+            padrao.analises,
+            'sim' if padrao.doctor else 'não',
+        )
+        return padrao
+    respostas = _perguntas_do_onboarding(interacao, contexto, padrao, fornecidos)
     interacao.mostrar(_resumo(contexto, respostas))
     if not interacao.confirmar('Gravar?', padrao=True):
         raise OnboardingCanceladoError
@@ -198,9 +213,7 @@ def _perguntar_calibracao(interacao: InteracaoConsole, raiz: Path) -> Calibracao
         return calibracao
 
 
-def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
-    atual = ler_configuracao(contexto.config_global)
-    opcoes = '/'.join([NENHUM, *PROVEDORES])
+def _escolha_provedor_llm(interacao: InteracaoConsole, atual: object, opcoes: str) -> str:
     while True:
         escolha = interacao.perguntar(
             f'[5/{TOTAL_PERGUNTAS}] LLM para ler editais de bancas desconhecidas ({opcoes})',
@@ -208,17 +221,24 @@ def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
         )
         escolha = (escolha or NENHUM).strip().lower()
         if escolha == NENHUM or escolha in PROVEDORES:
-            break
+            return escolha
         interacao.mostrar(f'Opção inválida: use {opcoes}.')
+
+
+def _consentimento_llm(interacao: InteracaoConsole, escolha: str, atual: object) -> bool:
     if escolha == NENHUM:
-        return NENHUM
-    if not (atual and atual.provedor == escolha and atual.consentimento):
-        interacao.mostrar(o_que_vai_para(escolha))
-        if not interacao.confirmar('Concorda?'):
-            return NENHUM
-    provedor = PROVEDORES[escolha]
+        return False
+    if atual and atual.provedor == escolha and atual.consentimento:
+        return True
+    interacao.mostrar(o_que_vai_para(escolha))
+    return interacao.confirmar('Concorda?')
+
+
+def _chave_do_provedor_llm(
+    interacao: InteracaoConsole, contexto: Contexto, escolha: str, provedor: object
+) -> None:
     if provedor.variavel_chave is None:
-        return escolha
+        return
     configuracao = ler_configuracao(contexto.config_global)
     variavel = provedor.variavel_chave
     encontrada = (
@@ -231,11 +251,21 @@ def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
         interacao.mostrar(
             f'Defina a variável {variavel} antes de analisar (export {variavel}=...); sem ela, o LLM fica desligado.'
         )
-    elif encontrada[1] == f'variável {variavel}' and interacao.confirmar(
+        return
+    if encontrada[1] == f'variável {variavel}' and interacao.confirmar(
         f'Guardar a chave de {variavel} no keyring, para não depender da variável? Sem keyring, ela fica '
         f'em texto plano em {contexto.home / ARQUIVO_ENV} (permissão 600)'
     ):
         interacao.mostrar(f'Chave guardada em {guardar_chave(variavel, encontrada[0], contexto.home)}.')
+
+
+def _perguntar_llm(interacao: InteracaoConsole, contexto: Contexto) -> str:
+    atual = ler_configuracao(contexto.config_global)
+    opcoes = '/'.join([NENHUM, *PROVEDORES])
+    escolha = _escolha_provedor_llm(interacao, atual, opcoes)
+    if not _consentimento_llm(interacao, escolha, atual):
+        return NENHUM
+    _chave_do_provedor_llm(interacao, contexto, escolha, PROVEDORES[escolha])
     return escolha
 
 

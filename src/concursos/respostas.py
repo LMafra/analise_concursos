@@ -41,6 +41,56 @@ def ler_respostas_txt(
     return [_resposta(questao, marcadas.get(questao), arquivo) for questao in esperadas]
 
 
+def _indices_respostas_csv(cabecalho: list[str], arquivo: str) -> tuple[int, int, int | None]:
+    if 'questao' not in cabecalho:
+        raise RespostasInvalidasError(
+            f"{arquivo}: coluna 'questao' ausente (use as colunas questao,alternativa)"
+        )
+    coluna = next((c for c in _COLUNAS_ALTERNATIVA if c in cabecalho), None)
+    if coluna is None:
+        raise RespostasInvalidasError(
+            f"{arquivo}: coluna 'alternativa' ausente (use as colunas questao,alternativa)"
+        )
+    indice_estado = cabecalho.index('estado') if 'estado' in cabecalho else None
+    return cabecalho.index('questao'), cabecalho.index(coluna), indice_estado
+
+
+def _resposta_da_linha_csv(
+    numero: int,
+    celulas: list[str],
+    cabecalho: list[str],
+    indices: tuple[int, int, int | None],
+    esperadas: set[int],
+    letras: set[str],
+    arquivo: str,
+    origem: Origem,
+    lidas: dict[int, RespostaMarcada],
+) -> RespostaMarcada | None:
+    if not any(celulas):
+        return None
+    indice_questao, indice_alternativa, indice_estado = indices
+    celulas += [''] * (len(cabecalho) - len(celulas))
+    bruto = celulas[indice_questao]
+    if not bruto.isdigit():
+        raise RespostasInvalidasError(f'{arquivo}: linha {numero}: questão {bruto!r} inválida')
+    questao = int(bruto)
+    if questao not in esperadas:
+        raise RespostasInvalidasError(
+            f'{arquivo}: linha {numero}: questão {questao} fora das faixas configuradas'
+        )
+    if questao in lidas:
+        raise RespostasInvalidasError(f'{arquivo}: linha {numero}: questão {questao} repetida')
+    valor = celulas[indice_alternativa].upper()
+    if valor not in _SEM_RESPOSTA and valor not in letras:
+        validas = ', '.join(sorted(letras))
+        raise RespostasInvalidasError(
+            f'{arquivo}: linha {numero}: resposta {valor!r} inválida (use {validas} ou -)'
+        )
+    alternativa = None if valor in _SEM_RESPOSTA else valor
+    multipla = alternativa is None and indice_estado is not None and celulas[indice_estado] == Estado.MULTIPLA
+    return _resposta(questao, alternativa, arquivo, origem, Estado.MULTIPLA if multipla else None)
+
+
 def ler_respostas_csv(
     conteudo: bytes,
     formato: Formato,
@@ -55,48 +105,17 @@ def ler_respostas_csv(
     texto = _decodificar(conteudo)
     leitor = csv.reader(io.StringIO(texto), delimiter=_separador(texto))
     cabecalho = [_normalizar(coluna) for coluna in next(leitor, [])]
-    if 'questao' not in cabecalho:
-        raise RespostasInvalidasError(
-            f"{arquivo}: coluna 'questao' ausente (use as colunas questao,alternativa)"
-        )
-    coluna = next((c for c in _COLUNAS_ALTERNATIVA if c in cabecalho), None)
-    if coluna is None:
-        raise RespostasInvalidasError(
-            f"{arquivo}: coluna 'alternativa' ausente (use as colunas questao,alternativa)"
-        )
-    indice_questao, indice_alternativa = cabecalho.index('questao'), cabecalho.index(coluna)
-    indice_estado = cabecalho.index('estado') if 'estado' in cabecalho else None
+    indices = _indices_respostas_csv(cabecalho, arquivo)
     letras = formato.letras(alternativas)
 
     lidas: dict[int, RespostaMarcada] = {}
     for numero, campos in enumerate(leitor, start=2):
         celulas = [c.strip() for c in campos]
-        if not any(celulas):
-            continue
-        celulas += [''] * (len(cabecalho) - len(celulas))
-        bruto = celulas[indice_questao]
-        if not bruto.isdigit():
-            raise RespostasInvalidasError(f'{arquivo}: linha {numero}: questão {bruto!r} inválida')
-        questao = int(bruto)
-        if questao not in esperadas:
-            raise RespostasInvalidasError(
-                f'{arquivo}: linha {numero}: questão {questao} fora das faixas configuradas'
-            )
-        if questao in lidas:
-            raise RespostasInvalidasError(f'{arquivo}: linha {numero}: questão {questao} repetida')
-        valor = celulas[indice_alternativa].upper()
-        if valor not in _SEM_RESPOSTA and valor not in letras:
-            validas = ', '.join(sorted(letras))
-            raise RespostasInvalidasError(
-                f'{arquivo}: linha {numero}: resposta {valor!r} inválida (use {validas} ou -)'
-            )
-        alternativa = None if valor in _SEM_RESPOSTA else valor
-        multipla = (
-            alternativa is None and indice_estado is not None and celulas[indice_estado] == Estado.MULTIPLA
+        resposta = _resposta_da_linha_csv(
+            numero, celulas, cabecalho, indices, esperadas, letras, arquivo, origem, lidas
         )
-        lidas[questao] = _resposta(
-            questao, alternativa, arquivo, origem, Estado.MULTIPLA if multipla else None
-        )
+        if resposta is not None:
+            lidas[resposta.questao] = resposta
 
     return [lidas.get(questao) or _resposta(questao, None, arquivo, origem) for questao in sorted(esperadas)]
 

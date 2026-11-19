@@ -41,6 +41,33 @@ jobs:
       - name: Smoke de ponta a ponta (uvx num projeto temporário)
         run: uv run --no-project python scripts/smoke.py uvx --python ${{ matrix.python }} --from "${{ github.workspace }}" concurso-analise
 
+  arquitetura:
+    name: arquitetura / Python 3.12
+    runs-on: ubuntu-latest
+    env:
+      CI: 'true'
+      NO_COLOR: '1'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.13.0'
+          python-version: '3.12'
+          enable-cache: true
+
+      - name: Dependências
+        run: uv sync --locked --group arquitetura --extra gui
+
+      - name: Cobertura (artefato do gate)
+        run: uv run --group arquitetura pytest --cov=src/concursos --cov-report=json:coverage.json -q
+
+      - name: Gate de arquitetura
+        run: uv run --group arquitetura python scripts/verificar_arquitetura.py
+
+      - name: Contratos import-linter
+        run: uv run --group arquitetura lint-imports
+
   tec-erros:
     runs-on: ubuntu-latest
     defaults:

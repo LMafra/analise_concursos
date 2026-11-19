@@ -399,43 +399,49 @@ class Painel:
         return resumo_executivo(self.kpis)
 
 
-def acoes_sugeridas(painel: Painel, fontes: FontesDasAcoes) -> list[Acao]:
-    """De 3 a 5 ações tiradas dos dados, na ordem de prioridade; com poucos dados, podem ser menos."""
-    acoes = []
-    grupos = painel.grupos
-    if grupos:
-        grupo = grupos[0]
-        acoes.append(
-            Acao(
-                f'Foque em {grupo.disciplina}: {plural(len(grupo.topicos), "tópico")} abaixo do esperado, '
-                f'em {plural(len(grupo.concursos), "concurso")}.'
-            )
-        )
+def _acao_foco_disciplina(grupos: list) -> Acao | None:
+    if not grupos:
+        return None
+    grupo = grupos[0]
+    return Acao(
+        f'Foque em {grupo.disciplina}: {plural(len(grupo.topicos), "tópico")} abaixo do esperado, '
+        f'em {plural(len(grupo.concursos), "concurso")}.'
+    )
+
+
+def _acao_topico_em_todos(grupos: list) -> Acao | None:
     em_todos = [t for grupo in grupos for t in grupo.topicos if t.abaixo_em_todos]
-    if em_todos:
-        topico = max(em_todos, key=lambda t: t.prioridade)
-        quantos = 'no concurso' if topico.concursos == 1 else f'em todos os {topico.concursos} concursos'
-        acoes.append(
-            Acao(f'Revise {topico.topico} ({topico.disciplina}): ficou abaixo {quantos} em que apareceu.')
-        )
-    if len(grupos) > 1:
-        segundo = grupos[1]
-        exemplos = ', '.join(t.topico for t in segundo.topicos[:2])
-        acoes.append(
-            Acao(
-                f'Refaça questões de {segundo.disciplina} ({exemplos}): abaixo do esperado em mais de um concurso.'
-            )
-        )
-    no_limite = [p for p in painel.provas if p.status is StatusProva.LIMITE]
-    if no_limite:
-        prova = min(no_limite, key=lambda p: abs(p.gap))
-        lado = 'abaixo' if prova.gap < 0 else 'acima'
-        acoes.append(
-            Acao(
-                f'Você ficou {_pp(abs(prova.gap))} {lado} do corte em {prova.rotulo}: '
-                'pequenos ganhos já mudam o resultado.'
-            )
-        )
+    if not em_todos:
+        return None
+    topico = max(em_todos, key=lambda t: t.prioridade)
+    quantos = 'no concurso' if topico.concursos == 1 else f'em todos os {topico.concursos} concursos'
+    return Acao(f'Revise {topico.topico} ({topico.disciplina}): ficou abaixo {quantos} em que apareceu.')
+
+
+def _acao_segunda_disciplina(grupos: list) -> Acao | None:
+    if len(grupos) <= 1:
+        return None
+    segundo = grupos[1]
+    exemplos = ', '.join(t.topico for t in segundo.topicos[:2])
+    return Acao(
+        f'Refaça questões de {segundo.disciplina} ({exemplos}): abaixo do esperado em mais de um concurso.'
+    )
+
+
+def _acao_no_limite(provas: list[Prova]) -> Acao | None:
+    no_limite = [p for p in provas if p.status is StatusProva.LIMITE]
+    if not no_limite:
+        return None
+    prova = min(no_limite, key=lambda p: abs(p.gap))
+    lado = 'abaixo' if prova.gap < 0 else 'acima'
+    return Acao(
+        f'Você ficou {_pp(abs(prova.gap))} {lado} do corte em {prova.rotulo}: '
+        'pequenos ganhos já mudam o resultado.'
+    )
+
+
+def _acoes_de_fontes(fontes: FontesDasAcoes, grupos: list) -> list[Acao]:
+    acoes: list[Acao] = []
     if fontes.leituras_a_conferir:
         acoes.append(
             Acao(
@@ -463,6 +469,23 @@ def acoes_sugeridas(painel: Painel, fontes: FontesDasAcoes) -> list[Acao]:
         acoes.append(Acao('Veja onde estudar cada tópico fraco.', '#onde-estudar'))
     if fontes.radar is not None:
         acoes.append(Acao('Confira os prazos dos editais que você acompanha.', '#prazos'))
+    return acoes
+
+
+def acoes_sugeridas(painel: Painel, fontes: FontesDasAcoes) -> list[Acao]:
+    """De 3 a 5 ações tiradas dos dados, na ordem de prioridade; com poucos dados, podem ser menos."""
+    grupos = painel.grupos
+    acoes = [
+        a
+        for a in (
+            _acao_foco_disciplina(grupos),
+            _acao_topico_em_todos(grupos),
+            _acao_segunda_disciplina(grupos),
+            _acao_no_limite(painel.provas),
+            *_acoes_de_fontes(fontes, grupos),
+        )
+        if a is not None
+    ]
     return acoes[:MAXIMO_ACOES]
 
 
