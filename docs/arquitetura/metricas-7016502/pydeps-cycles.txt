@@ -1,0 +1,1 @@
+pydeps --show-cycles hung (>30s) on this host; cycles reconstructed via AST (ciclos-ast.txt).

@@ -1,0 +1,38 @@
+# Dívida congelada de arquitetura. Só pode encolher.
+# Gate: scripts/verificar_arquitetura.py
+
+commit_baseline = "7016502"
+# Piso = max(baseline Fase 0 90.8867, medição fresca pós-refactor truncada).
+cobertura_minima = 90.8993
+modulos_abaixo_de_60_max = 2
+cc_maximo = 15
+pipeline_eferencia_max = 12
+mi_minimo_aviso = 30
+mi_minimo_falha = 20
+
+# CC: lista vazia = nenhuma função pode ter CC > 15.
+
+# Os 4 módulos que estavam em MI 0.00: piso 30 (só encolhe/sobe o mi_minimo).
+[[divida.mi]]
+arquivo = "concursos/analytics/regras_edital.py"
+mi_minimo = 30.0
+issue = "arquitetura-mi"
+prazo = "2026-12-31"
+
+[[divida.mi]]
+arquivo = "concursos/concurso_config.py"
+mi_minimo = 30.0
+issue = "arquitetura-mi"
+prazo = "2026-12-31"
+
+[[divida.mi]]
+arquivo = "concursos/pratica_tec.py"
+mi_minimo = 30.0
+issue = "arquitetura-mi"
+prazo = "2026-12-31"
+
+[[divida.mi]]
+arquivo = "concursos/relatorio_html.py"
+mi_minimo = 30.0
+issue = "arquitetura-mi"
+prazo = "2026-12-31"

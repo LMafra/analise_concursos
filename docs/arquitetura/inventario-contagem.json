@@ -1,0 +1,18 @@
+{
+  "por_camada": {
+    "_raiz": 624,
+    "dicionarios": 0,
+    "analytics": 380,
+    "aplicacao": 298,
+    "perfis": 15,
+    "pratica": 82,
+    "integracoes": 165,
+    "pipeline": 23,
+    "gui": 294,
+    "livros": 70,
+    "estudo": 70,
+    "cli": 45,
+    "config": 16
+  },
+  "total": 2082
+}

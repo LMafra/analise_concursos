@@ -1,0 +1,17 @@
+concursos.topicos -> concursos.analytics.dicionario_topicos: True
+concursos.analytics.dicionario_topicos -> concursos.topicos: True
+CYCLE: True
+  concursos.topicos imports from concursos.analytics.dicionario_topicos: Dicionario, Expansao (line 16)
+  concursos.topicos imports from concursos.analytics.dicionario_topicos: expansao_para (line 167)
+  concursos.analytics.dicionario_topicos imports from concursos.topicos: ARQUIVO_REVISAO, NAO_MAPEADO, SCORE_BAIXO, chave_de_palavras, palavras_chave, sugerir_topicos (line 22)
+concursos.pratica_tec -> concursos.analytics.tec_estatisticas: True
+concursos.analytics.tec_estatisticas -> concursos.pratica_tec: True
+CYCLE: True
+  concursos.pratica_tec imports from concursos.analytics.tec_estatisticas: markdown_resumo (line 775)
+  concursos.analytics.tec_estatisticas imports from concursos.pratica_tec: ARQUIVO_RESPOSTAS, ARQUIVO_TENTATIVAS, PASTA_PRATICA, RESULTADO_ERRO (line 10)
+
+TWO-CYCLES TOTAL: 4
+  concursos.cli.comandos <-> concursos.cli
+  concursos.perfis.ocr <-> concursos.perfis
+  concursos.pratica_tec <-> concursos.analytics.tec_estatisticas
+  concursos.topicos <-> concursos.analytics.dicionario_topicos

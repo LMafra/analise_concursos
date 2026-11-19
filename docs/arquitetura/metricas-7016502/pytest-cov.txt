@@ -1,0 +1,196 @@
+sssssssss............................................................... [  4%]
+........................................................................ [  8%]
+........................................................................ [ 12%]
+........................................................................ [ 16%]
+........................................................................ [ 20%]
+........................................................................ [ 24%]
+........................................................................ [ 29%]
+........................................................................ [ 33%]
+........................................................................ [ 37%]
+........................................................................ [ 41%]
+........................................................................ [ 45%]
+........................................................................ [ 49%]
+...................................................................s.... [ 54%]
+........................................................................ [ 58%]
+..........................s............................................. [ 62%]
+........................................................................ [ 66%]
+........................................................................ [ 70%]
+........................................................................ [ 74%]
+........................................................................ [ 78%]
+.....................................................................s.. [ 83%]
+........................................................................ [ 87%]
+.......sss.............................................................. [ 91%]
+........................................................................ [ 95%]
+........................................................................ [ 99%]
+....                                                                     [100%]
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.3-final-0 ________________
+
+Name                                                  Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------------------------
+src/concursos/__init__.py                                 0      0   100%
+src/concursos/agregacao.py                               25      1    96%   68
+src/concursos/analytics/__init__.py                       0      0   100%
+src/concursos/analytics/catalogo_edital.py               53      1    98%   84
+src/concursos/analytics/consolidado.py                  164      5    97%   98, 134, 190, 215, 369
+src/concursos/analytics/correcao.py                     286      5    98%   161, 167, 361-362, 645
+src/concursos/analytics/dicionario_topicos.py           325     12    96%   82, 84, 90, 104, 158, 283, 321, 344, 517, 580-587
+src/concursos/analytics/evolucao.py                     315      5    98%   214, 223, 252, 325, 700
+src/concursos/analytics/insights.py                     212      4    98%   235, 292, 421-426
+src/concursos/analytics/nome_concurso.py                 89      2    98%   50, 62
+src/concursos/analytics/painel.py                       287     11    96%   130, 146, 180, 232, 261, 299-300, 395, 422-424
+src/concursos/analytics/pistas_edital.py                 27      0   100%
+src/concursos/analytics/regras_edital.py                892     17    98%   279, 508, 516-517, 519, 571, 604, 608, 670, 852, 994, 1171, 1175, 1184, 1282, 1332, 1429
+src/concursos/analytics/taxonomia.py                     54      0   100%
+src/concursos/analytics/tec_estatisticas.py              52      5    90%   46, 49-52
+src/concursos/analytics/validacao_edital.py             113      3    97%   139, 229, 248
+src/concursos/analytics/visualizacao.py                 203      1    99%   247
+src/concursos/aplicacao/__init__.py                       0      0   100%
+src/concursos/aplicacao/analise.py                      133      5    96%   167, 182, 188-189, 233
+src/concursos/aplicacao/atualizador.py                  218     21    90%   55, 75-76, 104-106, 146-147, 173-174, 196, 246-247, 253-269, 391
+src/concursos/aplicacao/cadastro.py                     191     16    92%   51, 63, 68, 74-75, 99-100, 121-122, 150-151, 255-256, 267, 270-271
+src/concursos/aplicacao/captura_tec.py                   28      0   100%
+src/concursos/aplicacao/conferencia.py                  222     21    91%   102-103, 129-130, 132, 244, 252-254, 309-310, 334, 336, 357-364
+src/concursos/aplicacao/dicionario.py                   107      7    93%   99, 138-139, 148, 152, 168-169
+src/concursos/aplicacao/estudo.py                       451     85    81%   95, 100-114, 193, 206, 212-231, 264-266, 276-277, 281-283, 317-322, 330, 358, 361-362, 368-372, 380-386, 390-399, 416-417, 425-426, 436-447, 483-484, 558-564, 572-573, 582, 599-606, 614, 647-649, 655, 709, 722
+src/concursos/aplicacao/exemplo.py                       18      1    94%   32
+src/concursos/aplicacao/ia.py                            31      0   100%
+src/concursos/aplicacao/inicio.py                        71      5    93%   25, 111-114
+src/concursos/aplicacao/integracoes.py                  466     74    84%   91-92, 157, 173, 177, 201-214, 255-262, 279-287, 290, 299-300, 340-341, 346-347, 372, 419-420, 435-436, 457-458, 468-475, 497-498, 502, 534-535, 537, 543, 558-559, 580-581, 615, 622-626, 630, 653, 682-685, 694-701, 704, 709-712, 720, 729-730, 736, 848-849
+src/concursos/aplicacao/nomes.py                         54      3    94%   40, 45-46
+src/concursos/aplicacao/opcoes.py                        27      0   100%
+src/concursos/aplicacao/pratica.py                      204     27    87%   84, 147-148, 186-187, 231-232, 253-259, 266, 286-287, 301, 359, 364-380
+src/concursos/aplicacao/preferencias.py                  49      2    96%   27-28
+src/concursos/aplicacao/projeto.py                       84     11    87%   61, 74, 80-86, 109-110
+src/concursos/aplicacao/resultados.py                    44      1    98%   72
+src/concursos/aplicacao/simulados.py                     48      1    98%   63
+src/concursos/aplicacao/sobre.py                         44      7    84%   36, 42-43, 47, 65, 69, 77
+src/concursos/aplicacao/tec_estudo.py                   114     33    71%   83-103, 117, 155, 178-180, 183-196, 201, 204, 216-217, 227-230
+src/concursos/aplicacao/tec_pci.py                      115     26    77%   47, 65-67, 77, 81-88, 95-97, 109-110, 120, 131, 148-152, 183
+src/concursos/aplicacao/tec_repeticao.py                 92     29    68%   42, 54, 96-100, 133-156
+src/concursos/arquivos.py                                22      0   100%
+src/concursos/assistente.py                              44      1    98%   65
+src/concursos/atualizacao.py                            115     10    91%   72, 121-127, 165-166, 188, 194-195, 201-202
+src/concursos/atualizador.py                            148      2    99%   106, 132
+src/concursos/biblioteca.py                             297     11    96%   74, 87, 206, 228, 264, 366, 371-372, 422-423, 476
+src/concursos/cadastro.py                               296     48    84%   148, 175, 197, 200, 216, 230, 255-262, 290, 298, 302-307, 329, 333-338, 348-354, 357-362, 367-385, 428, 437-438, 443
+src/concursos/caderno.py                                 98      5    95%   44-49, 63, 133
+src/concursos/calibracao.py                              82      8    90%   64, 93-94, 110-112, 120, 130
+src/concursos/candidatos.py                             145     12    92%   67, 136, 157-158, 175-180, 192-199
+src/concursos/cli/__init__.py                            56     14    75%   38-39, 45-48, 59, 63, 67-71, 75-80
+src/concursos/cli/comandos.py                           371     71    81%   124, 174-175, 178, 180, 247, 312-313, 320-322, 333-334, 366, 413, 475-477, 488-489, 520-523, 528-532, 541-545, 571-592, 597-600, 614, 617, 621, 648, 653-654, 673, 675-677, 688-689, 717-720, 725, 733-734, 742
+src/concursos/cli/erros.py                               50      2    96%   51-52
+src/concursos/cli/legado.py                              41      3    93%   32-34
+src/concursos/concurso_config.py                        365     13    96%   51, 153, 259, 305-306, 308, 350, 386, 392, 396, 444, 472, 570
+src/concursos/config/__init__.py                          0      0   100%
+src/concursos/config/contexto.py                        100      1    99%   40
+src/concursos/configuracao.py                            51      3    94%   51-52, 75
+src/concursos/consolidado.py                            119      1    99%   69
+src/concursos/correcao.py                                20      0   100%
+src/concursos/datas.py                                   10      0   100%
+src/concursos/design_tokens.py                            9      0   100%
+src/concursos/deteccao.py                               114     10    91%   113, 116, 118, 124-125, 178-182
+src/concursos/dicionarios/__init__.py                     0      0   100%
+src/concursos/doctor.py                                 155     14    91%   78, 117, 132-133, 157-163, 171, 178, 217-218, 293
+src/concursos/edital.py                                 279      7    97%   139-140, 251, 289, 307, 345, 354
+src/concursos/edital_a_confirmar.py                      52      2    96%   116, 118
+src/concursos/edital_llm.py                             113     19    83%   54, 63-70, 76, 89, 117, 120, 129, 132-133, 135, 149-150, 161-162, 164-165, 171
+src/concursos/empacotado.py                             178     47    74%   95-99, 104-105, 122, 141, 145-146, 182-186, 197-215, 251-268, 272-285
+src/concursos/erros.py                                   26      0   100%
+src/concursos/estudo/__init__.py                          0      0   100%
+src/concursos/estudo/embeddings.py                        9      0   100%
+src/concursos/estudo/instalacao.py                      225     18    92%   103, 129-130, 138, 170, 172, 185, 187, 194, 203-205, 223, 232, 242, 253, 326-327
+src/concursos/estudo/manifesto.py                       116     15    87%   86, 95, 98, 106-107, 109, 114-115, 117, 119, 124-125, 127, 142-143
+src/concursos/estudo/supervisor.py                      311     54    83%   202-205, 218, 221-224, 237-270, 273, 277-281, 287, 400-406, 428-429, 435-436, 445-448, 468, 472, 487, 490-496, 519-527
+src/concursos/exemplo.py                                 17      0   100%
+src/concursos/exportacao.py                              20      0   100%
+src/concursos/folha.py                                  220      6    97%   140, 146, 154, 200, 203, 207
+src/concursos/gabarito.py                               179     33    82%   41, 47, 53, 82, 85, 135, 141, 150, 172-180, 191-195, 200, 204-207, 213-216, 228, 246-247
+src/concursos/graficos.py                                45      0   100%
+src/concursos/gui/__init__.py                             3      0   100%
+src/concursos/gui/app.py                                121      4    97%   178-179, 240, 259
+src/concursos/gui/componentes/__init__.py                 0      0   100%
+src/concursos/gui/componentes/assistente.py              52      0   100%
+src/concursos/gui/componentes/aviso.py                   12      0   100%
+src/concursos/gui/componentes/cartao.py                  10      0   100%
+src/concursos/gui/componentes/consentimento.py           12      0   100%
+src/concursos/gui/componentes/dialogo.py                 20      0   100%
+src/concursos/gui/componentes/estado_vazio.py            11      0   100%
+src/concursos/gui/componentes/etapas.py                  18      0   100%
+src/concursos/gui/componentes/marca.py                   12      0   100%
+src/concursos/gui/componentes/navegacao.py               12      0   100%
+src/concursos/gui/componentes/reanalise.py               55     15    73%   32-34, 48-52, 62, 71-77
+src/concursos/gui/componentes/relatorio.py               20      0   100%
+src/concursos/gui/componentes/seletor_pasta.py           43     34    21%   12-24, 27-37, 40-45, 48, 53-59
+src/concursos/gui/componentes/situacao.py                 8      0   100%
+src/concursos/gui/componentes/toasts.py                  18     11    39%   13, 18, 29-40
+src/concursos/gui/componentes/trecho.py                  22      1    95%   20
+src/concursos/gui/estado.py                              58     10    83%   34, 44-45, 56, 67, 71, 76-79
+src/concursos/gui/interacao.py                           69     16    77%   33-36, 50, 54-56, 84-92
+src/concursos/gui/paginas/__init__.py                     0      0   100%
+src/concursos/gui/paginas/analise.py                    104     12    88%   31, 81-88, 92, 121, 127-136, 177-179
+src/concursos/gui/paginas/concursos.py                  142     12    92%   108-110, 140, 159-161, 179-181, 196-197
+src/concursos/gui/paginas/conferir.py                   164     27    84%   30, 36-44, 66, 69, 86-92, 103, 124, 156-158, 172-178, 196, 210-217, 221-222, 237-238
+src/concursos/gui/paginas/configuracoes.py              291     48    84%   44, 54-55, 116-118, 139-141, 148, 152, 250-252, 267, 277-279, 286-289, 326-328, 341-342, 392, 398-399, 402-404, 408-413, 417, 424-427, 470-473
+src/concursos/gui/paginas/disciplinas_e_temas.py        234     29    88%   39, 72-75, 119, 124-125, 153-154, 157, 163-165, 192-195, 323-326, 334-337, 344-346
+src/concursos/gui/paginas/encontrar.py                  324     76    77%   44, 48, 50, 70-72, 77-82, 162, 175-177, 195-197, 203-206, 216-217, 251-253, 263-265, 273-275, 289-305, 366-369, 378, 383-384, 391, 419, 421-422, 444-450, 464-473, 476-485, 494-496
+src/concursos/gui/paginas/estudar.py                    316     47    85%   62, 75, 88, 105-107, 118-126, 132-134, 145, 147-149, 175, 202, 209-211, 271-274, 280, 361-368, 388-389, 453-454, 471, 484-488, 501
+src/concursos/gui/paginas/inicio.py                      88      8    91%   26, 112-113, 124-127, 141
+src/concursos/gui/paginas/novo_concurso.py              128     11    91%   46, 120, 164, 166-167, 187-190, 220-221
+src/concursos/gui/paginas/projeto.py                     38      7    82%   21, 28-30, 36-38
+src/concursos/gui/paginas/radar.py                       30      3    90%   17, 38-39
+src/concursos/gui/paginas/respostas.py                   60     12    80%   18, 35-36, 67-69, 90-93, 103-104
+src/concursos/gui/paginas/resultados.py                 106     21    80%   38, 43-45, 71-80, 103-106, 171-172, 174, 188-189
+src/concursos/gui/paginas/sobre.py                      195     23    88%   71-73, 132-136, 178-182, 243-246, 249-252, 264-265
+src/concursos/gui/paginas/tec.py                        209     60    71%   47-51, 227-233, 237-246, 250-298
+src/concursos/gui/progresso.py                           53      2    96%   71-72
+src/concursos/gui/tema.py                                55      0   100%
+src/concursos/gui/textos.py                              37      2    95%   23-24
+src/concursos/integracoes/__init__.py                     0      0   100%
+src/concursos/integracoes/cache_pci.py                   62      2    97%   87-88
+src/concursos/integracoes/download_assistido.py          66      4    94%   32, 47, 54-55
+src/concursos/integracoes/open_notebook.py              208     14    93%   132, 242, 246, 250-251, 259, 263, 273-279, 319, 322-323, 333-334
+src/concursos/integracoes/pagina_pci.py                  49      6    88%   69-74
+src/concursos/integracoes/pci_mcp.py                    304      9    97%   200-201, 226-227, 237-238, 248-249, 258
+src/concursos/integracoes/radar_pci.py                  116      8    93%   71, 103-104, 117, 191-198, 203
+src/concursos/integracoes/simulado_pci.py               100      8    92%   50, 52, 55, 121, 131-132, 137, 169
+src/concursos/integracoes/sincronizacao_notebook.py     367     32    91%   179, 200, 208-214, 225, 306, 345-347, 356-358, 374-376, 382-383, 386-387, 392-393, 475, 488-489, 519-521, 528, 541, 547, 550
+src/concursos/integracoes/sincronizacao_pci.py          105     14    87%   42, 50, 52-56, 73, 116-117, 122, 142-143, 155
+src/concursos/janela.py                                  69     20    71%   30-38, 45, 54-69
+src/concursos/legislacao.py                             202     13    94%   65, 115, 168, 178, 233-234, 240-247, 276, 279-280
+src/concursos/linguagem.py                               47      1    98%   104
+src/concursos/linhas.py                                  32      0   100%
+src/concursos/livros/__init__.py                          0      0   100%
+src/concursos/livros/envio.py                           138     13    91%   71-74, 89-91, 165, 169-171, 178, 194
+src/concursos/livros/fila.py                            191      8    96%   204, 221, 260-261, 267, 300-302
+src/concursos/livros/indice.py                           79      1    99%   145
+src/concursos/livros/leitura.py                         146     13    91%   49-50, 111, 122, 126-127, 155-163
+src/concursos/livros/perguntas.py                        55      5    91%   65-68, 75
+src/concursos/livros/validacao.py                        44      2    95%   24-25
+src/concursos/llm.py                                    175     20    89%   132, 143-144, 191-192, 203-215, 276-279, 288-289, 298, 308
+src/concursos/manifesto.py                               46      2    96%   42-43
+src/concursos/migracao.py                               241     17    93%   105-106, 115, 135, 160-161, 185, 194-195, 233-235, 272-273, 329, 373-374
+src/concursos/modelo.py                                 116      0   100%
+src/concursos/municipios.py                              16      0   100%
+src/concursos/onboarding.py                             170     14    92%   184-185, 212, 218, 222-239, 267
+src/concursos/perfis/__init__.py                         71     10    86%   63, 81-82, 102, 105-107, 115-116, 118
+src/concursos/perfis/banca.py                            45      4    91%   51, 53, 71-72
+src/concursos/perfis/ocr.py                              22      3    86%   26, 29, 32
+src/concursos/pipeline.py                               283     14    95%   154, 313-323, 339, 347, 401-403, 520, 556
+src/concursos/planilha_tec.py                           159      8    95%   121, 143, 147, 149, 158-159, 169, 260
+src/concursos/pratica_tec.py                            590     27    95%   116, 121, 124, 152, 171, 201, 237-238, 249, 306, 357-358, 375-376, 378, 397-398, 400, 425, 437, 472, 847, 886, 910, 937, 980, 994
+src/concursos/produto.py                                 31      6    81%   44-45, 50-53
+src/concursos/prova.py                                   91      8    91%   28-34, 79
+src/concursos/relatorio.py                              136      1    99%   152
+src/concursos/relatorio_html.py                         431     52    88%   317-333, 337-342, 350, 415-416, 441, 451, 487-489, 546, 578, 590, 638, 651, 659, 675-699, 708, 711, 828, 851, 860, 937, 946, 1029-1030
+src/concursos/respostas.py                               74      2    97%   64, 75
+src/concursos/resultado_oficial.py                      125      4    97%   123, 164, 187-188
+src/concursos/simulado_focado.py                         97      2    98%   105, 156
+src/concursos/status.py                                  64      1    98%   81
+src/concursos/texto.py                                   68      1    99%   82
+src/concursos/topicos.py                                106      3    97%   210-211, 286
+-----------------------------------------------------------------------------------
+TOTAL                                                 19093   1740    91%
+Coverage JSON written to file docs/arquitetura/metricas-7016502/coverage.json
+--------------------------- snapshot report summary ----------------------------
+11 snapshots passed.
