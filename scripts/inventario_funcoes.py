@@ -91,8 +91,7 @@ def main() -> int:
         fid = f'F-{i:04d}'
         onde = f'`{arquivo}:{linha}`'
         print(  # noqa: T201
-            f'| {fid} | `{qual}` | {onde} | {cam} | {tipo} | '
-            f'{"sim" if privado else "não"} |'
+            f'| {fid} | `{qual}` | {onde} | {cam} | {tipo} | {"sim" if privado else "não"} |'
         )
     print(  # noqa: T201
         f'\nTotal: {len(rows)} funções. Fonte: AST de `src/concursos/`.',
