@@ -75,6 +75,13 @@ dev = [
 empacotamento = [
     "pyinstaller>=6.11",
 ]
+arquitetura = [
+    "interrogate>=1.7",
+    "pydeps>=3.0",
+    "pytest-cov>=6.0",
+    "radon>=6.0",
+    "vulture>=2.14",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
