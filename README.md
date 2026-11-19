@@ -348,6 +348,8 @@ Veja [docs/pendencias.md](docs/pendencias.md) para o detalhe e a ordem sugerida 
 <!-- DESENVOLVIMENTO -->
 ## Desenvolvimento
 
+Mapa as-is da plataforma (funcionalidades, UML, complexidade, gaps): [`docs/arquitetura-plataforma.md`](docs/arquitetura-plataforma.md). Regenerar métricas com o grupo `arquitetura` (Apêndice A do mapa).
+
 Esta parte é para quem usa o app pelo terminal, quer entender os arquivos que ele grava ou vai mexer no código. Quem usa só a janela não precisa de nada daqui.
 
 ### Pré-requisitos
