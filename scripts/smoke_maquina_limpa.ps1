@@ -8,7 +8,7 @@
 # Com -PacoteEstudo, instala também a biblioteca daquele arquivo, envia um PDF ao open-notebook e pergunta.
 #
 # No CI, roda no próprio runner. Antes de publicar uma release, rode também no Windows Sandbox (ou numa VM sem
-# Python nem Tesseract) e siga o checklist de docs/spec-fase6.md.
+# Python nem Tesseract) e siga o checklist de docs/specs/spec-fase6.md.
 param(
     [Parameter(Mandatory = $true)][string]$Instalador,
     [double]$LimitePartida = 0,

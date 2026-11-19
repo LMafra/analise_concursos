@@ -1,6 +1,6 @@
 # Decisões da fase 6
 
-Registro curto das escolhas da fase 6 (Windows e Linux), com o contexto e as alternativas descartadas. A spec está em `docs/spec-fase6.md`.
+Registro curto das escolhas da fase 6 (Windows e Linux), com o contexto e as alternativas descartadas. A spec está em `docs/specs/spec-fase6.md`.
 
 ## 1. Assinatura pela SignPath Foundation
 

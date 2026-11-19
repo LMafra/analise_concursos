@@ -1,5 +1,5 @@
 """O painel de gestão do `index.html`: status de cada prova, cards, pontos fortes e a melhorar, frase de
-evolução e ações sugeridas. Funções puras, sem HTML; as regras estão em `docs/spec-linguagem.md`."""
+evolução e ações sugeridas. Funções puras, sem HTML; as regras estão em `docs/specs/spec-linguagem.md`."""
 
 from dataclasses import dataclass, field
 from enum import StrEnum

@@ -341,12 +341,14 @@ O app só usa a internet quando você liga, e cada opção mostra antes o que sa
 - [ ] Escopo de cargo nos pesos e nas demais buscas do edital
 - [ ] Precedência completa com o `concurso.yaml` (total de questões e pesos)
 
-Veja [docs/pendencias.md](docs/pendencias.md) para o detalhe e a ordem sugerida de cada pendência.
+Veja [docs/produto/pendencias.md](docs/produto/pendencias.md) para o detalhe e a ordem sugerida de cada pendência.
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
 <!-- DESENVOLVIMENTO -->
 ## Desenvolvimento
+
+Índice da documentação: [`docs/README.md`](docs/README.md). Mapa as-is da plataforma (funcionalidades, UML, complexidade, gaps): [`docs/arquitetura-plataforma.md`](docs/arquitetura-plataforma.md). Regenerar métricas com o grupo `arquitetura` (Apêndice A do mapa).
 
 Esta parte é para quem usa o app pelo terminal, quer entender os arquivos que ele grava ou vai mexer no código. Quem usa só a janela não precisa de nada daqui.
 
@@ -742,7 +744,7 @@ uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empaco
 .\scripts\smoke_maquina_limpa.ps1 -Instalador dist\concurso-analise-0.6.0-windows-x64-setup.exe -Relatorio smoke-windows.md
 ```
 
-O último comando instala, confere o WebView2, o executável com o `PATH` sem Python nem Tesseract, o OCR e o tempo de partida, roda a análise sintética e desinstala. O build local sai sem assinatura; só o CI assina, pela SignPath. Antes de publicar uma versão, siga o checklist de máquina limpa de `docs/spec-fase6.md` (Windows Sandbox e VM Windows 10 sem WebView2).
+O último comando instala, confere o WebView2, o executável com o `PATH` sem Python nem Tesseract, o OCR e o tempo de partida, roda a análise sintética e desinstala. O build local sai sem assinatura; só o CI assina, pela SignPath. Antes de publicar uma versão, siga o checklist de máquina limpa de `docs/specs/spec-fase6.md` (Windows Sandbox e VM Windows 10 sem WebView2).
 
 **macOS arm64 (DMG).** Precisa do Homebrew e do uv:
 
@@ -758,7 +760,7 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin /usr/bin/python3 scripts/smoke.py congela
 
 Num build de desenvolvimento sem o Tesseract embutido, `CONCURSO_SMOKE_SEM_OCR=1` dispensa a conferência do OCR no `--smoke`.
 
-**Release.** Uma tag `v*` dispara o `release.yml`: ele gera os instaladores, roda o teste de máquina limpa em cada sistema e cria a release como rascunho, com o `SHA256SUMS`, o manifesto de atualização assinado e o `RELATORIO-SMOKE.md` (o resultado do teste de cada sistema, montado por `scripts/relatorio_smoke.py`). A release só é publicada depois do checklist manual. O passo a passo, com a configuração da chave de atualização e da SignPath, está em [docs/release.md](docs/release.md).
+**Release.** Uma tag `v*` dispara o `release.yml`: ele gera os instaladores, roda o teste de máquina limpa em cada sistema e cria a release como rascunho, com o `SHA256SUMS`, o manifesto de atualização assinado e o `RELATORIO-SMOKE.md` (o resultado do teste de cada sistema, montado por `scripts/relatorio_smoke.py`). A release só é publicada depois do checklist manual. O passo a passo, com a configuração da chave de atualização e da SignPath, está em [docs/release/release.md](docs/release/release.md).
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 
@@ -780,7 +782,7 @@ Num build de desenvolvimento sem o Tesseract embutido, `CONCURSO_SMOKE_SEM_OCR=1
 4. Faça o commit (`git commit -m 'feat: minha mudança'`) e o push (`git push origin feature/minha-mudanca`)
 5. Abra um pull request
 
-O pre-commit roda ruff e pytest antes de cada commit. O workflow de CI (`.github/workflows/ci.yml`) cobre Ubuntu, macOS e Windows com Python 3.11 e 3.12. As especificações estão em `docs/spec*.md`, e o modelo de domínio, em [docs/modelo.md](docs/modelo.md). As regras para agentes estão em [AGENTS.md](AGENTS.md).
+O pre-commit roda ruff e pytest antes de cada commit. O workflow de CI (`.github/workflows/ci.yml`) cobre Ubuntu, macOS e Windows com Python 3.11 e 3.12. As especificações e o restante da documentação estão indexados em [docs/README.md](docs/README.md); o modelo de domínio, em [docs/modelo.md](docs/modelo.md). As regras para agentes estão em [AGENTS.md](AGENTS.md).
 
 <p align="right">(<a href="#readme-top">voltar ao topo</a>)</p>
 

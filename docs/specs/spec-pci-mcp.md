@@ -1,6 +1,6 @@
 # Spec: integração com o PCI Concursos (MCP)
 
-Os fatos do servidor estão em `docs/pesquisa-pci-mcp.md`; os campos de arquivo, em `docs/modelo.md`.
+Os fatos do servidor estão em `docs/pesquisa/pesquisa-pci-mcp.md`; os campos de arquivo, em `docs/modelo.md`.
 
 ## Objetivo
 

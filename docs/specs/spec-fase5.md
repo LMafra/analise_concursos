@@ -1,6 +1,6 @@
 # Spec da fase 5: interface gráfica e executável para usuário leigo
 
-As decisões, com as alternativas descartadas, estão em `docs/decisoes-fase5.md`; os campos de arquivo, em `docs/modelo.md`.
+As decisões, com as alternativas descartadas, estão em `docs/decisoes/decisoes-fase5.md`; os campos de arquivo, em `docs/modelo.md`.
 
 ## Objetivo
 

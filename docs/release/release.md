@@ -36,7 +36,7 @@ Só os binários próprios são assinados; DLLs de terceiros e o desinstalador f
 ## Gerar uma versão
 
 1. Confira que há um pacote de estudo publicado (release `estudo-v*`, do `estudo.yml`) com `app_minimo` menor ou igual à versão nova. Numa tag `v*`, o `release.yml` falha sem ele: o gate de máquina limpa baixa o mais novo e roda `scripts/smoke.py estudo` com o executável (instala a biblioteca do arquivo, envia um PDF com uma página escaneada ao open-notebook e pergunta).
-2. Suba `version` no `pyproject.toml` (PEP 440; `b` e `rc` viram prerelease) e, se quiser notas próprias, escreva `docs/release-v<versão>.md`.
+2. Suba `version` no `pyproject.toml` (PEP 440; `b` e `rc` viram prerelease) e, se quiser notas próprias, escreva `docs/release/release-v<versão>.md`.
 3. Crie e envie a tag `v<versão>`. O `release.yml` gera o instalador do Windows, o AppImage e o DMG, roda o gate de máquina limpa de cada sistema e, depois da aprovação no environment `release`, cria a release como rascunho com os artefatos, o `atualizacao.json` e o `.sig`, o `RELATORIO-SMOKE.md` e o `SHA256SUMS`.
 4. Confira o `RELATORIO-SMOKE.md`: uma seção por sistema, todas com `smoke: ok` e, no Windows e no Linux, a linha da biblioteca.
 5. Rode o checklist de máquina limpa (abaixo) sobre os artefatos do rascunho e registre data, versão e resultado na descrição da release.
@@ -47,7 +47,7 @@ Para só gerar os instaladores, sem tag e sem release: `gh workflow run release.
 
 ## Checklist de máquina limpa
 
-O roteiro do Windows (9 passos) está em "Checklist manual" de [docs/spec-fase6.md](spec-fase6.md). Ele vem depois dos gates automáticos e não os substitui.
+O roteiro do Windows (9 passos) está em "Checklist manual" de [docs/specs/spec-fase6.md](../specs/spec-fase6.md). Ele vem depois dos gates automáticos e não os substitui.
 
 | Ambiente | Para quê | Como deixar limpo |
 |---|---|---|

@@ -1,6 +1,6 @@
 # Spec: linguagem leiga e o index.html como painel de gestão
 
-Tema transversal, não é uma fase. As decisões e as alternativas descartadas estão em `docs/decisoes-linguagem.md`.
+Tema transversal, não é uma fase. As decisões e as alternativas descartadas estão em `docs/decisoes/decisoes-linguagem.md`.
 
 O público é leigo em programação e em ciência de dados: quer saber "como estou saindo" e "o que fazer", não como o cálculo foi feito. Duas frentes, com o mesmo mapa de linguagem:
 
