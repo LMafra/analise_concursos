@@ -82,9 +82,7 @@ def _relativo_src(path: Path) -> str:
 
 def verificar_cc(limiares: dict) -> list[str]:
     falhas: list[str] = []
-    divida = {
-        (item['arquivo'], item['funcao']): item for item in limiares.get('divida', {}).get('cc', [])
-    }
+    divida = {(item['arquivo'], item['funcao']): item for item in limiares.get('divida', {}).get('cc', [])}
     cc_max = int(limiares['cc_maximo'])
     vistos: set[tuple[str, str]] = set()
 
@@ -96,25 +94,21 @@ def verificar_cc(limiares: dict) -> list[str]:
             chave = (rel, nome)
             entrada = divida.get(chave)
             if entrada is None:
-                falhas.append(
-                    f'CC {complexidade} > {cc_max} sem dívida: {rel}:{lineno} {nome}'
-                )
+                falhas.append(f'CC {complexidade} > {cc_max} sem dívida: {rel}:{lineno} {nome}')
                 continue
             if not entrada.get('issue') or not entrada.get('prazo'):
                 falhas.append(f'dívida CC sem issue/prazo: {rel} {nome}')
             permitido = int(entrada['cc_maximo'])
             if complexidade > permitido:
-                falhas.append(
-                    f'CC {complexidade} > dívida {permitido}: {rel}:{lineno} {nome}'
-                )
+                falhas.append(f'CC {complexidade} > dívida {permitido}: {rel}:{lineno} {nome}')
             if complexidade >= 31:
                 falhas.append(f'classe E/F proibida: {rel}:{lineno} {nome} CC {complexidade}')
             vistos.add(chave)
 
-    for chave, entrada in divida.items():
+    for chave, _entrada in divida.items():
         if chave not in vistos:
             # dívida órfã: função já abaixo do limiar global — avisar, não falhar
-            print(f'aviso: dívida CC órfã (já ≤{cc_max}): {chave[0]} {chave[1]}')
+            print(f'aviso: dívida CC órfã (já ≤{cc_max}): {chave[0]} {chave[1]}')  # noqa: T201
     return falhas
 
 
@@ -124,22 +118,17 @@ def verificar_ciclos() -> list[str]:
     for a, b in CICLOS_PROIBIDOS:
         if _importa(grafo, a, b) and _importa(grafo, b, a):
             falhas.append(f'ciclo AST: {a} ↔ {b}')
-    # pipeline fora de aplicacao/tests
     for path in SRC.rglob('*.py'):
         mod = _mod_from_path(path)
-        if mod.startswith('concursos.aplicacao') or mod.startswith('concursos.pipeline'):
-            continue
-        if 'tests' in path.parts:
+        if mod.startswith(('concursos.aplicacao', 'concursos.pipeline')) or 'tests' in path.parts:
             continue
         for dest in grafo.get(mod, ()):
-            if dest == 'concursos.pipeline' or dest.startswith('concursos.pipeline.'):
-                # legado/relatorio não podem importar pipeline
-                if mod.startswith('concursos.cli.legado') or mod == 'concursos.relatorio_html':
-                    falhas.append(f'import de pipeline proibido: {mod} → {dest}')
-                elif not mod.startswith('concursos.pipeline'):
-                    # só aplicacao e o próprio pipeline
-                    if not mod.startswith('concursos.aplicacao'):
-                        falhas.append(f'import de pipeline fora de aplicacao/: {mod} → {dest}')
+            if dest != 'concursos.pipeline' and not dest.startswith('concursos.pipeline.'):
+                continue
+            if mod.startswith('concursos.cli.legado') or mod == 'concursos.relatorio_html':
+                falhas.append(f'import de pipeline proibido: {mod} → {dest}')
+            elif not mod.startswith(('concursos.pipeline', 'concursos.aplicacao')):
+                falhas.append(f'import de pipeline fora de aplicacao/: {mod} → {dest}')
     return falhas
 
 
@@ -150,15 +139,17 @@ def verificar_eferencia_pipeline(limiares: dict) -> list[str]:
     tree = ast.parse(init.read_text(encoding='utf-8'))
     externos: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith('concursos'):
-            if not node.module.startswith('concursos.pipeline'):
-                externos.add(node.module)
+        if (
+            isinstance(node, ast.ImportFrom)
+            and node.module
+            and node.module.startswith('concursos')
+            and not node.module.startswith('concursos.pipeline')
+        ):
+            externos.add(node.module)
     maximo = int(limiares['pipeline_eferencia_max'])
     if len(externos) > maximo:
-        return [
-            f'pipeline eferência {len(externos)} > {maximo}: {", ".join(sorted(externos))}'
-        ]
-    print(f'pipeline eferência direta: {len(externos)} (máx {maximo})')
+        return [f'pipeline eferência {len(externos)} > {maximo}: {", ".join(sorted(externos))}']
+    print(f'pipeline eferência direta: {len(externos)} (máx {maximo})')  # noqa: T201
     return []
 
 
@@ -177,12 +168,11 @@ def verificar_mi(limiares: dict) -> list[str]:
         if mi < falha and mi < piso_divida:
             falhas.append(f'MI {mi:.2f} < falha {falha} e < dívida {piso_divida}: {item["arquivo"]}')
         elif mi < falha and piso_divida <= mi:
-            # ainda na dívida explícita (permite MI baixo até extrair)
-            print(f'aviso: MI {mi:.2f} < {aviso} (dívida): {item["arquivo"]}')
+            print(f'aviso: MI {mi:.2f} < {aviso} (dívida): {item["arquivo"]}')  # noqa: T201
         elif mi < aviso:
-            print(f'aviso: MI {mi:.2f} < {aviso}: {item["arquivo"]}')
+            print(f'aviso: MI {mi:.2f} < {aviso}: {item["arquivo"]}')  # noqa: T201
         else:
-            print(f'MI ok {mi:.2f}: {item["arquivo"]}')
+            print(f'MI ok {mi:.2f}: {item["arquivo"]}')  # noqa: T201
     return falhas
 
 
@@ -190,11 +180,10 @@ def verificar_cobertura(limiares: dict) -> list[str]:
     falhas: list[str] = []
     caminho = COVERAGE_JSON
     if not caminho.exists():
-        # aceita artefato da Fase 0
         alt = RAIZ / 'docs' / 'arquitetura' / 'metricas-7016502' / 'coverage.json'
         caminho = alt if alt.exists() else caminho
     if not caminho.exists():
-        print('aviso: coverage.json ausente; pule cobertura neste run')
+        print('aviso: coverage.json ausente; pule cobertura neste run')  # noqa: T201
         return []
     dados = json.loads(caminho.read_text(encoding='utf-8'))
     total = dados['totals']
@@ -203,7 +192,7 @@ def verificar_cobertura(limiares: dict) -> list[str]:
     if pct < minimo:
         falhas.append(f'cobertura {pct:.4f}% < {minimo}%')
     else:
-        print(f'cobertura {pct:.4f}% (mín {minimo}%)')
+        print(f'cobertura {pct:.4f}% (mín {minimo}%)')  # noqa: T201
     limiar_mod = 60.0
     max_baixos = int(limiares['modulos_abaixo_de_60_max'])
     baixos = []
@@ -217,7 +206,7 @@ def verificar_cobertura(limiares: dict) -> list[str]:
     if len(baixos) > max_baixos:
         falhas.append(f'{len(baixos)} módulos <60% (máx {max_baixos}): {baixos}')
     else:
-        print(f'módulos <60%: {len(baixos)} (máx {max_baixos})')
+        print(f'módulos <60%: {len(baixos)} (máx {max_baixos})')  # noqa: T201
     return falhas
 
 
@@ -230,10 +219,10 @@ def main() -> int:
     falhas += verificar_mi(limiares)
     falhas += verificar_cobertura(limiares)
 
-    print('\n--- resumo saúde ---')
-    print(f'falhas: {len(falhas)}')
+    print('\n--- resumo saúde ---')  # noqa: T201
+    print(f'falhas: {len(falhas)}')  # noqa: T201
     for f in falhas:
-        print(f'  ERRO: {f}')
+        print(f'  ERRO: {f}')  # noqa: T201
     return 1 if falhas else 0
 
 

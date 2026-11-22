@@ -31,11 +31,9 @@ from concursos.pratica.nomes import (
 from concursos.pratica.resolucao import ler_revisao, resolver_assuntos, resolver_cadernos
 from concursos.pratica.tabelas import linhas_de_cadernos, linhas_de_desempenho, linhas_de_erros
 from concursos.pratica.tipos import Escolhas, Pendencia, Pratica, ResultadoPratica
-from concursos.topicos import NAO_MAPEADO
 
 if TYPE_CHECKING:
     from concursos.analytics.dicionario_topicos import Dicionario
-    from concursos.analytics.taxonomia import DisciplinaCanonica
     from concursos.edital import Edital
 
 logger = logging.getLogger(__name__)
@@ -53,7 +51,9 @@ def aviso_materias_sem_disciplina(disciplinas: dict[str, str | None]) -> str | N
 def aviso_sem_edital(concurso_alvo: str | None, tem_assuntos: bool) -> str | None:
     if not tem_assuntos:
         return None
-    motivo = 'sem concurso_alvo em [analise]' if not concurso_alvo else f'{concurso_alvo} sem edital estruturado'
+    motivo = (
+        'sem concurso_alvo em [analise]' if not concurso_alvo else f'{concurso_alvo} sem edital estruturado'
+    )
     return f'prática: {motivo}; os assuntos do TEC ficam sem tópico do edital'
 
 
@@ -165,7 +165,14 @@ def importar_pratica(
     if aviso := aviso_materias_sem_disciplina(disciplinas):
         avisos.append(aviso)
     pendentes, avisos_topicos = resolver_topicos(
-        pratica, disciplinas, concurso_alvo, pasta_candidato, escolhas, revisao, interacao, dicionario,
+        pratica,
+        disciplinas,
+        concurso_alvo,
+        pasta_candidato,
+        escolhas,
+        revisao,
+        interacao,
+        dicionario,
         carregar_edital=carregar_edital,
     )
     avisos.extend(avisos_topicos)

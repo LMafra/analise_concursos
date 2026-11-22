@@ -4,20 +4,9 @@ import re
 from datetime import date
 from pathlib import Path
 
-from concursos.modelo import (
-    LETRAS,
-    Escolaridade,
-    Formato,
-    ModeloCorrecao,
-    Nivel,
-    Pontuacao,
-    StatusGabarito,
-)
-from concursos.perfis import ids_de_banca
-
 from concursos.concurso_config_modelos import (
-    ConfiguracaoInvalidaError,
     ConcursoConfig,
+    ConfiguracaoInvalidaError,
     CorrecaoConfig,
     EditalConfig,
     FaixaDisciplina,
@@ -29,8 +18,19 @@ from concursos.concurso_config_modelos import (
     SimuladoConfig,
     VarianteCorrecaoConfig,
 )
+from concursos.modelo import (
+    LETRAS,
+    Escolaridade,
+    Formato,
+    ModeloCorrecao,
+    Nivel,
+    Pontuacao,
+    StatusGabarito,
+)
+from concursos.perfis import ids_de_banca
 
 _DATA_ISO = re.compile(r'\d{4}-\d{2}-\d{2}')
+
 
 def _respostas_do_yaml(dados: dict) -> dict:
     respostas = dados.get('respostas') or {}
@@ -39,7 +39,9 @@ def _respostas_do_yaml(dados: dict) -> dict:
     return respostas
 
 
-def _campos_obrigatorios_concurso(pasta: Path, dados: dict, provas: tuple[ProvaConfig, ...], formato: Formato):
+def _campos_obrigatorios_concurso(
+    pasta: Path, dados: dict, provas: tuple[ProvaConfig, ...], formato: Formato
+):
     return {
         'nome': dados.get('nome', pasta.name),
         'pasta': pasta,

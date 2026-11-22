@@ -183,9 +183,7 @@ def ler_respostas(
     return [por_questao[q] for q in questoes]
 
 
-def tabela_respostas(
-    config: ConcursoConfig, respostas: list[RespostaMarcada], limiar: float
-) -> pd.DataFrame:
+def tabela_respostas(config: ConcursoConfig, respostas: list[RespostaMarcada], limiar: float) -> pd.DataFrame:
     linhas = []
     for resposta in respostas:
         linhas.append(

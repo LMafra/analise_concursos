@@ -159,9 +159,7 @@ def _pasta_destino_envio(contexto: Contexto, concurso: str | None, papeis: Mappi
     return pasta_do_concurso(contexto, concurso)
 
 
-def _cadastrar_arquivos_prova(
-    opcoes: Opcoes, pasta: Path, da_prova: dict[Path, Papel]
-) -> bool | None:
+def _cadastrar_arquivos_prova(opcoes: Opcoes, pasta: Path, da_prova: dict[Path, Papel]) -> bool | None:
     nova = not pasta.exists()
     copiados = _copiar(list(da_prova), pasta)
     if not da_prova and (pasta / ARQUIVO_CONFIG).exists():

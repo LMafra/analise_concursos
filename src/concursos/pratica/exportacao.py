@@ -16,8 +16,7 @@ def ler_exportacao(caminho: Path) -> tuple[dict, list[str]]:
     if dados.get('v') != VERSAO:
         raise ExportacaoInvalidaError(f'{caminho}: versão {dados.get("v")} do arquivo; esperada {VERSAO}')
     avisos = [
-        f'{caminho}: campo desconhecido ignorado: {campo}'
-        for campo in sorted(set(dados) - CAMPOS_EXPORTACAO)
+        f'{caminho}: campo desconhecido ignorado: {campo}' for campo in sorted(set(dados) - CAMPOS_EXPORTACAO)
     ]
     itens = dados.get('erros') if dados.get('erros') is not None else dados.get('respostas')
     if itens is None:

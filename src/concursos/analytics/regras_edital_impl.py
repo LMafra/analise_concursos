@@ -1225,9 +1225,7 @@ def _corte_em_acertos_no_bloco(achado: _Achado, m) -> list[Corte]:
 
 def _corte_minimo_disciplina(achado: _Achado, m) -> list[Corte]:
     bloco = _bloco_citado(m['alvo']) if m['alvo'] else None
-    return [
-        _corte(achado, m['valor'] or '1', EscopoCorte.DISCIPLINA, UnidadeCorte.ACERTOS, bloco=bloco)
-    ]
+    return [_corte(achado, m['valor'] or '1', EscopoCorte.DISCIPLINA, UnidadeCorte.ACERTOS, bloco=bloco)]
 
 
 def _corte_nota_minima(achado: _Achado, m) -> list[Corte]:
@@ -1292,9 +1290,7 @@ def _cortes_lidos(docs: _Documentos, escopo: _Escopo) -> list[tuple[_Achado, Cor
     ]
 
 
-def _cortes_vencedores(
-    lidos: list[tuple[_Achado, Corte]], ordem: dict[str, int]
-) -> dict[tuple, Corte]:
+def _cortes_vencedores(lidos: list[tuple[_Achado, Corte]], ordem: dict[str, int]) -> dict[tuple, Corte]:
     def na_busca(par: tuple[_Achado, Corte]) -> tuple:
         return ordem[par[0].documento.nome], par[0].match.start()
 

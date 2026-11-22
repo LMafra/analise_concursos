@@ -1,36 +1,22 @@
-import re
-from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 
 import yaml
 
-from concursos.modelo import (
-    LETRAS,
-    Escolaridade,
-    Formato,
-    ModeloCorrecao,
-    Nivel,
-    Pontuacao,
-    StatusGabarito,
-)
-from concursos.perfis import ids_de_banca, perfil_da_banca
+from concursos.modelo import StatusGabarito
 
 ARQUIVO_CONFIG = 'concurso.yaml'
 ARQUIVO_CONFIRMACAO = 'edital_a_confirmar.yaml'
 CAMPOS_CONFIRMAVEIS = ('data_prova', 'alternativas', 'fator_penalidade', 'nota_corte')
 _CAMPOS_DE_CORRECAO = ('fator_penalidade', 'nota_corte')
 
-
-from concursos.concurso_config_modelos import *  # noqa: F403
-from concursos.concurso_config_modelos import (  # noqa: F401
-    _CarregadorSemDatas,
+from concursos.concurso_config_modelos import *  # noqa: E402, F403
+from concursos.concurso_config_modelos import (  # noqa: E402
     ArquivoAusenteError,
-    ConfiguracaoInvalidaError,
     ConcursoConfig,
-    peso_da_questao,
-    pesos_variam,
+    ConfiguracaoInvalidaError,
+    _CarregadorSemDatas,
 )
+from concursos.concurso_config_montagem import _montar  # noqa: E402
 
 
 def carregar_concurso(pasta: Path) -> ConcursoConfig:
@@ -140,27 +126,3 @@ def validar_dados(pasta: Path, dados: dict) -> ConcursoConfig:
         return _montar(pasta, dados)
     except (KeyError, TypeError, ValueError) as erro:
         raise ConfiguracaoInvalidaError(f'{pasta / ARQUIVO_CONFIG}: {erro}') from erro
-
-
-from concursos.concurso_config_montagem import (  # noqa: E402
-    _alternativas,
-    _campos_obrigatorios_concurso,
-    _campos_opcionais_concurso,
-    _data_opcional,
-    _enum,
-    _montar,
-    _montar_correcao,
-    _montar_edital,
-    _montar_folha,
-    _montar_pesos,
-    _montar_prova,
-    _montar_resultado,
-    _montar_simulado,
-    _montar_variantes,
-    _numero_opcional,
-    _obrigatorio,
-    _opcao,
-    _respostas_do_yaml,
-    _texto_opcional,
-    _validar_faixas_disjuntas,
-)

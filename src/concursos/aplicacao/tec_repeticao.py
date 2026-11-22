@@ -89,7 +89,10 @@ def listar_erros(
     """Lista questões com resultado=erro. `itens_completos` traz enun/alts (da prática mesclada)."""
     linhas = _ler_itens_completos(_pasta_pratica(opcoes))
     por_id = {i.get('id'): i for i in (itens_completos or []) if i.get('id')}
-    return [_questao_para_repetir(linha, por_id.get(linha['id'], {})) for linha in _erros_filtrados(linhas, assunto)]
+    return [
+        _questao_para_repetir(linha, por_id.get(linha['id'], {}))
+        for linha in _erros_filtrados(linhas, assunto)
+    ]
 
 
 def carregar_erros_da_pratica(opcoes: Opcoes, assunto: str | None = None) -> list[QuestaoParaRepetir]:

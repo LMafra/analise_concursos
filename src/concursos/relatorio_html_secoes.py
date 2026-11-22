@@ -46,6 +46,7 @@ from concursos.analytics.painel import (
 from concursos.analytics.regras_edital import UnidadeCorte
 from concursos.analytics.validacao_edital import ARQUIVO_DISCREPANCIAS
 from concursos.analytics.visualizacao import rotulo_com_variante
+from concursos.artefatos import ARQUIVO_RESPOSTAS
 from concursos.biblioteca import ARQUIVO_RECOMENDACOES
 from concursos.concurso_config import ARQUIVO_CONFIG, carregar_concurso, ler_dados
 from concursos.consolidado import MINIMO_CONCURSOS, PASTA_CONSOLIDADO
@@ -55,7 +56,6 @@ from concursos.design_tokens import css_root_do_relatorio
 from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO
 from concursos.integracoes.radar_pci import ARQUIVO_RADAR
 from concursos.linguagem import SELOS, percentual, plural, traduzir_aviso
-from concursos.artefatos import ARQUIVO_RESPOSTAS
 from concursos.pratica_tec import ARQUIVO_RESUMO, PASTA_PRATICA
 from concursos.relatorio import TITULO_DETALHES_TECNICOS
 from concursos.resultado_oficial import formatar

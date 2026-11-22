@@ -5,11 +5,11 @@ Implementação em `relatorio_html_secoes` (extraída para manter o MI do módul
 """
 
 from concursos.relatorio_html_secoes import (  # noqa: F401
+    _CSS,
     ARQUIVO_INDICE,
     ARQUIVO_RELATORIO_HTML,
     ConcursoNoIndice,
     Observacao,
-    _CSS,
     _no_wsl,
     abrir_no_navegador,
     gerar_relatorio_html,

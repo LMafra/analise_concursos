@@ -1,6 +1,5 @@
 """Cobertura das etapas privadas do pipeline (ramos raros pós-extração)."""
 
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest

@@ -87,7 +87,9 @@ def _aplicar_expansao(
         replace(c, documento=expansao.documento(c.disciplina, c.topico, c.documento)) for c in candidatos
     ]
     textos_exp = {
-        questao: expansao.texto(texto, permitidas.get(disciplinas[questao]) if questao in disciplinas else None)
+        questao: expansao.texto(
+            texto, permitidas.get(disciplinas[questao]) if questao in disciplinas else None
+        )
         if texto.strip()
         else texto
         for questao, texto in textos.items()

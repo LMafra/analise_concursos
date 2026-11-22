@@ -65,9 +65,7 @@ class MapaBiblioteca:
         return sorted({categoria for categorias in self.disciplinas.values() for categoria in categorias})
 
 
-def _disciplinas_do_mapa(
-    dados: dict, arquivo: Path, canonicas: list[str]
-) -> dict[str, tuple[str, ...]]:
+def _disciplinas_do_mapa(dados: dict, arquivo: Path, canonicas: list[str]) -> dict[str, tuple[str, ...]]:
     disciplinas: dict[str, tuple[str, ...]] = {}
     for disciplina, categorias in (dados.get('disciplinas') or {}).items():
         if canonicas and disciplina not in canonicas:

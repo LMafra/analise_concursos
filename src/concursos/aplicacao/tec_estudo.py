@@ -14,7 +14,13 @@ from concursos.integracoes.open_notebook import (
     OpenNotebookIndisponivelError,
     ler_configuracao,
 )
-from concursos.pratica_tec import RESULTADO_ACERTO, RESULTADO_ERRO, ler_entrada, resultado_questao, tipo_questao
+from concursos.pratica_tec import (
+    RESULTADO_ACERTO,
+    RESULTADO_ERRO,
+    ler_entrada,
+    resultado_questao,
+    tipo_questao,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -270,9 +276,7 @@ def _gerar_similares(
             contadores.similares += 1
 
 
-def _persistir_resumo(
-    cliente: ClienteOpenNotebook, notebook_id: str, candidato: str, pasta_cand
-) -> None:
+def _persistir_resumo(cliente: ClienteOpenNotebook, notebook_id: str, candidato: str, pasta_cand) -> None:
     from concursos.analytics.tec_estatisticas import markdown_resumo
 
     resumo_md = markdown_resumo(pasta_cand)

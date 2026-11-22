@@ -48,9 +48,7 @@ def sugerir_com_ou_sem_dicionario(edital, textos_questoes, conhecidas, dicionari
         return sugerir_topicos(edital, textos_questoes, conhecidas)
     from concursos.analytics.dicionario_topicos import sugerir_com_dicionario
 
-    return sugerir_com_dicionario(
-        edital, textos_questoes, conhecidas, dicionario, sugerir_topicos, canonicas
-    )
+    return sugerir_com_dicionario(edital, textos_questoes, conhecidas, dicionario, sugerir_topicos, canonicas)
 
 
 def aplicar_sugestoes(resultados: pd.DataFrame, sugestoes: dict, com_dicionario: bool) -> None:

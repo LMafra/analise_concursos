@@ -140,7 +140,9 @@ def _dica_da_falha(erro: OpenNotebookIndisponivelError, gerenciada: bool) -> str
     return erro.dica or DICA_INSTANCIA
 
 
-def _exigir_sincronizacao_notebook(contexto: Contexto, configuracao: ConfiguracaoOpenNotebook, opcoes: Opcoes):
+def _exigir_sincronizacao_notebook(
+    contexto: Contexto, configuracao: ConfiguracaoOpenNotebook, opcoes: Opcoes
+):
     gerenciada = not configuracao.ativa and estudo.situacao_do_estudo(contexto).preparado
     if not configuracao.ativa and not gerenciada:
         raise ErroDoUsuario(
@@ -367,9 +369,7 @@ def alvos_do_candidato(contexto: Contexto) -> tuple[tuple[str, ...], str]:
         ) from erro
 
 
-def _uf_filtro_pci(
-    contexto: Contexto, configuracao: ConfiguracaoPciMcp, uf: str | None
-) -> str:
+def _uf_filtro_pci(contexto: Contexto, configuracao: ConfiguracaoPciMcp, uf: str | None) -> str:
     _, uf_alvo = alvos_do_candidato(contexto)
     try:
         return validar_uf(uf if uf is not None else (uf_alvo or configuracao.uf), '--uf')
@@ -707,9 +707,7 @@ def _arquivos_pci_ou_vazio(link: str, configuracao: ConfiguracaoPciMcp) -> list:
         return []
 
 
-def _finalizar_importacao_simulado(
-    opcoes: Opcoes, pasta: Path, encontrados: dict[str, Path]
-) -> int:
+def _finalizar_importacao_simulado(opcoes: Opcoes, pasta: Path, encontrados: dict[str, Path]) -> int:
     for copiado in download_assistido.importar(encontrados, pasta):
         opcoes.saida(f'importado: {copiado}')
     try:

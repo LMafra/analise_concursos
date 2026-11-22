@@ -474,7 +474,9 @@ def _notebooks_por_concurso(
         documentos, ausentes = artefatos_do_concurso(pasta, nome)
         sincronizador.relatorio.avisos += [f'{nome}: {arquivo} não encontrado' for arquivo in ausentes]
         nota = resumo_do_concurso(pasta, nome, limiar)
-        if notebook_id := sincronizador.notebook(f'{prefixo}{nome}', f'{nome} — {rotulo}', documentos, [nota]):
+        if notebook_id := sincronizador.notebook(
+            f'{prefixo}{nome}', f'{nome} — {rotulo}', documentos, [nota]
+        ):
             notebooks[nome] = notebook_id
     return notebooks
 
@@ -526,7 +528,9 @@ def _sincronizar_consolidado_e_caderno(
         Documento(f'erros/{disciplina}', titulo_da_source(PASTA_CADERNO_DE_ERROS, disciplina), texto)
         for disciplina, texto in sorted(caderno_de_erros.items())
     ]
-    sincronizador.notebook(f'{prefixo}{CHAVE_CADERNO_DE_ERROS}', f'Caderno de erros — {rotulo}', documentos, [])
+    sincronizador.notebook(
+        f'{prefixo}{CHAVE_CADERNO_DE_ERROS}', f'Caderno de erros — {rotulo}', documentos, []
+    )
 
 
 def sincronizar_candidato(

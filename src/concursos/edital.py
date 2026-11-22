@@ -270,9 +270,7 @@ def _bloco_especificos(itens: list[_Item], escolhido: int) -> list[_Item]:
     return itens[inicio:fim]
 
 
-def _secoes_com_cargo(
-    itens: list[_Item], cabecalhos: list[int], escolhido: int, cargo: str
-) -> list[_Secao]:
+def _secoes_com_cargo(itens: list[_Item], cabecalhos: list[int], escolhido: int, cargo: str) -> list[_Secao]:
     restricao = _Restricao(cargo, itens[escolhido].texto)
     secoes = []
     gerais = [c for c in cabecalhos if c < escolhido and itens[c].texto != ESPECIFICOS]
@@ -280,7 +278,14 @@ def _secoes_com_cargo(
         secoes.append(
             _Secao(itens[gerais[-1]].texto, None, _ate_proximo_cabecalho(itens, gerais[-1]), restricao)
         )
-    secoes.append(_Secao(ESPECIFICOS, titulo_legivel(itens[escolhido].texto), _bloco_especificos(itens, escolhido), restricao))
+    secoes.append(
+        _Secao(
+            ESPECIFICOS,
+            titulo_legivel(itens[escolhido].texto),
+            _bloco_especificos(itens, escolhido),
+            restricao,
+        )
+    )
     return secoes
 
 

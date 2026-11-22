@@ -92,7 +92,9 @@ def _do_arquivo(config: ConcursoConfig) -> tuple[str, str] | None:
     return None
 
 
-def _nome_pelo_edital(config: ConcursoConfig, identificacao: Mapping | None, subtitulo: str) -> NomeDoConcurso | None:
+def _nome_pelo_edital(
+    config: ConcursoConfig, identificacao: Mapping | None, subtitulo: str
+) -> NomeDoConcurso | None:
     titulo = titulo_pelo_edital(identificacao)
     fonte = _fonte(identificacao, 'sigla' if _valor(identificacao, 'sigla') else 'nome_oficial')
     if titulo and fonte in FONTES_CONFIRMADAS:

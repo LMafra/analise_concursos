@@ -622,7 +622,12 @@ def sugerir_termos(
                 for termo, n in contagem.items()
                 if _candidato_termo_valido(termo, n, ja, cobertas, d_slug, t_slug, dicionario, nome_topico)
             ),
-            key=lambda item: (-item[1], _outros_topicos(item[0], chave_topico), -len(item[0].split()), item[0]),
+            key=lambda item: (
+                -item[1],
+                _outros_topicos(item[0], chave_topico),
+                -len(item[0].split()),
+                item[0],
+            ),
         )
         for termo, n in candidatos[:MAXIMO_SUGESTOES_POR_TOPICO]:
             sugestoes.append(

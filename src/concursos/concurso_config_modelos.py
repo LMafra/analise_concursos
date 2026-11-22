@@ -17,6 +17,7 @@ from concursos.modelo import (
 )
 from concursos.perfis import perfil_da_banca
 
+
 class _CarregadorSemDatas(yaml.SafeLoader):
     """Datas chegam como texto, para que uma data inválida vire erro de validação com o nome do campo."""
 
@@ -226,4 +227,3 @@ class ConcursoConfig:
     def n_alternativas(self) -> int | None:
         """O do concurso; sem ele, o do perfil da banca; sem os dois, o padrão do formato."""
         return self.alternativas or perfil_da_banca(self.banca).alternativas
-

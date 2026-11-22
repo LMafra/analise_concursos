@@ -26,7 +26,9 @@ def _ler(caminho: Path) -> list[dict]:
         return list(csv.DictReader(arquivo))
 
 
-def _frases_resumo_pratica(pasta: Path, por_mat: Counter, por_ass: Counter, tentativas: list[dict]) -> list[str]:
+def _frases_resumo_pratica(
+    pasta: Path, por_mat: Counter, por_ass: Counter, tentativas: list[dict]
+) -> list[str]:
     frases: list[str] = []
     if por_mat:
         mat, n = por_mat.most_common(1)[0]

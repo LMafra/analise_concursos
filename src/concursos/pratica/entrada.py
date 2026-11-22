@@ -48,9 +48,7 @@ def _incorporar_arquivo(pratica: Pratica, dados: dict, aviso: list[str], *, impr
 
 def _filtrar_removidos(erros: list[dict], estado: dict) -> list[dict]:
     removidos = set(estado.get('removidos') or [])
-    return [
-        e for e in erros if e['id'] not in removidos and f'fp:{e.get("fp")}' not in removidos
-    ]
+    return [e for e in erros if e['id'] not in removidos and f'fp:{e.get("fp")}' not in removidos]
 
 
 def _avisos_arquivo_invalido(caminho: Path, erro: Exception) -> str:

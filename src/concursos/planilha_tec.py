@@ -251,9 +251,7 @@ def _slug(texto: str) -> str:
     return re.sub(r'[^a-z0-9]+', '-', normalizar(texto)).strip('-') or 'sem-materia'
 
 
-def _erro_da_linha_planilha(
-    linha: dict[str, str], valor, materia: str, dia: str, erros: list[dict]
-) -> dict:
+def _erro_da_linha_planilha(linha: dict[str, str], valor, materia: str, dia: str, erros: list[dict]) -> dict:
     enunciado = valor(linha, 'enunciado')
     codigo = re.sub(r'\D', '', enunciado) if re.fullmatch(r'[#\s\d]+', enunciado or 'x') else ''
     base = enunciado or f'{materia} {valor(linha, "assunto")} {len(erros)}'
