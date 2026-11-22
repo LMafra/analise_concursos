@@ -16,13 +16,13 @@ def test_sem_extras_o_manifesto_e_o_mesmo(tmp_path):
     (pasta / 'concurso.yaml').write_text('nome: alfa\n', encoding='utf-8')
     ausente = tmp_path / 'taxonomia.yaml'
 
-    assert manifesto.calcular(pasta, extras={'.concurso/taxonomia.yaml': ausente}) == manifesto.calcular(
+    assert manifesto.calcular(pasta, extras={'.gabarito-vivo/taxonomia.yaml': ausente}) == manifesto.calcular(
         pasta
     )
 
     ausente.write_text('{}\n', encoding='utf-8')
-    com_extra = manifesto.calcular(pasta, extras={'.concurso/taxonomia.yaml': ausente})
-    assert '.concurso/taxonomia.yaml' in com_extra['arquivos']
+    com_extra = manifesto.calcular(pasta, extras={'.gabarito-vivo/taxonomia.yaml': ausente})
+    assert '.gabarito-vivo/taxonomia.yaml' in com_extra['arquivos']
 
 
 @pytest.fixture

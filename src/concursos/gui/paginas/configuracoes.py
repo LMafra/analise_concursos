@@ -40,8 +40,11 @@ EXPLICACAO_ALVO = (
 
 
 def pagina(secao: str | None = None) -> None:
+    from concursos.gui.componentes.navegacao import breadcrumb
+
     if not exigir_projeto():
         return
+    breadcrumb(('Configurações', None))
     with ui.column().classes('w-full max-w-2xl').style(tema.gap('lg')):
         ui.label('Configurações').classes('text-2xl font-bold')
         with cartao('Seus dados pertencem a você', icone='lock'):

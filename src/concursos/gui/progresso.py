@@ -73,7 +73,7 @@ class HandlerDoPainel(logging.Handler):
 
 
 def arquivo_de_log() -> str | None:
-    """O arquivo que a CLI configurou em `~/.concurso/logs/`, se houver."""
+    """O arquivo que a CLI configurou em `~/.gabarito-vivo/logs/`, se houver."""
     for handler in logging.getLogger('concursos').handlers:
         if isinstance(handler, logging.FileHandler):
             return handler.baseFilename

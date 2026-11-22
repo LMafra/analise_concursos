@@ -22,7 +22,7 @@ PROVAS = [
 @pytest.fixture
 def contexto(tmp_path: Path):
     (tmp_path / 'provas').mkdir()
-    return resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.concurso')
+    return resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.gabarito-vivo')
 
 
 def roteiro(monkeypatch, efeitos: dict) -> list[int]:

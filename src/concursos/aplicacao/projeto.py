@@ -25,7 +25,7 @@ def exigir_provas(raiz_provas: Path) -> None:
     if not raiz_provas.is_dir():
         raise ErroDoUsuario(
             f'Não encontrei a pasta onde ficam suas provas ({raiz_provas}).',
-            'cadastre um concurso pela janela (Novo concurso) ou com concurso-analise add, ou indique a pasta '
+            'cadastre um concurso pela janela (Novo concurso) ou com gabarito-vivo add, ou indique a pasta '
             'com --provas.',
         )
 
@@ -61,7 +61,7 @@ def candidatos_da_execucao(contexto: Contexto, todos: bool) -> list[str | None]:
         raise ErroDoUsuario(
             'Ainda não há respostas de nenhum candidato.',
             'acrescente a folha de respostas pela janela (Novo concurso) ou com '
-            'concurso-analise add <arquivo> --candidate <nome> --concurso <pasta>.',
+            'gabarito-vivo add <arquivo> --candidate <nome> --concurso <pasta>.',
             'nenhum candidato em provas/<concurso>/candidatos/',
         )
     return list(candidatos)
@@ -73,7 +73,7 @@ def concurso_do_arquivo(raiz_provas: Path, arquivo: Path, concurso: str | None) 
         if not pasta.is_dir():
             raise ErroDoUsuario(
                 f'Não encontrei o concurso {concurso}.',
-                'use em --concurso o nome de um concurso já cadastrado (veja concurso-analise status).',
+                'use em --concurso o nome de um concurso já cadastrado (veja gabarito-vivo status).',
                 f'pasta {pasta} não existe',
             )
         return pasta
@@ -101,7 +101,7 @@ def concurso_alvo(contexto: Contexto, nome: str) -> ConcursoConfig:
     if not pasta.is_dir():
         raise ErroDoUsuario(
             f'Não encontrei o concurso {nome}.',
-            'escolha um concurso já cadastrado (veja concurso-analise status).',
+            'escolha um concurso já cadastrado (veja gabarito-vivo status).',
             f'pasta {pasta} não existe',
         )
     try:
@@ -109,7 +109,7 @@ def concurso_alvo(contexto: Contexto, nome: str) -> ConcursoConfig:
     except (ConfiguracaoInvalidaError, FileNotFoundError) as erro:
         raise ErroDoUsuario(
             f'Não consegui ler o cadastro do concurso {nome}.',
-            f'cadastre-o de novo pela janela ou com concurso-analise add {pasta}.',
+            f'cadastre-o de novo pela janela ou com gabarito-vivo add {pasta}.',
             str(erro),
         ) from erro
 

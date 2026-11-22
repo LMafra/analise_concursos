@@ -35,8 +35,11 @@ ABA_TEMAS = 'temas'
 
 
 def pagina(aba: str | None = None) -> None:
+    from concursos.gui.componentes.navegacao import breadcrumb
+
     if not exigir_projeto():
         return
+    breadcrumb(('Configurações', '/configuracoes'), ('Disciplinas e temas', None))
     with ui.column().classes('w-full max-w-4xl').style(tema.gap('md')):
         with ui.row().classes('items-center').style(tema.gap('sm')):
             ui.button(icon='arrow_back', on_click=lambda: ui.navigate.to('/configuracoes')).props(

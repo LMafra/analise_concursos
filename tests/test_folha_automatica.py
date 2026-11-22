@@ -57,10 +57,10 @@ def test_sem_template_a_analise_usa_a_deteccao_automatica(raizes):
 
     assert analisar(provas, analises) == 0
 
-    respostas = ler_csv(analises / 'ficticia' / 'respostas_extraidas.csv').set_index('questao')
+    respostas = ler_csv(analises / 'candidato' / 'ficticia' / 'respostas_extraidas.csv').set_index('questao')
     assert all(respostas.loc[q, 'alternativa_marcada'] == MARCAS[q] for q in range(1, TOTAL + 1) if q != 5)
     assert respostas['revisar'].tolist() == [q == 5 for q in range(1, TOTAL + 1)]
-    assert (analises / 'ficticia' / 'depuracao' / 'folha_p1.png').exists()
+    assert (analises / 'candidato' / 'ficticia' / 'depuracao' / 'folha_p1.png').exists()
 
 
 def test_perfil_que_nao_le_a_folha_cai_na_deteccao_automatica(raizes, caplog):
@@ -77,7 +77,7 @@ def test_perfil_que_nao_le_a_folha_cai_na_deteccao_automatica(raizes, caplog):
         assert analisar(provas, analises) == 0
 
     assert 'detecção automática' in log_completo(caplog)
-    respostas = ler_csv(analises / 'ficticia' / 'respostas_extraidas.csv')
+    respostas = ler_csv(analises / 'candidato' / 'ficticia' / 'respostas_extraidas.csv')
     assert ''.join(respostas['alternativa_marcada']) == ''.join(MARCAS[q] for q in range(1, TOTAL + 1))
 
 
@@ -97,4 +97,4 @@ def test_grade_nao_detectada_nao_interrompe_os_outros_concursos(raizes, caplog):
     assert analisar(provas, analises) == 1
 
     assert 'dica:' in log_completo(caplog)
-    assert (analises / 'ficticia' / 'respostas_extraidas.csv').exists()
+    assert (analises / 'candidato' / 'ficticia' / 'respostas_extraidas.csv').exists()

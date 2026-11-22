@@ -1,5 +1,6 @@
+import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from concursos.assistente import Interacao, InteracaoAutomatica
 from concursos.config.contexto import Contexto
@@ -31,6 +32,7 @@ class Opcoes:
     interacao: Interacao | None = None
     ao_progresso: Progresso | None = None
     ao_etapa: AoEtapa | None = None
+    cancelar: threading.Event | None = field(default=None)
 
     def interacao_ou_automatica(self) -> Interacao:
         return self.interacao if self.interacao is not None else InteracaoAutomatica()

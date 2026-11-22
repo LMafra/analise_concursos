@@ -1,9 +1,9 @@
 """Smoke test de ponta a ponta num concurso sintético. Só usa a biblioteca padrão, para rodar antes da instalação.
 
 Uso:
-    python scripts/smoke.py                                   # usa o concurso-analise do PATH
-    python scripts/smoke.py uvx --from . concurso-analise     # o que o candidato roda
-    python scripts/smoke.py congelado <concurso-analise-cli>  # o executável do PyInstaller
+    python scripts/smoke.py                                   # usa o gabarito-vivo do PATH
+    python scripts/smoke.py uvx --from . gabarito-vivo     # o que o candidato roda
+    python scripts/smoke.py congelado <gabarito-vivo-cli>  # o executável do PyInstaller
     python scripts/smoke.py estudo <pacote> [comando...]      # a biblioteca com o pacote de estudo
     python scripts/smoke.py fixture <destino.pdf>             # só o PDF do modo estudo, para o checklist manual
 
@@ -63,7 +63,7 @@ def montar_projeto(raiz: Path) -> None:
 
 
 def rodar(comando: list[str], raiz: Path, *argumentos: str, limite: int = LIMITE_SEGUNDOS) -> float:
-    ambiente = {**os.environ, 'CONCURSO_HOME': str(raiz / 'home'), 'CI': 'true', 'NO_COLOR': '1'}
+    ambiente = {**os.environ, 'GABARITO_VIVO_HOME': str(raiz / 'home'), 'CI': 'true', 'NO_COLOR': '1'}
     inicio = time.monotonic()
     resultado = subprocess.run([*comando, *argumentos], cwd=raiz, env=ambiente, timeout=limite, check=False)
     duracao = time.monotonic() - inicio
@@ -73,7 +73,7 @@ def rodar(comando: list[str], raiz: Path, *argumentos: str, limite: int = LIMITE
 
 
 def capturar(comando: list[str], raiz: Path, *argumentos: str, limite: int = LIMITE_SEGUNDOS) -> str:
-    ambiente = {**os.environ, 'CONCURSO_HOME': str(raiz / 'home'), 'CI': 'true', 'NO_COLOR': '1'}
+    ambiente = {**os.environ, 'GABARITO_VIVO_HOME': str(raiz / 'home'), 'CI': 'true', 'NO_COLOR': '1'}
     resultado = subprocess.run(
         [*comando, *argumentos],
         cwd=raiz,
@@ -107,7 +107,7 @@ def main(comando: list[str]) -> None:
         montar_projeto(raiz)
 
         rodar(comando, raiz, '--dry-run', '--yes')
-        if (raiz / 'analises').exists() or (raiz / '.concurso').exists():
+        if (raiz / 'analises').exists() or (raiz / '.gabarito-vivo').exists():
             falhar('--dry-run num projeto novo gravou arquivos')
 
         duracao = rodar(comando, raiz, '--yes', '--no-open', '--candidate', CANDIDATO)
@@ -271,6 +271,6 @@ if __name__ == '__main__':
     elif argumentos[:1] == ['fixture'] and len(argumentos) == 2:
         pdf_de_fixture(Path(argumentos[1]))
     elif argumentos[:1] == ['estudo'] and len(argumentos) >= 2:
-        estudo(argumentos[1], argumentos[2:] or ['concurso-analise'])
+        estudo(argumentos[1], argumentos[2:] or ['gabarito-vivo'])
     else:
-        main(argumentos or ['concurso-analise'])
+        main(argumentos or ['gabarito-vivo'])

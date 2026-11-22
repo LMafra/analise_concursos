@@ -54,11 +54,34 @@ def test_taxonomia_vazia_vira_none(tmp_path, monkeypatch):
 def test_diff_sem_preliminar_apaga_arquivo(tmp_path, monkeypatch):
     import pandas as pd
 
-    diff = tmp_path / 'diff_gabarito.csv'
+    leitura, destino = tmp_path / 'leitura', tmp_path / 'destino'
+    leitura.mkdir()
+    destino.mkdir()
+    diff = destino / 'diff_gabarito.csv'
     diff.write_text('a\n', encoding='utf-8')
     monkeypatch.setattr(regras, 'questoes_preliminares', lambda _: None)
-    assert regras.diff_da_troca(tmp_path, pd.DataFrame()) is None
+    assert regras.diff_da_troca(leitura, pd.DataFrame(), destino) is None
     assert not diff.exists()
+
+
+def test_promover_preserva_historico_mesmo_com_historico_na_temporaria(tmp_path):
+    from concursos.atualizacao import PASTA_HISTORICO
+    from concursos.pipeline import nucleo
+
+    destino = tmp_path / 'final'
+    temporaria = tmp_path / '.tmp-final'
+    destino.mkdir()
+    temporaria.mkdir()
+    (destino / PASTA_HISTORICO / 'antes').mkdir(parents=True)
+    (destino / PASTA_HISTORICO / 'antes' / 'relatorio.md').write_text('velho', encoding='utf-8')
+    (temporaria / PASTA_HISTORICO / 'lixo').mkdir(parents=True)
+    (temporaria / 'relatorio.md').write_text('novo', encoding='utf-8')
+
+    nucleo._promover(temporaria, destino)
+
+    assert (destino / 'relatorio.md').read_text(encoding='utf-8') == 'novo'
+    assert (destino / PASTA_HISTORICO / 'antes' / 'relatorio.md').read_text(encoding='utf-8') == 'velho'
+    assert not (destino / PASTA_HISTORICO / 'lixo').exists()
 
 
 def test_caderno_ausente_avisa(tmp_path):

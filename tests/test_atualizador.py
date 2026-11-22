@@ -31,12 +31,12 @@ def manifesto(**mudancas) -> dict:
         'notas': 'https://github.com/LMafra/analise_concursos/releases/tag/v0.6.0',
         'artefatos': {
             'windows-x64': {
-                'arquivo': 'concurso-analise-0.6.0-windows-x64-setup.exe',
+                'arquivo': 'gabarito-vivo-0.6.0-windows-x64-setup.exe',
                 'sha256': 'a' * 64,
                 'tamanho': 1000,
             },
             'linux-x86_64': {
-                'arquivo': 'concurso-analise-0.6.0-linux-x86_64.AppImage',
+                'arquivo': 'gabarito-vivo-0.6.0-linux-x86_64.AppImage',
                 'sha256': 'b' * 64,
                 'tamanho': 2000,
             },
@@ -101,7 +101,7 @@ def test_le_o_manifesto_valido():
         {
             'artefatos': {
                 'windows-x64': {
-                    'arquivo': 'concurso-analise-0.6.0-windows-x64-setup.exe',
+                    'arquivo': 'gabarito-vivo-0.6.0-windows-x64-setup.exe',
                     'sha256': 'zz',
                     'tamanho': 1,
                 }
@@ -110,7 +110,7 @@ def test_le_o_manifesto_valido():
         {
             'artefatos': {
                 'windows-x64': {
-                    'arquivo': 'concurso-analise-0.6.0-windows-x64-setup.exe',
+                    'arquivo': 'gabarito-vivo-0.6.0-windows-x64-setup.exe',
                     'sha256': 'a' * 64,
                     'tamanho': 0,
                 }
@@ -119,7 +119,7 @@ def test_le_o_manifesto_valido():
         {
             'artefatos': {
                 'windows-x64': {
-                    'arquivo': 'concurso-analise-0.6.0-linux-x86_64.AppImage',
+                    'arquivo': 'gabarito-vivo-0.6.0-linux-x86_64.AppImage',
                     'sha256': 'a' * 64,
                     'tamanho': 1,
                 }
@@ -180,7 +180,7 @@ def test_url_do_artefato_vem_da_base_da_release_e_do_arquivo():
 
     assert url == (
         'https://github.com/LMafra/analise_concursos/releases/download/v0.6.0/'
-        'concurso-analise-0.6.0-windows-x64-setup.exe'
+        'gabarito-vivo-0.6.0-windows-x64-setup.exe'
     )
 
 
@@ -262,11 +262,11 @@ def test_estado_corrompido_conta_como_vencido(tmp_path):
 
 
 def test_montar_manifesto_le_os_arquivos_da_release(tmp_path):
-    setup = tmp_path / 'concurso-analise-0.6.0b1-windows-x64-setup.exe'
+    setup = tmp_path / 'gabarito-vivo-0.6.0b1-windows-x64-setup.exe'
     setup.write_bytes(b'windows')
-    appimage = tmp_path / 'concurso-analise-0.6.0b1-linux-x86_64.AppImage'
+    appimage = tmp_path / 'gabarito-vivo-0.6.0b1-linux-x86_64.AppImage'
     appimage.write_bytes(b'linux!')
-    (tmp_path / 'concurso-analise-0.6.0b1-macos-arm64.dmg').write_bytes(b'mac')
+    (tmp_path / 'gabarito-vivo-0.6.0b1-macos-arm64.dmg').write_bytes(b'mac')
 
     conteudo = atualizador.montar_manifesto('0.6.0b1', '2026-12-01', sorted(tmp_path.iterdir()))
 
@@ -281,12 +281,12 @@ def test_montar_manifesto_le_os_arquivos_da_release(tmp_path):
 def test_montar_manifesto_prefere_o_nome_legado_quando_os_dois_existem(tmp_path):
     (tmp_path / 'gabarito-vivo-0.7.0b3-windows-x64-setup.exe').write_bytes(b'win')
     (tmp_path / 'gabarito-vivo-0.7.0b3-linux-x86_64.AppImage').write_bytes(b'linux')
-    (tmp_path / 'concurso-analise-0.7.0b3-windows-x64-setup.exe').write_bytes(b'win')
-    (tmp_path / 'concurso-analise-0.7.0b3-linux-x86_64.AppImage').write_bytes(b'linux')
+    (tmp_path / 'gabarito-vivo-0.7.0b3-windows-x64-setup.exe').write_bytes(b'win')
+    (tmp_path / 'gabarito-vivo-0.7.0b3-linux-x86_64.AppImage').write_bytes(b'linux')
 
     lido = atualizador.ler_manifesto(
         atualizador.montar_manifesto('0.7.0b3', '2026-11-18', sorted(tmp_path.iterdir()))
     )
 
-    assert lido.artefatos['windows-x64'].arquivo.startswith('concurso-analise-')
-    assert lido.artefatos['linux-x86_64'].arquivo.startswith('concurso-analise-')
+    assert lido.artefatos['windows-x64'].arquivo.startswith('gabarito-vivo-')
+    assert lido.artefatos['linux-x86_64'].arquivo.startswith('gabarito-vivo-')

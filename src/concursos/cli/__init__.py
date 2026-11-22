@@ -3,7 +3,6 @@ import sys
 
 import typer
 
-from concursos.cli import legado
 from concursos.cli.comandos import app
 from concursos.cli.erros import (
     CODIGO_USUARIO,
@@ -13,11 +12,8 @@ from concursos.cli.erros import (
     mostrar_inesperado,
 )
 from concursos.config.contexto import resolver_home
-from concursos.erros import avisar
 from concursos.linguagem import erro_para_a_tela
-from concursos.produto import COMANDO, COMANDO_LEGADO, aviso_comando_legado
-
-COMANDOS_LEGADOS = {'adicionar': 'add', 'analisar': 'analyze'}
+from concursos.produto import COMANDO
 
 logger = logging.getLogger('concursos')
 
@@ -26,13 +22,6 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     arquivo_log = configurar_log(resolver_home() / 'logs')
     try:
-        if argv and argv[0] in COMANDOS_LEGADOS:
-            avisar(
-                logger,
-                f'O comando `{argv[0]}` está obsoleto e vai sair; use `{COMANDO} '
-                f'{COMANDOS_LEGADOS[argv[0]]}`.',
-            )
-            return legado.main(argv)
         return app(args=argv, prog_name=COMANDO, standalone_mode=False) or 0
     except typer.Abort:
         mostrar_erro('interrompido antes do fim')
@@ -61,27 +50,3 @@ def executar() -> None:
 
 def executar_gui() -> None:
     sys.exit(main(['gui', *sys.argv[1:]]))
-
-
-def executar_legado_analise() -> None:
-    aviso_comando_legado(COMANDO_LEGADO)
-    sys.stderr.write(
-        f'aviso: o comando `{COMANDO_LEGADO}` continua funcionando, mas está obsoleto; use `{COMANDO}`\n'
-    )
-    sys.exit(main())
-
-
-def executar_gui_legado() -> None:
-    aviso_comando_legado(f'{COMANDO_LEGADO}-gui')
-    sys.stderr.write(
-        f'aviso: o comando `{COMANDO_LEGADO}-gui` continua funcionando, mas está obsoleto; '
-        f'use `{COMANDO} gui`\n'
-    )
-    sys.exit(main(['gui', *sys.argv[1:]]))
-
-
-def executar_legado() -> None:
-    argv = sys.argv[1:]
-    if not (argv and argv[0] in COMANDOS_LEGADOS):
-        sys.stderr.write(f'aviso: o executável `concursos` está obsoleto e sai na fase 5; use `{COMANDO}`\n')
-    sys.exit(main(argv))

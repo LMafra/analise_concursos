@@ -2,7 +2,9 @@ import json
 import logging
 import os
 import shutil
+import signal
 import subprocess
+import threading
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Annotated
@@ -31,7 +33,7 @@ from concursos.integracoes.simulado_pci import formatar_provas
 from concursos.integracoes.sincronizacao_pci import como_json
 from concursos.integracoes.sincronizacao_pci import formatar_tabela as tabela_pci
 from concursos.modelo import CanalAtualizacao, OndeProcurar
-from concursos.produto import COMANDO, COMANDO_LEGADO, NOME
+from concursos.produto import COMANDO, NOME
 from concursos.status import formatar_tabela
 
 logger = logging.getLogger(__name__)
@@ -111,7 +113,7 @@ def principal(
     sem_llm: SemLlm = False,
     offline: Offline = False,
     data_dir: Annotated[
-        Path | None, typer.Option('--data-dir', help='configuração do projeto (padrão: ./.concurso)')
+        Path | None, typer.Option('--data-dir', help='configuração do projeto (padrão: ./.gabarito-vivo)')
     ] = None,
     provas: Annotated[
         Path | None, typer.Option('--provas', help='pasta com uma subpasta por concurso (padrão: ./provas)')
@@ -135,6 +137,12 @@ def principal(
         )
         if flag or os.environ.get(variavel)
     )
+    cancelar = threading.Event()
+
+    def _ao_sinal(_sinal: int, _quadro: object) -> None:
+        cancelar.set()
+
+    signal.signal(signal.SIGINT, _ao_sinal)
     ctx.obj = Opcoes(
         contexto,
         sim=sim,
@@ -147,6 +155,7 @@ def principal(
         fornecidos=fornecidos,
         saida=typer.echo,
         interacao=InteracaoConsole() if onboarding.interativo(sim) else None,
+        cancelar=cancelar,
     )
     if ctx.invoked_subcommand is None:
         if onboarding.precisa_de_onboarding(contexto) and not dry_run:
@@ -246,7 +255,7 @@ def add(
     if pci is not None and not caminho.is_dir():
         raise ErroDoUsuario(
             'A opção --pci vale só para a pasta de um concurso.',
-            f'rode `concurso-analise add <pasta> --pci {pci}`.',
+            f'rode `gabarito-vivo add <pasta> --pci {pci}`.',
         )
     if caminho.is_dir():
         return cadastro.cadastrar_pasta(opcoes, caminho, pci)
@@ -315,13 +324,13 @@ def pci_enable(
         if not onboarding.interativo(False):
             raise ErroDoUsuario(
                 'Ligar o PCI exige a sua confirmação, e aqui não dá para perguntar.',
-                'confirme com `concurso-analise --yes pci enable`.',
+                'confirme com `gabarito-vivo --yes pci enable`.',
             )
         if not typer.confirm('ligar a integração com o PCI?', default=False):
             typer.echo('nada foi gravado')
             return 0
     integracoes.ligar_pci(opcoes.contexto, url)
-    typer.echo(f'PCI ligado: {url}; experimente `concurso-analise discover --cargo <cargo> --uf <uf>`')
+    typer.echo(f'PCI ligado: {url}; experimente `gabarito-vivo discover --cargo <cargo> --uf <uf>`')
     return 0
 
 
@@ -384,7 +393,7 @@ def status(
     ] = None,
 ) -> int:
     contexto = ctx.obj.contexto
-    typer.echo(formatar_tabela(analise.situacoes(provas or contexto.provas)))
+    typer.echo(formatar_tabela(analise.situacoes(provas or contexto.provas, contexto.candidato)))
     for linha in integracoes.linhas_do_radar(contexto):
         typer.echo(linha)
     return 0
@@ -413,8 +422,7 @@ def gui(
             raise
         raise ErroDoUsuario(
             'A janela do app (interface gráfica) não está instalada.',
-            f'instale com `uv tool install "{COMANDO}[gui]"` (ou `{COMANDO_LEGADO}[gui]`) '
-            'ou baixe o instalador do app.',
+            f'instale com `uv tool install "{COMANDO}[gui]"` ou baixe o instalador do app.',
         ) from erro
     executar(pasta, navegador=navegador)
     return 0
@@ -470,13 +478,13 @@ def notebook_enable(
         if not onboarding.interativo(False):
             raise ErroDoUsuario(
                 'Ligar o open-notebook exige a sua confirmação, e aqui não dá para perguntar.',
-                'confirme com `concurso-analise --yes notebook enable`.',
+                'confirme com `gabarito-vivo --yes notebook enable`.',
             )
         if not typer.confirm('ligar a sincronização?', default=False):
             typer.echo('nada foi gravado')
             return 0
     integracoes.ligar_open_notebook(opcoes.contexto, url)
-    typer.echo(f'open-notebook ligado: {url}; rode `concurso-analise notebook sync` para enviar agora')
+    typer.echo(f'open-notebook ligado: {url}; rode `gabarito-vivo notebook sync` para enviar agora')
     return 0
 
 
@@ -578,7 +586,7 @@ def estudo_preparar(
         if not onboarding.interativo(False):
             raise ErroDoUsuario(
                 'Preparar a biblioteca exige a sua confirmação, e aqui não dá para perguntar.',
-                'confirme com `concurso-analise --yes estudo preparar`.',
+                'confirme com `gabarito-vivo --yes estudo preparar`.',
             )
         consentiu = typer.confirm('preparar agora?', default=False)
         if not consentiu:

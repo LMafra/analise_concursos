@@ -1,4 +1,5 @@
 import logging
+import threading
 
 from nicegui import run, ui
 
@@ -6,6 +7,7 @@ from concursos.aplicacao import analise
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
+from concursos.gui.componentes.navegacao import breadcrumb
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.progresso import Andamento, HandlerDoPainel
@@ -29,6 +31,7 @@ ETAPAS_LEIGAS = {
 def pagina() -> None:
     if not exigir_projeto():
         return
+    breadcrumb(('Minhas Provas', '/'), ('Analisar', None))
     painel = PainelDeAnalise()
     if ESTADO.pedir_analise:
         ESTADO.pedir_analise = False
@@ -38,7 +41,7 @@ def pagina() -> None:
 class PainelDeAnalise:
     def __init__(self) -> None:
         self.andamento = Andamento()
-        self.acompanhando = True
+        self.cancelar = threading.Event()
         with ui.column().classes('w-full max-w-4xl').style(tema.gap('md')):
             self.titulo = (
                 ui.label('Pronto para analisar o que mudou.')
@@ -47,7 +50,7 @@ class PainelDeAnalise:
                 .mark('titulo-analise')
             )
             ui.label(
-                'A análise pode levar alguns minutos. Você pode navegar pelo app — avisaremos quando terminar.'
+                'A análise pode levar alguns minutos. Você pode cancelar; o que já tiver terminado fica.'
             ).classes('text-sm ca-texto-suave')
             self.barra = ui.linear_progress(value=0, show_value=False).props(
                 'aria-label="andamento da análise"'
@@ -68,30 +71,29 @@ class PainelDeAnalise:
                     .mark('iniciar')
                 )
                 self.parar = (
-                    ui.button('Parar de acompanhar', icon='visibility_off', on_click=self.parar_de_acompanhar)
+                    ui.button('Cancelar análise', icon='stop', on_click=self.cancelar_analise)
                     .props('flat')
                     .classes('ca-alvo')
-                    .mark('parar-acompanhar')
+                    .mark('cancelar-analise')
                 )
                 self.parar.set_visibility(False)
         ui.timer(0.2, self.atualizar)
 
-    def parar_de_acompanhar(self) -> None:
-        """Sai da tela de progresso; a análise segue. Nunca diz “cancelar”."""
-        self.acompanhando = False
+    def cancelar_analise(self) -> None:
+        """Pede o fim cooperativo; a etapa em curso termina e a pasta temporária é descartada."""
+        self.cancelar.set()
         ui.notify(
-            'A análise continua em segundo plano. Avisaremos quando terminar.',
+            'Cancelando… a etapa em curso termina e o que já estava pronto fica.',
             type='info',
             timeout=5000,
             close_button=True,
         )
-        ui.navigate.to('/')
 
     async def iniciar(self) -> None:
         if ESTADO.ocupado:
             return
         ESTADO.ocupado = True
-        self.acompanhando = True
+        self.cancelar.clear()
         self.botao.disable()
         self.parar.set_visibility(True)
         self.esqueleto.set_visibility(True)
@@ -110,32 +112,18 @@ class PainelDeAnalise:
                 saida=self.andamento.escrever,
                 ao_progresso=self.andamento.ao_progresso,
                 ao_etapa=self.andamento.ao_etapa,
+                cancelar=self.cancelar,
             )
             codigo = await run.io_bound(analise.analisar, opcoes)
             ESTADO.forcar_proxima_analise = False
         except Exception as erro:  # noqa: BLE001
             logger.debug('falha na análise pela GUI', exc_info=True)
-            if self.acompanhando:
-                self._mostrar_falha(erro)
-            else:
-                ui.notify(
-                    'A análise não concluiu. Veja Minhas Provas ou rode de novo.', type='negative', timeout=0
-                )
+            self._mostrar_falha(erro)
         else:
-            if self.acompanhando:
-                self._mostrar_fim(codigo)
-            elif codigo == 0:
-                ui.notify(
-                    'Análise concluída com sucesso! [Ver Relatório Agora]',
-                    type='positive',
-                    timeout=6000,
-                    close_button='Ver Relatório Agora',
-                    on_dismiss=lambda: ui.navigate.to('/resultados'),
-                )
+            if self.cancelar.is_set():
+                self._mostrar_cancelado()
             else:
-                ui.notify(
-                    'A análise terminou com avisos. Abra Resultados para conferir.', type='warning', timeout=0
-                )
+                self._mostrar_fim(codigo)
         finally:
             logger.removeHandler(handler)
             ESTADO.ocupado = False
@@ -158,6 +146,19 @@ class PainelDeAnalise:
         elif passo is not None:
             self.barra.value = passo.fracao
             self.titulo.text = f'{leiga} ({passo.indice} de {passo.total}: {passo.concurso})'
+
+    def _mostrar_cancelado(self) -> None:
+        self.barra.value = 1
+        self.titulo.text = 'Análise cancelada.'
+        with self.resultado:
+            aviso(
+                'A análise parou',
+                'O que já tinha terminado ficou gravado. O concurso interrompido fica como estava.',
+                tom=Tom.INFO,
+            )
+            ui.button(
+                'Ver relatório agora', icon='insights', on_click=lambda: ui.navigate.to('/resultados')
+            ).classes('ca-alvo')
 
     def _mostrar_fim(self, codigo: int) -> None:
         self.barra.value = 1

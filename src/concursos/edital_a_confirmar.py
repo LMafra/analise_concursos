@@ -33,7 +33,7 @@ _ROTULOS = {
     'nota_corte': 'a nota de corte',
 }
 _CABECALHO = """\
-# Campos do edital que a análise não encontrou. Preencha os que souber e rode `concurso-analise` de novo: os
+# Campos do edital que a análise não encontrou. Preencha os que souber e rode `gabarito-vivo` de novo: os
 # valores preenchidos valem como se estivessem no concurso.yaml (fonte `config`), para todos os candidatos.
 # Este arquivo nunca é sobrescrito; campos que passarem a faltar são acrescentados no fim.
 #

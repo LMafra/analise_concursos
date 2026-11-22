@@ -21,7 +21,7 @@
 # name: test_erro_sem_pasta_de_provas_na_cli
   '''
   erro: Não encontrei a pasta onde ficam suas provas (<TMP>/provas).
-  dica: cadastre um concurso pela janela (Novo concurso) ou com concurso-analise add, ou indique a pasta com --provas.
+  dica: cadastre um concurso pela janela (Novo concurso) ou com gabarito-vivo add, ou indique a pasta com --provas.
   
   '''
 # ---

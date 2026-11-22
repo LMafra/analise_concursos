@@ -1,6 +1,6 @@
 ﻿; Instalador do Windows: por usuário (sem pedir administrador), atalho no menu Iniciar e desinstalador.
 ; Compile depois do PyInstaller, a partir da raiz do repositório:
-;   iscc /DVersao=0.6.0b1 /DVersaoNumerica=0.6.0.0 empacotamento\inno\concurso-analise.iss
+;   iscc /DVersao=0.6.0b1 /DVersaoNumerica=0.6.0.0 empacotamento\inno\gabarito-vivo.iss
 ; Os dados do candidato (a pasta do projeto e ~/.concurso) ficam fora de {app} e sobrevivem à desinstalação.
 
 #ifndef Versao
@@ -46,8 +46,8 @@ UninstallDisplayName={#Nome}
 #ifexist "..\icones\gabarito-vivo.ico"
 SetupIconFile=..\icones\gabarito-vivo.ico
 #else
-#ifexist "..\icones\concurso-analise.ico"
-SetupIconFile=..\icones\concurso-analise.ico
+#ifexist "..\icones\gabarito-vivo.ico"
+SetupIconFile=..\icones\gabarito-vivo.ico
 #endif
 #endif
 
@@ -94,7 +94,7 @@ begin
     Log(Format('esperou o Gabarito Vivo fechar por %d ms', [Tentativas * 500]));
   // Setups antigos ainda esperam o mutex legado.
   Tentativas := 0;
-  while CheckForMutexes('concurso-analise') and (Tentativas < 60) do
+  while CheckForMutexes('gabarito-vivo') and (Tentativas < 60) do
   begin
     Sleep(500);
     Tentativas := Tentativas + 1;

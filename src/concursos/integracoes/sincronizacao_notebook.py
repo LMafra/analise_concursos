@@ -39,9 +39,9 @@ from concursos.topicos import NAO_MAPEADO
 
 logger = logging.getLogger(__name__)
 
-PREFIXO = 'concurso-analise: '
+PREFIXO = 'gabarito-vivo: '
 ARQUIVO_ESTADO = 'open_notebook.json'
-DESCRICAO = 'gerado por concurso-analise'
+DESCRICAO = 'gerado por gabarito-vivo'
 TITULO_RESUMO = f'{PREFIXO}resumo executivo'
 CHAVE_CONSOLIDADO = '_consolidado'
 CHAVE_LEGISLACAO = '_legislacao'
@@ -239,7 +239,7 @@ def _numero(valor: float) -> str:
 
 @dataclass
 class EstadoSincronizacao:
-    """`.concurso/open_notebook.json`: por instância, os pseudônimos e o que cada notebook já recebeu."""
+    """`.gabarito-vivo/open_notebook.json`: por instância, os pseudônimos e o que cada notebook já recebeu."""
 
     caminho: Path
     dados: dict = field(default_factory=dict)

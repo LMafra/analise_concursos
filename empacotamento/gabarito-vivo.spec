@@ -1,10 +1,10 @@
-# Build onedir do Gabarito Vivo: `pyinstaller empacotamento/concurso-analise.spec` a partir de
+# Build onedir do Gabarito Vivo: `pyinstaller empacotamento/gabarito-vivo.spec` a partir de
 # `uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento`.
 #
 # Dois executáveis no mesmo diretório: `gabarito-vivo` (janela, sem console no Windows) e
 # `gabarito-vivo-cli` (console, para a CLI e o smoke). O Tesseract (em `_internal/tesseract`) e a captura do
 # TEC entram quando os scripts de `empacotamento/tesseract/` e o `node tec-erros/scripts/build.mjs` já rodaram.
-# O nome do arquivo .spec e o pacote Python (`concurso-analise` / `concursos`) permanecem por compatibilidade.
+# O nome do arquivo .spec e o pacote Python (`gabarito-vivo` / `concursos`) permanecem por compatibilidade.
 import shutil
 import sys
 from importlib.metadata import version
@@ -15,7 +15,7 @@ from PyInstaller.utils.hooks import collect_data_files
 PASTA = Path(SPECPATH)
 RAIZ = PASTA.parent
 CONSTRUCAO = PASTA / 'construcao'
-PACOTE = 'concurso-analise'
+PACOTE = 'gabarito-vivo'
 NOME = 'gabarito-vivo'
 VERSAO = version(PACOTE)
 
@@ -58,8 +58,8 @@ def recurso(nome: str, descricao: str) -> str | None:
 
 icone_win = PASTA / 'icones' / 'gabarito-vivo.ico'
 icone_mac = PASTA / 'icones' / 'gabarito-vivo.icns'
-icone_legado_win = PASTA / 'icones' / 'concurso-analise.ico'
-icone_legado_mac = PASTA / 'icones' / 'concurso-analise.icns'
+icone_legado_win = PASTA / 'icones' / 'gabarito-vivo.ico'
+icone_legado_mac = PASTA / 'icones' / 'gabarito-vivo.icns'
 if sys.platform == 'win32':
     icone = icone_win if icone_win.exists() else icone_legado_win
 else:
@@ -102,7 +102,7 @@ if sys.platform == 'darwin':
         coll,
         name=f'{NOME}.app',
         icon=str(icone) if icone.exists() else None,
-        bundle_identifier='br.lmafra.concurso-analise',
+        bundle_identifier='br.lmafra.gabarito-vivo',
         version=VERSAO,
         info_plist={'NSHighResolutionCapable': True, 'CFBundleShortVersionString': VERSAO},
     )

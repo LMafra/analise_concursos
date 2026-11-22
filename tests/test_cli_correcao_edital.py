@@ -43,7 +43,7 @@ def criar(provas, prova: dict, edital=None, arquivos: dict | None = None, **extr
 
 
 def correcao(analises) -> list[dict]:
-    return json.loads((analises / 'sintetico' / 'correcao.json').read_text(encoding='utf-8'))
+    return json.loads((analises / 'candidato' / 'sintetico' / 'correcao.json').read_text(encoding='utf-8'))
 
 
 def edital_com(*regra: str) -> dict[str, str]:
@@ -76,19 +76,19 @@ def test_cebraspe_liquida_e_nota_corrigida_igual_a_nota_liquida_legada(raizes):
     [cfg] = correcao(analises)
     assert (cfg['modelo'], cfg['fator_penalidade'], cfg['fonte']) == ('liquida', 1.0, 'edital')
     assert (cfg['nota_maxima'], cfg['nota_corte']) == (4.0, 60.0)
-    questoes = ler_csv(analises / 'sintetico' / 'questoes.csv')
-    [lida] = ler_correcao(analises / 'sintetico')
+    questoes = ler_csv(analises / 'candidato' / 'sintetico' / 'questoes.csv')
+    [lida] = ler_correcao(analises / 'candidato' / 'sintetico')
     nota = aplicar_correcao(questoes, lida, Formato.CERTO_ERRADO).nota
-    legado = ler_csv(analises / 'sintetico' / 'desempenho_por_disciplina.csv')
+    legado = ler_csv(analises / 'candidato' / 'sintetico' / 'desempenho_por_disciplina.csv')
     assert nota == legado['nota_liquida'].sum() == 0
 
 
 def relatorio(analises) -> str:
-    return (analises / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
+    return (analises / 'candidato' / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
 
 
 def linha_do_comparativo(analises) -> dict[str, str]:
-    texto = (analises / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
+    texto = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
     linhas = texto.split('## Desempenho por concurso', 1)[1].strip().splitlines()
     cabecalho, linha = (
         ([c.strip() for c in linha.strip('|').split('|')]) for linha in (linhas[0], linhas[2])
@@ -182,7 +182,7 @@ def test_estrutura_dos_csvs_nao_muda(raizes):
 
     assert analisar(provas, analises) == 0
 
-    pasta = analises / 'sintetico'
+    pasta = analises / 'candidato' / 'sintetico'
     desempenho = [
         'concurso',
         'prova',
@@ -229,7 +229,7 @@ def test_analise_de_versao_anterior_e_refeita_e_ganha_o_arquivo_de_correcao(raiz
     provas, analises = raizes
     criar(provas, MULTIPLA_ESCOLHA)
     assert analisar(provas, analises) == 0
-    pasta = analises / 'sintetico'
+    pasta = analises / 'candidato' / 'sintetico'
     caminho_manifesto = pasta / '.manifesto.json'
     manifesto = json.loads(caminho_manifesto.read_text(encoding='utf-8'))
     caminho_manifesto.write_text(json.dumps({**manifesto, 'versao': 3}), encoding='utf-8')
@@ -276,11 +276,11 @@ def test_variantes_declaradas_viram_uma_configuracao_por_variante_no_arquivo(rai
 
     assert analisar(provas, analises) == 0
 
-    geral, ti = ler_correcao(analises / 'sintetico')
+    geral, ti = ler_correcao(analises / 'candidato' / 'sintetico')
     assert (geral.variante, geral.modelo, geral.pesos, geral.nota_maxima) == ('geral', 'bruta', (), 4.0)
     assert (ti.variante, ti.modelo, ti.fonte, ti.nota_maxima) == ('ti', 'ponderada', 'config', 1 + 1 + 3 + 3)
     assert ti.pesos[0].peso == 3.0
-    questoes = ler_csv(analises / 'sintetico' / 'questoes.csv')
+    questoes = ler_csv(analises / 'candidato' / 'sintetico' / 'questoes.csv')
     assert aplicar_correcao(questoes, ti, Formato.MULTIPLA_ESCOLHA).nota == 1 + 3
 
 
@@ -296,7 +296,7 @@ def test_data_da_prova_e_metadados_declarados_sao_aceitos_e_a_data_vai_para_o_ar
         Nivel.FEDERAL,
         Escolaridade.MEDIO,
     )
-    [cfg] = ler_correcao(analises / 'sintetico')
+    [cfg] = ler_correcao(analises / 'candidato' / 'sintetico')
     assert (cfg.data_prova, cfg.fonte_data) == (date(2025, 10, 5), FonteCorrecao.CONFIG)
 
 

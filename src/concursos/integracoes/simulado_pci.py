@@ -142,7 +142,7 @@ def formatar_provas(provas: list[ProvaAnteriorPci]) -> str:
             f'    {prova.link}',
         ]
     linhas.append(
-        f'{len(provas)} prova(s). Para treinar com uma: `concurso-analise pci provas <concurso> --download <id>`'
+        f'{len(provas)} prova(s). Para treinar com uma: `gabarito-vivo pci provas <concurso> --download <id>`'
     )
     return '\n'.join(linhas)
 
@@ -169,7 +169,7 @@ def gravar_provas_anteriores(destino: Path, alvo: str, termo: str, provas: list[
         linhas.append('| - | - | nenhuma prova encontrada | - | - | - |')
     linhas += [
         '',
-        f'Para treinar com uma delas: `concurso-analise pci provas {alvo} --download <id>`. O simulado vira um '
+        f'Para treinar com uma delas: `gabarito-vivo pci provas {alvo} --download <id>`. O simulado vira um '
         'concurso próprio, corrigido pela banca da prova, com os tópicos deste edital.',
         '',
     ]

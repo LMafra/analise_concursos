@@ -172,7 +172,7 @@ def _llm(home: Path, sistema: Sistema) -> Item:
             'LLM',
             Situacao.AVISO,
             f'{configuracao.provedor} configurado sem consentimento',
-            'concurso-analise init',
+            'gabarito-vivo init',
         )
     if configuracao.variavel_chave is None:
         return Item('LLM', Situacao.OK, f'{configuracao.provedor} em {configuracao.url}, sem chave')
@@ -202,7 +202,7 @@ def _open_notebook(home: Path) -> Item:
             nome,
             Situacao.AVISO,
             'ligado sem consentimento; nada é enviado',
-            'concurso-analise notebook enable',
+            'gabarito-vivo notebook enable',
         )
     senha = open_notebook.obter_senha(configuracao, home)
     detalhe = f'{configuracao.url}, ' + ('senha encontrada' if senha else 'sem senha')
@@ -223,7 +223,7 @@ def _pci_mcp(home: Path, analises: Path | None) -> Item:
             nome,
             Situacao.AVISO,
             'ligado, mas o extra pci (SDK mcp) não está instalado; discover e o radar ficam só no cache',
-            "uv tool install 'concurso-analise[pci]'",
+            "uv tool install 'gabarito-vivo[pci]'",
         )
     radares = []
     if analises is not None and analises.is_dir():

@@ -86,7 +86,7 @@ def test_aviso_so_quando_a_janela_era_esperada(decisao, dispensado, falhou, most
 
 
 def test_reabrir_no_navegador_no_executavel_usa_o_proprio_exe(tmp_path):
-    exe = tmp_path / 'concurso-analise.exe'
+    exe = tmp_path / 'gabarito-vivo.exe'
 
     comando = janela.comando_para_reabrir(congelado=True, executavel=str(exe), projeto=tmp_path / 'p')
 

@@ -1,7 +1,7 @@
 """Gera o ícone do executável (`.ico` do Windows, `.icns` do macOS e `.png` do Linux) só com o Pillow.
 
 Paleta Gabarito Vivo: tinta-teal (#0F766E) + acento verde (#15803D).
-Também grava os nomes legados `concurso-analise.*` para scripts que ainda os citam.
+Também grava os nomes legados `gabarito-vivo.*` para scripts que ainda os citam.
 
 Uso: uv run python empacotamento/icones/gerar_icones.py
 """
@@ -15,7 +15,7 @@ LADO = 1024
 TEAL = (15, 118, 110, 255)
 BRANCO = (255, 255, 255, 255)
 VERDE = (21, 128, 61, 255)
-NOMES = ('gabarito-vivo', 'concurso-analise')
+NOMES = ('gabarito-vivo', 'gabarito-vivo')
 
 
 def desenhar() -> Image.Image:

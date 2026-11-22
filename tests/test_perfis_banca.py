@@ -81,7 +81,7 @@ def test_banca_por_entry_point_e_detectada_e_usada(registro_limpo, monkeypatch, 
     assert detectar_banca('Edital da Banca Fictícia de 2026') == 'ficticia'
     assert 'ficticia' in ids_de_banca()
     assert analisar(provas, analises) == 0
-    assert (analises / 'f' / 'relatorio.md').exists()
+    assert (analises / 'candidato' / 'f' / 'relatorio.md').exists()
 
 
 def test_perfil_invalido_aponta_o_campo():

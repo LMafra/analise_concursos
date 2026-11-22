@@ -30,7 +30,7 @@ def test_analisar_gera_respostas_extraidas_com_todas_as_questoes(raizes):
 
     assert analisar(provas, analises) == 0
 
-    respostas = ler_csv(analises / 'fgv_sintetico' / 'respostas_extraidas.csv')
+    respostas = ler_csv(analises / 'candidato' / 'fgv_sintetico' / 'respostas_extraidas.csv')
     assert list(respostas.columns) == [
         'concurso',
         'prova',
@@ -58,7 +58,7 @@ def test_analisar_gera_desempenho_por_disciplina(raizes):
 
     analisar(provas, analises)
 
-    desempenho = ler_csv(analises / 'fgv_sintetico' / 'desempenho_por_disciplina.csv')
+    desempenho = ler_csv(analises / 'candidato' / 'fgv_sintetico' / 'desempenho_por_disciplina.csv')
     assert list(desempenho.columns[:8]) == [
         'concurso',
         'prova',
@@ -84,7 +84,7 @@ def test_analisar_gera_desempenho_por_topico_e_relatorio(raizes):
 
     analisar(provas, analises)
 
-    saida = analises / 'fgv_sintetico'
+    saida = analises / 'candidato' / 'fgv_sintetico'
     topicos = ler_csv(saida / 'desempenho_por_topico.csv')
     assert set(topicos['topico']) == {'nao_mapeado'}
     assert topicos['total'].sum() == 6

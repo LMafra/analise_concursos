@@ -46,7 +46,7 @@ def test_concurso_de_4_alternativas_aceita_gabarito_e_respostas_de_a_a_d(raizes)
 
     assert analisar(provas, analises) == 0
 
-    desempenho = ler_csv(analises / 'quatro' / 'desempenho_por_disciplina.csv')
+    desempenho = ler_csv(analises / 'candidato' / 'quatro' / 'desempenho_por_disciplina.csv')
     assert int(desempenho['acertos'].sum()) == 2
 
 

@@ -121,7 +121,7 @@ async def test_cadastro_pergunta_em_dialogo_e_grava_com_as_respostas_na_pasta_do
     pasta = projeto / 'provas' / f'concurso_{date.today():%Y%m%d}'
     assert yaml.safe_load((pasta / 'concurso.yaml').read_text(encoding='utf-8'))['banca'] == 'fgv'
     assert (pasta / 'candidatos' / 'ana_teste' / 'minhas.txt').is_file()
-    assert not any((projeto / '.concurso' / 'envios').iterdir())
+    assert not any((projeto / '.gabarito-vivo' / 'envios').iterdir())
 
 
 async def test_recusar_no_dialogo_nao_grava_nada(user: User, projeto):

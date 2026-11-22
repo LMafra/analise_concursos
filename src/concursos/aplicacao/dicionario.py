@@ -180,7 +180,7 @@ def gravar_topico(
 
 
 def avaliar(contexto: Contexto) -> Ganho:
-    """Mede o ganho, grava `.concurso/ganho_dicionario.md` e guarda o resumo para a tela."""
+    """Mede o ganho, grava `.gabarito-vivo/ganho_dicionario.md` e guarda o resumo para a tela."""
     dicionario = carregar(contexto)
     if not dicionario.entradas:
         raise ErroDoUsuario('O dicionário de temas está vazio.', 'comece pelo dicionário inicial.')

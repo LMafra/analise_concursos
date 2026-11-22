@@ -18,7 +18,7 @@ class Pratica:
 
 @dataclass
 class Escolhas:
-    """O que foi decidido uma vez e vale para as próximas importações (`.concurso/pratica_tec.yaml`)."""
+    """O que foi decidido uma vez e vale para as próximas importações (`.gabarito-vivo/pratica_tec.yaml`)."""
 
     aliases: dict[str, str | None] = field(default_factory=dict)
     materias: dict[str, str] = field(default_factory=dict)

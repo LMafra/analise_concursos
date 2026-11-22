@@ -4,7 +4,7 @@ from nicegui import app, run, ui
 
 from concursos import doctor as diagnostico
 from concursos.aplicacao import atualizador as atualizacao
-from concursos.aplicacao import projeto, sobre
+from concursos.aplicacao import estudo, projeto, sobre
 from concursos.aplicacao.resultados import abrir_no_navegador
 from concursos.config.contexto import resolver_home
 from concursos.gui import tema
@@ -15,14 +15,14 @@ from concursos.gui.estado import ESTADO
 from concursos.gui.progresso import arquivo_de_log
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro
-from concursos.produto import COMANDO, COMANDO_LEGADO, NOME, versao_do_pacote
+from concursos.produto import COMANDO, NOME, versao_do_pacote
 
 PRIVACIDADE = (
     'Privacidade: tudo fica no seu computador. Só sai algo se você ligar a IA, a busca de concursos ou os '
     'avisos de versão nova; cada um mostra antes o que é enviado. Os seus livros não saem do computador.'
 )
 CONSULTA = 'Consulta o GitHub (só o arquivo da versão mais nova; nenhum dado seu vai junto).'
-FORA_DO_EXECUTAVEL = f'Instalado pelo uv: atualize com `uv tool upgrade {COMANDO}` (ou {COMANDO_LEGADO}).'
+FORA_DO_EXECUTAVEL = f'Instalado pelo uv: atualize com `uv tool upgrade {COMANDO}`.'
 SEGUNDOS_PARA_FECHAR = 3
 NOME_DO_APP = NOME
 
@@ -32,7 +32,13 @@ def versao() -> str:
 
 
 def pagina() -> None:
+    from concursos.gui.componentes.navegacao import breadcrumb
+
+    breadcrumb(('Sobre', None))
     resumo = sobre.resumo_do_app(resolver_home())
+    situacao_estudo = None
+    if ESTADO.projeto is not None:
+        situacao_estudo = estudo.situacao_do_estudo(ESTADO.contexto())
     with ui.column().classes('w-full max-w-2xl').style(tema.gap('md')):
         ui.label(f'{NOME_DO_APP} {versao()}').classes('text-2xl font-bold').mark('versao')
         with ui.row().classes('items-center').style(tema.gap('md')):
@@ -44,6 +50,15 @@ def pagina() -> None:
             situacao(
                 f'Biblioteca: {resumo.biblioteca}', Tom.SUCESSO if resumo.biblioteca_pronta else Tom.INFO
             ).mark('biblioteca')
+        if situacao_estudo is not None:
+            tom = (
+                Tom.ALERTA
+                if situacao_estudo.fora_do_ar
+                else Tom.SUCESSO
+                if situacao_estudo.preparado
+                else Tom.INFO
+            )
+            situacao(situacao_estudo.mensagem, tom).mark('estudo-open-notebook')
         log = arquivo_de_log()
         with ui.row().classes('items-center').style(tema.gap('sm')):
             ui.label('Registro de erros:' if log else 'Registro de erros: desligado nesta execução').mark(

@@ -60,7 +60,7 @@ def ler_edital(config: ConcursoConfig, documentos: dict[str, list[str]]) -> Edit
             f'{config.nome}: não consegui ler o edital escaneado porque falta o componente de leitura de PDF '
             'escaneado. Segui sem o conteúdo do edital; os tópicos das questões ficam sem classificação.',
             'o instalador já traz esse componente; na versão de terminal, instale-o com '
-            f'{comando_de_correcao("tesseract")} ou rode concurso-analise doctor.',
+            f'{comando_de_correcao("tesseract")} ou rode gabarito-vivo doctor.',
             f'{", ".join(sem_ocr)} sem texto e o Tesseract não está instalado; modo mínimo, tópicos nao_mapeado',
         )
     else:

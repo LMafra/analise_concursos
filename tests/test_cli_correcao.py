@@ -15,7 +15,7 @@ def config(formato: str, pontuacao: str, fim: int) -> dict:
 
 
 def desempenho_geral(analises):
-    linhas = ler_csv(analises / 'sintetico' / 'desempenho_por_disciplina.csv')
+    linhas = ler_csv(analises / 'candidato' / 'sintetico' / 'desempenho_por_disciplina.csv')
     assert len(linhas) == 1
     return linhas.iloc[0]
 

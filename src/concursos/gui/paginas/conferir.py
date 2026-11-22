@@ -142,6 +142,8 @@ class TopicosDasQuestoes:
         self.iniciais[linha.chave] = inicial
 
     def salvar(self) -> None:
+        from concursos.aplicacao import lixeira
+
         mudadas = {
             chave: None if seletor.value == NENHUM else self.opcoes[int(seletor.value)]
             for chave, seletor in self.escolhas.items()
@@ -151,13 +153,20 @@ class TopicosDasQuestoes:
             if not mudadas:
                 toasts.sucesso('Nada mudou.')
                 return
+            revisao = ESTADO.contexto().provas / self.concurso / 'revisao' / 'questoes_revisado.csv'
+            anterior = lixeira.snapshot_arquivo(revisao)
             try:
                 conferencia.gravar_topicos(ESTADO.contexto(), self.concurso, mudadas)
             except Exception as erro:  # noqa: BLE001
                 mostrar_erro(erro)
                 return
             self.iniciais.update({chave: self.escolhas[chave].value for chave in mudadas})
-            toasts.sucesso(SALVO)
+
+            def desfazer() -> None:
+                lixeira.restaurar_arquivo(revisao, anterior)
+                self.reanalise.iniciar(self.concurso)
+
+            toasts.com_desfazer(f'{SALVO} Desfazer?', desfazer)
             ui.timer(0.1, lambda: self.reanalise.iniciar(self.concurso), once=True)
 
 

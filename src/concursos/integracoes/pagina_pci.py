@@ -11,7 +11,7 @@ from html.parser import HTMLParser
 from concursos.integracoes.pci_mcp import DICA_SERVIDOR, PciMcpFormatoError, PciMcpIndisponivelError
 
 PREFIXO_PAGINA = 'https://www.pciconcursos.com.br/provas/'
-AGENTE = 'concurso-analise (leitura da página da prova)'
+AGENTE = 'gabarito-vivo (leitura da página da prova)'
 
 
 @dataclass(frozen=True)

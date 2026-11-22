@@ -455,130 +455,6 @@ wheels = [
 ]
 
 [[package]]
-name = "concurso-analise"
-version = "0.7.0b3"
-source = { editable = "." }
-dependencies = [
-    { name = "cryptography" },
-    { name = "markdown-it-py" },
-    { name = "matplotlib" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "opencv-python-headless" },
-    { name = "openpyxl" },
-    { name = "packaging" },
-    { name = "pandas" },
-    { name = "pdfplumber" },
-    { name = "pillow" },
-    { name = "plotly" },
-    { name = "pyarrow" },
-    { name = "pypdfium2" },
-    { name = "pytesseract" },
-    { name = "python-docx" },
-    { name = "pyyaml" },
-    { name = "scikit-learn" },
-    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "snowballstemmer" },
-    { name = "tomli-w" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-gui = [
-    { name = "nicegui", extra = ["native"] },
-]
-llm = [
-    { name = "keyring" },
-]
-pci = [
-    { name = "mcp" },
-]
-
-[package.dev-dependencies]
-analise = [
-    { name = "ipykernel" },
-    { name = "jupyter" },
-    { name = "jupytext" },
-    { name = "nbconvert" },
-    { name = "papermill" },
-]
-arquitetura = [
-    { name = "import-linter" },
-    { name = "interrogate" },
-    { name = "pydeps" },
-    { name = "pytest-cov" },
-    { name = "radon" },
-    { name = "vulture" },
-]
-dev = [
-    { name = "ipython" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
-    { name = "syrupy" },
-]
-empacotamento = [
-    { name = "pyinstaller" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cryptography", specifier = ">=44" },
-    { name = "keyring", marker = "extra == 'llm'", specifier = ">=25" },
-    { name = "markdown-it-py", specifier = ">=3.0" },
-    { name = "matplotlib", specifier = ">=3.9" },
-    { name = "mcp", marker = "extra == 'pci'", specifier = ">=2.3" },
-    { name = "nicegui", extras = ["native"], marker = "extra == 'gui'", specifier = ">=4,<5" },
-    { name = "numpy", specifier = ">=2.3" },
-    { name = "opencv-python-headless", specifier = ">=5.0.0.93" },
-    { name = "openpyxl", specifier = ">=3.1" },
-    { name = "packaging", specifier = ">=24" },
-    { name = "pandas", specifier = ">=2.2" },
-    { name = "pdfplumber", specifier = ">=0.11.10" },
-    { name = "pillow", specifier = ">=13.0.0" },
-    { name = "plotly", specifier = ">=7.1.0" },
-    { name = "pyarrow", specifier = ">=18" },
-    { name = "pypdfium2", specifier = ">=5.14.0" },
-    { name = "pytesseract", specifier = ">=0.3.13" },
-    { name = "python-docx", specifier = ">=1.1" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "scikit-learn", specifier = ">=1.6" },
-    { name = "scipy", specifier = ">=1.14" },
-    { name = "snowballstemmer", specifier = ">=2.2" },
-    { name = "tomli-w", specifier = ">=1.0" },
-    { name = "typer", specifier = ">=0.20" },
-]
-provides-extras = ["llm", "pci", "gui"]
-
-[package.metadata.requires-dev]
-analise = [
-    { name = "ipykernel", specifier = ">=7.4.0" },
-    { name = "jupyter", specifier = ">=1.1.1" },
-    { name = "jupytext", specifier = ">=1.19.6" },
-    { name = "nbconvert", specifier = ">=7.17.2" },
-    { name = "papermill", specifier = ">=2.7.0" },
-]
-arquitetura = [
-    { name = "import-linter", specifier = ">=2.1" },
-    { name = "interrogate", specifier = ">=1.7" },
-    { name = "pydeps", specifier = ">=3.0" },
-    { name = "pytest-cov", specifier = ">=6.0" },
-    { name = "radon", specifier = ">=6.0" },
-    { name = "vulture", specifier = ">=2.14" },
-]
-dev = [
-    { name = "ipython", specifier = ">=8" },
-    { name = "pre-commit", specifier = ">=4.7.0" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "pytest-asyncio", specifier = ">=1.0" },
-    { name = "ruff", specifier = ">=0.17.1" },
-    { name = "syrupy", specifier = ">=6.1.1" },
-]
-empacotamento = [{ name = "pyinstaller", specifier = ">=6.11" }]
-
-[[package]]
 name = "contourpy"
 version = "1.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -935,6 +811,130 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/06/1dc65480ab147339fecc70797e9c2f69d9cea9cf38934ce08df070fdb9cb/frozenlist-1.8.0-cp312-cp312-win_arm64.whl", hash = "sha256:fe3c58d2f5db5fbd18c2987cba06d51b0529f52bc3a6cdc33d3f4eab725104bd", size = 40102, upload-time = "2025-10-06T05:36:26.333Z" },
     { url = "https://files.pythonhosted.org/packages/9a/9a/e35b4a917281c0b8419d4207f4334c8e8c5dbf4f3f5f9ada73958d937dcc/frozenlist-1.8.0-py3-none-any.whl", hash = "sha256:0c18a16eab41e82c295618a77502e17b195883241c563b00f0aa5106fc4eaa0d", size = 13409, upload-time = "2025-10-06T05:38:16.721Z" },
 ]
+
+[[package]]
+name = "gabarito-vivo"
+version = "0.7.0b3"
+source = { editable = "." }
+dependencies = [
+    { name = "cryptography" },
+    { name = "markdown-it-py" },
+    { name = "matplotlib" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "opencv-python-headless" },
+    { name = "openpyxl" },
+    { name = "packaging" },
+    { name = "pandas" },
+    { name = "pdfplumber" },
+    { name = "pillow" },
+    { name = "plotly" },
+    { name = "pyarrow" },
+    { name = "pypdfium2" },
+    { name = "pytesseract" },
+    { name = "python-docx" },
+    { name = "pyyaml" },
+    { name = "scikit-learn" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "snowballstemmer" },
+    { name = "tomli-w" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+gui = [
+    { name = "nicegui", extra = ["native"] },
+]
+llm = [
+    { name = "keyring" },
+]
+pci = [
+    { name = "mcp" },
+]
+
+[package.dev-dependencies]
+analise = [
+    { name = "ipykernel" },
+    { name = "jupyter" },
+    { name = "jupytext" },
+    { name = "nbconvert" },
+    { name = "papermill" },
+]
+arquitetura = [
+    { name = "import-linter" },
+    { name = "interrogate" },
+    { name = "pydeps" },
+    { name = "pytest-cov" },
+    { name = "radon" },
+    { name = "vulture" },
+]
+dev = [
+    { name = "ipython" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "ruff" },
+    { name = "syrupy" },
+]
+empacotamento = [
+    { name = "pyinstaller" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cryptography", specifier = ">=44" },
+    { name = "keyring", marker = "extra == 'llm'", specifier = ">=25" },
+    { name = "markdown-it-py", specifier = ">=3.0" },
+    { name = "matplotlib", specifier = ">=3.9" },
+    { name = "mcp", marker = "extra == 'pci'", specifier = ">=2.3" },
+    { name = "nicegui", extras = ["native"], marker = "extra == 'gui'", specifier = ">=4,<5" },
+    { name = "numpy", specifier = ">=2.3" },
+    { name = "opencv-python-headless", specifier = ">=5.0.0.93" },
+    { name = "openpyxl", specifier = ">=3.1" },
+    { name = "packaging", specifier = ">=24" },
+    { name = "pandas", specifier = ">=2.2" },
+    { name = "pdfplumber", specifier = ">=0.11.10" },
+    { name = "pillow", specifier = ">=13.0.0" },
+    { name = "plotly", specifier = ">=7.1.0" },
+    { name = "pyarrow", specifier = ">=18" },
+    { name = "pypdfium2", specifier = ">=5.14.0" },
+    { name = "pytesseract", specifier = ">=0.3.13" },
+    { name = "python-docx", specifier = ">=1.1" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "scikit-learn", specifier = ">=1.6" },
+    { name = "scipy", specifier = ">=1.14" },
+    { name = "snowballstemmer", specifier = ">=2.2" },
+    { name = "tomli-w", specifier = ">=1.0" },
+    { name = "typer", specifier = ">=0.20" },
+]
+provides-extras = ["llm", "pci", "gui"]
+
+[package.metadata.requires-dev]
+analise = [
+    { name = "ipykernel", specifier = ">=7.4.0" },
+    { name = "jupyter", specifier = ">=1.1.1" },
+    { name = "jupytext", specifier = ">=1.19.6" },
+    { name = "nbconvert", specifier = ">=7.17.2" },
+    { name = "papermill", specifier = ">=2.7.0" },
+]
+arquitetura = [
+    { name = "import-linter", specifier = ">=2.1" },
+    { name = "interrogate", specifier = ">=1.7" },
+    { name = "pydeps", specifier = ">=3.0" },
+    { name = "pytest-cov", specifier = ">=6.0" },
+    { name = "radon", specifier = ">=6.0" },
+    { name = "vulture", specifier = ">=2.14" },
+]
+dev = [
+    { name = "ipython", specifier = ">=8" },
+    { name = "pre-commit", specifier = ">=4.7.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pytest-asyncio", specifier = ">=1.0" },
+    { name = "ruff", specifier = ">=0.17.1" },
+    { name = "syrupy", specifier = ">=6.1.1" },
+]
+empacotamento = [{ name = "pyinstaller", specifier = ">=6.11" }]
 
 [[package]]
 name = "grimp"

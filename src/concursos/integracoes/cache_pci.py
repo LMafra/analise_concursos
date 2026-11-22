@@ -1,4 +1,4 @@
-"""Cache local das respostas do PCI (`.concurso/cache/pci_mcp.json`), com validade de `ttl_horas`."""
+"""Cache local das respostas do PCI (`.gabarito-vivo/cache/pci_mcp.json`), com validade de `ttl_horas`."""
 
 import hashlib
 import json

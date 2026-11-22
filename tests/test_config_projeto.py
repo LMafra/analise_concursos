@@ -13,14 +13,14 @@ PACOTE = RAIZ_DO_REPOSITORIO / 'src' / 'concursos'
 
 def projeto_com(tmp_path: Path, config_toml: str | None = None) -> Path:
     raiz = tmp_path / 'projeto'
-    (raiz / '.concurso').mkdir(parents=True)
+    (raiz / '.gabarito-vivo').mkdir(parents=True)
     if config_toml is not None:
-        (raiz / '.concurso' / 'config.toml').write_text(config_toml, encoding='utf-8')
+        (raiz / '.gabarito-vivo' / 'config.toml').write_text(config_toml, encoding='utf-8')
     return raiz
 
 
 def contexto_de(raiz: Path, **extra):
-    return resolver_contexto(cwd=raiz, ambiente={'CONCURSO_HOME': str(raiz.parent / 'home')}, **extra)
+    return resolver_contexto(cwd=raiz, ambiente={'GABARITO_VIVO_HOME': str(raiz.parent / 'home')}, **extra)
 
 
 def test_limiares_e_alvo_vem_do_config_toml_do_projeto(tmp_path):
@@ -65,10 +65,12 @@ def test_contexto_sobe_ate_a_pasta_do_projeto(tmp_path):
 
 def test_contexto_nao_confunde_a_pasta_global_com_a_do_projeto(tmp_path):
     home = tmp_path / 'usuario'
-    (home / '.concurso').mkdir(parents=True)
+    (home / '.gabarito-vivo').mkdir(parents=True)
     (home / 'trabalho').mkdir()
 
-    contexto = resolver_contexto(cwd=home / 'trabalho', ambiente={'CONCURSO_HOME': str(home / '.concurso')})
+    contexto = resolver_contexto(
+        cwd=home / 'trabalho', ambiente={'GABARITO_VIVO_HOME': str(home / '.gabarito-vivo')}
+    )
 
     assert contexto.raiz == home / 'trabalho'
 
@@ -76,12 +78,12 @@ def test_contexto_nao_confunde_a_pasta_global_com_a_do_projeto(tmp_path):
 def test_pastas_do_config_toml_com_flag_e_variavel_por_cima(tmp_path):
     fora = tmp_path / 'fora' / 'saida'
     raiz = projeto_com(tmp_path, f'[pastas]\nprovas = "minhas_provas"\nanalises = "{fora.as_posix()}"\n')
-    ambiente = {'CONCURSO_HOME': str(tmp_path / 'home')}
+    ambiente = {'GABARITO_VIVO_HOME': str(tmp_path / 'home')}
 
     padrao = resolver_contexto(cwd=raiz, ambiente=ambiente)
-    por_variavel = resolver_contexto(cwd=raiz, ambiente={**ambiente, 'CONCURSO_PROVAS': 'outra'})
+    por_variavel = resolver_contexto(cwd=raiz, ambiente={**ambiente, 'GABARITO_VIVO_PROVAS': 'outra'})
     por_flag = resolver_contexto(
-        cwd=raiz, ambiente={**ambiente, 'CONCURSO_PROVAS': 'outra'}, provas=Path('da_flag')
+        cwd=raiz, ambiente={**ambiente, 'GABARITO_VIVO_PROVAS': 'outra'}, provas=Path('da_flag')
     )
 
     assert (padrao.provas, padrao.analises) == (raiz / 'minhas_provas', fora)
@@ -93,7 +95,7 @@ def test_taxonomia_fica_na_pasta_do_projeto(tmp_path):
     raiz = projeto_com(tmp_path)
     (raiz / 'taxonomia.yaml').write_text('{}', encoding='utf-8')
 
-    assert contexto_de(raiz).taxonomia == raiz / '.concurso' / 'taxonomia.yaml'
+    assert contexto_de(raiz).taxonomia == raiz / '.gabarito-vivo' / 'taxonomia.yaml'
 
 
 CPF = re.compile(r'\b\d{3}\.\d{3}\.\d{3}-\d{2}\b')

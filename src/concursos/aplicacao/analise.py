@@ -1,3 +1,4 @@
+import logging
 from dataclasses import replace
 from pathlib import Path
 
@@ -33,15 +34,18 @@ from concursos.config.contexto import Contexto
 from concursos.configuracao import ConfiguracaoGlobal, configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
 from concursos.erros import ErroDoUsuario
+from concursos.erros import avisar as avisar_log
 from concursos.exportacao import FormatoExportacao, exportar_consolidado
 from concursos.llm import ClienteComMemoria, ClienteLlm, cliente_configurado
 from concursos.manifesto import ARQUIVO_MANIFESTO
 from concursos.modelo import Etapa
-from concursos.pipeline import analisar_todos, planejar
+from concursos.pipeline import AnaliseCancelada, analisar_todos, planejar
 from concursos.pratica_tec import textos_para_normas
 from concursos.respostas import RespostasInvalidasError
 from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
 from concursos.status import StatusConcurso, avaliar, listar_concursos
+
+logger = logging.getLogger(__name__)
 
 TEXTO_DA_ETAPA = {
     Etapa.LENDO_ARQUIVOS: 'Lendo os arquivos…',
@@ -54,24 +58,33 @@ TEXTO_DA_ETAPA = {
 
 
 def analisar(opcoes: Opcoes, concurso: str | None = None, reaproveitar: bool = False) -> int:
-    """A análise completa de uma execução; devolve o código de saída (0 ou 1)."""
+    """A análise completa de uma execução; devolve o código de saída (0 ou 1). Cancelar sai com 0."""
     exigir_provas(opcoes.contexto.provas)
     opcoes = migrar(opcoes)
     contexto = opcoes.contexto
     if reaproveitar:
         reaproveitar_csv(opcoes, concurso)
-    if not opcoes.todos:
-        candidato = escolher_candidato(contexto)
-        sucesso = analisar_candidato(opcoes, cliente_llm(opcoes), candidato, concurso)
-        sincronizar_depois_da_analise(opcoes, [candidato])
-        return 0 if sucesso else 1
-    candidatos = candidatos_da_execucao(contexto, todos=True)
-    cliente = cliente_llm(opcoes)
-    sucessos = [analisar_candidato(opcoes, cliente, candidato, concurso) for candidato in candidatos]
-    if not opcoes.dry_run:
-        comparar_candidatos(contexto.analises, candidatos)
-    sincronizar_depois_da_analise(opcoes, candidatos)
-    return 0 if all(sucessos) else 1
+    try:
+        if not opcoes.todos:
+            candidato = escolher_candidato(contexto)
+            sucesso = analisar_candidato(opcoes, cliente_llm(opcoes), candidato, concurso)
+            sincronizar_depois_da_analise(opcoes, [candidato])
+            return 0 if sucesso else 1
+        candidatos = candidatos_da_execucao(contexto, todos=True)
+        cliente = cliente_llm(opcoes)
+        sucessos = [analisar_candidato(opcoes, cliente, candidato, concurso) for candidato in candidatos]
+        if not opcoes.dry_run:
+            comparar_candidatos(contexto.analises, candidatos)
+        sincronizar_depois_da_analise(opcoes, candidatos)
+        return 0 if all(sucessos) else 1
+    except AnaliseCancelada:
+        avisar_log(
+            logger,
+            'A análise foi cancelada; o que já tinha terminado ficou gravado.',
+            'rode de novo quando quiser continuar.',
+        )
+        opcoes.saida('análise cancelada')
+        return 0
 
 
 def cliente_llm(opcoes: Opcoes) -> ClienteLlm | None:
@@ -164,6 +177,7 @@ def analisar_candidato(
         opcoes.ao_progresso,
         opcoes.ao_etapa,
         contexto.extras_do_manifesto,
+        opcoes.cancelar,
     )
     _pos_analise_relatorio(opcoes, provas, destino, candidato, configuracao, antes)
     return sucesso
@@ -188,20 +202,20 @@ def reaproveitar_csv(opcoes: Opcoes, concurso: str | None) -> None:
     if concurso is None or opcoes.todos:
         raise ErroDoUsuario(
             'A leitura revisada da folha vale para um concurso e um candidato por vez.',
-            'rode concurso-analise analyze <concurso> --reuse-csv --candidate <nome>.',
+            'rode gabarito-vivo analyze <concurso> --reuse-csv --candidate <nome>.',
         )
     candidato = escolher_candidato(contexto)
     if candidato is None:
         raise ErroDoUsuario(
             'Para usar a leitura revisada da folha, preciso saber de qual candidato ela é, e este projeto não '
             'tem nenhum.',
-            'acrescente as respostas com concurso-analise add <folha> --candidate <nome> --concurso <pasta>.',
+            'acrescente as respostas com gabarito-vivo add <folha> --candidate <nome> --concurso <pasta>.',
         )
     csv = contexto.analises / candidato / concurso / ARQUIVO_RESPOSTAS
     if not csv.exists():
         raise ErroDoUsuario(
             f'{concurso}: ainda não li a folha de respostas deste concurso.',
-            f'rode concurso-analise analyze {concurso} para ler a folha, corrija a planilha {csv} e rode de '
+            f'rode gabarito-vivo analyze {concurso} para ler a folha, corrija a planilha {csv} e rode de '
             'novo com --reuse-csv.',
             f'{csv} não existe',
         )
@@ -248,7 +262,7 @@ def relatorio(contexto: Contexto) -> Path:
     if not indice.exists():
         raise ErroDoUsuario(
             'O relatório ainda não foi gerado.',
-            'clique em Analisar na janela ou rode concurso-analise.',
+            'clique em Analisar na janela ou rode gabarito-vivo.',
             f'{indice} não existe',
         )
     return indice
@@ -260,7 +274,7 @@ def exportar(contexto: Contexto, formato: FormatoExportacao) -> Path:
     if not concursos_analisados(contexto.provas, pasta):
         raise ErroDoUsuario(
             'Ainda não há nenhum concurso analisado para exportar.',
-            'clique em Analisar na janela ou rode concurso-analise antes de exportar.',
+            'clique em Analisar na janela ou rode gabarito-vivo antes de exportar.',
             f'nada analisado em {pasta}',
         )
     return exportar_consolidado(contexto.provas, pasta, contexto.taxonomia, formato)

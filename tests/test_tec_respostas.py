@@ -76,8 +76,8 @@ def ler_csv(caminho: Path) -> list[dict]:
 
 @pytest.fixture
 def projeto(tmp_path):
-    (tmp_path / '.concurso').mkdir()
-    (tmp_path / '.concurso' / 'taxonomia.yaml').write_text(
+    (tmp_path / '.gabarito-vivo').mkdir()
+    (tmp_path / '.gabarito-vivo' / 'taxonomia.yaml').write_text(
         yaml.safe_dump(
             {'Legislação Tributária': {'bloco': 'especifico', 'nomes': ['Direito Tributário']}},
             allow_unicode=True,
@@ -119,8 +119,8 @@ def importar(projeto: Path):
     return importar_pratica(
         projeto / 'tec',
         projeto / 'analises' / 'ana',
-        projeto / '.concurso' / 'pratica_tec.yaml',
-        carregar_taxonomia(projeto / '.concurso' / 'taxonomia.yaml'),
+        projeto / '.gabarito-vivo' / 'pratica_tec.yaml',
+        carregar_taxonomia(projeto / '.gabarito-vivo' / 'taxonomia.yaml'),
         'alvo',
         None,
     )

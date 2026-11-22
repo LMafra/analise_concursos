@@ -43,7 +43,7 @@ def aviso_materias_sem_disciplina(disciplinas: dict[str, str | None]) -> str | N
     if desconhecidas := sorted(m for m, d in disciplinas.items() if d is None):
         return (
             f'prática: matéria do TEC sem disciplina ({", ".join(desconhecidas)}); acrescente-a em `nomes:` '
-            'da disciplina no .concurso/taxonomia.yaml'
+            'da disciplina no .gabarito-vivo/taxonomia.yaml'
         )
     return None
 

@@ -8,12 +8,13 @@ import tomli_w
 
 from concursos.concurso_config import ConfiguracaoInvalidaError
 
-VARIAVEL_HOME = 'CONCURSO_HOME'
-VARIAVEL_PROVAS = 'CONCURSO_PROVAS'
-VARIAVEL_ANALISES = 'CONCURSO_ANALISES'
-VARIAVEL_CANDIDATO = 'CONCURSO_CANDIDATO'
-PASTA_HOME = '.concurso'
-PASTA_PROJETO = '.concurso'
+VARIAVEL_HOME = 'GABARITO_VIVO_HOME'
+VARIAVEL_PROVAS = 'GABARITO_VIVO_PROVAS'
+VARIAVEL_ANALISES = 'GABARITO_VIVO_ANALISES'
+VARIAVEL_CANDIDATO = 'GABARITO_VIVO_CANDIDATO'
+PASTA_HOME = '.gabarito-vivo'
+PASTA_PROJETO = '.gabarito-vivo'
+PASTA_ANTIGA = '.concurso'
 PASTA_PROVAS = 'provas'
 PASTA_ANALISES = 'analises'
 ARQUIVO_CONFIG_PROJETO = 'config.toml'
@@ -70,17 +71,27 @@ class Contexto:
     def extras_do_manifesto(self) -> dict[str, Path]:
         """Os arquivos de fora da pasta do concurso que mudam a análise e por isso entram no manifesto; o
         dicionário só quando ligado, para que ligar e desligar refaça a análise."""
-        extras = {'.concurso/taxonomia.yaml': self.taxonomia}
+        extras = {f'{PASTA_PROJETO}/taxonomia.yaml': self.taxonomia}
         if self.dicionario_ligado:
-            extras[f'.concurso/{ARQUIVO_DICIONARIO}'] = self.dicionario
+            extras[f'{PASTA_PROJETO}/{ARQUIVO_DICIONARIO}'] = self.dicionario
         return extras
+
+
+def migrar_pasta_antiga(caminho_novo: Path) -> Path:
+    """Se só existir `.gabarito-vivo` no mesmo pai, renomeia para `.gabarito-vivo`. Não lê as duas."""
+    if caminho_novo.exists():
+        return caminho_novo
+    antiga = caminho_novo.parent / PASTA_ANTIGA
+    if antiga.is_dir():
+        antiga.rename(caminho_novo)
+    return caminho_novo
 
 
 def resolver_home(ambiente: Mapping[str, str] | None = None) -> Path:
     ambiente = os.environ if ambiente is None else ambiente
     if valor := ambiente.get(VARIAVEL_HOME):
         return Path(valor).expanduser()
-    return Path.home() / PASTA_HOME
+    return migrar_pasta_antiga(Path.home() / PASTA_HOME)
 
 
 def resolver_contexto(
@@ -98,7 +109,10 @@ def resolver_contexto(
     home = resolver_home(ambiente)
     atual = (cwd or Path.cwd()).resolve()
     raiz = _raiz_do_projeto(atual, home) if data_dir is None else atual
-    projeto = _absoluto(data_dir, raiz) if data_dir else raiz / PASTA_PROJETO
+    if data_dir:
+        projeto = migrar_pasta_antiga(_absoluto(data_dir, raiz))
+    else:
+        projeto = migrar_pasta_antiga(raiz / PASTA_PROJETO)
     config = ler_toml(projeto / ARQUIVO_CONFIG_PROJETO)
     pastas = config.get('pastas', {})
     ultimo = config.get('candidato', {}).get('ultimo')
@@ -136,11 +150,12 @@ def gravar_secao(caminho: Path, secao: str, valores: dict) -> None:
 
 
 def _raiz_do_projeto(atual: Path, home: Path) -> Path:
-    """A pasta mais próxima com `.concurso/`, para rodar de uma subpasta (ex.: notebooks/)."""
+    """A pasta mais próxima com `.gabarito-vivo/` (ou `.gabarito-vivo/` ainda não migrada)."""
     for pasta in (atual, *atual.parents):
-        marcador = pasta / PASTA_PROJETO
-        if marcador.is_dir() and marcador.resolve() != home.resolve():
-            return pasta
+        for nome in (PASTA_PROJETO, PASTA_ANTIGA):
+            marcador = pasta / nome
+            if marcador.is_dir() and marcador.resolve() != home.resolve():
+                return pasta
     return atual
 
 

@@ -10,6 +10,7 @@ from concursos.aplicacao.projeto import ocr_disponivel
 from concursos.deteccao import ArquivoDetectado, Papel
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
+from concursos.gui.componentes.navegacao import breadcrumb
 from concursos.gui.componentes.situacao import situacao
 from concursos.gui.estado import ESTADO
 from concursos.gui.interacao import InteracaoCanceladaError, InteracaoGui
@@ -44,6 +45,7 @@ AVISO_SEM_OCR = (
 def pagina(concurso: str | None = None) -> None:
     if not exigir_projeto():
         return
+    breadcrumb(('Minhas Provas', '/'), ('Novo concurso', None))
     TelaDeEnvio(concurso)
 
 

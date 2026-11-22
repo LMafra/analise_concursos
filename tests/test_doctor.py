@@ -111,7 +111,7 @@ def test_open_notebook_sem_consentimento_e_aviso(ambiente, capsys, home_isolada)
     _, saida = rodar(capsys)
 
     assert '! open-notebook' in saida
-    assert 'concurso-analise notebook enable' in saida
+    assert 'gabarito-vivo notebook enable' in saida
 
 
 def test_open_notebook_com_configuracao_invalida_e_erro(ambiente, capsys, home_isolada):

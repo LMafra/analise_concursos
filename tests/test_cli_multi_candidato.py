@@ -50,7 +50,7 @@ def mtime(raiz: Path, slug: str) -> int:
 
 
 def ultimo_candidato(raiz: Path) -> str | None:
-    dados = tomllib.loads((raiz / '.concurso' / 'config.toml').read_text(encoding='utf-8'))
+    dados = tomllib.loads((raiz / '.gabarito-vivo' / 'config.toml').read_text(encoding='utf-8'))
     return dados.get('candidato', {}).get('ultimo')
 
 
@@ -103,7 +103,7 @@ def test_varios_candidatos_sem_escolha_pede_a_flag(projeto, capsys):
 def test_dry_run_nao_grava_o_ultimo_candidato(projeto):
     assert main(['--candidate', 'bob', '--dry-run']) == 0
 
-    assert not (projeto / '.concurso').exists()
+    assert not (projeto / '.gabarito-vivo').exists()
     assert not (projeto / 'analises').exists()
 
 

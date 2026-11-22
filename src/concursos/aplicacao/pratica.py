@@ -315,7 +315,7 @@ def fontes_de_estudo(contexto: Contexto) -> FontesDeEstudo:
     except ConfiguracaoInvalidaError as erro:
         raise ErroDoUsuario(
             'Não consegui ler a lista de livros ou a configuração das leis.',
-            'corrija o .concurso/biblioteca.yaml ou a seção [legislacao] e rode de novo.',
+            'corrija o .gabarito-vivo/biblioteca.yaml ou a seção [legislacao] e rode de novo.',
             str(erro),
         ) from erro
     if not livros_do_app(contexto):

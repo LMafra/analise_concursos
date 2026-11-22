@@ -31,6 +31,6 @@ def analisar_exemplo(home: Path) -> Path:
     if analise.analisar(opcoes) != 0:
         raise ErroDoAmbiente(
             'Não consegui analisar o concurso de exemplo.',
-            'veja o que aconteceu no registro em ~/.concurso/logs/.',
+            'veja o que aconteceu no registro em ~/.gabarito-vivo/logs/.',
         )
     return contexto.analises / exemplo.CANDIDATO / ARQUIVO_INDICE

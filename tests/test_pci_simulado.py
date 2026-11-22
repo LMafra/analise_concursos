@@ -176,16 +176,22 @@ def test_simulado_usa_os_topicos_do_alvo_mas_nao_a_regra_dele(raizes):
     provas, analises = raizes
     _analisar_alvo_e_simulado(provas, analises)
 
-    [alvo] = json.loads((analises / 'alvo' / 'correcao.json').read_text(encoding='utf-8'))
-    [simulado] = json.loads((analises / 'simulado' / 'correcao.json').read_text(encoding='utf-8'))
+    [alvo] = json.loads((analises / 'candidato' / 'alvo' / 'correcao.json').read_text(encoding='utf-8'))
+    [simulado] = json.loads(
+        (analises / 'candidato' / 'simulado' / 'correcao.json').read_text(encoding='utf-8')
+    )
     assert (alvo['fonte'], alvo['fator_penalidade']) == ('edital', 1.0)
     assert simulado['fonte'] != 'edital'
     assert simulado['fator_penalidade'] == 0.0
     assert simulado['documento_origem'] is None
     assert simulado['nota_corte'] is None
     assert simulado['data_prova'] == '2026-11-02'
-    estruturado_alvo = json.loads((analises / 'alvo' / 'edital_estruturado.json').read_text(encoding='utf-8'))
-    estruturado = json.loads((analises / 'simulado' / 'edital_estruturado.json').read_text(encoding='utf-8'))
+    estruturado_alvo = json.loads(
+        (analises / 'candidato' / 'alvo' / 'edital_estruturado.json').read_text(encoding='utf-8')
+    )
+    estruturado = json.loads(
+        (analises / 'candidato' / 'simulado' / 'edital_estruturado.json').read_text(encoding='utf-8')
+    )
     assert estruturado['conhecimentos'] == estruturado_alvo['conhecimentos'] != []
 
 
@@ -193,13 +199,14 @@ def test_simulado_fica_fora_do_consolidado_por_padrao(raizes):
     provas, analises = raizes
     _analisar_alvo_e_simulado(provas, analises)
 
-    geral = pd.read_csv(analises / 'consolidado' / 'desempenho_geral.csv')
+    saida = analises / 'candidato'
+    geral = pd.read_csv(saida / 'consolidado' / 'desempenho_geral.csv')
     assert set(geral['concurso']) == {ALVO['nome']}
-    assert concursos_analisados(provas, analises, incluir_simulados=False) == ['alvo']
-    assert concursos_analisados(provas, analises, incluir_simulados=True) == ['alvo', 'simulado']
-    assert contar_questoes(analises, provas, incluir_simulados=False) == 4
-    assert contar_questoes(analises) == 8
-    indice = gerar_relatorio_html(provas, analises, provas.parent / 'taxonomia.yaml', 0.6).read_text(
+    assert concursos_analisados(provas, saida, incluir_simulados=False) == ['alvo']
+    assert concursos_analisados(provas, saida, incluir_simulados=True) == ['alvo', 'simulado']
+    assert contar_questoes(saida, provas, incluir_simulados=False) == 4
+    assert contar_questoes(saida) == 8
+    indice = gerar_relatorio_html(provas, saida, provas.parent / 'taxonomia.yaml', 0.6).read_text(
         encoding='utf-8'
     )
     tabela_de_concursos = indice.split('>Como estou saindo</h2>')[1].split('<h3>')[0]
@@ -212,24 +219,27 @@ def test_incluir_simulados_no_projeto_traz_o_simulado(tmp_path: Path, monkeypatc
     raiz = tmp_path / 'projeto'
     provas, analises = raiz / 'provas', raiz / 'analises'
     provas.mkdir(parents=True)
-    (raiz / '.concurso').mkdir()
-    (raiz / '.concurso' / 'config.toml').write_text('[analise]\nincluir_simulados = true\n', encoding='utf-8')
+    (raiz / '.gabarito-vivo').mkdir()
+    (raiz / '.gabarito-vivo' / 'config.toml').write_text(
+        '[analise]\nincluir_simulados = true\n', encoding='utf-8'
+    )
     monkeypatch.chdir(raiz)
     (raiz / 'config.yaml').write_text('incluir_simulados: true\n', encoding='utf-8')
 
     _analisar_alvo_e_simulado(provas, analises, '--config', str(raiz / 'config.yaml'))
 
-    geral = pd.read_csv(analises / 'consolidado' / 'desempenho_geral.csv')
+    saida = analises / 'candidato'
+    geral = pd.read_csv(saida / 'consolidado' / 'desempenho_geral.csv')
     assert set(geral['concurso']) == {ALVO['nome'], SIMULADO['nome']}
-    assert concursos_analisados(provas, analises) == ['alvo', 'simulado']
-    assert contar_questoes(analises, provas) == 8
+    assert concursos_analisados(provas, saida) == ['alvo', 'simulado']
+    assert contar_questoes(saida, provas) == 8
 
 
 def test_add_de_respostas_data_o_simulado_com_hoje(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys):
     raiz = tmp_path / 'projeto'
     provas = raiz / 'provas'
     provas.mkdir(parents=True)
-    (raiz / '.concurso').mkdir()
+    (raiz / '.gabarito-vivo').mkdir()
     monkeypatch.chdir(raiz)
     sem_data = {chave: valor for chave, valor in SIMULADO.items() if chave != 'data_prova'}
     pasta = criar_concurso(provas, 'simulado', sem_data, {'gabarito.txt': ARQUIVOS_SIMULADO['gabarito.txt']})
@@ -248,7 +258,7 @@ def test_add_de_respostas_data_o_simulado_com_hoje(tmp_path: Path, monkeypatch: 
 def projeto_pci(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     raiz = tmp_path / 'projeto'
     (raiz / 'provas').mkdir(parents=True)
-    (raiz / '.concurso').mkdir()
+    (raiz / '.gabarito-vivo').mkdir()
     monkeypatch.chdir(raiz)
     criar_concurso(raiz / 'provas', 'alvo', ALVO, ARQUIVOS_ALVO)
     falso = TransporteFalso(

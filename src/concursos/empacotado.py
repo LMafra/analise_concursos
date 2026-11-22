@@ -15,11 +15,11 @@ import time
 import urllib.request
 from pathlib import Path
 
-from concursos.produto import MUTEX, MUTEX_LEGADO, versao_do_pacote
+from concursos.produto import MUTEX, versao_do_pacote
 
 ARGUMENTO_SMOKE = '--smoke'
-VARIAVEL_SEM_OCR = 'CONCURSO_SMOKE_SEM_OCR'
-VARIAVEL_LIMITE_PARTIDA = 'CONCURSO_SMOKE_LIMITE_PARTIDA'
+VARIAVEL_SEM_OCR = 'GABARITO_VIVO_SMOKE_SEM_OCR'
+VARIAVEL_LIMITE_PARTIDA = 'GABARITO_VIVO_SMOKE_LIMITE_PARTIDA'
 TIMEOUT_SERVIDOR = 120
 TEXTO_OCR = 'CONCURSO 2026'
 _IMPORTADO_EM = time.monotonic()
@@ -94,8 +94,6 @@ def segurar_mutex(sistema: str = sys.platform) -> object | None:
         return None
     import ctypes
 
-    # Novo nome; o legado cobre setups antigos que ainda esperam o mutex antigo.
-    ctypes.windll.kernel32.CreateMutexW(None, False, MUTEX_LEGADO)
     return ctypes.windll.kernel32.CreateMutexW(None, False, MUTEX)
 
 

@@ -15,7 +15,7 @@ cd "$RAIZ"
 
 ONEDIR=dist/gabarito-vivo
 if [ ! -d "$ONEDIR" ]; then
-  ONEDIR=dist/concurso-analise
+  ONEDIR=dist/gabarito-vivo
 fi
 bash "$AQUI/verificar_bibliotecas.sh" "$ONEDIR"
 
@@ -27,13 +27,13 @@ NOME_DIR=$(basename "$ONEDIR")
 cp -a "$ONEDIR" "$APPDIR/$NOME_DIR"
 ICONE_PNG=empacotamento/icones/gabarito-vivo-256.png
 if [ ! -f "$ICONE_PNG" ]; then
-  ICONE_PNG=empacotamento/icones/concurso-analise-256.png
+  ICONE_PNG=empacotamento/icones/gabarito-vivo-256.png
 fi
 cp "$ICONE_PNG" "$ICONES/gabarito-vivo.png"
 cp "$ICONE_PNG" "$APPDIR/gabarito-vivo.png"
 ln -s gabarito-vivo.png "$APPDIR/.DirIcon"
 {
-    cat "$AQUI/concurso-analise.desktop"
+    cat "$AQUI/gabarito-vivo.desktop"
     echo "X-AppImage-Version=$VERSAO"
 } > "$APPDIR/gabarito-vivo.desktop"
 if command -v desktop-file-validate >/dev/null; then

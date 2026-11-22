@@ -29,7 +29,7 @@ EXTRAS = {
     'pesquisar_provas_vazio': ('pesquisar_provas', {'termo': 'xyzw inexistente 1901'}),
     'buscar_por_cargo_uf_invalida': ('buscar_por_cargo', {'cargo': 'analista', 'uf': 'xyz'}),
 }
-AGENTE = 'concurso-analise (fixtures de teste)'
+AGENTE = 'gabarito-vivo (fixtures de teste)'
 
 
 def _gravar(nome: str, dados: object) -> None:

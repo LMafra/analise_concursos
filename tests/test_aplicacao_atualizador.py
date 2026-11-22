@@ -38,12 +38,12 @@ def manifesto(versao: str = '0.6.0', canal: str = 'stable') -> bytes:
             'notas': f'https://github.com/LMafra/analise_concursos/releases/tag/v{versao}',
             'artefatos': {
                 'windows-x64': {
-                    'arquivo': f'concurso-analise-{versao}-windows-x64-setup.exe',
+                    'arquivo': f'gabarito-vivo-{versao}-windows-x64-setup.exe',
                     'sha256': hashlib.sha256(SETUP).hexdigest(),
                     'tamanho': len(SETUP),
                 },
                 'linux-x86_64': {
-                    'arquivo': f'concurso-analise-{versao}-linux-x86_64.AppImage',
+                    'arquivo': f'gabarito-vivo-{versao}-linux-x86_64.AppImage',
                     'sha256': hashlib.sha256(APPIMAGE).hexdigest(),
                     'tamanho': len(APPIMAGE),
                 },
@@ -75,10 +75,10 @@ def stable(
         {
             atualizador.URL_STABLE: conteudo,
             f'{atualizador.URL_STABLE}.sig': assinatura or atualizador.assinar(conteudo, CHAVE),
-            f'{atualizador.URL_DOWNLOAD}/v0.6.0/concurso-analise-0.6.0-windows-x64-setup.exe': artefatos.get(
+            f'{atualizador.URL_DOWNLOAD}/v0.6.0/gabarito-vivo-0.6.0-windows-x64-setup.exe': artefatos.get(
                 'setup', SETUP
             ),
-            f'{atualizador.URL_DOWNLOAD}/v0.6.0/concurso-analise-0.6.0-linux-x86_64.AppImage': artefatos.get(
+            f'{atualizador.URL_DOWNLOAD}/v0.6.0/gabarito-vivo-0.6.0-linux-x86_64.AppImage': artefatos.get(
                 'appimage', APPIMAGE
             ),
         }
@@ -91,7 +91,7 @@ def test_stable_oferece_a_versao_nova_com_a_url_da_release():
     )
 
     assert novidade.versao == '0.6.0'
-    assert novidade.url.endswith('/v0.6.0/concurso-analise-0.6.0-linux-x86_64.AppImage')
+    assert novidade.url.endswith('/v0.6.0/gabarito-vivo-0.6.0-linux-x86_64.AppImage')
 
 
 def test_stable_na_mesma_versao_nao_oferece():
@@ -187,7 +187,7 @@ def test_beta_usa_a_primeira_release_publicada_com_manifesto():
 
 
 def test_linux_troca_o_appimage_no_mesmo_caminho(tmp_path):
-    atual = tmp_path / 'concurso-analise.AppImage'
+    atual = tmp_path / 'gabarito-vivo.AppImage'
     atual.write_bytes(b'antigo')
     transporte = stable()
     novidade = aplicacao.verificar(
@@ -202,11 +202,11 @@ def test_linux_troca_o_appimage_no_mesmo_caminho(tmp_path):
     assert not instalacao.setup_em_andamento
     assert atual.read_bytes() == APPIMAGE
     assert os.name == 'nt' or os.stat(atual).st_mode & 0o777 == 0o755
-    assert sorted(p.name for p in tmp_path.iterdir()) == ['concurso-analise.AppImage']
+    assert sorted(p.name for p in tmp_path.iterdir()) == ['gabarito-vivo.AppImage']
 
 
 def test_linux_com_sha256_errado_mantem_o_appimage_antigo(tmp_path):
-    atual = tmp_path / 'concurso-analise.AppImage'
+    atual = tmp_path / 'gabarito-vivo.AppImage'
     atual.write_bytes(b'antigo')
     transporte = stable(appimage=b'adulterado!!!')
     novidade = aplicacao.verificar(
@@ -219,15 +219,15 @@ def test_linux_com_sha256_errado_mantem_o_appimage_antigo(tmp_path):
         )
 
     assert atual.read_bytes() == b'antigo'
-    assert sorted(p.name for p in tmp_path.iterdir()) == ['concurso-analise.AppImage']
+    assert sorted(p.name for p in tmp_path.iterdir()) == ['gabarito-vivo.AppImage']
 
 
 def test_linux_nao_segue_link_plantado_na_pasta_do_appimage(tmp_path):
-    atual = tmp_path / 'concurso-analise.AppImage'
+    atual = tmp_path / 'gabarito-vivo.AppImage'
     atual.write_bytes(b'antigo')
     alvo = tmp_path / 'alvo.txt'
     alvo.write_bytes(b'intacto')
-    (tmp_path / '.concurso-analise.AppImage.atualizacao').symlink_to(alvo)
+    (tmp_path / '.gabarito-vivo.AppImage.atualizacao').symlink_to(alvo)
     transporte = stable()
     novidade = aplicacao.verificar(
         CanalAtualizacao.STABLE, transporte=transporte, instalada='0.5.0', sistema='linux'
@@ -250,7 +250,7 @@ def test_linux_fora_do_appimage_pede_o_download_manual():
 
 
 def test_linux_sem_permissao_na_pasta_pede_outra_pasta(tmp_path, monkeypatch):
-    atual = tmp_path / 'concurso-analise.AppImage'
+    atual = tmp_path / 'gabarito-vivo.AppImage'
     atual.write_bytes(b'antigo')
     monkeypatch.setattr(aplicacao.os, 'access', lambda caminho, modo: False)
     novidade = aplicacao.verificar(
@@ -296,9 +296,7 @@ def test_windows_assinado_roda_o_setup_do_mesmo_signatario(tmp_path):
     instalacao, abertos = instalar_no_windows(tmp_path, ler)
 
     assert instalacao.setup_em_andamento
-    assert abertos == [
-        atualizador.comando_do_setup(tmp_path / 'concurso-analise-0.6.0-windows-x64-setup.exe')
-    ]
+    assert abertos == [atualizador.comando_do_setup(tmp_path / 'gabarito-vivo-0.6.0-windows-x64-setup.exe')]
 
 
 @pytest.mark.parametrize(
@@ -310,7 +308,7 @@ def test_windows_assinado_recusa_setup_de_outro_ou_sem_assinatura(tmp_path, setu
     with pytest.raises(ErroDoAmbiente, match='não é o oficial') as erro:
         instalar_no_windows(tmp_path, ler)
     assert 'assinatura' in erro.value.detalhe
-    assert not (tmp_path / 'concurso-analise-0.6.0-windows-x64-setup.exe').exists()
+    assert not (tmp_path / 'gabarito-vivo-0.6.0-windows-x64-setup.exe').exists()
 
 
 def test_windows_sem_assinatura_no_atual_confia_no_manifesto_e_no_sha256(tmp_path):

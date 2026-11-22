@@ -1,4 +1,4 @@
-"""A biblioteca local (`~/.concurso/biblioteca/`): o catálogo dos livros, o estado de cada um e a
+"""A biblioteca local (`~/.gabarito-vivo/biblioteca/`): o catálogo dos livros, o estado de cada um e a
 leitura em segundo plano, num processo à parte, retomável da última página lida.
 """
 

@@ -43,7 +43,7 @@ def xlsx(caminho: Path, linhas: list[list]) -> Path:
 
 @pytest.fixture
 def contexto(tmp_path: Path):
-    return resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.concurso')
+    return resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.gabarito-vivo')
 
 
 @pytest.mark.parametrize('separador', [';', ',', '\t'])

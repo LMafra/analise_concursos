@@ -440,7 +440,7 @@ No fim, o relatório abre no navegador (no WSL, no navegador do Windows). Rodar 
 
 ### Comandos
 
-Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa o que mudou.
+Sem subcomando, `gabarito-vivo` faz o onboarding (na primeira vez) e analisa o que mudou. O pacote Python continua `concursos`; a pasta de configuração é `.gabarito-vivo/`.
 
 | Comando | O que faz |
 |---|---|
@@ -453,18 +453,22 @@ Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa 
 | `report` | Reabre o último relatório HTML. |
 | `export --format csv\|parquet\|md` | Grava o consolidado do candidato, uma linha por questão. |
 | `doctor` | Confere uv, Python, Tesseract, permissão de escrita, espaço em disco, a chave do LLM e a configuração do open-notebook, com o comando de correção para o seu sistema. |
-| `upgrade` | No executável, procura a versão nova no GitHub (canal de `[atualizacao]`, ou `--canal stable`/`beta`); com `--run`, baixa, confere e instala. Fora dele, mostra o comando do uv; com `--run`, executa `uv tool upgrade concurso-analise`. |
+| `upgrade` | No executável, procura a versão nova no GitHub (canal de `[atualizacao]`, ou `--canal stable`/`beta`); com `--run`, baixa, confere e instala. Fora dele, mostra o comando do uv; com `--run`, executa `uv tool upgrade gabarito-vivo`. |
 | `notebook enable\|disable\|sync` | Liga, desliga ou envia agora as análises para um open-notebook seu (veja [open-notebook](docs/detalhes-tecnicos.md#open-notebook)). |
 | `discover` | Busca no PCI Concursos os concursos com inscrições abertas ou prestes a abrir; `--register ID` acompanha um deles (veja [PCI Concursos](docs/detalhes-tecnicos.md#pci-concursos)). |
 | `pci enable\|disable\|provas` | Liga ou desliga o PCI, ou lista as provas anteriores de um concurso e importa uma como simulado. |
+| `pratica import\|repetir\|explicar\|pci` | Importa erros do TEC, repete questões, pede explicações no open-notebook ou busca provas no PCI pelos assuntos errados. |
+| `estudo preparar\|status` | Prepara ou consulta a biblioteca de estudo (open-notebook gerenciado). |
+| `livros add\|list\|remove\|ask` | Adiciona, lista, remove ou pergunta nos livros da biblioteca. |
+| `dicionario` | Liga, mede ou aplica o dicionário de temas. |
+
+Na janela, **Conferir** (`/conferir`) revisa tópicos e dados do edital; **Disciplinas e temas** (`/disciplinas`) edita a taxonomia e o dicionário.
 
 Flags globais, antes do subcomando: `--yes` (aceita os padrões sem perguntar), `--quiet`, `--verbose`, `--dry-run` (mostra o que seria feito, sem gravar nada), `--force` (reprocessa tudo), `--candidate`, `--all-candidates`, `--no-open`, `--no-llm`, `--offline`, `--data-dir`, `--provas` e `--analises`.
 
 Sem terminal interativo, com a variável `CI` ou com `--yes`, nada é perguntado: o app usa os padrões e os lista no log.
 
-Códigos de saída: 0 sucesso, 1 problema nos seus dados ou na configuração, 2 problema no ambiente. Um erro aparece em até três linhas: `erro:` com o que aconteceu, `dica:` com o que fazer e, quando houver, `detalhe:` com o texto técnico. Um aviso segue o mesmo formato, com `aviso:`. O traceback fica em `~/.concurso/logs/concurso-analise.log`.
-
-O comando antigo `concursos` continua funcionando, com aviso de obsoleto.
+Códigos de saída: 0 sucesso, 1 problema nos seus dados ou na configuração, 2 problema no ambiente. Um erro aparece em até três linhas: `erro:` com o que aconteceu, `dica:` com o que fazer e, quando houver, `detalhe:` com o texto técnico. Um aviso segue o mesmo formato, com `aviso:`. O traceback fica em `~/.gabarito-vivo/logs/gabarito-vivo.log`.
 
 ### Organizar as provas
 
@@ -713,7 +717,7 @@ Os notebooks são scripts [jupytext](https://jupytext.readthedocs.io/) em `noteb
 
 ### Build local do executável
 
-O executável é uma pasta do PyInstaller (`empacotamento/concurso-analise.spec`) com o Python, o Tesseract e o modelo `por` do `tessdata_fast`. Os scripts de `empacotamento/` são os mesmos do workflow de release (`.github/workflows/release.yml`); a saída vai para `dist/`, e o Tesseract baixado, para `empacotamento/construcao/`, ambos fora do git. A captura do TEC entra no pacote se você a gerar antes com `node tec-erros/scripts/build.mjs` (Node 22).
+O executável é uma pasta do PyInstaller (`empacotamento/gabarito-vivo.spec`) com o Python, o Tesseract e o modelo `por` do `tessdata_fast`. Os scripts de `empacotamento/` são os mesmos do workflow de release (`.github/workflows/release.yml`); a saída vai para `dist/`, e o Tesseract baixado, para `empacotamento/construcao/`, ambos fora do git. A captura do TEC entra no pacote se você a gerar antes com `node tec-erros/scripts/build.mjs` (Node 22).
 
 **Linux (AppImage).** O build roda no contêiner `manylinux_2_28`, para o executável valer em distribuições de 2019 em diante. Use um clone limpo, porque o contêiner recria o `.venv`:
 
@@ -738,9 +742,9 @@ APPIMAGE_EXTRACT_AND_RUN=1 python3 scripts/smoke.py congelado dist/concurso-anal
 .\empacotamento\tesseract\obter_windows.ps1 -Msys C:\msys64
 uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
 uv run --no-sync python empacotamento/coletar_licencas.py
-uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/gabarito-vivo.spec
 .\empacotamento\windows\obter_webview2.ps1
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersao=0.6.0 /DVersaoNumerica=0.6.0.0 empacotamento\inno\concurso-analise.iss
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersao=0.6.0 /DVersaoNumerica=0.6.0.0 empacotamento\inno\gabarito-vivo.iss
 .\scripts\smoke_maquina_limpa.ps1 -Instalador dist\concurso-analise-0.6.0-windows-x64-setup.exe -Relatorio smoke-windows.md
 ```
 
@@ -752,7 +756,7 @@ O último comando instala, confere o WebView2, o executável com o `PATH` sem Py
 bash empacotamento/tesseract/obter_macos.sh
 uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
 uv run --no-sync python empacotamento/coletar_licencas.py
-uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/gabarito-vivo.spec
 bash empacotamento/macos/criar_dmg.sh 0.5.0
 env -i HOME="$HOME" PATH=/usr/bin:/bin /usr/bin/python3 scripts/smoke.py congelado \
     dist/concurso-analise.app/Contents/MacOS/concurso-analise-cli

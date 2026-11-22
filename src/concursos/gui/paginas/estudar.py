@@ -381,14 +381,39 @@ class MeusLivros:
         dialogo.open()
 
     async def remover(self, livro: Livro, dialogo: Dialogo) -> None:
+        from concursos.aplicacao import lixeira
+        from concursos.gui.componentes import toasts
+
         dialogo.close()
         with self.raiz:
+            pastas = estudo.biblioteca(self.contexto)
+            arquivo = livro.arquivo(pastas)
+            item = None
             try:
+                if arquivo.exists():
+                    item = lixeira.mover_para_lixeira(
+                        lixeira.lixeira_global(self.contexto), arquivo, tipo='livro'
+                    )
                 await run.io_bound(estudo.remover_livro, self.contexto, livro.sha)
             except Exception as erro:  # noqa: BLE001
+                if item is not None:
+                    lixeira.restaurar(lixeira.lixeira_global(self.contexto), item.id)
                 mostrar_erro(erro)
-            else:
-                ui.notify(f'{livro.nome} saiu da biblioteca.')
+                return
+
+            def desfazer() -> None:
+                if item is not None:
+                    restaurado = lixeira.restaurar(lixeira.lixeira_global(self.contexto), item.id)
+                    if restaurado is not None:
+                        estudo.adicionar_livros(
+                            Opcoes(self.contexto, saida=lambda _: None),
+                            [restaurado],
+                            disciplina=livro.disciplina,
+                            concursos=list(livro.concursos),
+                        )
+                self.atualizar()
+
+            toasts.com_desfazer(f'{livro.nome} saiu da biblioteca. Desfazer?', desfazer)
             self.atualizar()
 
 

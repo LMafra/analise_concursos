@@ -22,7 +22,7 @@ def mascarar(texto: str, raiz: Path) -> str:
     for pasta in {str(raiz.parent.resolve()), str(raiz.parent)}:
         texto = texto.replace(pasta, '<TMP>')
     texto = re.sub(r'<TMP>[^\s)]*', lambda caminho: caminho.group(0).replace('\\', '/'), texto)
-    texto = re.sub(r'(?:concurso-analise|Gabarito Vivo) \d[\w.+]*', 'Gabarito Vivo <VERSAO>', texto)
+    texto = re.sub(r'(?:gabarito-vivo|Gabarito Vivo) \d[\w.+]*', 'Gabarito Vivo <VERSAO>', texto)
     texto = re.sub(r'(Situação em )\d{2}/\d{2}/\d{4}', r'\1<DATA>', texto)
     return re.sub(
         r'\d{2}/\d{2}/\d{4}( \d{2}:\d{2})?(?=\.? a partir|\.?</p>|\.?</footer>)',

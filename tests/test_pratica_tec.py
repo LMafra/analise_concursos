@@ -115,8 +115,8 @@ EDITAL = {
 
 @pytest.fixture
 def projeto(tmp_path):
-    (tmp_path / '.concurso').mkdir()
-    (tmp_path / '.concurso' / 'taxonomia.yaml').write_text(
+    (tmp_path / '.gabarito-vivo').mkdir()
+    (tmp_path / '.gabarito-vivo' / 'taxonomia.yaml').write_text(
         yaml.safe_dump(TAXONOMIA, allow_unicode=True), encoding='utf-8'
     )
     gravar_json(tmp_path / 'analises' / 'ana' / 'alvo' / 'edital_estruturado.json', EDITAL)
@@ -130,8 +130,8 @@ def importar(projeto: Path, interacao=None, concurso_alvo='alvo'):
     return importar_pratica(
         projeto / 'tec',
         projeto / 'analises' / 'ana',
-        projeto / '.concurso' / 'pratica_tec.yaml',
-        carregar_taxonomia(projeto / '.concurso' / 'taxonomia.yaml'),
+        projeto / '.gabarito-vivo' / 'pratica_tec.yaml',
+        carregar_taxonomia(projeto / '.gabarito-vivo' / 'taxonomia.yaml'),
         concurso_alvo,
         interacao,
     )
@@ -287,7 +287,7 @@ def test_importa_e_grava_tabelas_com_alias_exato(projeto):
     (disciplina,) = ler_csv(pasta / ARQUIVO_DESEMPENHO)
     assert disciplina['disciplina'] == 'Legislação Tributária'
     assert (disciplina['n'], disciplina['percentual'], disciplina['repetidos']) == ('10', '60.0', '1')
-    assert ler_escolhas(projeto / '.concurso' / 'pratica_tec.yaml').aliases == {
+    assert ler_escolhas(projeto / '.gabarito-vivo' / 'pratica_tec.yaml').aliases == {
         'Simples Nacional': 'Simples Nacional'
     }
 
@@ -320,7 +320,7 @@ def test_assunto_sem_terminal_vai_para_revisao_e_volta_corrigido(projeto):
     importar(projeto)
     assert ler_csv(pasta / ARQUIVO_ERROS)[0]['topico'] == 'ICMS'
     assert ler_csv(pasta / ARQUIVO_REVISAO) == []
-    assert ler_escolhas(projeto / '.concurso' / 'pratica_tec.yaml').aliases == {
+    assert ler_escolhas(projeto / '.gabarito-vivo' / 'pratica_tec.yaml').aliases == {
         'Fato gerador do ICMS': 'ICMS'
     }
 
@@ -355,7 +355,7 @@ def test_assunto_fora_do_edital(projeto):
     assert (
         ler_csv(projeto / 'analises' / 'ana' / PASTA_PRATICA / ARQUIVO_ERROS)[0]['topico'] == FORA_DO_EDITAL
     )
-    assert ler_escolhas(projeto / '.concurso' / 'pratica_tec.yaml').aliases == {'Assunto alheio': None}
+    assert ler_escolhas(projeto / '.gabarito-vivo' / 'pratica_tec.yaml').aliases == {'Assunto alheio': None}
 
 
 def test_materia_desconhecida_vira_pendencia(projeto):
@@ -369,7 +369,7 @@ def test_materia_desconhecida_vira_pendencia(projeto):
 def test_caderno_so_daqui_desconta_a_base(projeto):
     gravar_json(projeto / 'tec' / 'a.json', exportacao(cads=[caderno(res=10, ac=6, er=4)]))
     importar(projeto, Respostas('só acompanhar daqui'))
-    escolhas = ler_escolhas(projeto / '.concurso' / 'pratica_tec.yaml')
+    escolhas = ler_escolhas(projeto / '.gabarito-vivo' / 'pratica_tec.yaml')
     assert escolhas.cadernos['c1'] == {'modo': ModoCaderno.DAQUI.value, 'base': {'res': 10, 'ac': 6, 'er': 4}}
 
     gravar_json(projeto / 'tec' / 'b.json', exportacao(cads=[caderno(res=15, ac=9, er=6, t=2)]))
@@ -423,7 +423,7 @@ def test_resumo_cruza_topico_fraco_da_prova_com_erro_repetido(projeto):
     resultado = importar_pratica(
         projeto / 'tec',
         projeto / 'analises' / 'ana',
-        projeto / '.concurso' / 'pratica_tec.yaml',
+        projeto / '.gabarito-vivo' / 'pratica_tec.yaml',
         {},
         'alvo',
         None,

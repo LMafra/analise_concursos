@@ -105,7 +105,7 @@ def test_instancia_fora_do_ar_da_dica_de_subir():
 
 
 def test_notebook_criar_obter_e_buscar_por_nome(servidor: ServidorOpenNotebook, cliente: ClienteOpenNotebook):
-    criado = cliente.criar_notebook('agsus — candidato 1', 'gerado por concurso-analise')
+    criado = cliente.criar_notebook('agsus — candidato 1', 'gerado por gabarito-vivo')
     assert cliente.obter_notebook(criado['id'])['name'] == 'agsus — candidato 1'
     assert cliente.obter_notebook('notebook:9999') is None
     assert cliente.buscar_notebook_por_nome('agsus — candidato 1')['id'] == criado['id']

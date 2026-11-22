@@ -97,7 +97,7 @@ def test_markdown_cita_o_limiar_o_n_e_os_simulados_sem_revisao(tmp_path: Path):
 
 def test_sem_provas_anteriores_nada_e_gravado(tmp_path: Path):
     (tmp_path / 'provas').mkdir()
-    contexto = resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.concurso')
+    contexto = resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.gabarito-vivo')
 
     assert gerar_simulado_focado(Opcoes(contexto), tmp_path / 'provas', tmp_path / 'analises', 0.6) is None
     assert not (tmp_path / 'analises' / simulado_focado.ARQUIVO_SIMULADO_FOCADO).exists()
@@ -109,7 +109,7 @@ def test_simulado_sem_respostas_ganha_a_revisao_e_o_arquivo_na_analise(
     raiz = tmp_path / 'projeto'
     provas, analises = raiz / 'provas', raiz / 'analises'
     provas.mkdir(parents=True)
-    (raiz / '.concurso').mkdir()
+    (raiz / '.gabarito-vivo').mkdir()
     monkeypatch.chdir(raiz)
     criar_concurso(provas, 'alvo', ALVO, ARQUIVOS_ALVO)
     sem_respostas = {chave: valor for chave, valor in SIMULADO.items() if chave != 'respostas'}
@@ -133,7 +133,7 @@ def test_simulado_ainda_sem_os_arquivos_da_prova_avisa_uma_vez_com_o_link(
     raiz = tmp_path / 'projeto'
     provas = raiz / 'provas'
     provas.mkdir(parents=True)
-    (raiz / '.concurso').mkdir()
+    (raiz / '.gabarito-vivo').mkdir()
     monkeypatch.chdir(raiz)
     criar_concurso(provas, 'alvo', ALVO, ARQUIVOS_ALVO)
     pasta = provas / 'orgao_2002_pci1'

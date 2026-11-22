@@ -12,7 +12,7 @@ from typing import Protocol
 
 from concursos.config.contexto import gravar_secao, ler_toml
 from concursos.erros import avisar
-from concursos.produto import SERVICO_KEYRING, SERVICO_KEYRING_LEGADO
+from concursos.produto import SERVICO_KEYRING
 
 logger = logging.getLogger(__name__)
 
@@ -80,17 +80,62 @@ class ConfiguracaoLlm:
         return PROVEDORES[self.provedor].api if self.provedor in PROVEDORES else FormatoApi.OPENAI
 
 
-def ler_configuracao(config_global: Path) -> ConfiguracaoLlm | None:
-    dados = ler_toml(config_global).get(SECAO, {})
+_CAMPOS_LLM = frozenset(
+    {'provedor', 'url', 'modelo', 'variavel_chave', 'consentimento', 'consentimento_livros'}
+)
+
+
+def _rejeitar_campos_llm(onde: str, dados: dict) -> None:
+    from concursos.concurso_config import ConfiguracaoInvalidaError
+
+    desconhecidos = sorted(set(dados) - _CAMPOS_LLM)
+    if desconhecidos:
+        raise ConfiguracaoInvalidaError(
+            f'{onde} tem campo desconhecido {", ".join(desconhecidos)}; '
+            f'os campos são {", ".join(sorted(_CAMPOS_LLM))}'
+        )
+
+
+def _validar_tipos_llm(onde: str, dados: dict) -> None:
+    from concursos.concurso_config import ConfiguracaoInvalidaError
+
+    for nome in ('consentimento', 'consentimento_livros'):
+        if nome in dados and not isinstance(dados[nome], bool):
+            raise ConfiguracaoInvalidaError(f'{onde} {nome} = {dados[nome]!r} é inválido')
+    for nome in ('url', 'modelo', 'variavel_chave'):
+        if nome in dados and dados[nome] is not None and not isinstance(dados[nome], str):
+            raise ConfiguracaoInvalidaError(f'{onde} {nome} = {dados[nome]!r} é inválido')
+
+
+def _provedor_llm(onde: str, dados: dict) -> str | None:
+    from concursos.concurso_config import ConfiguracaoInvalidaError
+
     provedor = dados.get('provedor') or NENHUM
+    if not isinstance(provedor, str):
+        raise ConfiguracaoInvalidaError(f'{onde} provedor = {provedor!r} é inválido')
     if provedor == NENHUM:
         return None
-    padrao = PROVEDORES.get(provedor)
+    if provedor not in PROVEDORES:
+        raise ConfiguracaoInvalidaError(
+            f'{onde} provedor = {provedor!r} é inválido; use um de {", ".join([NENHUM, *PROVEDORES])}'
+        )
+    return provedor
+
+
+def ler_configuracao(config_global: Path) -> ConfiguracaoLlm | None:
+    dados = dict(ler_toml(config_global).get(SECAO, {}))
+    onde = f'{config_global}: [{SECAO}]'
+    _rejeitar_campos_llm(onde, dados)
+    provedor = _provedor_llm(onde, dados)
+    if provedor is None:
+        return None
+    _validar_tipos_llm(onde, dados)
+    padrao = PROVEDORES[provedor]
     return ConfiguracaoLlm(
         provedor=provedor,
-        url=dados.get('url') or (padrao and padrao.url) or '',
-        modelo=dados.get('modelo') or (padrao and padrao.modelo) or '',
-        variavel_chave=dados.get('variavel_chave', padrao and padrao.variavel_chave) or None,
+        url=dados.get('url') or padrao.url,
+        modelo=dados.get('modelo') or padrao.modelo,
+        variavel_chave=dados.get('variavel_chave', padrao.variavel_chave) or None,
         consentimento=bool(dados.get('consentimento')),
         consentimento_livros=bool(dados.get('consentimento_livros')),
     )
@@ -242,7 +287,7 @@ def cliente_configurado(home: Path, config_global: Path, permitido: bool = True)
         avisar(
             logger,
             f'A IA ({configuracao.provedor}) está configurada, mas falta a sua autorização; segui sem ela.',
-            'autorize em Configurações > Inteligência artificial para ler editais, ou rode concurso-analise init.',
+            'autorize em Configurações > Inteligência artificial para ler editais, ou rode gabarito-vivo init.',
             f'LLM {configuracao.provedor} sem consentimento',
         )
         return None
@@ -283,10 +328,7 @@ def _do_keyring(variavel: str) -> str | None:
     try:
         import keyring
 
-        for servico in (SERVICO_KEYRING, SERVICO_KEYRING_LEGADO):
-            if chave := keyring.get_password(servico, variavel):
-                return chave
-        return None
+        return keyring.get_password(SERVICO_KEYRING, variavel)
     except Exception:  # noqa: BLE001 - sem keyring ou sem backend
         return None
 

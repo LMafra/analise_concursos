@@ -1,4 +1,4 @@
-"""Dicionário de temas (`.concurso/taxonomia_topicos.yaml`): termos e expressões de cada tópico que
+"""Dicionário de temas (`.gabarito-vivo/taxonomia_topicos.yaml`): termos e expressões de cada tópico que
 aproximam o texto da questão do tópico certo do edital na similaridade TF-IDF.
 
 A questão que cita um termo recebe a marca sintética do tópico (`tema_<disciplina>_<topico>`), e o documento

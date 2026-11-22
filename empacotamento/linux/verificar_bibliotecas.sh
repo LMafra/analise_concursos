@@ -6,7 +6,7 @@
 #   bundle, só o que está em bibliotecas_do_sistema.txt.
 # Um "not found" falha sempre.
 #
-# Uso: bash empacotamento/linux/verificar_bibliotecas.sh dist/concurso-analise
+# Uso: bash empacotamento/linux/verificar_bibliotecas.sh dist/gabarito-vivo
 set -euo pipefail
 
 AQUI=$(cd "$(dirname "$0")" && pwd)

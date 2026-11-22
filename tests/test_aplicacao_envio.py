@@ -209,7 +209,7 @@ def test_onboarding_pela_gui_grava_como_o_init_e_cria_a_pasta_de_provas(tmp_path
     raiz = tmp_path / 'novo projeto'
     raiz.mkdir()
     monkeypatch.chdir(raiz)
-    contexto = resolver_contexto(cwd=raiz, data_dir=raiz / '.concurso')
+    contexto = resolver_contexto(cwd=raiz, data_dir=raiz / '.gabarito-vivo')
     respostas = onboarding.Respostas(
         nome='Ana Teste', provas=raiz / 'provas', analises=raiz / 'analises', doctor=False
     )
@@ -224,7 +224,7 @@ def test_onboarding_pela_gui_grava_como_o_init_e_cria_a_pasta_de_provas(tmp_path
 
 
 def test_formulario_do_onboarding_exige_nome_e_resolve_pastas_relativas(tmp_path):
-    contexto = resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.concurso')
+    contexto = resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.gabarito-vivo')
 
     with pytest.raises(ErroDoUsuario, match='nome'):
         inicio.respostas_do_formulario(contexto, ' ', 'provas', 'analises', False)
@@ -235,7 +235,7 @@ def test_formulario_do_onboarding_exige_nome_e_resolve_pastas_relativas(tmp_path
 
 
 def test_respostas_atuais_do_onboarding_sao_os_padroes_do_init(tmp_path):
-    contexto = resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.concurso')
+    contexto = resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.gabarito-vivo')
 
     respostas = inicio.respostas_atuais(contexto)
 

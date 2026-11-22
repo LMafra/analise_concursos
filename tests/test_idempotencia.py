@@ -64,4 +64,4 @@ def test_dry_run_num_projeto_novo_nao_cria_nada(projeto):
     assert main(['--dry-run', '--yes']) == 0
 
     assert not (projeto / 'analises').exists()
-    assert not (projeto / '.concurso').exists()
+    assert not (projeto / '.gabarito-vivo').exists()

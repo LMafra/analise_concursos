@@ -35,7 +35,7 @@ def _mtimes(projeto: Path) -> dict[Path, int]:
 
 
 def _gravar_dicionario(projeto: Path, dados: dict = DICIONARIO) -> None:
-    caminho = projeto / '.concurso' / 'taxonomia_topicos.yaml'
+    caminho = projeto / '.gabarito-vivo' / 'taxonomia_topicos.yaml'
     caminho.parent.mkdir(exist_ok=True)
     caminho.write_text(yaml.safe_dump(dados, allow_unicode=True), encoding='utf-8')
 
@@ -68,7 +68,7 @@ def test_desligar_o_dicionario_volta_a_saida_sem_ele(projeto):
     sem = _questoes(projeto)
     _gravar_dicionario(projeto)
     assert main(['--yes']) == 0
-    config = projeto / '.concurso' / 'config.toml'
+    config = projeto / '.gabarito-vivo' / 'config.toml'
     config.write_text(config.read_text(encoding='utf-8') + '\n[dicionario]\nusar = false\n', encoding='utf-8')
 
     assert main(['--yes']) == 0
@@ -110,8 +110,8 @@ def test_avaliar_grava_o_relatorio_e_o_resumo(projeto, capsys):
 
     assert main(['dicionario', 'avaliar']) == 0
     assert 'acerto:' in capsys.readouterr().out
-    assert (projeto / '.concurso' / 'ganho_dicionario.md').exists()
-    config = (projeto / '.concurso' / 'config.toml').read_text(encoding='utf-8')
+    assert (projeto / '.gabarito-vivo' / 'ganho_dicionario.md').exists()
+    config = (projeto / '.gabarito-vivo' / 'config.toml').read_text(encoding='utf-8')
     assert '[dicionario]' in config and 'n = 3' in config
 
 

@@ -16,7 +16,7 @@ from concursos.modelo import EstadoLivro
 logger = logging.getLogger(__name__)
 
 PREFIXO_BIBLIOTECA = 'Biblioteca — '
-DESCRICAO = 'livros enviados pelo concurso-analise'
+DESCRICAO = 'livros enviados pelo gabarito-vivo'
 MENSAGEM_FALHA = 'O open-notebook não conseguiu preparar este livro para perguntas.'
 
 ESQUEMA = """

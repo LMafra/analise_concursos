@@ -43,8 +43,7 @@ CHAVES_PUBLICAS: tuple[str, ...] = ('aHV1PoJmOdb1vVzPuVzT5Ue8LXw7p3FCWH6z4JB9z0M
 PLATAFORMAS = {'win32': 'windows-x64', 'linux': 'linux-x86_64'}
 SUFIXOS = {'windows-x64': 'windows-x64-setup.exe', 'linux-x86_64': 'linux-x86_64.AppImage'}
 PADRAO_ARQUIVO = re.compile(
-    r'^(?:gabarito-vivo|concurso-analise)-[0-9A-Za-z.+-]+-'
-    r'(windows-x64-setup\.exe|linux-x86_64\.AppImage)$'
+    r'^gabarito-vivo-[0-9A-Za-z.+-]+-(windows-x64-setup\.exe|linux-x86_64\.AppImage)$'
 )
 PADRAO_SHA256 = re.compile(r'^[0-9a-f]{64}$')
 DICA_MANUAL = f'baixe a versão nova no site do app: {URL_RELEASES_PAGINA}'
@@ -213,17 +212,11 @@ def registrar_consulta(estado: Path, agora: datetime) -> None:
 
 
 def montar_manifesto(versao: str, publicado_em: str, arquivos: list[Path]) -> bytes:
-    """O `atualizacao.json` da release, com os artefatos de Windows e Linux entre `arquivos`.
-
-    Prefere `concurso-analise-*` quando os dois nomes existem: clientes ≤0.7.0b2 só aceitam esse
-    prefixo no manifesto.
-    """
+    """O `atualizacao.json` da release, com os artefatos de Windows e Linux entre `arquivos`."""
     por_nome = {caminho.name: caminho for caminho in arquivos}
     artefatos = {}
     for chave, sufixo in SUFIXOS.items():
-        legado = f'{produto.PREFIXO_ARTEFATO_LEGADO}-{versao}-{sufixo}'
-        atual = f'{produto.PREFIXO_ARTEFATO}-{versao}-{sufixo}'
-        caminho = por_nome.get(legado) or por_nome.get(atual)
+        caminho = por_nome.get(f'{produto.PREFIXO_ARTEFATO}-{versao}-{sufixo}')
         if caminho is None:
             continue
         artefatos[chave] = {

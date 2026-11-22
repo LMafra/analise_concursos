@@ -87,7 +87,9 @@ def test_comparativo_lista_topico_fraco_em_dois_concursos(raizes):
 
     assert analisar(provas, analises) == 0
 
-    comparativo = (analises / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
+    comparativo = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(
+        encoding='utf-8'
+    )
     baixos = secao(comparativo, 'Tópicos consistentemente baixos')
     assert 'Crase' in baixos
     assert 'a (0%)' in baixos and 'b (50%)' in baixos
@@ -101,7 +103,9 @@ def test_consolidado_inclui_incompletos_e_status_do_gabarito(raizes):
 
     analisar(provas, analises)
 
-    comparativo = (analises / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
+    comparativo = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(
+        encoding='utf-8'
+    )
     pendentes = secao(comparativo, 'Concursos incompletos ou desatualizados')
     assert '| d | incompleto |' in pendentes and 'respostas não configuradas' in pendentes
     por_concurso = secao(comparativo, 'Desempenho por concurso')
@@ -116,7 +120,7 @@ def test_relatorio_referencia_graficos_existentes_e_questoes_para_revisar(raizes
 
     analisar(provas, analises)
 
-    destino = analises / 'a'
+    destino = analises / 'candidato' / 'a'
     relatorio = (destino / 'relatorio.md').read_text(encoding='utf-8')
     imagens = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', relatorio)
     assert {'graficos/desempenho_por_disciplina.png', 'graficos/desempenho_por_topico.png'} <= set(imagens)
@@ -137,9 +141,11 @@ def test_concurso_analisado_que_perde_o_cadastro_nao_quebra_o_consolidado(raizes
     (provas / 'b' / 'concurso.yaml').unlink()
     assert analisar(provas, analises) == 0
 
-    geral = ler_csv(analises / 'consolidado' / 'desempenho_geral.csv')
+    geral = ler_csv(analises / 'candidato' / 'consolidado' / 'desempenho_geral.csv')
     assert 'b' not in set(geral['concurso'])
-    comparativo = (analises / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
+    comparativo = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(
+        encoding='utf-8'
+    )
     assert '| b | incompleto |' in secao(comparativo, 'Concursos incompletos ou desatualizados')
 
 
@@ -149,7 +155,7 @@ def test_desempenho_geral_soma_os_desempenhos_por_concurso(raizes):
 
     analisar(provas, analises)
 
-    geral = ler_csv(analises / 'consolidado' / 'desempenho_geral.csv')
+    geral = ler_csv(analises / 'candidato' / 'consolidado' / 'desempenho_geral.csv')
     assert list(geral.columns[:8]) == [
         'concurso',
         'prova',
@@ -163,5 +169,5 @@ def test_desempenho_geral_soma_os_desempenhos_por_concurso(raizes):
     somas = geral.groupby('concurso')[['total', 'acertos', 'erros']].sum()
     assert sorted(somas.index) == ['a', 'b', 'c']
     for concurso in somas.index:
-        por_disciplina = ler_csv(analises / concurso / 'desempenho_por_disciplina.csv')
+        por_disciplina = ler_csv(analises / 'candidato' / concurso / 'desempenho_por_disciplina.csv')
         assert somas.loc[concurso].tolist() == por_disciplina[['total', 'acertos', 'erros']].sum().tolist()

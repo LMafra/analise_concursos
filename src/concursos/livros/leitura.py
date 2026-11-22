@@ -148,7 +148,7 @@ def ocr_da_pagina(caminho: Path, indice: int) -> str:
             logger,
             f'{caminho.name}: a página {indice + 1} é uma imagem, e falta o componente que lê texto em imagem; '
             'ela ficou sem texto.',
-            'o instalador já traz esse componente; na versão de terminal, rode concurso-analise doctor.',
+            'o instalador já traz esse componente; na versão de terminal, rode gabarito-vivo doctor.',
             'página sem texto e o Tesseract não está instalado',
         )
         return ''

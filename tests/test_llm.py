@@ -75,8 +75,8 @@ def projeto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, home_isolada: Path,
     (pasta / 'gabarito.txt').write_text('1 A\n2 B\n3 C\n4 D\n', encoding='utf-8')
     (pasta / 'edital.txt').write_text(EDITAL, encoding='utf-8')
     (pasta / 'candidatos' / 'ana' / 'respostas.txt').write_text(RESPOSTAS_DA_ANA, encoding='utf-8')
-    (raiz / '.concurso').mkdir()
-    (raiz / '.concurso' / 'config.toml').write_text('[candidato]\nultimo = "ana"\n', encoding='utf-8')
+    (raiz / '.gabarito-vivo').mkdir()
+    (raiz / '.gabarito-vivo' / 'config.toml').write_text('[candidato]\nultimo = "ana"\n', encoding='utf-8')
     home_isolada.mkdir(parents=True, exist_ok=True)
     configurar(
         home_isolada,

@@ -41,7 +41,7 @@ def cadastrar_pasta(opcoes: Opcoes, caminho: Path, pci: int | None = None) -> in
     if registro is not None and registro.obter(pci) is None:
         raise ErroDoUsuario(
             f'O concurso {pci} do PCI Concursos não está entre os que você acompanha.',
-            f'acompanhe-o antes em Encontrar concursos ou com concurso-analise discover --register {pci}.',
+            f'acompanhe-o antes em Encontrar concursos ou com gabarito-vivo discover --register {pci}.',
         )
     if opcoes.dry_run:
         vinculo = f' e vincularia ao concurso {pci} do PCI' if pci is not None else ''
@@ -90,7 +90,7 @@ def pasta_do_concurso(contexto: Contexto, nome: str) -> Path:
 
 
 def nova_pasta_de_envio(contexto: Contexto) -> Path:
-    """Onde os arquivos soltos na GUI esperam a confirmação do papel: em `.concurso/`, fora do git.
+    """Onde os arquivos soltos na GUI esperam a confirmação do papel: em `.gabarito-vivo/`, fora do git.
 
     Envios abandonados há mais de um dia são apagados, porque guardam cópias de folhas e provas."""
     raiz = contexto.projeto / PASTA_ENVIOS

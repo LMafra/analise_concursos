@@ -1,4 +1,4 @@
-"""Instala e atualiza o pacote de estudo em `~/.concurso/open-notebook/`.
+"""Instala e atualiza o pacote de estudo em `~/.gabarito-vivo/open-notebook/`.
 
 Só o transporte (o mesmo do atualizador) fala com a rede, e só depois do consentimento. A pasta do
 banco ganha um backup verificado antes da primeira partida de cada versão nova; se essa partida falha,
