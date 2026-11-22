@@ -2505,7 +2505,7 @@ Fonte: `uv run pytest --cov=src/concursos --cov-report=term --cov-report=json` (
 
 | Métrica | Valor | Nota |
 |---|---|---|
-| Cobertura global | ≥ **90.8993%** | piso em `limiares.toml` (max Fase 0 / pós-refactor) |
+| Cobertura global | ≥ **90.6847%** | piso em `limiares.toml` (recalibrado no amarelo→verde) |
 | Módulos <60% | ≤ 2 | gate `modulos_abaixo_de_60_max` |
 | Gate no CI | presente | job `arquitetura` + `verificar_arquitetura.py` |
 

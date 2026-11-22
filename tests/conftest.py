@@ -19,7 +19,9 @@ CANDIDATO = 'candidato'
 def home_isolada(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / 'home_concurso'
     monkeypatch.setenv('GABARITO_VIVO_HOME', str(home))
-    monkeypatch.setenv('GABARITO_VIVO_CANDIDATO', CANDIDATO)
+    # Candidato via `--candidate` no helper `analisar`; forçar o env quebra fixtures
+    # com outro slug e o layout plano das fases 1–3.
+    monkeypatch.delenv('GABARITO_VIVO_CANDIDATO', raising=False)
     return home
 
 
