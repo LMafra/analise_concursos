@@ -33,7 +33,8 @@ from concursos.candidatos import pasta_do_candidato as pasta_de_respostas
 from concursos.config.contexto import Contexto
 from concursos.configuracao import ConfiguracaoGlobal, configuracao_do_projeto
 from concursos.consolidado import comparar_candidatos
-from concursos.erros import ErroDoUsuario, avisar as avisar_log
+from concursos.erros import ErroDoUsuario
+from concursos.erros import avisar as avisar_log
 from concursos.exportacao import FormatoExportacao, exportar_consolidado
 from concursos.llm import ClienteComMemoria, ClienteLlm, cliente_configurado
 from concursos.manifesto import ARQUIVO_MANIFESTO

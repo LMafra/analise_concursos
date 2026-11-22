@@ -213,7 +213,9 @@ def test_incluir_simulados_no_projeto_traz_o_simulado(tmp_path: Path, monkeypatc
     provas, analises = raiz / 'provas', raiz / 'analises'
     provas.mkdir(parents=True)
     (raiz / '.gabarito-vivo').mkdir()
-    (raiz / '.gabarito-vivo' / 'config.toml').write_text('[analise]\nincluir_simulados = true\n', encoding='utf-8')
+    (raiz / '.gabarito-vivo' / 'config.toml').write_text(
+        '[analise]\nincluir_simulados = true\n', encoding='utf-8'
+    )
     monkeypatch.chdir(raiz)
     (raiz / 'config.yaml').write_text('incluir_simulados: true\n', encoding='utf-8')
 

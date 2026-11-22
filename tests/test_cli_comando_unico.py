@@ -158,4 +158,3 @@ def test_contexto_sem_variavel_usa_a_pasta_do_usuario(tmp_path):
 
     assert contexto.home == Path.home() / '.gabarito-vivo'
     assert contexto.projeto == tmp_path / 'dados'
-

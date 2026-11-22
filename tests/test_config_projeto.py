@@ -68,7 +68,9 @@ def test_contexto_nao_confunde_a_pasta_global_com_a_do_projeto(tmp_path):
     (home / '.gabarito-vivo').mkdir(parents=True)
     (home / 'trabalho').mkdir()
 
-    contexto = resolver_contexto(cwd=home / 'trabalho', ambiente={'GABARITO_VIVO_HOME': str(home / '.gabarito-vivo')})
+    contexto = resolver_contexto(
+        cwd=home / 'trabalho', ambiente={'GABARITO_VIVO_HOME': str(home / '.gabarito-vivo')}
+    )
 
     assert contexto.raiz == home / 'trabalho'
 

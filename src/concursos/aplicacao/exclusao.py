@@ -23,9 +23,8 @@ def excluir_concurso(contexto: Contexto, nome: str) -> list[ItemLixeira]:
     if contexto.analises.is_dir():
         for candidato in contexto.analises.iterdir():
             destino = candidato / nome
-            if destino.is_dir():
-                if item := mover_para_lixeira(raiz, destino, tipo='analise'):
-                    movidos.append(item)
+            if destino.is_dir() and (item := mover_para_lixeira(raiz, destino, tipo='analise')):
+                movidos.append(item)
     _tirar_dos_interesses(contexto.projeto / ARQUIVO_INTERESSES, nome)
     _tirar_do_open_notebook(contexto.projeto / ARQUIVO_ESTADO, nome)
     return movidos

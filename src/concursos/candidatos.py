@@ -163,15 +163,11 @@ def _validar_respostas_perfil(caminho: Path, respostas: object) -> None:
         raise ConfiguracaoInvalidaError(f'{caminho}: respostas = {respostas!r} é inválido')
     extras = sorted(set(respostas) - _CAMPOS_RESPOSTAS)
     if extras:
-        raise ConfiguracaoInvalidaError(
-            f'{caminho}: respostas tem campo desconhecido {", ".join(extras)}'
-        )
+        raise ConfiguracaoInvalidaError(f'{caminho}: respostas tem campo desconhecido {", ".join(extras)}')
     tem_arquivo = 'arquivo' in respostas
     tem_folha = 'folha' in respostas
     if tem_arquivo == tem_folha:
-        raise ConfiguracaoInvalidaError(
-            f'{caminho}: respostas precisa de arquivo ou folha, só um dos dois'
-        )
+        raise ConfiguracaoInvalidaError(f'{caminho}: respostas precisa de arquivo ou folha, só um dos dois')
     chave = 'arquivo' if tem_arquivo else 'folha'
     if not isinstance(respostas[chave], str) or not respostas[chave]:
         raise ConfiguracaoInvalidaError(f'{caminho}: respostas.{chave} = {respostas[chave]!r} é inválido')

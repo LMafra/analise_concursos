@@ -131,8 +131,10 @@ def raiz() -> None:
             .classes('w-64')
             .mark('busca-global')
         )
-        resultados_busca = ui.column().classes('absolute z-10 bg-white shadow-md p-2').style(
-            'top: 3.5rem; right: 1rem; min-width: 16rem; display: none'
+        resultados_busca = (
+            ui.column()
+            .classes('absolute z-10 bg-white shadow-md p-2')
+            .style('top: 3.5rem; right: 1rem; min-width: 16rem; display: none')
         )
 
         def ao_buscar() -> None:

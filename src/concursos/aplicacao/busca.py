@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from concursos.config.contexto import Contexto
 from concursos.status import listar_concursos
@@ -38,7 +37,5 @@ def procurar(contexto: Contexto, termo: str, *, limiar: float = 0.6) -> list[Res
                 except (TypeError, ValueError):
                     continue
                 if percentual < limiar * 100 and termo in topico.casefold():
-                    achados.append(
-                        ResultadoBusca('topico', topico, f'/resultados?topico={topico}')
-                    )
+                    achados.append(ResultadoBusca('topico', topico, f'/resultados?topico={topico}'))
     return achados[:20]

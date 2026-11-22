@@ -51,7 +51,13 @@ def pagina() -> None:
                 f'Biblioteca: {resumo.biblioteca}', Tom.SUCESSO if resumo.biblioteca_pronta else Tom.INFO
             ).mark('biblioteca')
         if situacao_estudo is not None:
-            tom = Tom.ALERTA if situacao_estudo.fora_do_ar else Tom.SUCESSO if situacao_estudo.preparado else Tom.INFO
+            tom = (
+                Tom.ALERTA
+                if situacao_estudo.fora_do_ar
+                else Tom.SUCESSO
+                if situacao_estudo.preparado
+                else Tom.INFO
+            )
             situacao(situacao_estudo.mensagem, tom).mark('estudo-open-notebook')
         log = arquivo_de_log()
         with ui.row().classes('items-center').style(tema.gap('sm')):

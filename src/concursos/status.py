@@ -43,7 +43,9 @@ def _status_sem_config(pasta: Path) -> StatusConcurso | None:
         motivo = f'{ARQUIVO_CONFIG} ausente; rode `gabarito-vivo add {pasta}`'
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
     if vinculo_sem_provas(pasta) is not None:
-        motivo = f'falta o edital e os arquivos da prova; adicione-os à pasta e rode `gabarito-vivo add {pasta}`'
+        motivo = (
+            f'falta o edital e os arquivos da prova; adicione-os à pasta e rode `gabarito-vivo add {pasta}`'
+        )
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
     if (simulado := simulado_sem_provas(pasta)) is not None:
         pagina = simulado.get('link') or 'a página da prova no PCI'
@@ -70,9 +72,7 @@ def _motivos_obrigatorios(
         lista = opcionais if papel.startswith(_PAPEIS_OPCIONAIS) else motivos
         lista.append(f'{config.caminho(arquivo)}: arquivo ausente ({papel})')
     if config.edital is None:
-        motivos.append(
-            f'edital ausente; adicione o PDF do edital à pasta e rode `gabarito-vivo add {pasta}`'
-        )
+        motivos.append(f'edital ausente; adicione o PDF do edital à pasta e rode `gabarito-vivo add {pasta}`')
     if config.respostas_arquivo is None and config.folha is None:
         motivos.append('respostas não configuradas (folha de resposta ou respostas.txt)')
     elif (

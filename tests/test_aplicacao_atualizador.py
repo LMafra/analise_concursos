@@ -296,9 +296,7 @@ def test_windows_assinado_roda_o_setup_do_mesmo_signatario(tmp_path):
     instalacao, abertos = instalar_no_windows(tmp_path, ler)
 
     assert instalacao.setup_em_andamento
-    assert abertos == [
-        atualizador.comando_do_setup(tmp_path / 'gabarito-vivo-0.6.0-windows-x64-setup.exe')
-    ]
+    assert abertos == [atualizador.comando_do_setup(tmp_path / 'gabarito-vivo-0.6.0-windows-x64-setup.exe')]
 
 
 @pytest.mark.parametrize(

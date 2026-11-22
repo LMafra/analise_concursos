@@ -60,7 +60,7 @@ jobs:
         run: uv sync --locked --extra gui --extra llm --extra pci
 
       - name: Exportar requirements do lock
-        run: uv export --frozen --no-dev --extra gui --extra llm --extra pci -o /tmp/requirements-audit.txt
+        run: uv export --frozen --no-dev --no-emit-project --extra gui --extra llm --extra pci -o /tmp/requirements-audit.txt
 
       - name: pip-audit
         run: uv run --no-project python scripts/auditar_cve.py /tmp/requirements-audit.txt
