@@ -87,7 +87,9 @@ def test_comparativo_lista_topico_fraco_em_dois_concursos(raizes):
 
     assert analisar(provas, analises) == 0
 
-    comparativo = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
+    comparativo = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(
+        encoding='utf-8'
+    )
     baixos = secao(comparativo, 'Tópicos consistentemente baixos')
     assert 'Crase' in baixos
     assert 'a (0%)' in baixos and 'b (50%)' in baixos
@@ -101,7 +103,9 @@ def test_consolidado_inclui_incompletos_e_status_do_gabarito(raizes):
 
     analisar(provas, analises)
 
-    comparativo = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
+    comparativo = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(
+        encoding='utf-8'
+    )
     pendentes = secao(comparativo, 'Concursos incompletos ou desatualizados')
     assert '| d | incompleto |' in pendentes and 'respostas não configuradas' in pendentes
     por_concurso = secao(comparativo, 'Desempenho por concurso')
@@ -139,7 +143,9 @@ def test_concurso_analisado_que_perde_o_cadastro_nao_quebra_o_consolidado(raizes
 
     geral = ler_csv(analises / 'candidato' / 'consolidado' / 'desempenho_geral.csv')
     assert 'b' not in set(geral['concurso'])
-    comparativo = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
+    comparativo = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(
+        encoding='utf-8'
+    )
     assert '| b | incompleto |' in secao(comparativo, 'Concursos incompletos ou desatualizados')
 
 

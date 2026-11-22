@@ -177,15 +177,21 @@ def test_simulado_usa_os_topicos_do_alvo_mas_nao_a_regra_dele(raizes):
     _analisar_alvo_e_simulado(provas, analises)
 
     [alvo] = json.loads((analises / 'candidato' / 'alvo' / 'correcao.json').read_text(encoding='utf-8'))
-    [simulado] = json.loads((analises / 'candidato' / 'simulado' / 'correcao.json').read_text(encoding='utf-8'))
+    [simulado] = json.loads(
+        (analises / 'candidato' / 'simulado' / 'correcao.json').read_text(encoding='utf-8')
+    )
     assert (alvo['fonte'], alvo['fator_penalidade']) == ('edital', 1.0)
     assert simulado['fonte'] != 'edital'
     assert simulado['fator_penalidade'] == 0.0
     assert simulado['documento_origem'] is None
     assert simulado['nota_corte'] is None
     assert simulado['data_prova'] == '2026-11-02'
-    estruturado_alvo = json.loads((analises / 'candidato' / 'alvo' / 'edital_estruturado.json').read_text(encoding='utf-8'))
-    estruturado = json.loads((analises / 'candidato' / 'simulado' / 'edital_estruturado.json').read_text(encoding='utf-8'))
+    estruturado_alvo = json.loads(
+        (analises / 'candidato' / 'alvo' / 'edital_estruturado.json').read_text(encoding='utf-8')
+    )
+    estruturado = json.loads(
+        (analises / 'candidato' / 'simulado' / 'edital_estruturado.json').read_text(encoding='utf-8')
+    )
     assert estruturado['conhecimentos'] == estruturado_alvo['conhecimentos'] != []
 
 

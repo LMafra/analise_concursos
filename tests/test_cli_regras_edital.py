@@ -21,7 +21,9 @@ def edital(*paginas: str) -> dict[str, str]:
 
 
 def estruturado(analises) -> dict:
-    return json.loads((analises / 'candidato' / 'sintetico' / 'edital_estruturado.json').read_text(encoding='utf-8'))
+    return json.loads(
+        (analises / 'candidato' / 'sintetico' / 'edital_estruturado.json').read_text(encoding='utf-8')
+    )
 
 
 def discrepancias(analises):

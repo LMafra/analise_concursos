@@ -39,7 +39,9 @@ def criar(provas, edital: dict, arquivos: dict[str, str]):
 
 
 def edital_estruturado(analises) -> dict:
-    return json.loads((analises / 'candidato' / 'sintetico' / 'edital_estruturado.json').read_text(encoding='utf-8'))
+    return json.loads(
+        (analises / 'candidato' / 'sintetico' / 'edital_estruturado.json').read_text(encoding='utf-8')
+    )
 
 
 def test_edital_estruturado_e_tabela_de_questoes(raizes):

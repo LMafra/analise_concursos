@@ -69,7 +69,9 @@ def test_arvore_legada_migra_preservando_o_hash_de_cada_saida(legado):
     assert main([]) == 0
 
     depois = hashes(legado / 'analises' / slug)
-    relevantes = {chave: valor for chave, valor in antes.items() if not chave.endswith('comparativo_concursos.md')}
+    relevantes = {
+        chave: valor for chave, valor in antes.items() if not chave.endswith('comparativo_concursos.md')
+    }
     assert {chave: depois.get(chave) for chave in relevantes} == relevantes
     assert (legado / 'analises' / slug / 'alfa' / 'relatorio.md').stat().st_mtime_ns == mtime
     assert not (legado / 'analises' / 'alfa').exists()
@@ -193,7 +195,9 @@ def test_reprocessar_depois_da_migracao_da_as_mesmas_saidas(legado):
 
     depois = hashes(legado / 'analises' / candidato_padrao())
     # O comparativo em prosa pode mudar com o vocabulário; o restante da árvore permanece.
-    relevantes = {chave: valor for chave, valor in antes.items() if not chave.endswith('comparativo_concursos.md')}
+    relevantes = {
+        chave: valor for chave, valor in antes.items() if not chave.endswith('comparativo_concursos.md')
+    }
     assert {chave: depois.get(chave) for chave in relevantes} == relevantes
 
 
