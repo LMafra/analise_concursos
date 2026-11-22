@@ -21,7 +21,15 @@ from concursos.erros import avisar
 from concursos.graficos import gerar_graficos
 from concursos.modelo import Etapa
 from concursos.pipeline.etapas.classificacao import classificar_topicos
-from concursos.pipeline.etapas.constantes import COLUNAS_DICIONARIO, COLUNAS_QUESTOES
+from concursos.pipeline.etapas.constantes import (
+    COLUNAS_DICIONARIO as COLUNAS_DICIONARIO,
+)
+from concursos.pipeline.etapas.constantes import (
+    COLUNAS_QUESTOES as COLUNAS_QUESTOES,
+)
+from concursos.pipeline.etapas.constantes import (
+    COLUNAS_RESPOSTAS as COLUNAS_RESPOSTAS,
+)
 from concursos.pipeline.etapas.leitura import (
     disciplinas_por_questao,
     ler_edital,
