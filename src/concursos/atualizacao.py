@@ -57,14 +57,31 @@ def verificar(config: ConcursoConfig) -> Pendencias:
     """
     instrucao = f'rode `concurso-analise add {config.pasta}`'
     preliminares = [p for p in config.provas if p.gabarito.status is StatusGabarito.PRELIMINAR]
+    candidatos = _candidatos_ja_definitivos(config, preliminares)
+    motivos = _motivos_nao_cadastrados(config, preliminares, candidatos, instrucao)
+    trocas, motivos_troca = _trocas_e_motivos(preliminares, candidatos, instrucao)
+    motivos.extend(motivos_troca)
+    return Pendencias(() if motivos else tuple(trocas), tuple(motivos))
+
+
+def _candidatos_ja_definitivos(config: ConcursoConfig, preliminares: list) -> dict[str, list[str]]:
     candidatos: dict[str, list[str]] = {p.chave: [] for p in preliminares}
-    motivos = []
     for prova in preliminares:
         if (
             classificar_arquivo(config.caminho(prova.gabarito.arquivo), config.pasta).status_gabarito
             is StatusGabarito.DEFINITIVO
         ):
             candidatos[prova.chave].append(prova.gabarito.arquivo)
+    return candidatos
+
+
+def _motivos_nao_cadastrados(
+    config: ConcursoConfig,
+    preliminares: list,
+    candidatos: dict[str, list[str]],
+    instrucao: str,
+) -> list[str]:
+    motivos: list[str] = []
     for caminho in _nao_cadastrados(config):
         detectado = classificar_arquivo(caminho, config.pasta)
         nome = caminho.relative_to(config.pasta).as_posix()
@@ -84,8 +101,14 @@ def verificar(config: ConcursoConfig) -> Pendencias:
             )
         for prova in provas:
             candidatos[prova.chave].append(nome)
+    return motivos
 
-    trocas = []
+
+def _trocas_e_motivos(
+    preliminares: list, candidatos: dict[str, list[str]], instrucao: str
+) -> tuple[list[Troca], list[str]]:
+    trocas: list[Troca] = []
+    motivos: list[str] = []
     for prova in preliminares:
         nomes = candidatos[prova.chave]
         if len(nomes) > 1:
@@ -94,7 +117,7 @@ def verificar(config: ConcursoConfig) -> Pendencias:
             )
         elif nomes:
             trocas.append(Troca(prova.chave, prova.gabarito.arquivo, nomes[0]))
-    return Pendencias(() if motivos else tuple(trocas), tuple(motivos))
+    return trocas, motivos
 
 
 def trocar_gabaritos(config: ConcursoConfig, trocas: tuple[Troca, ...], destino: Path) -> None:

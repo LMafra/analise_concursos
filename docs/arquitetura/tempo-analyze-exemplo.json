@@ -1,0 +1,35 @@
+{
+  "projeto": "/tmp/gv-tempo-bfahg1dl",
+  "sucesso": [
+    true,
+    true,
+    true
+  ],
+  "segundos": {
+    "primeira_forcar": 0.6525,
+    "segunda_sem_mudanca": 0.0439,
+    "terceira_forcar": 0.4315
+  },
+  "depois_etapas": {
+    "sucesso": [
+      true,
+      true,
+      true
+    ],
+    "segundos": {
+      "primeira_forcar": 0.5357,
+      "segunda_sem_mudanca": 0.0395,
+      "terceira_forcar": 0.4249
+    },
+    "antes_etapas": {
+      "primeira_forcar": 0.6525,
+      "segunda_sem_mudanca": 0.0439,
+      "terceira_forcar": 0.4315
+    },
+    "regressao_fracao": {
+      "primeira_forcar": -0.179,
+      "segunda_sem_mudanca": -0.1002,
+      "terceira_forcar": -0.0153
+    }
+  }
+}

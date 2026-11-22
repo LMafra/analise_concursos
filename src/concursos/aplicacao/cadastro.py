@@ -153,6 +153,28 @@ def corrigir_titulo(opcoes: Opcoes, concurso: str, titulo: str) -> None:
         gravar_dados(pasta, novos)
 
 
+def _pasta_destino_envio(contexto: Contexto, concurso: str | None, papeis: Mapping[Path, Papel]) -> Path:
+    if not (concurso or '').strip():
+        return pasta_automatica(contexto, identificar_envio(papeis))
+    return pasta_do_concurso(contexto, concurso)
+
+
+def _cadastrar_arquivos_prova(opcoes: Opcoes, pasta: Path, da_prova: dict[Path, Papel]) -> bool | None:
+    nova = not pasta.exists()
+    copiados = _copiar(list(da_prova), pasta)
+    if not da_prova and (pasta / ARQUIVO_CONFIG).exists():
+        return True
+    try:
+        gravou = cadastrar(pasta, opcoes.interacao_ou_automatica(), {a.name: p for a, p in da_prova.items()})
+    except BaseException:
+        _desfazer(copiados, pasta, nova)
+        raise
+    if not gravou:
+        _desfazer(copiados, pasta, nova)
+        return None
+    return True
+
+
 def cadastrar_envio(
     opcoes: Opcoes, concurso: str | None, papeis: Mapping[Path, Papel], candidato: str | None
 ) -> Path | None:
@@ -160,10 +182,7 @@ def cadastrar_envio(
     folha vão para a pasta do candidato. Sem `concurso`, a pasta é a automática, pelo edital. Recusado ou
     com falha, a pasta fica como estava; devolve None se o usuário recusar."""
     contexto = opcoes.contexto
-    if not (concurso or '').strip():
-        pasta = pasta_automatica(contexto, identificar_envio(papeis))
-    else:
-        pasta = pasta_do_concurso(contexto, concurso)
+    pasta = _pasta_destino_envio(contexto, concurso, papeis)
     da_prova = {a: p for a, p in papeis.items() if p not in PAPEIS_DO_CANDIDATO | {Papel.IGNORADO}}
     do_candidato = sorted(a for a, p in papeis.items() if p in PAPEIS_DO_CANDIDATO)
     nome = candidato or contexto.candidato
@@ -172,19 +191,8 @@ def cadastrar_envio(
             'Falta dizer de qual candidato são as respostas.',
             'escreva o nome do candidato antes de cadastrar.',
         )
-    nova = not pasta.exists()
-    copiados = _copiar(list(da_prova), pasta)
-    if da_prova or not (pasta / ARQUIVO_CONFIG).exists():
-        try:
-            gravou = cadastrar(
-                pasta, opcoes.interacao_ou_automatica(), {a.name: p for a, p in da_prova.items()}
-            )
-        except BaseException:
-            _desfazer(copiados, pasta, nova)
-            raise
-        if not gravou:
-            _desfazer(copiados, pasta, nova)
-            return None
+    if _cadastrar_arquivos_prova(opcoes, pasta, da_prova) is None:
+        return None
     for arquivo in do_candidato:
         adicionar_respostas(opcoes, arquivo, nome, pasta.name)
     return pasta

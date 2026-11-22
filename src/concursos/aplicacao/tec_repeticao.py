@@ -59,36 +59,40 @@ def _ler_itens_completos(pasta: Path) -> list[dict]:
         return list(csv.DictReader(arquivo))
 
 
+def _erros_filtrados(linhas: list[dict], assunto: str | None) -> list[dict]:
+    erros = [linha for linha in linhas if linha.get('resultado') == RESULTADO_ERRO]
+    if not assunto:
+        return erros
+    return [linha for linha in erros if (linha.get('ass') or '') == assunto]
+
+
+def _questao_para_repetir(linha: dict, completo: dict) -> QuestaoParaRepetir:
+    alts = completo.get('alts') or []
+    tipo = linha.get('tipo_questao') or tipo_questao(alts)
+    return QuestaoParaRepetir(
+        id=linha['id'],
+        enun=completo.get('enun') or '(enunciado só no JSON importado; reimporte a captura)',
+        alts=alts if isinstance(alts, list) else [],
+        gab=linha.get('gab') or completo.get('gab') or '',
+        marc=linha.get('marc') or '',
+        mat=linha.get('mat') or '',
+        ass=linha.get('ass') or '',
+        tipo=tipo,
+    )
+
+
 def listar_erros(
     opcoes: Opcoes,
     assunto: str | None = None,
     itens_completos: list[dict] | None = None,
 ) -> list[QuestaoParaRepetir]:
     """Lista questões com resultado=erro. `itens_completos` traz enun/alts (da prática mesclada)."""
-    pasta = _pasta_pratica(opcoes)
-    linhas = _ler_itens_completos(pasta)
-    erros = [linha for linha in linhas if linha.get('resultado') == RESULTADO_ERRO]
-    if assunto:
-        erros = [linha for linha in erros if (linha.get('ass') or '') == assunto]
+    linhas = _ler_itens_completos(_pasta_pratica(opcoes))
     por_id = {i.get('id'): i for i in (itens_completos or []) if i.get('id')}
-    saida: list[QuestaoParaRepetir] = []
-    for linha in erros:
-        completo = por_id.get(linha['id'], {})
-        alts = completo.get('alts') or []
-        tipo = linha.get('tipo_questao') or tipo_questao(alts)
-        saida.append(
-            QuestaoParaRepetir(
-                id=linha['id'],
-                enun=completo.get('enun') or '(enunciado só no JSON importado; reimporte a captura)',
-                alts=alts if isinstance(alts, list) else [],
-                gab=linha.get('gab') or completo.get('gab') or '',
-                marc=linha.get('marc') or '',
-                mat=linha.get('mat') or '',
-                ass=linha.get('ass') or '',
-                tipo=tipo,
-            )
-        )
-    return saida
+    return [
+        _questao_para_repetir(linha, por_id.get(linha['id'], {}))
+        for linha in _erros_filtrados(linhas, assunto)
+    ]
 
 
 def carregar_erros_da_pratica(opcoes: Opcoes, assunto: str | None = None) -> list[QuestaoParaRepetir]:

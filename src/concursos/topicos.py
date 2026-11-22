@@ -1,138 +1,41 @@
 import logging
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from concursos.analytics.tipos_topicos import (
+    ARQUIVO_REVISAO,
+    COLUNAS_REVISAO,
+    NAO_MAPEADO,
+    PALAVRAS_VAZIAS,
+    SCORE_BAIXO,
+    TAMANHO_ENUNCIADO,
+    ExpansaoProtocol,
+    Sugestao,
+    chave_de_palavras,
+    palavras_chave,
+)
 from concursos.edital import Edital
-from concursos.texto import normalizar
-
-if TYPE_CHECKING:
-    from concursos.analytics.dicionario_topicos import Dicionario, Expansao
 
 logger = logging.getLogger(__name__)
 
-NAO_MAPEADO = 'nao_mapeado'
-SCORE_BAIXO = 0.05
-ARQUIVO_REVISAO = 'revisao/questoes_revisado.csv'
-COLUNAS_REVISAO = [
-    'questao',
-    'prova',
-    'disciplina_sugerida',
-    'topico_sugerido',
-    'score',
-    'enunciado',
-    'disciplina',
-    'topico',
+__all__ = [
+    'ARQUIVO_REVISAO',
+    'COLUNAS_REVISAO',
+    'NAO_MAPEADO',
+    'SCORE_BAIXO',
+    'Sugestao',
+    'chave_de_palavras',
+    'gravar_revisao',
+    'gravar_revisao_editada',
+    'ler_revisao',
+    'palavras_chave',
+    'sugerir_topicos',
 ]
-TAMANHO_ENUNCIADO = 300
-
-_PALAVRAS_VAZIAS = sorted(
-    set(
-        [
-            'a',
-            'ao',
-            'aos',
-            'as',
-            'com',
-            'como',
-            'da',
-            'das',
-            'de',
-            'do',
-            'dos',
-            'e',
-            'em',
-            'entre',
-            'na',
-            'nas',
-            'no',
-            'nos',
-            'o',
-            'os',
-            'ou',
-            'para',
-            'pela',
-            'pelas',
-            'pelo',
-            'pelos',
-            'por',
-            'que',
-            'se',
-            'sem',
-            'sob',
-            'sobre',
-            'um',
-            'uma',
-            'umas',
-            'uns',
-            'nao',
-            'mais',
-            'ja',
-            'sua',
-            'suas',
-            'seu',
-            'seus',
-            'esta',
-            'este',
-            'estas',
-            'estes',
-            'essa',
-            'esse',
-            'isso',
-            'aquele',
-            'aquela',
-            'foi',
-            'ser',
-            'sao',
-            'ha',
-            'tem',
-            'ter',
-            'cada',
-            'qual',
-            'quais',
-            'quando',
-            'onde',
-            'acerca',
-            'considerando',
-            'considere',
-            'julgue',
-            'item',
-            'itens',
-            'seguir',
-            'seguinte',
-            'seguintes',
-            'seguem',
-            'subsequentes',
-            'assinale',
-            'opcao',
-            'alternativa',
-            'correta',
-            'incorreta',
-            'texto',
-            'relacao',
-            'respeito',
-            'referente',
-            'refere',
-            'afirmativa',
-        ]
-    )
-)
-
-
-@dataclass(frozen=True)
-class Sugestao:
-    disciplina: str | None
-    topico: str
-    score: float
-    topico_tfidf: str | None = None
-    """Com o dicionário de temas: o tópico e o score sem ele, para comparar."""
-    score_tfidf: float | None = None
 
 
 @dataclass(frozen=True)
@@ -146,15 +49,17 @@ def sugerir_topicos(
     edital: Edital | None,
     textos: dict[int, str],
     disciplinas: dict[int, str],
-    dicionario: 'Dicionario | None' = None,
+    expansao: ExpansaoProtocol | None = None,
     canonicas: Mapping[str, str] | None = None,
 ) -> dict[int, Sugestao]:
     """Tópico do edital mais parecido (TF-IDF, cosseno) com o texto de cada questão.
 
     A disciplina vinda do caderno ou do mapeamento manual restringe os candidatos: se ela corresponde a uma
     disciplina do edital, só os tópicos dela; senão, os das disciplinas que nenhuma outra do caderno casou.
-    Com o dicionário de temas, o tópico e o score vêm da versão expandida, e os de sem ele ficam ao lado.
+    Com expansão do dicionário de temas, o tópico e o score vêm da versão expandida, e os de sem ela ficam ao lado.
+    `canonicas` é aceito por compatibilidade com chamadas antigas e ignorado (a expansão já vem pronta).
     """
+    del canonicas  # a expansão já incorpora o mapeamento canônico
     candidatos = [
         _Candidato(disciplina.nome, topico.nome, f'{disciplina.nome} {topico.descricao or topico.nome}')
         for conhecimento in (edital.conhecimentos if edital else ())
@@ -162,11 +67,8 @@ def sugerir_topicos(
         for topico in disciplina.topicos
     ]
     sugestoes = _sugerir(candidatos, textos, disciplinas)
-    if dicionario is None:
+    if expansao is None:
         return sugestoes
-    from concursos.analytics.dicionario_topicos import expansao_para
-
-    expansao = expansao_para(dicionario, [(c.disciplina, c.topico) for c in candidatos], canonicas)
     expandidas = _sugerir(candidatos, textos, disciplinas, expansao) if expansao.por_topico else sugestoes
     return {
         questao: replace(expandidas[questao], topico_tfidf=base.topico, score_tfidf=base.score)
@@ -174,51 +76,74 @@ def sugerir_topicos(
     }
 
 
+def _aplicar_expansao(
+    candidatos: list[_Candidato],
+    textos: dict[int, str],
+    disciplinas: dict[int, str],
+    expansao: ExpansaoProtocol,
+) -> tuple[list[_Candidato], dict[int, str]]:
+    permitidas = _disciplinas_permitidas({c.disciplina for c in candidatos}, set(disciplinas.values()))
+    candidatos_exp = [
+        replace(c, documento=expansao.documento(c.disciplina, c.topico, c.documento)) for c in candidatos
+    ]
+    textos_exp = {
+        questao: expansao.texto(
+            texto, permitidas.get(disciplinas[questao]) if questao in disciplinas else None
+        )
+        if texto.strip()
+        else texto
+        for questao, texto in textos.items()
+    }
+    return candidatos_exp, textos_exp
+
+
+def _sugestao_por_similaridade(
+    questao: int,
+    texto: str,
+    disciplina: str | None,
+    candidatos: list[_Candidato],
+    vetorizador: TfidfVectorizer,
+    matriz,
+    permitidas: dict[str, set[str]],
+) -> Sugestao:
+    if not texto.strip():
+        return Sugestao(disciplina, NAO_MAPEADO, 0.0)
+    similaridades = cosine_similarity(vetorizador.transform([texto]), matriz)[0]
+    aceitas = permitidas.get(disciplina) if disciplina else None
+    indice = max(
+        (i for i, c in enumerate(candidatos) if aceitas is None or c.disciplina in aceitas),
+        key=lambda i: similaridades[i],
+    )
+    score = round(float(similaridades[indice]), 3)
+    topico = candidatos[indice].topico if score > 0 else NAO_MAPEADO
+    return Sugestao(disciplina or candidatos[indice].disciplina, topico, score)
+
+
 def _sugerir(
     candidatos: list[_Candidato],
     textos: dict[int, str],
     disciplinas: dict[int, str],
-    expansao: 'Expansao | None' = None,
+    expansao: ExpansaoProtocol | None = None,
 ) -> dict[int, Sugestao]:
     permitidas = _disciplinas_permitidas({c.disciplina for c in candidatos}, set(disciplinas.values()))
     if expansao is not None:
-        candidatos = [
-            replace(c, documento=expansao.documento(c.disciplina, c.topico, c.documento)) for c in candidatos
-        ]
-        textos = {
-            questao: expansao.texto(
-                texto, permitidas.get(disciplinas[questao]) if questao in disciplinas else None
-            )
-            if texto.strip()
-            else texto
-            for questao, texto in textos.items()
-        }
+        candidatos, textos = _aplicar_expansao(candidatos, textos, disciplinas, expansao)
     preenchidos = [texto for texto in textos.values() if texto.strip()]
     if not candidatos or not preenchidos:
         return {questao: Sugestao(disciplinas.get(questao), NAO_MAPEADO, 0.0) for questao in textos}
 
     vetorizador = TfidfVectorizer(
-        strip_accents='unicode', ngram_range=(1, 2), sublinear_tf=True, stop_words=_PALAVRAS_VAZIAS
+        strip_accents='unicode', ngram_range=(1, 2), sublinear_tf=True, stop_words=sorted(PALAVRAS_VAZIAS)
     )
     vetorizador.fit([c.documento for c in candidatos] + preenchidos)
     matriz = vetorizador.transform([c.documento for c in candidatos])
 
-    sugestoes = {}
-    for questao, texto in textos.items():
-        disciplina = disciplinas.get(questao)
-        if not texto.strip():
-            sugestoes[questao] = Sugestao(disciplina, NAO_MAPEADO, 0.0)
-            continue
-        similaridades = cosine_similarity(vetorizador.transform([texto]), matriz)[0]
-        aceitas = permitidas.get(disciplina) if disciplina else None
-        indice = max(
-            (i for i, c in enumerate(candidatos) if aceitas is None or c.disciplina in aceitas),
-            key=lambda i: similaridades[i],
+    return {
+        questao: _sugestao_por_similaridade(
+            questao, texto, disciplinas.get(questao), candidatos, vetorizador, matriz, permitidas
         )
-        score = round(float(similaridades[indice]), 3)
-        topico = candidatos[indice].topico if score > 0 else NAO_MAPEADO
-        sugestoes[questao] = Sugestao(disciplina or candidatos[indice].disciplina, topico, score)
-    return sugestoes
+        for questao, texto in textos.items()
+    }
 
 
 def _disciplinas_permitidas(do_edital: set[str], do_caderno: set[str]) -> dict[str, set[str]]:
@@ -233,15 +158,6 @@ def _disciplinas_permitidas(do_edital: set[str], do_caderno: set[str]) -> dict[s
 def _equivalentes(uma: str, outra: str) -> bool:
     a, b = palavras_chave(uma), palavras_chave(outra)
     return bool(a and b) and (a <= b or b <= a)
-
-
-def palavras_chave(texto: str) -> set[str]:
-    return set(re.findall(r'\w+', normalizar(texto).lower())) - set(_PALAVRAS_VAZIAS)
-
-
-def chave_de_palavras(texto: str) -> str:
-    """Palavras-chave em ordem alfabética: iguala nomes que só diferem em acento, caixa e palavras vazias."""
-    return ' '.join(sorted(palavras_chave(texto)))
 
 
 def gravar_revisao(caminho: Path, linhas: list[dict]) -> bool:

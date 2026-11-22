@@ -7,10 +7,10 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
+from concursos.analytics.tipos_topicos import chave_de_palavras
 from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.erros import avisar
 from concursos.modelo import Bloco
-from concursos.topicos import chave_de_palavras
 
 logger = logging.getLogger(__name__)
 

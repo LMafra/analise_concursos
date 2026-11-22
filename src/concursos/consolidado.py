@@ -7,6 +7,7 @@ import pandas as pd
 
 from concursos.agregacao import COLUNAS_DESEMPENHO, percentual_de_merito
 from concursos.analytics.correcao import notas_finais_gravadas
+from concursos.analytics.tipos_topicos import chave_de_palavras
 from concursos.arquivos import gravar_se_mudou
 from concursos.concurso_config import ler_dados
 from concursos.correcao import TOPICO_NAO_MAPEADO
@@ -15,7 +16,6 @@ from concursos.modelo import StatusGabarito
 from concursos.relatorio import tabela_markdown
 from concursos.resultado_oficial import formatar, ler_validacao
 from concursos.status import Situacao, StatusConcurso, avaliar, listar_concursos
-from concursos.topicos import chave_de_palavras
 
 logger = logging.getLogger(__name__)
 

@@ -245,25 +245,15 @@ def _estruturar(itens: list[_Item], cargo: str | None) -> tuple[Conhecimento, ..
     return tuple(conhecimentos)
 
 
-def _secoes_do_cargo(itens: list[_Item], cargo: str | None) -> list[_Secao]:
-    cabecalhos = [i for i, item in enumerate(itens) if item.tipo is _TipoItem.CONHECIMENTO]
-    if not cabecalhos:
-        return [_Secao('Conhecimentos', None, itens, None)]
-    titulos = [i for i, item in enumerate(itens) if item.tipo is _TipoItem.TITULO]
-    numerados = [itens[i].texto for i in titulos if _CARGO_NUMERADO.match(normalizar(itens[i].texto))]
-    escolhido = _titulo_do_cargo(itens, titulos, cargo) if cargo else None
-    if escolhido is None:
-        if len(numerados) >= 2:
-            raise EditalNaoEstruturadoError(_mensagem_cargo(cargo, numerados))
-        return [_Secao(itens[c].texto, None, _ate_proximo_cabecalho(itens, c), None) for c in cabecalhos]
+def _secoes_sem_cargo(
+    itens: list[_Item], cabecalhos: list[int], cargo: str | None, numerados: list[str]
+) -> list[_Secao]:
+    if len(numerados) >= 2:
+        raise EditalNaoEstruturadoError(_mensagem_cargo(cargo, numerados))
+    return [_Secao(itens[c].texto, None, _ate_proximo_cabecalho(itens, c), None) for c in cabecalhos]
 
-    restricao = _Restricao(cargo, itens[escolhido].texto)
-    secoes = []
-    gerais = [c for c in cabecalhos if c < escolhido and itens[c].texto != ESPECIFICOS]
-    if gerais:
-        secoes.append(
-            _Secao(itens[gerais[-1]].texto, None, _ate_proximo_cabecalho(itens, gerais[-1]), restricao)
-        )
+
+def _bloco_especificos(itens: list[_Item], escolhido: int) -> list[_Item]:
     assinatura = _assinatura(itens[escolhido].texto)
     inicio = escolhido + 1
     while inicio < len(itens) and itens[inicio].tipo is _TipoItem.CONHECIMENTO:
@@ -277,9 +267,38 @@ def _secoes_do_cargo(itens: list[_Item], cargo: str | None) -> list[_Secao]:
         ),
         len(itens),
     )
-    bloco = itens[inicio:fim]
-    secoes.append(_Secao(ESPECIFICOS, titulo_legivel(itens[escolhido].texto), bloco, restricao))
+    return itens[inicio:fim]
+
+
+def _secoes_com_cargo(itens: list[_Item], cabecalhos: list[int], escolhido: int, cargo: str) -> list[_Secao]:
+    restricao = _Restricao(cargo, itens[escolhido].texto)
+    secoes = []
+    gerais = [c for c in cabecalhos if c < escolhido and itens[c].texto != ESPECIFICOS]
+    if gerais:
+        secoes.append(
+            _Secao(itens[gerais[-1]].texto, None, _ate_proximo_cabecalho(itens, gerais[-1]), restricao)
+        )
+    secoes.append(
+        _Secao(
+            ESPECIFICOS,
+            titulo_legivel(itens[escolhido].texto),
+            _bloco_especificos(itens, escolhido),
+            restricao,
+        )
+    )
     return secoes
+
+
+def _secoes_do_cargo(itens: list[_Item], cargo: str | None) -> list[_Secao]:
+    cabecalhos = [i for i, item in enumerate(itens) if item.tipo is _TipoItem.CONHECIMENTO]
+    if not cabecalhos:
+        return [_Secao('Conhecimentos', None, itens, None)]
+    titulos = [i for i, item in enumerate(itens) if item.tipo is _TipoItem.TITULO]
+    numerados = [itens[i].texto for i in titulos if _CARGO_NUMERADO.match(normalizar(itens[i].texto))]
+    escolhido = _titulo_do_cargo(itens, titulos, cargo) if cargo else None
+    if escolhido is None:
+        return _secoes_sem_cargo(itens, cabecalhos, cargo, numerados)
+    return _secoes_com_cargo(itens, cabecalhos, escolhido, cargo)
 
 
 def _mensagem_cargo(cargo: str | None, numerados: list[str]) -> str:
@@ -398,22 +417,31 @@ def _eh_marcador(marcador: re.Match) -> bool:
     return letras >= 6 and not so_siglas and (len(palavras) >= 2 or explicito)
 
 
-def _topicos(texto: str, exigir_numeracao: bool) -> tuple[Topico, ...]:
-    texto = texto.strip()
-    if not texto:
-        return ()
+def _inicios_topicos_numerados(texto: str) -> list[tuple[int, int, int]]:
     inicios, ultimo = [], 0
     for numero in _NUMERO_TOPICO.finditer(texto):
         valor = int(numero.group(1))
         if (ultimo == 0 and valor == 1) or (ultimo and ultimo < valor <= ultimo + 3):
             inicios.append((valor, numero.start(), numero.end()))
             ultimo = valor
+    return inicios
+
+
+def _topicos_numerados(texto: str, inicios: list[tuple[int, int, int]]) -> tuple[Topico, ...]:
+    topicos = []
+    for indice, (valor, _, fim) in enumerate(inicios):
+        proximo = inicios[indice + 1][1] if indice + 1 < len(inicios) else len(texto)
+        topicos.append(_topico(str(valor), texto[fim:proximo], numerado=True))
+    return tuple(topicos)
+
+
+def _topicos(texto: str, exigir_numeracao: bool) -> tuple[Topico, ...]:
+    texto = texto.strip()
+    if not texto:
+        return ()
+    inicios = _inicios_topicos_numerados(texto)
     if len(inicios) >= 2 or (inicios and inicios[0][1] == 0):
-        topicos = []
-        for indice, (valor, _, fim) in enumerate(inicios):
-            proximo = inicios[indice + 1][1] if indice + 1 < len(inicios) else len(texto)
-            topicos.append(_topico(str(valor), texto[fim:proximo], numerado=True))
-        return tuple(topicos)
+        return _topicos_numerados(texto, inicios)
     if exigir_numeracao:
         return ()
     frases = [f for f in _FRASE.split(texto) if f.strip(' .;')]

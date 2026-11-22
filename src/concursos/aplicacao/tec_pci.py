@@ -71,6 +71,46 @@ def _assuntos_com_erro(opcoes: Opcoes) -> list[tuple[str, str, str]]:
     ]
 
 
+def _provas_pci_filtradas(cliente, termo: str, banca: str):
+    provas = cliente.pesquisar_provas_anteriores(termo)
+    if not banca:
+        return provas
+    mesmas = [p for p in provas if normalizar(p.organizadora or '') == normalizar(banca)]
+    return mesmas or provas
+
+
+def _consulta_provas_por_assunto(
+    cliente,
+    assuntos: list[tuple[str, str, str]],
+    opcoes: Opcoes,
+    vistos: set[tuple[str, str]],
+) -> list[ProvaRelacionada]:
+    achados: list[ProvaRelacionada] = []
+    for ass, mat, banca in assuntos:
+        termo = ' '.join(p for p in (ass, mat) if p).strip()
+        if not termo:
+            continue
+        tema, fonte = _tema_no_edital_local(opcoes.contexto.raiz, ass)
+        for prova in _provas_pci_filtradas(cliente, termo, banca)[:5]:
+            url = prova.link or ''
+            chave = (ass, url)
+            if not url or chave in vistos:
+                continue
+            vistos.add(chave)
+            achados.append(
+                ProvaRelacionada(
+                    ass=ass,
+                    prova_url=url,
+                    orgao=prova.orgao or '',
+                    banca=prova.organizadora or banca,
+                    ano='' if prova.ano is None else str(prova.ano),
+                    tema_no_edital=tema,
+                    fonte_tema=fonte or 'pci',
+                )
+            )
+    return achados
+
+
 def _tema_no_edital_local(raiz: Path, ass: str) -> tuple[bool, str]:
     alvo = normalizar(ass)
     if not alvo:
@@ -109,39 +149,10 @@ def buscar_provas_por_assunto(opcoes: Opcoes, refresh: bool = False) -> list[Pro
         opcoes.saida('Nenhum assunto com erro para buscar no PCI.')
         return []
 
-    resultados: list[ProvaRelacionada] = []
     vistos: set[tuple[str, str]] = set()
 
     def consulta(cliente):
-        achados: list[ProvaRelacionada] = []
-        for ass, mat, banca in assuntos:
-            termo = ' '.join(p for p in (ass, mat) if p).strip()
-            if not termo:
-                continue
-            provas = cliente.pesquisar_provas_anteriores(termo)
-            if banca:
-                mesmas = [p for p in provas if normalizar(p.organizadora or '') == normalizar(banca)]
-                if mesmas:
-                    provas = mesmas
-            tema, fonte = _tema_no_edital_local(opcoes.contexto.raiz, ass)
-            for prova in provas[:5]:
-                url = prova.link or ''
-                chave = (ass, url)
-                if not url or chave in vistos:
-                    continue
-                vistos.add(chave)
-                achados.append(
-                    ProvaRelacionada(
-                        ass=ass,
-                        prova_url=url,
-                        orgao=prova.orgao or '',
-                        banca=prova.organizadora or banca,
-                        ano='' if prova.ano is None else str(prova.ano),
-                        tema_no_edital=tema,
-                        fonte_tema=fonte or 'pci',
-                    )
-                )
-        return achados
+        return _consulta_provas_por_assunto(cliente, assuntos, opcoes, vistos)
 
     try:
         resultados = consultar_pci(opcoes, cfg, refresh, consulta)

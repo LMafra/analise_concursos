@@ -26,6 +26,7 @@ from concursos.aplicacao.projeto import (
     pasta_do_candidato,
 )
 from concursos.aplicacao.simulados import gerar_simulado_focado
+from concursos.artefatos import ARQUIVO_RESPOSTAS
 from concursos.candidatos import completar_perfis, gravar_revisao
 from concursos.candidatos import pasta_do_candidato as pasta_de_respostas
 from concursos.config.contexto import Contexto
@@ -36,7 +37,7 @@ from concursos.exportacao import FormatoExportacao, exportar_consolidado
 from concursos.llm import ClienteComMemoria, ClienteLlm, cliente_configurado
 from concursos.manifesto import ARQUIVO_MANIFESTO
 from concursos.modelo import Etapa
-from concursos.pipeline import ARQUIVO_RESPOSTAS, analisar_todos, planejar
+from concursos.pipeline import analisar_todos, planejar
 from concursos.pratica_tec import textos_para_normas
 from concursos.respostas import RespostasInvalidasError
 from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
@@ -80,6 +81,61 @@ def cliente_llm(opcoes: Opcoes) -> ClienteLlm | None:
     return ClienteComMemoria(cliente) if cliente else None
 
 
+def _dry_run_candidato(
+    opcoes: Opcoes, candidato: str | None, concurso: str | None, provas: Path, destino: Path
+) -> bool:
+    prefixo = f'{candidato}/' if candidato else ''
+    extras = opcoes.contexto.extras_do_manifesto
+    for nome, acao in planejar(provas, destino, opcoes.forcar, concurso, candidato, extras):
+        opcoes.saida(f'{prefixo}{nome}: {acao}')
+    praticar(opcoes, candidato, destino, None)
+    return True
+
+
+def _precisa_regenerar_indice(
+    opcoes: Opcoes,
+    provas: Path,
+    destino: Path,
+    candidato: str | None,
+    configuracao,
+    antes: dict,
+    pratica,
+    fontes,
+) -> bool:
+    textos = textos_para_normas(pratica) if pratica is not None else []
+    mudou_pratica = pratica is not None and pratica.mudou
+    indice = destino / relatorio_html.ARQUIVO_INDICE
+    return bool(
+        recomendar_estudo(opcoes, fontes, provas, destino, configuracao.limiar_topico_baixo, textos)
+        or mudou_pratica
+        or radar_pci(opcoes, candidato, destino)
+        or simulado_focado_mudou(opcoes, provas, destino, configuracao)
+        or manifestos(destino) != antes
+        or not indice.exists()
+    )
+
+
+def _pos_analise_relatorio(
+    opcoes: Opcoes,
+    provas: Path,
+    destino: Path,
+    candidato: str | None,
+    configuracao,
+    antes: dict,
+) -> None:
+    contexto = opcoes.contexto
+    fontes = fontes_de_estudo(contexto)
+    pratica = praticar(opcoes, candidato, destino, configuracao)
+    indice = destino / relatorio_html.ARQUIVO_INDICE
+    if _precisa_regenerar_indice(opcoes, provas, destino, candidato, configuracao, antes, pratica, fontes):
+        relatorio_html.gerar_relatorio_html(
+            provas, destino, contexto.taxonomia, configuracao.limiar_topico_baixo
+        )
+        if opcoes.abrir:
+            relatorio_html.abrir_no_navegador(contexto.raiz / indice)
+    opcoes.saida(f'relatório: {contexto.raiz / indice}')
+
+
 def analisar_candidato(
     opcoes: Opcoes, cliente: ClienteLlm | None, candidato: str | None, concurso: str | None
 ) -> bool:
@@ -87,12 +143,7 @@ def analisar_candidato(
     provas, analises = curto(contexto.provas, contexto.raiz), curto(contexto.analises, contexto.raiz)
     destino = analises / candidato if candidato else analises
     if opcoes.dry_run:
-        prefixo = f'{candidato}/' if candidato else ''
-        extras = contexto.extras_do_manifesto
-        for nome, acao in planejar(provas, destino, opcoes.forcar, concurso, candidato, extras):
-            opcoes.saida(f'{prefixo}{nome}: {acao}')
-        praticar(opcoes, candidato, destino, None)
-        return True
+        return _dry_run_candidato(opcoes, candidato, concurso, provas, destino)
     if candidato:
         completar_perfis(contexto.provas, candidato)
         if not opcoes.todos:
@@ -101,7 +152,6 @@ def analisar_candidato(
         configuracao_do_projeto(contexto), cliente_llm=cliente, dicionario=dicionario_do_projeto(contexto)
     )
     taxonomia = carregar_taxonomia(contexto.taxonomia) if contexto.taxonomia.exists() else None
-    fontes = fontes_de_estudo(contexto)
     antes = manifestos(destino)
     sucesso = analisar_todos(
         provas,
@@ -115,29 +165,7 @@ def analisar_candidato(
         opcoes.ao_etapa,
         contexto.extras_do_manifesto,
     )
-    pratica = praticar(opcoes, candidato, destino, configuracao)
-    textos = textos_para_normas(pratica) if pratica is not None else []
-    recomendacoes = recomendar_estudo(
-        opcoes, fontes, provas, destino, configuracao.limiar_topico_baixo, textos
-    )
-    radar = radar_pci(opcoes, candidato, destino)
-    focado = simulado_focado_mudou(opcoes, provas, destino, configuracao)
-    indice = destino / relatorio_html.ARQUIVO_INDICE
-    mudou_pratica = pratica is not None and pratica.mudou
-    if (
-        recomendacoes
-        or mudou_pratica
-        or radar
-        or focado
-        or manifestos(destino) != antes
-        or not indice.exists()
-    ):
-        relatorio_html.gerar_relatorio_html(
-            provas, destino, contexto.taxonomia, configuracao.limiar_topico_baixo
-        )
-        if opcoes.abrir:
-            relatorio_html.abrir_no_navegador(contexto.raiz / indice)
-    opcoes.saida(f'relatório: {contexto.raiz / indice}')
+    _pos_analise_relatorio(opcoes, provas, destino, candidato, configuracao, antes)
     return sucesso
 
 

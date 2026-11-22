@@ -140,13 +140,9 @@ def _dica_da_falha(erro: OpenNotebookIndisponivelError, gerenciada: bool) -> str
     return erro.dica or DICA_INSTANCIA
 
 
-def sincronizar(
-    opcoes: Opcoes, concurso: str | None = None, todos: bool = False
-) -> RelatorioSincronizacao | None:
-    """Num comando explícito; devolve None no `--dry-run`, depois de listar o que iria."""
-    contexto = opcoes.contexto
-    exigir_provas(contexto.provas)
-    configuracao = configuracao_open_notebook(contexto)
+def _exigir_sincronizacao_notebook(
+    contexto: Contexto, configuracao: ConfiguracaoOpenNotebook, opcoes: Opcoes
+):
     gerenciada = not configuracao.ativa and estudo.situacao_do_estudo(contexto).preparado
     if not configuracao.ativa and not gerenciada:
         raise ErroDoUsuario(
@@ -158,15 +154,37 @@ def sincronizar(
             'Atualizar os materiais de estudo usa a internet, e você pediu para não usar (--offline).',
             'rode de novo sem --offline.',
         )
+    return gerenciada
+
+
+def _dry_run_sincronizar(
+    opcoes: Opcoes,
+    contexto: Contexto,
+    candidatos: list[str | None],
+    concurso: str | None,
+    gerenciada: bool,
+    configuracao: ConfiguracaoOpenNotebook,
+) -> None:
+    for nome_candidato in candidatos:
+        pasta = contexto.analises / nome_candidato if nome_candidato else contexto.analises
+        prefixo = f'{nome_candidato}/' if nome_candidato else ''
+        for nome in concursos_analisados(contexto.provas, pasta):
+            if concurso in (None, nome):
+                destino = 'o open-notebook do app' if gerenciada else configuracao.url
+                opcoes.saida(f'{prefixo}{nome}: enviaria para {destino}')
+
+
+def sincronizar(
+    opcoes: Opcoes, concurso: str | None = None, todos: bool = False
+) -> RelatorioSincronizacao | None:
+    """Num comando explícito; devolve None no `--dry-run`, depois de listar o que iria."""
+    contexto = opcoes.contexto
+    exigir_provas(contexto.provas)
+    configuracao = configuracao_open_notebook(contexto)
+    gerenciada = _exigir_sincronizacao_notebook(contexto, configuracao, opcoes)
     candidatos = candidatos_da_execucao(contexto, todos or opcoes.todos)
     if opcoes.dry_run:
-        for nome_candidato in candidatos:
-            pasta = contexto.analises / nome_candidato if nome_candidato else contexto.analises
-            prefixo = f'{nome_candidato}/' if nome_candidato else ''
-            for nome in concursos_analisados(contexto.provas, pasta):
-                if concurso in (None, nome):
-                    destino = 'o open-notebook do app' if gerenciada else configuracao.url
-                    opcoes.saida(f'{prefixo}{nome}: enviaria para {destino}')
+        _dry_run_sincronizar(opcoes, contexto, candidatos, concurso, gerenciada, configuracao)
         return None
     try:
         if gerenciada:
@@ -351,6 +369,34 @@ def alvos_do_candidato(contexto: Contexto) -> tuple[tuple[str, ...], str]:
         ) from erro
 
 
+def _uf_filtro_pci(contexto: Contexto, configuracao: ConfiguracaoPciMcp, uf: str | None) -> str:
+    _, uf_alvo = alvos_do_candidato(contexto)
+    try:
+        return validar_uf(uf if uf is not None else (uf_alvo or configuracao.uf), '--uf')
+    except ConfiguracaoInvalidaError as erro:
+        raise ErroDoUsuario(
+            'Não reconheci o estado informado.', 'use a sigla do estado, por exemplo --uf sp.', str(erro)
+        ) from erro
+
+
+def _defaults_filtro_pci(
+    contexto: Contexto,
+    configuracao: ConfiguracaoPciMcp,
+    cargos: list[str],
+    uf: str,
+    cidade: str | None,
+    regiao: str | None,
+    termo: str | None,
+) -> tuple[list[str], str | None, str | None]:
+    if cargos or cidade or termo or regiao:
+        return cargos, regiao, cidade
+    alvos, _ = alvos_do_candidato(contexto)
+    regiao = configuracao.regiao
+    if configuracao.cidade and uf == configuracao.uf.lower():
+        cidade = configuracao.cidade
+    return list(alvos or configuracao.cargos), regiao, cidade
+
+
 def filtros_pci(
     contexto: Contexto,
     configuracao: ConfiguracaoPciMcp,
@@ -361,20 +407,10 @@ def filtros_pci(
     termo: str | None,
 ) -> dict:
     """Sem nenhum filtro, os cargos e a UF do candidato; sem eles, os de [pci_mcp]."""
-    alvos, uf_alvo = alvos_do_candidato(contexto)
-    try:
-        uf = validar_uf(uf if uf is not None else (uf_alvo or configuracao.uf), '--uf')
-    except ConfiguracaoInvalidaError as erro:
-        raise ErroDoUsuario(
-            'Não reconheci o estado informado.', 'use a sigla do estado, por exemplo --uf sp.', str(erro)
-        ) from erro
+    uf = _uf_filtro_pci(contexto, configuracao, uf)
     if regiao is not None and regiao not in REGIOES:
         raise ErroDoUsuario(f'Não conheço a região “{regiao}”.', f'use uma destas: {", ".join(REGIOES)}.')
-    if not (cargos or cidade or termo or regiao):
-        cargos = list(alvos or configuracao.cargos)
-        regiao = configuracao.regiao
-        if configuracao.cidade and uf == configuracao.uf.lower():
-            cidade = configuracao.cidade
+    cargos, regiao, cidade = _defaults_filtro_pci(contexto, configuracao, cargos, uf, cidade, regiao, termo)
     return {'cargos': cargos, 'uf': uf, 'cidade': cidade or '', 'regiao': regiao or '', 'termo': termo or ''}
 
 
@@ -658,6 +694,40 @@ def espera_cancelavel(cancelar: threading.Event) -> Callable[..., dict[str, Path
     return esperar
 
 
+def _arquivos_pci_ou_vazio(link: str, configuracao: ConfiguracaoPciMcp) -> list:
+    try:
+        return ler_arquivos(baixar_pagina(link, configuracao.timeout))
+    except PciMcpErro as erro:
+        avisar(
+            logger,
+            'Não consegui ver quais arquivos a página da prova tem.',
+            'baixe os arquivos que a página mostrar.',
+            f'PCI: {erro.detalhe or erro.causa}',
+        )
+        return []
+
+
+def _finalizar_importacao_simulado(opcoes: Opcoes, pasta: Path, encontrados: dict[str, Path]) -> int:
+    for copiado in download_assistido.importar(encontrados, pasta):
+        opcoes.saida(f'importado: {copiado}')
+    try:
+        cadastrado = cadastrar(pasta, opcoes.interacao_ou_automatica())
+    except ValueError as erro:
+        raise ErroDoUsuario(
+            f'{pasta.name}: não consegui terminar o cadastro da prova.',
+            f'confira os arquivos e rode concurso-analise add {pasta}.',
+            str(erro),
+        ) from erro
+    if not cadastrado:
+        return 1
+    revisar_simulado(opcoes.contexto, pasta)
+    opcoes.saida(
+        f'simulado pronto em {pasta}; acrescente suas respostas com '
+        f'`concurso-analise add <arquivo> --candidate <nome> --concurso {pasta.name}`'
+    )
+    return 0
+
+
 def importar_simulado(
     opcoes: Opcoes,
     provas: list[ProvaAnteriorPci],
@@ -689,16 +759,7 @@ def importar_simulado(
             'rode de novo sem --offline.',
         )
     link = validar_link(prova.link)
-    try:
-        arquivos = ler_arquivos(baixar_pagina(link, configuracao.timeout))
-    except PciMcpErro as erro:
-        avisar(
-            logger,
-            'Não consegui ver quais arquivos a página da prova tem.',
-            'baixe os arquivos que a página mostrar.',
-            f'PCI: {erro.detalhe or erro.causa}',
-        )
-        arquivos = []
+    arquivos = _arquivos_pci_ou_vazio(link, configuracao)
     pasta, avisos = preparar_pasta(contexto.provas, prova, alvo)
     for aviso in avisos:
         avisar(logger, f'{pasta.name}: {aviso}')
@@ -722,24 +783,7 @@ def importar_simulado(
             f'salve os PDFs em {pasta} e rode concurso-analise add {pasta}.',
             'a pasta de downloads se ajusta em pasta_downloads, na seção [pci_mcp]',
         )
-    for copiado in download_assistido.importar(encontrados, pasta):
-        opcoes.saida(f'importado: {copiado}')
-    try:
-        cadastrado = cadastrar(pasta, opcoes.interacao_ou_automatica())
-    except ValueError as erro:
-        raise ErroDoUsuario(
-            f'{pasta.name}: não consegui terminar o cadastro da prova.',
-            f'confira os arquivos e rode concurso-analise add {pasta}.',
-            str(erro),
-        ) from erro
-    if not cadastrado:
-        return 1
-    revisar_simulado(contexto, pasta)
-    opcoes.saida(
-        f'simulado pronto em {pasta}; acrescente suas respostas com '
-        f'`concurso-analise add <arquivo> --candidate <nome> --concurso {pasta.name}`'
-    )
-    return 0
+    return _finalizar_importacao_simulado(opcoes, pasta, encontrados)
 
 
 @dataclass

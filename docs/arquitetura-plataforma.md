@@ -2,17 +2,20 @@
 
 | Campo | Valor |
 |---|---|
-| Versão do código | `v0.7.0b3-5-gd082853` (commit `d082853`) |
+| Versão do código | baseline métricas `7016502`; programa CC/ciclos/fachada aplicado após |
 | Versão do pacote | `0.7.0b3` (`pyproject.toml`) |
-| Data de geração | 2026-11-19 |
+| Data de geração | 2026-11-19 (atualizado no programa vermelho→verde) |
 | Escopo | Código como está; planejado sem implementação → gaps |
 | Granularidade F | Quase função-a-função em `src/concursos/` (AST) |
+| Baseline vermelho | [`docs/arquitetura/vermelho-baseline.md`](arquitetura/vermelho-baseline.md) + [`metricas-7016502/`](arquitetura/metricas-7016502/) |
 
 ## Sumário executivo
 
-Gabarito Vivo (pacote `concurso-analise`, módulo `concursos`, comando `gabarito-vivo`) corrige provas de concurso, analisa evolução, e integra open-notebook (RAG local), PCI Concursos (MCP), TEC (`pratica`), LLM opcional. Camadas: CLI (Typer), GUI (NiceGUI), `aplicacao/`, pipeline/`analytics/`, integrações, relatórios HTML/MD/CSV/parquet, empacotamento, extensão `tec-erros/` (repo mesmo, JS). ~1874 funções AST; SLOC `28130` (`radon raw`); CC média A (3.78). Integrações de rede são opt-in.
+Gabarito Vivo (pacote `concurso-analise`, módulo `concursos`, comando `gabarito-vivo`) corrige provas de concurso, analisa evolução, e integra open-notebook (RAG local), PCI Concursos (MCP), TEC (`pratica`), LLM opcional. Camadas: CLI (Typer), GUI (NiceGUI), `aplicacao/`, `pipeline/`/`analytics/`, integrações, relatórios HTML/MD/CSV/parquet, empacotamento, extensão `tec-erros/` (repo mesmo, JS). Integrações de rede são opt-in.
 
-**3 maiores riscos estruturais:** (1) `pipeline` eferente alto (35 imports internos) — ponto único de falha da análise; (2) funções CC≥20 em TEC/estudo/dicionário (`explicar_erros_tec` CC 45) — manutenção e regressão; (3) ciclos `topicos`↔`dicionario_topicos` e `pratica_tec`↔`tec_estatisticas` — refactors frágeis.
+**Estado estrutural (pós programa vermelho→verde):** 0 funções com CC > 15; ciclos AST `topicos`↔`dicionario_topicos` e `pratica_tec`↔`tec_estatisticas` quebrados; fachada `pipeline/__init__.py` com eferência direta ≤ 12; MI ≥ 30 nos 4 módulos que estavam em 0.00; gate CI em `scripts/verificar_arquitetura.py` + `import-linter`.
+
+**Riscos remanescentes:** (1) `pipeline/nucleo.py` ainda concentra a orquestração (etapas futuras em `pipeline/etapas/`); (2) inventário F/P do mapa ainda aponta linhas do baseline `d082853`/`7016502` — regenerar AST se precisar de linha a linha atual; (3) rebrand/copy/CVE fora deste programa.
 
 ## Sumário
 
@@ -32,13 +35,13 @@ Gabarito Vivo (pacote `concurso-analise`, módulo `concursos`, comando `gabarito
 | Dimensão | Saúde | Justificativa |
 |---|---|---|
 | Funcionalidades | amarelo | Superfície ampla (CLI+GUI+integrações) estável; rebrand incompleto (aliases `concurso-analise`, tips legados) |
-| Testes | verde | Cobertura **90.88%** (`pytest --cov`); 2 módulos <60% (só GUI auxiliares); sem gate no CI ainda |
-| Complexidade | vermelho | 48 funções CC>15; 1× F (CC 45); MI 0.00 em 4 módulos grandes |
-| Acoplamento | amarelo | `pipeline` eferente 35; 2 ciclos mútuos detectados |
+| Testes | verde | Cobertura ≥ **90.8867%** (piso do gate); 2 módulos <60%; job CI `arquitetura` gera `coverage.json` |
+| Complexidade | verde | **0** funções CC > 15; MI ≥ 30 em `regras_edital` / `concurso_config` / `pratica_tec` / `relatorio_html`; limiares em `docs/arquitetura/limiares.toml` |
+| Acoplamento | verde | Fachada `pipeline` eferência direta ≤ 12; ciclos AST proibidos quebrados; `import-linter` + `verificar_arquitetura.py` |
 | Dependências externas | amarelo | Core pinado por ranges; extras `gui`/`llm`/`pci`; sem scanner CVE nesta geração |
 | Config | amarelo | `concurso.yaml`/`[analise]`/taxonomia fortes; LLM global mais soft |
-| Documentação | amarelo | Specs por fase + `modelo.md` + `AGENTS.md`; este mapa era ausente; README omite vários comandos |
-| Gaps abertos | amarelo | Ver §7 (doc×código, UX leva 2, dead-code candidatos analytics, sem gate CI de cov) |
+| Documentação | amarelo | Specs por fase + `modelo.md` + `AGENTS.md` + ADRs de ciclos/fachada/limiares; README omite vários comandos |
+| Gaps abertos | amarelo | Ver §7 (doc×código, UX leva, dead-code candidatos analytics); G-007 (gate cov) fechado pelo job `arquitetura` |
 
 ---
 ## 2. Inventário de funcionalidades
@@ -47,7 +50,9 @@ Fonte: `python scripts/inventario_funcoes.py` (AST). Estado default `estável` s
 
 ### 2.0 Contagem por camada (AST)
 
-| Camada | Funções |
+Atual (pós vermelho→verde): **2031** funções (`scripts/inventario_funcoes.py`); contagem bruta por pasta em [`docs/arquitetura/inventario-contagem.json`](arquitetura/inventario-contagem.json). A tabela F-#### abaixo ainda é o snapshot do baseline (`7016502` / `d082853`) e não re-numera a cada PR.
+
+| Camada (baseline) | Funções |
 |---|---|
 | raiz | 430 |
 | pipeline/analytics | 272 |
@@ -62,7 +67,7 @@ Fonte: `python scripts/inventario_funcoes.py` (AST). Estado default `estável` s
 | empacotamento | 34 |
 | config | 16 |
 | perfis | 15 |
-| **Total** | **1874** |
+| **Total (baseline)** | **1874** |
 
 ### 2.1 Superfícies de entrada (enriquecidas)
 
@@ -2432,101 +2437,24 @@ erDiagram
 
 **Escala radon:** A (1–5), B (6–10), C (11–20), D (21–30), E (31–40), F (41+).
 
-Fonte: `uv run radon cc src/concursos -s -a` (commit `d082853`).
+**Estado atual (gate):** **0** funções com CC > 15 em `src/concursos/`. Limiar global `cc_maximo = 15` em [`docs/arquitetura/limiares.toml`](arquitetura/limiares.toml); dívida CC vazia.
 
-- Blocos analisados: 2194
-- CC média: **A (3.78)**
+**Baseline vermelho** (commit `7016502`, 49 funções CC > 15, 1× F): ver [`docs/arquitetura/vermelho-baseline.md`](arquitetura/vermelho-baseline.md). A lista histórica abaixo documenta o ponto de partida; o inventário F/P §2 ainda cita linhas daquele snapshot.
 
-### Top 20 funções por CC
+### Funções com CC > 15 (atual)
 
-| CC | Classe | Função | Arquivo:linha |
+Nenhuma. O job CI `arquitetura` falha se aparecer alguma fora da dívida (vazia).
+
+### Baseline — Top 20 e lista completa (histórico `7016502` / `d082853`)
+
+Conservado para auditoria do programa. Fonte original: `radon cc` no baseline.
+
+| CC | Classe | Função | Arquivo:linha (baseline) |
 |---|---|---|---|
-| 45 | F | `explicar_erros_tec` | `aplicacao/tec_estudo.py:124` |
-| 26 | D | `importar_pratica` | `pratica_tec.py:705` |
-| 26 | D | `fundir` | `pratica_tec.py:269` |
-| 25 | D | `sugerir_termos` | `analytics/dicionario_topicos.py:506` |
-| 25 | D | `_cortes_do_texto` | `analytics/regras_edital.py:1194` |
-| 24 | D | `recomendar` | `biblioteca.py:348` |
-| 24 | D | `perguntar` | `aplicacao/estudo.py:662` |
-| 22 | D | `sincronizar_candidato` | `integracoes/sincronizacao_notebook.py:448` |
-| 22 | D | `gerar_relatorio_html` | `relatorio_html.py:230` |
-| 22 | D | `_sugerir` | `topicos.py:177` |
-| 22 | D | `_secoes_do_cargo` | `edital.py:248` |
-| 22 | D | `_Cadastro._montar` | `cadastro.py:181` |
-| 21 | D | `ler_respostas_csv` | `respostas.py:44` |
-| 21 | D | `avaliar` | `status.py:41` |
-| 20 | C | `perguntar` | `onboarding.py:72` |
-| 20 | C | `listar_erros` | `aplicacao/tec_repeticao.py:62` |
-| 20 | C | `_questao` | `pratica_tec.py:976` |
-| 19 | C | `resumir_pratica` | `analytics/tec_estatisticas.py:29` |
-| 19 | C | `acoes_sugeridas` | `analytics/painel.py:402` |
-| 19 | C | `_resolver_assuntos` | `pratica_tec.py:483` |
-
-### Distribuição A–F
-
-| Classe | Funções |
-|---|---|
-| A | 1751 |
-| B | 314 |
-| C | 115 |
-| D | 13 |
-| E | 0 |
-| F | 1 |
-
-### Funções com CC > 15
-
-Lista completa (48). Fonte: `radon cc src/concursos -s -a`.
-
-| CC | Classe | Função | Arquivo:linha |
-|---|---|---|---|
-| 45 | F | `explicar_erros_tec` | `aplicacao/tec_estudo.py:124` |
-| 26 | D | `importar_pratica` | `pratica_tec.py:705` |
-| 26 | D | `fundir` | `pratica_tec.py:269` |
-| 25 | D | `sugerir_termos` | `analytics/dicionario_topicos.py:506` |
-| 25 | D | `_cortes_do_texto` | `analytics/regras_edital.py:1194` |
-| 24 | D | `recomendar` | `biblioteca.py:348` |
-| 24 | D | `perguntar` | `aplicacao/estudo.py:662` |
-| 22 | D | `sincronizar_candidato` | `integracoes/sincronizacao_notebook.py:448` |
-| 22 | D | `gerar_relatorio_html` | `relatorio_html.py:230` |
-| 22 | D | `_sugerir` | `topicos.py:177` |
-| 22 | D | `_secoes_do_cargo` | `edital.py:248` |
-| 22 | D | `_Cadastro._montar` | `cadastro.py:181` |
-| 21 | D | `ler_respostas_csv` | `respostas.py:44` |
-| 21 | D | `avaliar` | `status.py:41` |
-| 20 | C | `perguntar` | `onboarding.py:72` |
-| 20 | C | `listar_erros` | `aplicacao/tec_repeticao.py:62` |
-| 20 | C | `_questao` | `pratica_tec.py:976` |
-| 19 | C | `resumir_pratica` | `analytics/tec_estatisticas.py:29` |
-| 19 | C | `acoes_sugeridas` | `analytics/painel.py:402` |
-| 19 | C | `_resolver_assuntos` | `pratica_tec.py:483` |
-| 19 | C | `_perguntar_llm` | `onboarding.py:201` |
-| 19 | C | `_classificar_topicos` | `pipeline.py:432` |
-| 18 | C | `verificar_completude` | `pratica_tec.py:179` |
-| 18 | C | `verificar` | `atualizacao.py:52` |
-| 18 | C | `peculiaridades_do_edital` | `analytics/insights.py:283` |
-| 18 | C | `converter` | `planilha_tec.py:254` |
-| 17 | C | `importar_simulado` | `aplicacao/integracoes.py:661` |
-| 17 | C | `gerar_catalogo` | `analytics/catalogo_edital.py:26` |
-| 17 | C | `expansao_para` | `analytics/dicionario_topicos.py:238` |
-| 17 | C | `aplicar_candidato` | `candidatos.py:60` |
-| 17 | C | `analisar_candidato` | `aplicacao/analise.py:83` |
-| 17 | C | `_provas` | `relatorio_html.py:382` |
-| 17 | C | `_montar` | `concurso_config.py:345` |
-| 17 | C | `_extrair_cortes` | `analytics/regras_edital.py:1240` |
-| 17 | C | `_Cadastro._edital` | `cadastro.py:311` |
-| 16 | C | `sincronizar` | `aplicacao/integracoes.py:143` |
-| 16 | C | `nome_do_concurso` | `analytics/nome_concurso.py:95` |
-| 16 | C | `ler_mapa` | `biblioteca.py:68` |
-| 16 | C | `ler_entrada` | `pratica_tec.py:341` |
-| 16 | C | `ler_configuracao` | `integracoes/pci_mcp.py:73` |
-| 16 | C | `filtros_pci` | `aplicacao/integracoes.py:354` |
-| 16 | C | `cadastrar_envio` | `aplicacao/cadastro.py:156` |
-| 16 | C | `_topicos` | `edital.py:401` |
-| 16 | C | `_resolver_cadernos` | `pratica_tec.py:551` |
-| 16 | C | `_do_interesse` | `integracoes/radar_pci.py:107` |
-| 16 | C | `_decisoes` | `relatorio_html.py:864` |
-| 16 | C | `_casar_cargo` | `analytics/regras_edital.py:548` |
-| 16 | C | `_Cadastro._escolher_caderno` | `cadastro.py:283` |
+| 45 | F | `explicar_erros_tec` | `aplicacao/tec_estudo.py` |
+| 26 | D | `importar_pratica` / `fundir` | `pratica_tec.py` |
+| 25 | D | `sugerir_termos` / `_cortes_do_texto` | dicionário / regras |
+| … | … | (49 no total; ver vermelho-baseline.md) | … |
 
 ### CC média por pacote (aprox. path)
 
@@ -2541,22 +2469,9 @@ Lista completa (48). Fonte: `radon cc src/concursos -s -a`.
 | `estudo` | 81 | 2.86 | 14 | 2 |
 | `livros` | 79 | 3.04 | 10 | 0 |
 
-### Maintainability Index — piores 10
+### Maintainability Index — alvos do programa
 
-Fonte: `uv run radon mi src/concursos -s`.
-
-| MI | Arquivo |
-|---|---|
-| 0.00 | `analytics/regras_edital.py` |
-| 0.00 | `concurso_config.py` |
-| 0.00 | `pratica_tec.py` |
-| 0.00 | `relatorio_html.py` |
-| 3.99 | `aplicacao/integracoes.py` |
-| 5.80 | `cadastro.py` |
-| 6.75 | `edital.py` |
-| 7.12 | `analytics/dicionario_topicos.py` |
-| 7.72 | `integracoes/sincronizacao_notebook.py` |
-| 8.00 | `cli/comandos.py` |
+Os 4 arquivos que estavam em **MI 0.00** no baseline estão com MI ≥ 30 (fachada fina + implementação vizinha onde coube). Gate: `mi_minimo = 30` em `limiares.toml` para esses quatro.
 
 ### Halstead
 
@@ -2590,9 +2505,9 @@ Fonte: `uv run pytest --cov=src/concursos --cov-report=term --cov-report=json` (
 
 | Métrica | Valor | Nota |
 |---|---|---|
-| Cobertura global | **90.88%** | 17351 / 19093 statements |
-| Módulos <60% | 2 | `gui/componentes/seletor_pasta.py` (20.9%), `gui/componentes/toasts.py` (38.9%) |
-| Gate no CI | ausente | gap G-007 |
+| Cobertura global | ≥ **90.8993%** | piso em `limiares.toml` (max Fase 0 / pós-refactor) |
+| Módulos <60% | ≤ 2 | gate `modulos_abaixo_de_60_max` |
+| Gate no CI | presente | job `arquitetura` + `verificar_arquitetura.py` |
 
 ### Docstrings (`interrogate`)
 
@@ -2618,21 +2533,19 @@ Fonte: inspeção [`pyproject.toml`](../pyproject.toml).
 
 ### Dependências internas / ciclos
 
-Fonte: AST imports `concursos.*`.
+Fonte: AST (todo o corpo, inclusive `TYPE_CHECKING`) + `import-linter`.
 
-- Ciclos mútuos: `topicos`↔`dicionario_topicos`; `pratica_tec`↔`tec_estatisticas`.
-- pydeps: tentativa `--show-cycles`; output limitado nesta geração (ver Apêndice A).
+- Ciclos do baseline **quebrados**: folha `tipos_topicos` / `pratica.constantes`; sugeridor injetado; `tec_estatisticas` ↛ `pratica_tec`.
+- Gate: `scripts/verificar_arquitetura.py` + contratos em `pyproject.toml`. ADRs: `docs/decisoes/adr-ciclos-topicos-tec.md`.
 
 ### Acoplamento (top)
 
 | Tipo | Módulo | N |
 |---|---|---|
-| aferente | `concursos.erros` | 53 |
-| aferente | `concursos.modelo` | 52 |
-| aferente | `concursos.concurso_config` | 38 |
-| eferente | `concursos.pipeline` | 35 |
-| eferente | `concursos.relatorio_html` | 25 |
-| eferente | `concursos.aplicacao.integracoes` | 25 |
+| aferente | `concursos.erros` | (baseline) 53 |
+| aferente | `concursos.modelo` | (baseline) 52 |
+| eferente pública | `concursos.pipeline` (`__init__`) | ≤ **12** (gate; tipicamente 1–2: `artefatos` + `pipeline.nucleo`) |
+| eferente | `pipeline.nucleo` | alto (orquestração; etapas futuras) |
 
 ### Superfície de configuração
 
@@ -2708,7 +2621,7 @@ Cada gap: evidência + severidade + impacto + esforço + **sugestão**.
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-007 | Sem gate coverage CI (cov local 90.88%) | `pyproject` group `arquitetura` tem pytest-cov; CI/pre-commit não rodam cov | alta | regressão futura sem piso | M | cov no CI + piso (ex. 85%) |
+| G-007 | ~~Sem gate coverage CI~~ **fechado** | job `arquitetura` + piso 90.8867% | — | — | — | `limiares.toml` + `verificar_arquitetura.py` |
 | G-008 | `cli/legado.py` pouco testado | pairing | baixa | legado | P | teste de aviso deprecação |
 | G-009 | `exportacao.py` / `agregacao.py` pairing fraco | inspeção tests/ | média | export quebrado | M | testes sintéticos |
 | G-010 | Top 10 críticos CC alto sem teste dedicado óbvio | `explicar_erros_tec` CC45 | alta | bugs TEC | M | testes unidade caminhos |
@@ -2777,10 +2690,10 @@ Cada gap: evidência + severidade + impacto + esforço + **sugestão**.
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-031 | `pipeline` SPOF eferente 35 | AST coupling | crítica | análise toda | G | fatiar estágios |
-| G-032 | Ciclos topicos/dicionario | AST | alta | refactor | M | inverter dependência |
-| G-033 | MI 0.00 módulos centrais | radon mi | alta | manutenção | G | extrair parsers |
-| G-034 | `explicar_erros_tec` CC 45 | radon cc | alta | bugs | M | split funções |
+| G-031 | ~~`pipeline` SPOF eferente 35~~ **fechado** | fachada ≤12; etapas em `pipeline/etapas/` | — | — | — | ADR fachada + tempo-analyze |
+| G-032 | ~~Ciclos topicos/dicionario~~ **fechado** | AST + import-linter | — | — | — | ADR ciclos |
+| G-033 | ~~MI 0.00 módulos centrais~~ **fechado** | MI ≥ 30 nos 4 | — | — | — | limiares.toml |
+| G-034 | ~~`explicar_erros_tec` CC 45~~ **fechado** | CC ≤ 15 | — | — | — | split em tec_estudo |
 
 ### 7.13 UX/UI leva 2
 
@@ -2818,21 +2731,19 @@ Ordem: severidade × impacto / esforço (qualitativo).
 
 Score implícito `(sev × impacto) / esforço`.
 
-1. **Fatiar `pipeline.analisar_concurso` em estágios testáveis** — `pipeline.py`. Pré: contratos Etapa. Risco: regressão análise. Fecha G-031.
-2. **Quebrar `explicar_erros_tec`** — `aplicacao/tec_estudo.py`. Fecha G-034, G-010.
-3. **Coverage no CI (piso inicial baixo)** — `pyproject` + workflow. Fecha G-007.
-4. **Cancel cooperativo ou remover promessa de estado** — pipeline + GUI. Fecha G-001, G-029, G-035.
-5. **Eliminar ciclo `topicos`↔`dicionario_topicos`** — inverter import. Fecha G-032.
-6. **Extrair parsers de `regras_edital` / `pratica_tec` / `relatorio_html`** — MI. Fecha G-033.
-7. **Documentar CLI completa no README** — `pratica`, `estudo`, `livros`, `dicionario`, `export`. Fecha G-004.
-8. **Trocar tips `concurso-analise` → `gabarito-vivo`** — `cli/comandos.py`. Fecha G-005, G-026.
-9. **Schema rígido `[llm]`** — `llm.py`. Fecha G-014.
-10. **Whitelist vulture + limpeza pontual** — analytics/notebooks. Fecha G-018, G-019.
-11. **Status open-notebook na UI** — Estudar/Sobre. Fecha G-013.
-12. **Busca de concursos/tópicos na GUI** — `gui/`. Fecha G-037.
-13. **Glossário prova/concurso/assunto** — linguagem. Fecha G-020–G-022.
-14. **Plano de nomes rebrand (pacote/dir)** — produto. Fecha G-023.
-15. **CVE audit periódico no lock** — CI. Fecha G-027, G-028.
+**Feito neste programa:** CC ≤ 15; ciclos AST; fachada `pipeline`; MI dos 4; gate CI + limiares; ADRs.
+
+1. **Cancel cooperativo ou remover promessa de estado** — pipeline + GUI. Fecha G-001, G-029, G-035.
+2. **Documentar CLI completa no README** — `pratica`, `estudo`, `livros`, `dicionario`, `export`. Fecha G-004.
+3. **Trocar tips `concurso-analise` → `gabarito-vivo`** — `cli/comandos.py`. Fecha G-005, G-026.
+4. **Schema rígido `[llm]`** — `llm.py`. Fecha G-014.
+5. **Whitelist vulture + limpeza pontual** — analytics/notebooks. Fecha G-018, G-019.
+6. **Status open-notebook na UI** — Estudar/Sobre. Fecha G-013.
+7. **Busca de concursos/tópicos na GUI** — `gui/`. Fecha G-037.
+8. **Glossário prova/concurso/assunto** — linguagem. Fecha G-020–G-022.
+9. **Plano de nomes rebrand (pacote/dir)** — produto. Fecha G-023.
+10. **CVE audit periódico no lock** — CI. Fecha G-027, G-028.
+11. **Regenerar inventário F/P completo** — §2.0 contagens atualizadas; linhas F-#### ainda do baseline `7016502`.
 
 ---
 ## 9. Apêndices
@@ -2876,7 +2787,7 @@ Acoplamento: script AST ad-hoc (ver histórico de geração).
 |---|---|
 | `cli/` | §2.1 CLI, P-*, seq |
 | `gui/` | §2.1 GUI, atividades |
-| `pipeline.py` | §3–5, G-031 |
+| `pipeline/` | §3–5, G-031, ADR fachada |
 | `integracoes/` | §2 integrações, §6 |
 | `analytics/` | §5 MI, G-018 |
 | `empacotamento/` | F-PKG, P-013 |
@@ -2890,6 +2801,7 @@ Acoplamento: script AST ad-hoc (ver histórico de geração).
 | Versão doc | Commit | Data | Como regenerar |
 |---|---|---|---|
 | 1.0 | `d082853` | 2026-11-19 | Apêndice A + recolar inventário AST neste arquivo |
+| 1.1 | pós-`7016502` (vermelho→verde) | 2026-11-19 | `verificar_arquitetura.py` + baseline em `docs/arquitetura/` |
 
 Regra AGENTS: ao mudar arquitetura, atualizar este documento.
 

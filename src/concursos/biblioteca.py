@@ -65,16 +65,7 @@ class MapaBiblioteca:
         return sorted({categoria for categorias in self.disciplinas.values() for categoria in categorias})
 
 
-def ler_mapa(arquivo: Path, taxonomia: dict[str, DisciplinaCanonica], raiz: Path) -> MapaBiblioteca | None:
-    """None sem o arquivo; o catálogo relativo é resolvido a partir da raiz do projeto."""
-    if not arquivo.exists():
-        return None
-    dados = yaml.safe_load(arquivo.read_text(encoding='utf-8')) or {}
-    if not isinstance(dados, dict) or not isinstance(dados.get('disciplinas', {}), dict):
-        raise ConfiguracaoInvalidaError(
-            f'{arquivo}: esperado `disciplinas:` como mapa de disciplina para categorias'
-        )
-    canonicas = sorted({disciplina.nome for disciplina in taxonomia.values()})
+def _disciplinas_do_mapa(dados: dict, arquivo: Path, canonicas: list[str]) -> dict[str, tuple[str, ...]]:
     disciplinas: dict[str, tuple[str, ...]] = {}
     for disciplina, categorias in (dados.get('disciplinas') or {}).items():
         if canonicas and disciplina not in canonicas:
@@ -86,12 +77,28 @@ def ler_mapa(arquivo: Path, taxonomia: dict[str, DisciplinaCanonica], raiz: Path
         if not isinstance(categorias, list) or not all(isinstance(c, str) for c in categorias):
             raise ConfiguracaoInvalidaError(f"{arquivo}: '{disciplina}' precisa de uma lista de categorias")
         disciplinas[disciplina] = tuple(categorias)
-    catalogo = dados.get('catalogo')
-    caminho = None
-    if catalogo:
-        caminho = Path(str(catalogo)).expanduser()
-        caminho = caminho if caminho.is_absolute() else (raiz / caminho).resolve()
-    return MapaBiblioteca(disciplinas, caminho)
+    return disciplinas
+
+
+def _caminho_catalogo(catalogo: object, raiz: Path) -> Path | None:
+    if not catalogo:
+        return None
+    caminho = Path(str(catalogo)).expanduser()
+    return caminho if caminho.is_absolute() else (raiz / caminho).resolve()
+
+
+def ler_mapa(arquivo: Path, taxonomia: dict[str, DisciplinaCanonica], raiz: Path) -> MapaBiblioteca | None:
+    """None sem o arquivo; o catálogo relativo é resolvido a partir da raiz do projeto."""
+    if not arquivo.exists():
+        return None
+    dados = yaml.safe_load(arquivo.read_text(encoding='utf-8')) or {}
+    if not isinstance(dados, dict) or not isinstance(dados.get('disciplinas', {}), dict):
+        raise ConfiguracaoInvalidaError(
+            f'{arquivo}: esperado `disciplinas:` como mapa de disciplina para categorias'
+        )
+    canonicas = sorted({disciplina.nome for disciplina in taxonomia.values()})
+    disciplinas = _disciplinas_do_mapa(dados, arquivo, canonicas)
+    return MapaBiblioteca(disciplinas, _caminho_catalogo(dados.get('catalogo'), raiz))
 
 
 @dataclass(frozen=True)
@@ -345,6 +352,59 @@ class ResultadoRecomendacoes:
     fontes: set[FonteRecomendacao]
 
 
+def _catalogo_e_avisos_mapa(
+    mapa: MapaBiblioteca | None, busca: BuscaBiblioteca | BuscaLocal | None, avisos: list[str]
+) -> dict[str, list[Livro]]:
+    catalogo: dict[str, list[Livro]] = {}
+    if mapa is None:
+        return catalogo
+    if mapa.catalogo is not None:
+        if mapa.catalogo.exists():
+            catalogo, avisos_catalogo = ler_catalogo(mapa.catalogo)
+            avisos += avisos_catalogo
+        else:
+            avisos.append(f'biblioteca: catálogo {mapa.catalogo} não encontrado')
+    conhecidas = set(catalogo) | (busca.conhecidas if busca else set())
+    avisos += validar_categorias(mapa, conhecidas)
+    return catalogo
+
+
+def _repositorio_legislacao(repositorio: Path | None, avisos: list[str]) -> Path | None:
+    if repositorio is None or repositorio.is_dir():
+        return repositorio
+    avisos.append(f'legislação: {repositorio} não existe; clone o ctresb/leis ou corrija [legislacao]')
+    return None
+
+
+def _recomendar_linha(
+    linha,
+    mapa: MapaBiblioteca | None,
+    repositorio: Path | None,
+    catalogo: dict[str, list[Livro]],
+    busca: BuscaBiblioteca | BuscaLocal | None,
+    avisos: list[str],
+    sem_mapa: set[str],
+) -> tuple[list[Recomendacao], BuscaBiblioteca | BuscaLocal | None]:
+    itens: list[Recomendacao] = []
+    if repositorio is not None:
+        itens += recomendar_por_legislacao(str(linha.topico), repositorio)
+    categorias = mapa.categorias(linha.disciplina) if mapa else ()
+    if mapa is not None and not categorias:
+        sem_mapa.add(linha.disciplina)
+    livros: list[Recomendacao] = []
+    if categorias and busca is not None:
+        try:
+            livros = busca.livros(categorias, str(linha.topico))
+        except OpenNotebookIndisponivelError as erro:
+            logger.debug('open-notebook: busca indisponível: %s', erro.detalhe or erro.causa)
+            avisos.append('open-notebook: a busca nos livros não respondeu; usei só o catálogo de livros.')
+            busca = None
+    if categorias and not livros:
+        livros = recomendar_por_catalogo(categorias, str(linha.topico), catalogo)
+    itens += livros
+    return itens, busca
+
+
 def recomendar(
     fracos: pd.DataFrame,
     limiar: float,
@@ -357,42 +417,13 @@ def recomendar(
     """O markdown das recomendações para `fracos` (de `topicos_fracos`); cada camada que falha vira aviso e
     a próxima é tentada. `textos_pratica` são enunciados e comentários dos erros do TEC."""
     avisos = list(avisos or [])
-    catalogo: dict[str, list[Livro]] = {}
-    if mapa is not None and mapa.catalogo is not None:
-        if mapa.catalogo.exists():
-            catalogo, avisos_catalogo = ler_catalogo(mapa.catalogo)
-            avisos += avisos_catalogo
-        else:
-            avisos.append(f'biblioteca: catálogo {mapa.catalogo} não encontrado')
-    if mapa is not None:
-        conhecidas = set(catalogo) | (busca.conhecidas if busca else set())
-        avisos += validar_categorias(mapa, conhecidas)
-    if repositorio is not None and not repositorio.is_dir():
-        avisos.append(f'legislação: {repositorio} não existe; clone o ctresb/leis ou corrija [legislacao]')
-        repositorio = None
+    catalogo = _catalogo_e_avisos_mapa(mapa, busca, avisos)
+    repositorio = _repositorio_legislacao(repositorio, avisos)
     fontes: set[FonteRecomendacao] = set()
     sem_mapa: set[str] = set()
     secoes: list[str] = []
     for linha in fracos.itertuples():
-        itens: list[Recomendacao] = []
-        if repositorio is not None:
-            itens += recomendar_por_legislacao(str(linha.topico), repositorio)
-        categorias = mapa.categorias(linha.disciplina) if mapa else ()
-        if mapa is not None and not categorias:
-            sem_mapa.add(linha.disciplina)
-        livros: list[Recomendacao] = []
-        if categorias and busca is not None:
-            try:
-                livros = busca.livros(categorias, str(linha.topico))
-            except OpenNotebookIndisponivelError as erro:
-                logger.debug('open-notebook: busca indisponível: %s', erro.detalhe or erro.causa)
-                avisos.append(
-                    'open-notebook: a busca nos livros não respondeu; usei só o catálogo de livros.'
-                )
-                busca = None
-        if categorias and not livros:
-            livros = recomendar_por_catalogo(categorias, str(linha.topico), catalogo)
-        itens += livros
+        itens, busca = _recomendar_linha(linha, mapa, repositorio, catalogo, busca, avisos, sem_mapa)
         fontes |= {item.fonte for item in itens}
         secoes += _secao(linha, itens)
     da_pratica = recomendar_pela_pratica(textos_pratica, repositorio) if repositorio is not None else []

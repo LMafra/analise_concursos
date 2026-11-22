@@ -1,0 +1,1 @@
+src/concursos/integracoes/pci_mcp.py:190: unused variable 'rastro' (100% confidence)

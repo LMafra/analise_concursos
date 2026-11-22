@@ -70,6 +70,28 @@ def validar_uf(valor: Any, onde: str) -> str:
     return uf
 
 
+def _validar_campo_pci(onde: str, nome: str, valor: object, esperado: type) -> object:
+    if nome == 'cargos':
+        return validar_cargos(valor, onde)
+    if nome == 'uf':
+        return validar_uf(valor, onde)
+    if nome == 'regiao':
+        valido = valor in ('', *REGIOES)
+    elif esperado is float:
+        valido = isinstance(valor, int | float) and not isinstance(valor, bool) and valor > 0
+    elif esperado is int:
+        valido = isinstance(valor, int) and not isinstance(valor, bool) and valor >= 0
+    elif esperado is bool:
+        valido = isinstance(valor, bool)
+    elif nome == 'url':
+        valido = isinstance(valor, str) and bool(valor)
+    else:
+        valido = isinstance(valor, str)
+    if not valido:
+        raise ConfiguracaoInvalidaError(f'{onde} {nome} = {valor!r} é inválido')
+    return valor
+
+
 def ler_configuracao(config_global: Path) -> ConfiguracaoPciMcp:
     dados = dict(ler_toml(config_global).get(SECAO, {}))
     onde = f'{config_global}: [{SECAO}]'
@@ -78,28 +100,8 @@ def ler_configuracao(config_global: Path) -> ConfiguracaoPciMcp:
         raise ConfiguracaoInvalidaError(
             f'{onde} tem campo desconhecido {", ".join(desconhecidos)}; os campos são {", ".join(_TIPOS)}'
         )
-    for nome, valor in dados.items():
-        esperado = _TIPOS[nome]
-        if nome == 'cargos':
-            dados[nome] = validar_cargos(valor, onde)
-            continue
-        if nome == 'uf':
-            dados[nome] = validar_uf(valor, onde)
-            continue
-        if nome == 'regiao':
-            valido = valor in ('', *REGIOES)
-        elif esperado is float:
-            valido = isinstance(valor, int | float) and not isinstance(valor, bool) and valor > 0
-        elif esperado is int:
-            valido = isinstance(valor, int) and not isinstance(valor, bool) and valor >= 0
-        elif esperado is bool:
-            valido = isinstance(valor, bool)
-        elif nome == 'url':
-            valido = isinstance(valor, str) and bool(valor)
-        else:
-            valido = isinstance(valor, str)
-        if not valido:
-            raise ConfiguracaoInvalidaError(f'{onde} {nome} = {valor!r} é inválido')
+    for nome, valor in list(dados.items()):
+        dados[nome] = _validar_campo_pci(onde, nome, valor, _TIPOS[nome])
     return ConfiguracaoPciMcp(**dados)
 
 

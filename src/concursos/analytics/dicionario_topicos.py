@@ -8,7 +8,7 @@ dicionário, `topicos.sugerir_topicos` roda como antes."""
 import json
 import re
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -16,17 +16,16 @@ import pandas as pd
 import yaml
 
 from concursos.analytics.consolidado import N_MINIMO_TOPICO
-from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, Conhecimento, Disciplina, Edital, Topico
-from concursos.erros import ErroDoUsuario
-from concursos.texto import normalizar
-from concursos.topicos import (
+from concursos.analytics.tipos_topicos import (
     ARQUIVO_REVISAO,
     NAO_MAPEADO,
     SCORE_BAIXO,
     chave_de_palavras,
     palavras_chave,
-    sugerir_topicos,
 )
+from concursos.edital import ARQUIVO_EDITAL_ESTRUTURADO, Conhecimento, Disciplina, Edital, Topico
+from concursos.erros import ErroDoUsuario
+from concursos.texto import normalizar
 
 VERSAO_DICIONARIO = 1
 MAXIMO_MARCAS = 3
@@ -235,11 +234,11 @@ class Expansao:
         return texto + ''.join(f' {marca}' for marca in self.marcas(texto, aceitas))
 
 
-def expansao_para(
-    dicionario: Dicionario, topicos: Iterable[tuple[str, str]], canonicas: Mapping[str, str] | None = None
-) -> Expansao:
-    canonicas = canonicas or {}
-    topicos = list(topicos)
+def _entradas_por_topico(
+    dicionario: Dicionario,
+    topicos: list[tuple[str, str]],
+    canonicas: Mapping[str, str],
+) -> dict[tuple[str, str], list[EntradaTema]]:
     por_topico: dict[tuple[str, str], list[EntradaTema]] = {}
     for disciplina, topico in topicos:
         casadas = [
@@ -249,7 +248,13 @@ def expansao_para(
         ]
         if casadas:
             por_topico[(disciplina, topico)] = casadas
-    ambiguos = set()
+    return por_topico
+
+
+def _ambiguos_da_expansao(
+    por_topico: dict[tuple[str, str], list[EntradaTema]], topicos: list[tuple[str, str]]
+) -> set[tuple[str, str, str]]:
+    ambiguos: set[tuple[str, str, str]] = set()
     for (disciplina, topico), entradas in por_topico.items():
         outros = [
             _forma(t)
@@ -260,7 +265,16 @@ def expansao_para(
             for termo in entrada.termos_e_expressoes:
                 if any(_contem(outro, _forma(termo)) for outro in outros):
                     ambiguos.add((disciplina, entrada.marca, _forma(termo)))
-    return Expansao(por_topico, ambiguos)
+    return ambiguos
+
+
+def expansao_para(
+    dicionario: Dicionario, topicos: Iterable[tuple[str, str]], canonicas: Mapping[str, str] | None = None
+) -> Expansao:
+    canonicas = canonicas or {}
+    topicos_lista = list(topicos)
+    por_topico = _entradas_por_topico(dicionario, topicos_lista, canonicas)
+    return Expansao(por_topico, _ambiguos_da_expansao(por_topico, topicos_lista))
 
 
 def expandir_consulta(dicionario: Dicionario | None, consulta: str, limite: int = 12) -> list[str]:
@@ -398,9 +412,32 @@ def _acertou(sugerido: str, revisado: str) -> bool:
     return chave_de_palavras(sugerido) == chave_de_palavras(revisado)
 
 
+def pares_do_edital(edital: Edital | None) -> list[tuple[str, str]]:
+    return [
+        (disciplina.nome, topico.nome)
+        for conhecimento in (edital.conhecimentos if edital else ())
+        for disciplina in conhecimento.disciplinas
+        for topico in disciplina.topicos
+    ]
+
+
+def sugerir_com_dicionario(
+    edital: Edital | None,
+    textos: dict[int, str],
+    disciplinas: dict[int, str],
+    dicionario: Dicionario,
+    sugerir: Callable,
+    canonicas: Mapping[str, str] | None = None,
+):
+    """Monta a expansão e chama o sugeridor injetado (sem importar `topicos`)."""
+    expansao = expansao_para(dicionario, pares_do_edital(edital), canonicas)
+    return sugerir(edital, textos, disciplinas, expansao)
+
+
 def avaliar_ganho(
     revisadas: dict[str, tuple[Edital, list[Questao]]],
     dicionario: Dicionario,
+    sugerir: Callable,
     canonicas: Mapping[str, str] | None = None,
 ) -> Ganho:
     """Acerto top-1 contra a revisão, com e sem o dicionário, no mesmo texto e nas mesmas disciplinas.
@@ -411,8 +448,10 @@ def avaliar_ganho(
     for concurso, (edital, questoes) in revisadas.items():
         textos = {i: q.enunciado for i, q in enumerate(questoes)}
         disciplinas = {i: q.disciplina for i, q in enumerate(questoes) if q.disciplina != NAO_MAPEADO}
-        antes = sugerir_topicos(edital, textos, disciplinas)
-        depois = sugerir_topicos(edital, textos, disciplinas, dicionario.sem_origem(concurso), canonicas)
+        antes = sugerir(edital, textos, disciplinas)
+        depois = sugerir_com_dicionario(
+            edital, textos, disciplinas, dicionario.sem_origem(concurso), sugerir, canonicas
+        )
         for i, questao in enumerate(questoes):
             certo_antes = _acertou(antes[i].topico, questao.revisado)
             certo_depois = _acertou(depois[i].topico, questao.revisado)
@@ -503,12 +542,9 @@ def _bigramas(palavras: list[str]) -> list[str]:
     return [f'{a} {b}' for a, b in zip(palavras, palavras[1:], strict=False)]
 
 
-def sugerir_termos(
-    revisadas: dict[str, tuple[Edital, list[Questao]]], dicionario: Dicionario | None = None
-) -> list[SugestaoTermo]:
-    """Palavras e pares de palavras que se repetem nos enunciados revisados para um mesmo tópico, em ao
-    menos `MINIMO_QUESTOES_SUGESTAO` questões, e que ainda não são termo do tópico nem foram recusados."""
-    dicionario = dicionario or Dicionario(())
+def _contagem_por_topico_revisado(
+    revisadas: dict[str, tuple[Edital, list[Questao]]],
+) -> tuple[dict[tuple[str, str], Counter], dict[tuple[str, str, str], set[str]]]:
     por_topico: dict[tuple[str, str], Counter] = {}
     concursos: dict[tuple[str, str, str], set[str]] = {}
     for concurso, (_edital, questoes) in revisadas.items():
@@ -521,6 +557,54 @@ def sugerir_termos(
             por_topico.setdefault(chave, Counter()).update(vistos)
             for termo in vistos:
                 concursos.setdefault((*chave, termo), set()).add(concurso)
+    return por_topico, concursos
+
+
+def _termos_ja_no_dicionario(dicionario: Dicionario, d_slug: str, t_slug: str) -> set[str]:
+    return {
+        _norm(t)
+        for e in dicionario.entradas
+        if e.disciplina == d_slug and e.topico == t_slug
+        for t in e.termos_e_expressoes
+    }
+
+
+def _palavras_cobertas_por_bigrama(contagem: Counter) -> set[str]:
+    return {
+        palavra
+        for termo, n in contagem.items()
+        if ' ' in termo
+        for palavra in termo.split()
+        if contagem[palavra] == n
+    }
+
+
+def _candidato_termo_valido(
+    termo: str,
+    n: int,
+    ja: set[str],
+    cobertas: set[str],
+    d_slug: str,
+    t_slug: str,
+    dicionario: Dicionario,
+    nome_topico: str,
+) -> bool:
+    if n < MINIMO_QUESTOES_SUGESTAO:
+        return False
+    if termo in ja or termo in cobertas:
+        return False
+    if f'{d_slug}/{t_slug}/{termo}' in dicionario.recusados:
+        return False
+    return not set(termo.split()) <= palavras_chave(nome_topico)
+
+
+def sugerir_termos(
+    revisadas: dict[str, tuple[Edital, list[Questao]]], dicionario: Dicionario | None = None
+) -> list[SugestaoTermo]:
+    """Palavras e pares de palavras que se repetem nos enunciados revisados para um mesmo tópico, em ao
+    menos `MINIMO_QUESTOES_SUGESTAO` questões, e que ainda não são termo do tópico nem foram recusados."""
+    dicionario = dicionario or Dicionario(())
+    por_topico, concursos = _contagem_por_topico_revisado(revisadas)
 
     def _outros_topicos(termo: str, chave: tuple[str, str]) -> int:
         """Em quantos outros tópicos o termo também aparece: quanto menos, mais ele distingue o tópico."""
@@ -529,32 +613,18 @@ def sugerir_termos(
     sugestoes = []
     for (disciplina, nome_topico), contagem in sorted(por_topico.items()):
         d_slug, t_slug = slug(disciplina), slug(' '.join(_norm(nome_topico).split()[:4]))
-        ja = {
-            _norm(t)
-            for e in dicionario.entradas
-            if e.disciplina == d_slug and e.topico == t_slug
-            for t in e.termos_e_expressoes
-        }
-        cobertas = {
-            palavra
-            for termo, n in contagem.items()
-            if ' ' in termo
-            for palavra in termo.split()
-            if contagem[palavra] == n
-        }
+        ja = _termos_ja_no_dicionario(dicionario, d_slug, t_slug)
+        cobertas = _palavras_cobertas_por_bigrama(contagem)
+        chave_topico = (disciplina, nome_topico)
         candidatos = sorted(
             (
                 (termo, n)
                 for termo, n in contagem.items()
-                if n >= MINIMO_QUESTOES_SUGESTAO
-                and termo not in ja
-                and termo not in cobertas
-                and f'{d_slug}/{t_slug}/{termo}' not in dicionario.recusados
-                and not set(termo.split()) <= palavras_chave(nome_topico)
+                if _candidato_termo_valido(termo, n, ja, cobertas, d_slug, t_slug, dicionario, nome_topico)
             ),
             key=lambda item: (
                 -item[1],
-                _outros_topicos(item[0], (disciplina, nome_topico)),
+                _outros_topicos(item[0], chave_topico),
                 -len(item[0].split()),
                 item[0],
             ),

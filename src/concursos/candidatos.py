@@ -57,6 +57,26 @@ def candidatos_existentes(raiz_provas: Path) -> list[str]:
     )
 
 
+def _folha_do_candidato(config: ConcursoConfig, respostas: dict, da_pasta) -> FolhaConfig | None:
+    if not respostas.get('folha'):
+        return None
+    herdada = config.folha
+    return FolhaConfig(
+        da_pasta(respostas['folha']),
+        respostas.get('template') or (herdada and herdada.template) or None,
+        respostas.get('total_itens') or (herdada and herdada.total_itens),
+        respostas.get('itens_por_coluna') or (herdada and herdada.itens_por_coluna),
+    )
+
+
+def _resultado_do_candidato(config: ConcursoConfig, perfil: dict):
+    resultado = config.resultado_oficial
+    if resultado is None:
+        return None
+    identificador = (perfil.get('resultado_oficial') or {}).get('identificador')
+    return replace(resultado, identificador=None if identificador is None else str(identificador))
+
+
 def aplicar_candidato(config: ConcursoConfig, candidato: str) -> ConcursoConfig:
     """O concurso visto por um candidato: respostas e identificador vêm só do perfil dele, com caminhos
     relativos à pasta do concurso."""
@@ -69,27 +89,14 @@ def aplicar_candidato(config: ConcursoConfig, candidato: str) -> ConcursoConfig:
     def da_pasta_do_concurso(caminho: str) -> str:
         return posixpath.normpath(prefixo + caminho)
 
-    folha = None
-    if respostas.get('folha'):
-        herdada = config.folha
-        folha = FolhaConfig(
-            da_pasta_do_concurso(respostas['folha']),
-            respostas.get('template') or (herdada and herdada.template) or None,
-            respostas.get('total_itens') or (herdada and herdada.total_itens),
-            respostas.get('itens_por_coluna') or (herdada and herdada.itens_por_coluna),
-        )
-    resultado = config.resultado_oficial
-    if resultado is not None:
-        identificador = (perfil.get('resultado_oficial') or {}).get('identificador')
-        resultado = replace(resultado, identificador=None if identificador is None else str(identificador))
     arquivo = respostas.get('arquivo')
     if (pasta_do_candidato(config.pasta, candidato) / ARQUIVO_REVISADAS).exists():
         arquivo = ARQUIVO_REVISADAS
     return replace(
         config,
         respostas_arquivo=da_pasta_do_concurso(arquivo) if arquivo else None,
-        folha=folha,
-        resultado_oficial=resultado,
+        folha=_folha_do_candidato(config, respostas, da_pasta_do_concurso),
+        resultado_oficial=_resultado_do_candidato(config, perfil),
     )
 
 
