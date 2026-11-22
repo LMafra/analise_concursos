@@ -63,7 +63,7 @@ def test_pasta_sem_cadastro_aparece_como_incompleta(raizes, capsys):
     assert 'incompleto' in linhas['novo']
     assert 'concurso.yaml ausente' in linhas['novo'] and 'gabarito-vivo add' in linhas['novo']
     assert analisar(provas, analises) == 0
-    comparativo = (analises / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
+    comparativo = (analises / 'candidato' / 'consolidado' / 'comparativo_concursos.md').read_text(encoding='utf-8')
     assert '| novo | incompleto |' in comparativo
 
 
@@ -75,8 +75,8 @@ def test_concurso_incompleto_nao_impede_analise_dos_demais(raizes, caplog):
     with caplog.at_level(logging.WARNING):
         assert analisar(provas, analises) == 0
 
-    assert (analises / 'completo' / 'desempenho_por_disciplina.csv').exists()
-    assert not (analises / 'sem_respostas').exists()
+    assert (analises / 'candidato' / 'completo' / 'desempenho_por_disciplina.csv').exists()
+    assert not (analises / 'candidato' / 'sem_respostas').exists()
     assert 'sem_respostas' in caplog.text and 'incompleto' in log_completo(caplog)
 
 
@@ -86,7 +86,7 @@ def test_erro_em_um_concurso_nao_impede_os_demais_mas_retorna_falha(raizes):
     criar_concurso(provas, 'b_completo', config('b_completo'), ARQUIVOS)
 
     assert analisar(provas, analises) == 1
-    assert (analises / 'b_completo' / 'relatorio.md').exists()
+    assert (analises / 'candidato' / 'b_completo' / 'relatorio.md').exists()
 
 
 def test_yaml_invalido_aponta_o_campo(raizes, capsys):
@@ -172,7 +172,7 @@ def test_caderno_e_resultado_oficial_ausentes_so_avisam(raizes, capsys, caplog):
 
     with caplog.at_level(logging.WARNING):
         assert analisar(provas, analises) == 0
-    assert (analises / 'sem_opcionais' / 'relatorio.md').exists()
+    assert (analises / 'candidato' / 'sem_opcionais' / 'relatorio.md').exists()
     assert 'prova.pdf: não encontrei o caderno de questões' in caplog.text
 
 

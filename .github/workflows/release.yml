@@ -72,7 +72,7 @@ jobs:
           if (-not $ativa) { 'Sem SignPath configurada: executáveis e setup sem assinatura.' | Add-Content $env:GITHUB_STEP_SUMMARY }
 
       - name: PyInstaller (onedir)
-        run: uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+        run: uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/gabarito-vivo.spec
 
       - name: Executáveis para a SignPath
         id: executaveis
@@ -108,7 +108,7 @@ jobs:
           if (-not (Test-Path $iscc)) {
             choco install innosetup --yes --no-progress
           }
-          & $iscc "/DVersao=$env:VERSAO" "/DVersaoNumerica=$env:VERSAO_NUMERICA" empacotamento\inno\concurso-analise.iss
+          & $iscc "/DVersao=$env:VERSAO" "/DVersaoNumerica=$env:VERSAO_NUMERICA" empacotamento\inno\gabarito-vivo.iss
           if ($LASTEXITCODE -ne 0) { throw 'iscc falhou' }
 
       - name: Setup para a SignPath
@@ -310,7 +310,7 @@ jobs:
           echo "VERSAO=$(uv run --no-sync python -c "from importlib.metadata import version; print(version('concurso-analise'))")" >> "$GITHUB_ENV"
 
       - name: PyInstaller (.app)
-        run: uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+        run: uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/gabarito-vivo.spec
 
       - name: DMG
         run: bash empacotamento/macos/criar_dmg.sh "$VERSAO"

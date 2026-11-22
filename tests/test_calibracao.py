@@ -10,7 +10,6 @@ from folha_sintetica import folha_generica
 from concursos.calibracao import ARQUIVO_CALIBRADO, CalibracaoError, calibrar
 from concursos.cli import main
 from concursos.folha import ler_folha
-from concursos.migracao import candidato_padrao
 
 TOTAL = 40
 MARCAS = {q: 'ABCD'[(q * 3) % 4] for q in range(1, TOTAL + 1)}
@@ -78,6 +77,9 @@ def projeto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, folha_fraca: Path) 
     raiz.mkdir()
     monkeypatch.chdir(raiz)
     monkeypatch.setenv('CONCURSO_DOCTOR', '0')
+    # Este módulo espera saídas em analises/candidato/; o stdin do wizard também assume o nome
+    # já fornecido (pula a pergunta 1).
+    monkeypatch.setenv('GABARITO_VIVO_CANDIDATO', 'candidato')
     pasta = criar_concurso(
         raiz / 'provas',
         'ficticia',
@@ -97,7 +99,7 @@ def test_perfil_calibrado_e_usado_nas_leituras_do_projeto(projeto, monkeypatch):
     calibrado = yaml.safe_load((projeto / '.gabarito-vivo' / ARQUIVO_CALIBRADO).read_text(encoding='utf-8'))
     assert calibrado['alternativas'] == 'ABCD'
     assert (projeto / '.gabarito-vivo' / 'calibracao.png').exists()
-    respostas = ler_csv(projeto / 'analises' / candidato_padrao() / 'ficticia' / 'respostas_extraidas.csv')
+    respostas = ler_csv(projeto / 'analises' / 'candidato' / 'ficticia' / 'respostas_extraidas.csv')
     assert ''.join(respostas['alternativa_marcada']) == ''.join(MARCAS[q] for q in range(1, TOTAL + 1))
 
 
@@ -115,9 +117,8 @@ def test_no_wizard_a_calibracao_reprovada_explica_e_pergunta_de_novo(
 ):
     monkeypatch.delenv('CONCURSO_CALIBRAR_FOLHA')
     monkeypatch.delenv('CI', raising=False)
-    monkeypatch.setattr(
-        'sys.stdin', Terminal(f'\n\n\n{folha_fraca}\nEEEEE\n{folha_fraca}\n{PRIMEIRAS}\n\n\n')
-    )
+    # Nome já vem de GABARITO_VIVO_CANDIDATO; sobram provas, análises, folha, respostas, doctor…
+    monkeypatch.setattr('sys.stdin', Terminal(f'\n\n{folha_fraca}\nEEEEE\n{folha_fraca}\n{PRIMEIRAS}\n\n\n'))
 
     assert main([]) == 0
 

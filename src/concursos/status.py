@@ -3,7 +3,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from concursos.atualizacao import Troca, verificar
-from concursos.candidatos import aplicar_candidato
+from concursos.candidatos import aplicar_candidato, pasta_do_candidato
 from concursos.concurso_config import (
     ARQUIVO_CONFIG,
     ConcursoConfig,
@@ -57,11 +57,12 @@ def _status_sem_config(pasta: Path) -> StatusConcurso | None:
 def _carregar_config_status(pasta: Path, candidato: str | None) -> StatusConcurso | ConcursoConfig:
     try:
         config = carregar_concurso(pasta)
-        if candidato is not None:
-            config = aplicar_candidato(config, candidato)
-        return config
     except ConfiguracaoInvalidaError as erro:
         return StatusConcurso(pasta.name, Situacao.DESATUALIZADO, (str(erro),), '-', None)
+    # Sem pasta do candidato, mantém o layout das fases 1 a 3 (respostas no concurso.yaml).
+    if candidato is not None and pasta_do_candidato(pasta, candidato).is_dir():
+        config = aplicar_candidato(config, candidato)
+    return config
 
 
 def _motivos_obrigatorios(

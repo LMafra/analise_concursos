@@ -238,7 +238,7 @@ def acoes_do_concurso(item, mostrado: NomeDoConcurso | None = None) -> None:
             ui.menu_item(
                 'Excluir concurso',
                 on_click=lambda n=nome: confirmar_exclusao(n),
-            ).props('class=text-negative').mark(f'excluir-{nome}')
+            ).style('color: var(--ca-erro-texto)').mark(f'excluir-{nome}')
 
 
 def confirmar_exclusao(nome: str) -> None:
@@ -271,9 +271,9 @@ def confirmar_exclusao(nome: str) -> None:
             ui.navigate.to('/')
 
         with ui.row().style(tema.gap('sm')):
-            ui.button('Excluir', icon='delete', on_click=confirmar).props('color=negative').mark(
-                'confirmar-excluir'
-            )
+            ui.button('Excluir', icon='delete', on_click=confirmar).style(
+                'background: var(--ca-erro-fundo); color: var(--ca-erro-texto)'
+            ).mark('confirmar-excluir')
             ui.button('Voltar', on_click=dialogo.close).props('flat')
     dialogo.open()
 

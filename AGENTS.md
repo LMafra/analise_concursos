@@ -165,7 +165,7 @@ Para acrescentar uma camada:
 
 ## Executável
 
-- `empacotamento/concurso-analise.spec`, onedir, a partir de `uv sync --no-dev --extra gui --extra llm --extra pci`; o grupo dev quebra o plotly congelado. Dado novo de pacote (YAML, template) precisa entrar pelo `hook-concursos.py`.
+- `empacotamento/gabarito-vivo.spec`, onedir, a partir de `uv sync --no-dev --extra gui --extra llm --extra pci`; o grupo dev quebra o plotly congelado. Dado novo de pacote (YAML, template) precisa entrar pelo `hook-concursos.py`.
 - O Tesseract embutido entra no `PATH` pelo launcher, com `TESSDATA_PREFIX`; a lógica continua usando `shutil.which`.
 - A árvore do Tesseract é copiada depois do `COLLECT` (`copiar_tesseract` no `.spec`), nunca por `datas`: o PyInstaller trata as bibliotecas de `datas` como binários e põe as dependências delas na raiz do pacote, onde vencem as do sistema.
 - No Linux, o bootloader troca o `LD_LIBRARY_PATH`; o launcher devolve o original antes de abrir processos do sistema (navegador, `xdg-open`).

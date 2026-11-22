@@ -39,7 +39,7 @@ def criar(provas, edital: dict, arquivos: dict[str, str]):
 
 
 def edital_estruturado(analises) -> dict:
-    return json.loads((analises / 'sintetico' / 'edital_estruturado.json').read_text(encoding='utf-8'))
+    return json.loads((analises / 'candidato' / 'sintetico' / 'edital_estruturado.json').read_text(encoding='utf-8'))
 
 
 def test_edital_estruturado_e_tabela_de_questoes(raizes):
@@ -56,7 +56,7 @@ def test_edital_estruturado_e_tabela_de_questoes(raizes):
         'Engenharia de Software',
         'Direito Civil',
     ]
-    questoes = ler_csv(analises / 'sintetico' / 'questoes.csv')
+    questoes = ler_csv(analises / 'candidato' / 'sintetico' / 'questoes.csv')
     assert list(questoes.columns) == [
         'questao',
         'prova',
@@ -103,4 +103,4 @@ def test_edital_sem_conteudo_programatico_e_sem_manual_segue_sem_topicos_e_avisa
 
     assert 'edital.txt: conteúdo programático não encontrado' in log_completo(caplog)
     assert 'dica:' in log_completo(caplog) and 'edital manual' in log_completo(caplog)
-    assert ler_csv(analises / 'sintetico' / 'questoes.csv')['topico'].eq('nao_mapeado').all()
+    assert ler_csv(analises / 'candidato' / 'sintetico' / 'questoes.csv')['topico'].eq('nao_mapeado').all()

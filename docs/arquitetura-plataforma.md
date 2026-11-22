@@ -151,7 +151,7 @@ Redirects: `/tec`, `/descobrir`, `/integracoes` → rotas novas.
 
 | ID | Funcionalidade | Onde vive | Tipo | Entrada | Saída | Depende de | Estado | Teste | README |
 |---|---|---|---|---|---|---|---|---|---|
-| F-PKG-001 | PyInstaller onedir | `empacotamento/concurso-analise.spec` | build | uv sync | dist | hook Tesseract | estável | smoke | sim |
+| F-PKG-001 | PyInstaller onedir | `empacotamento/gabarito-vivo.spec` | build | uv sync | dist | hook Tesseract | estável | smoke | sim |
 | F-PKG-002 | Updater Ed25519 | `atualizador.py` | processo | manifesto GitHub | binário | clique/confirm | estável | parcial | sim |
 | F-TEC-001 | Extensão Chrome MV3 | `tec-erros/extensao-chrome/` | extensão | DOM TEC | JSON v1 | storage | estável | contrato | sim |
 | F-TEC-002 | Userscript + caderno | `tec-erros/userscript/`, `caderno/` | extensão | DOM | JSON/estado | — | estável | contrato | sim |

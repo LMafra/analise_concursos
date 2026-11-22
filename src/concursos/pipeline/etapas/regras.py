@@ -68,8 +68,12 @@ def taxonomia_do_contexto() -> dict[str, DisciplinaCanonica] | None:
     return mapeamento or None
 
 
-def diff_da_troca(destino: Path, resultados: pd.DataFrame) -> pd.DataFrame | None:
-    preliminar = questoes_preliminares(destino)
+def diff_da_troca(
+    leitura: Path, resultados: pd.DataFrame, destino: Path | None = None
+) -> pd.DataFrame | None:
+    """Lê o snapshot do preliminar em `leitura` e grava o diff em `destino` (padrão: a mesma pasta)."""
+    destino = destino or leitura
+    preliminar = questoes_preliminares(leitura)
     if preliminar is None:
         (destino / ARQUIVO_DIFF).unlink(missing_ok=True)
         return None

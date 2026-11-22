@@ -42,7 +42,7 @@ def test_folha_gera_respostas_rastreaveis_e_imagem_de_depuracao(raizes):
 
     assert analisar(provas, analises) == 0
 
-    respostas = ler_csv(analises / 'cebraspe' / 'respostas_extraidas.csv').set_index('questao')
+    respostas = ler_csv(analises / 'candidato' / 'cebraspe' / 'respostas_extraidas.csv').set_index('questao')
     assert len(respostas) == TOTAL
     assert respostas.loc[1, ['alternativa_marcada', 'estado', 'origem', 'arquivo', 'pagina']].tolist() == [
         'C',
@@ -54,7 +54,7 @@ def test_folha_gera_respostas_rastreaveis_e_imagem_de_depuracao(raizes):
     assert respostas.loc[2, 'estado'] == 'branco'
     assert respostas.loc[3, 'estado'] == 'multipla'
     assert respostas['revisar'].tolist() == [q == 4 for q in range(1, TOTAL + 1)]
-    assert (analises / 'cebraspe' / 'depuracao' / 'folha_p1.png').exists()
+    assert (analises / 'candidato' / 'cebraspe' / 'depuracao' / 'folha_p1.png').exists()
 
 
 def test_folha_em_pdf(raizes):
@@ -63,7 +63,7 @@ def test_folha_em_pdf(raizes):
 
     assert analisar(provas, analises) == 0
 
-    respostas = ler_csv(analises / 'cebraspe' / 'respostas_extraidas.csv')
+    respostas = ler_csv(analises / 'candidato' / 'cebraspe' / 'respostas_extraidas.csv')
     assert respostas['alternativa_marcada'].iloc[0] == 'C'
     assert respostas['pagina'].iloc[0] == 1
 
@@ -76,7 +76,7 @@ def test_limiar_de_revisao_vem_da_configuracao_global(raizes, tmp_path):
 
     assert analisar(provas, analises, '--config', str(configuracao)) == 0
 
-    assert not ler_csv(analises / 'cebraspe' / 'respostas_extraidas.csv')['revisar'].any()
+    assert not ler_csv(analises / 'candidato' / 'cebraspe' / 'respostas_extraidas.csv')['revisar'].any()
 
 
 def test_cartao_fgv_pelo_template(raizes):
@@ -98,9 +98,9 @@ def test_cartao_fgv_pelo_template(raizes):
 
     assert analisar(provas, analises) == 0
 
-    respostas = ler_csv(analises / 'fgv' / 'respostas_extraidas.csv')
+    respostas = ler_csv(analises / 'candidato' / 'fgv' / 'respostas_extraidas.csv')
     assert ''.join(respostas['alternativa_marcada']) == ''.join(marcas[q] for q in range(1, 71))
-    assert (analises / 'fgv' / 'depuracao' / 'cartao_p1.png').exists()
+    assert (analises / 'candidato' / 'fgv' / 'depuracao' / 'cartao_p1.png').exists()
 
 
 def test_folha_ilegivel_falha_apontando_arquivo_e_pagina(raizes, caplog):

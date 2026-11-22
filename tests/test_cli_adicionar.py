@@ -20,11 +20,19 @@ def criar_pasta(provas: Path, arquivos: dict[str, str], nome: str = 'novo') -> P
 
 
 def adicionar(pasta: Path, *extra: str) -> int:
-    return main(['adicionar', str(pasta), *extra])
+    args = ['add', str(pasta)]
+    for flag in extra:
+        if flag == '--aceitar-sugestoes':
+            args.insert(0, '--yes')
+        else:
+            args.append(flag)
+    return main(args)
 
 
 def roteirizar(monkeypatch, *respostas: str) -> list[str]:
     """Simula o teclado; devolve a lista de prompts exibidos."""
+    import io
+
     fila = list(respostas)
     prompts: list[str] = []
 
@@ -34,6 +42,12 @@ def roteirizar(monkeypatch, *respostas: str) -> list[str]:
             raise AssertionError(f'pergunta inesperada: {prompt!r}')
         return fila.pop(0)
 
+    class Terminal(io.StringIO):
+        def isatty(self) -> bool:
+            return True
+
+    monkeypatch.delenv('CI', raising=False)
+    monkeypatch.setattr('sys.stdin', Terminal())
     monkeypatch.setattr('builtins.input', entrada)
     return prompts
 
@@ -61,7 +75,7 @@ def test_caminho_feliz_grava_config_aceita_pelo_analisar(raizes, monkeypatch, ca
     assert 'gab.txt' in capsys.readouterr().out
     gravar_dados(pasta, com_edital_minimo(pasta, config))
     assert analisar(provas, analises) == 0
-    assert (analises / 'novo' / 'desempenho_por_disciplina.csv').exists()
+    assert (analises / 'candidato' / 'novo' / 'desempenho_por_disciplina.csv').exists()
 
 
 def test_recusar_confirmacao_nao_grava(raizes, monkeypatch):

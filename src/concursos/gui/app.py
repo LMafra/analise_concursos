@@ -133,8 +133,10 @@ def raiz() -> None:
         )
         resultados_busca = (
             ui.column()
-            .classes('absolute z-10 bg-white shadow-md p-2')
-            .style('top: 3.5rem; right: 1rem; min-width: 16rem; display: none')
+            .classes('absolute z-10 shadow-md p-2 ca-borda')
+            .style(
+                'top: 3.5rem; right: 1rem; min-width: 16rem; display: none; background: var(--ca-superficie)'
+            )
         )
 
         def ao_buscar() -> None:

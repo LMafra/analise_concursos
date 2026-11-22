@@ -403,7 +403,7 @@ class ClientePciMcp:
             self._avisar(
                 f'sem-cache:{ferramenta}:{argumentos}',
                 'PCI: sem internet e sem resultado guardado desta busca; ela ficou de fora.',
-                f'sem rede e sem cache para {ferramenta} {argumentos}',
+                f'sem rede e sem resultado guardado para {ferramenta} {argumentos}',
             )
             return None
         if self.consultas >= self.maximo:

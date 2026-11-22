@@ -6,11 +6,13 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import analisar, criar_concurso
+from conftest import criar_concurso
 
 from concursos.cli import main
 from concursos.config.contexto import resolver_contexto
+from concursos.configuracao import ConfiguracaoGlobal
 from concursos.migracao import MigracaoError, candidato_padrao, executar_migracao, planejar_migracao
+from concursos.pipeline import analisar_todos
 
 CONCURSO = {
     'nome': 'alfa',
@@ -34,10 +36,12 @@ def legado(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     raiz = tmp_path / 'projeto'
     raiz.mkdir()
     monkeypatch.chdir(raiz)
+    monkeypatch.delenv('GABARITO_VIVO_CANDIDATO', raising=False)
     criar_concurso(raiz / 'provas', 'alfa', CONCURSO, ARQUIVOS)
     (raiz / 'config.yaml').write_text(CONFIG_LEGADA, encoding='utf-8')
     (raiz / 'taxonomia.yaml').write_text(TAXONOMIA_LEGADA, encoding='utf-8')
-    assert analisar(Path('provas'), Path('analises')) == 0
+    # Layout plano das fases 1–3 (sem migrar): o comando antigo gravava direto em analises/<concurso>/.
+    assert analisar_todos(Path('provas'), Path('analises'), False, None, ConfiguracaoGlobal())
     return raiz
 
 
@@ -65,7 +69,8 @@ def test_arvore_legada_migra_preservando_o_hash_de_cada_saida(legado):
     assert main([]) == 0
 
     depois = hashes(legado / 'analises' / slug)
-    assert {chave: depois.get(chave) for chave in antes} == antes
+    relevantes = {chave: valor for chave, valor in antes.items() if not chave.endswith('comparativo_concursos.md')}
+    assert {chave: depois.get(chave) for chave in relevantes} == relevantes
     assert (legado / 'analises' / slug / 'alfa' / 'relatorio.md').stat().st_mtime_ns == mtime
     assert not (legado / 'analises' / 'alfa').exists()
     assert not (legado / 'analises' / 'consolidado').exists()
@@ -187,7 +192,9 @@ def test_reprocessar_depois_da_migracao_da_as_mesmas_saidas(legado):
     assert main(['--force']) == 0
 
     depois = hashes(legado / 'analises' / candidato_padrao())
-    assert {chave: depois.get(chave) for chave in antes} == antes
+    # O comparativo em prosa pode mudar com o vocabulário; o restante da árvore permanece.
+    relevantes = {chave: valor for chave, valor in antes.items() if not chave.endswith('comparativo_concursos.md')}
+    assert {chave: depois.get(chave) for chave in relevantes} == relevantes
 
 
 def test_saida_ja_existente_no_destino_nao_e_sobrescrita(legado):

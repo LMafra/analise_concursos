@@ -26,7 +26,7 @@ def criar(provas, nota: str, extra: dict | None = None, cabecalho: str = ''):
 
 
 def relatorio(analises) -> str:
-    return (analises / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
+    return (analises / 'candidato' / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
 
 
 def test_resultado_divergente_gera_alerta_no_relatorio_e_no_log(raizes, caplog):
@@ -85,6 +85,6 @@ def test_erro_na_leitura_do_resultado_nao_bloqueia_a_analise(raizes, caplog):
     with caplog.at_level(logging.WARNING):
         assert analisar(provas, analises) == 0
 
-    assert (analises / 'sintetico' / 'desempenho_por_disciplina.csv').exists()
+    assert (analises / 'candidato' / 'sintetico' / 'desempenho_por_disciplina.csv').exists()
     assert 'inscrição 999999 não encontrada' in relatorio(analises)
     assert 'inscrição 999999 não encontrada' in caplog.text

@@ -717,7 +717,7 @@ Os notebooks são scripts [jupytext](https://jupytext.readthedocs.io/) em `noteb
 
 ### Build local do executável
 
-O executável é uma pasta do PyInstaller (`empacotamento/concurso-analise.spec`) com o Python, o Tesseract e o modelo `por` do `tessdata_fast`. Os scripts de `empacotamento/` são os mesmos do workflow de release (`.github/workflows/release.yml`); a saída vai para `dist/`, e o Tesseract baixado, para `empacotamento/construcao/`, ambos fora do git. A captura do TEC entra no pacote se você a gerar antes com `node tec-erros/scripts/build.mjs` (Node 22).
+O executável é uma pasta do PyInstaller (`empacotamento/gabarito-vivo.spec`) com o Python, o Tesseract e o modelo `por` do `tessdata_fast`. Os scripts de `empacotamento/` são os mesmos do workflow de release (`.github/workflows/release.yml`); a saída vai para `dist/`, e o Tesseract baixado, para `empacotamento/construcao/`, ambos fora do git. A captura do TEC entra no pacote se você a gerar antes com `node tec-erros/scripts/build.mjs` (Node 22).
 
 **Linux (AppImage).** O build roda no contêiner `manylinux_2_28`, para o executável valer em distribuições de 2019 em diante. Use um clone limpo, porque o contêiner recria o `.venv`:
 
@@ -742,9 +742,9 @@ APPIMAGE_EXTRACT_AND_RUN=1 python3 scripts/smoke.py congelado dist/concurso-anal
 .\empacotamento\tesseract\obter_windows.ps1 -Msys C:\msys64
 uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
 uv run --no-sync python empacotamento/coletar_licencas.py
-uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/gabarito-vivo.spec
 .\empacotamento\windows\obter_webview2.ps1
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersao=0.6.0 /DVersaoNumerica=0.6.0.0 empacotamento\inno\concurso-analise.iss
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersao=0.6.0 /DVersaoNumerica=0.6.0.0 empacotamento\inno\gabarito-vivo.iss
 .\scripts\smoke_maquina_limpa.ps1 -Instalador dist\concurso-analise-0.6.0-windows-x64-setup.exe -Relatorio smoke-windows.md
 ```
 
@@ -756,7 +756,7 @@ O último comando instala, confere o WebView2, o executável com o `PATH` sem Py
 bash empacotamento/tesseract/obter_macos.sh
 uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
 uv run --no-sync python empacotamento/coletar_licencas.py
-uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
+uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/gabarito-vivo.spec
 bash empacotamento/macos/criar_dmg.sh 0.5.0
 env -i HOME="$HOME" PATH=/usr/bin:/bin /usr/bin/python3 scripts/smoke.py congelado \
     dist/concurso-analise.app/Contents/MacOS/concurso-analise-cli

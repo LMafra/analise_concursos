@@ -29,12 +29,12 @@ def ler_config(pasta: Path) -> dict:
 
 
 def relatorio(analises: Path) -> str:
-    return (analises / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
+    return (analises / 'candidato' / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
 
 
 def status(provas: Path, capsys) -> str:
     capsys.readouterr()
-    assert main(['status', '--provas', str(provas)]) == 0
+    assert main(['--provas', str(provas), '--candidate', 'candidato', 'status']) == 0
     return capsys.readouterr().out
 
 
@@ -57,10 +57,10 @@ def test_definitivo_novo_substitui_o_preliminar(raizes):
         'gab_prel.txt',
         'gab_def.txt',
     )
-    snapshots = list((analises / 'sintetico' / 'historico').glob('*/relatorio.md'))
+    snapshots = list((analises / 'candidato' / 'sintetico' / 'historico').glob('*/relatorio.md'))
     assert len(snapshots) == 1 and SELO in snapshots[0].read_text(encoding='utf-8')
 
-    diff = ler_csv(analises / 'sintetico' / 'diff_gabarito.csv')
+    diff = ler_csv(analises / 'candidato' / 'sintetico' / 'diff_gabarito.csv')
     assert list(diff.columns) == [
         'prova',
         'questao',
@@ -79,7 +79,7 @@ def test_definitivo_novo_substitui_o_preliminar(raizes):
     assert '## Gabarito preliminar → definitivo' in texto
     assert 'Acertos: 4 → 5' in texto
     assert SELO not in texto
-    desempenho = ler_csv(analises / 'sintetico' / 'desempenho_por_disciplina.csv')
+    desempenho = ler_csv(analises / 'candidato' / 'sintetico' / 'desempenho_por_disciplina.csv')
     assert desempenho['acertos'].tolist() == [5]
 
 
@@ -90,11 +90,11 @@ def test_diff_e_recalculado_com_as_respostas_atuais_e_sobrevive_a_reanalise(raiz
     (pasta / 'gab_def.txt').write_text(DEFINITIVO, encoding='utf-8')
     analisar(provas, analises)
 
-    (analises / 'sintetico' / 'diff_gabarito.csv').unlink()
+    (analises / 'candidato' / 'sintetico' / 'diff_gabarito.csv').unlink()
     (pasta / 'respostas.txt').write_text(RESPOSTAS.replace('5 -', '5 E'), encoding='utf-8')
     assert analisar(provas, analises) == 0
 
-    assert (analises / 'sintetico' / 'diff_gabarito.csv').exists()
+    assert (analises / 'candidato' / 'sintetico' / 'diff_gabarito.csv').exists()
     assert 'Acertos: 5 → 6' in relatorio(analises)
 
 
@@ -110,7 +110,7 @@ def test_sobrescrever_com_mesmo_nome_e_status_novo_dispara_a_troca(raizes):
     assert config['provas']['unica']['gabarito'] == {'arquivo': 'gabarito.txt', 'status': 'definitivo'}
     assert 'gabarito.txt' not in config.get('ignorar', [])
     assert config['historico'][-1]['novo'] == 'gabarito.txt'
-    assert (analises / 'sintetico' / 'diff_gabarito.csv').exists()
+    assert (analises / 'candidato' / 'sintetico' / 'diff_gabarito.csv').exists()
     assert '## Gabarito preliminar → definitivo' in relatorio(analises)
 
 

@@ -393,7 +393,7 @@ def status(
     ] = None,
 ) -> int:
     contexto = ctx.obj.contexto
-    typer.echo(formatar_tabela(analise.situacoes(provas or contexto.provas)))
+    typer.echo(formatar_tabela(analise.situacoes(provas or contexto.provas, contexto.candidato)))
     for linha in integracoes.linhas_do_radar(contexto):
         typer.echo(linha)
     return 0

@@ -11,11 +11,17 @@ from concursos.erros import linhas_extras
 # Sem o extra [gui], os testes da interface ficam de fora (a CLI não depende dele).
 collect_ignore = [] if importlib.util.find_spec('nicegui') else ['gui']
 
+# Candidato fixo: o layout multi-candidato grava em analises/<candidato>/<concurso>/.
+CANDIDATO = 'candidato'
+
 
 @pytest.fixture(autouse=True)
 def home_isolada(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / 'home_concurso'
     monkeypatch.setenv('GABARITO_VIVO_HOME', str(home))
+    # O candidato fica no helper `analisar` (`--candidate`); não força via env, para status e
+    # fixtures com outro slug (ex.: zuleica) usarem o layout certo.
+    monkeypatch.delenv('GABARITO_VIVO_CANDIDATO', raising=False)
     return home
 
 
@@ -45,8 +51,54 @@ def raizes(tmp_path: Path) -> tuple[Path, Path]:
     return provas, analises
 
 
+def saida(analises: Path, *partes: str) -> Path:
+    """Pasta (ou arquivo) da análise do candidato de teste."""
+    return analises.joinpath(CANDIDATO, *partes)
+
+
 def analisar(provas: Path, analises: Path, *extra: str) -> int:
-    return main(['analisar', '--provas', str(provas), '--analises', str(analises), *extra])
+    """Chama o comando moderno `analyze`; traduz flags do helper antigo (`--forcar`, `--concurso`)."""
+    projeto = provas.parent
+    args: list[str] = [
+        '--candidate',
+        CANDIDATO,
+        '--data-dir',
+        str(projeto / '.gabarito-vivo'),
+        '--provas',
+        str(provas),
+        '--analises',
+        str(analises),
+    ]
+    concurso: str | None = None
+    i = 0
+    while i < len(extra):
+        flag = extra[i]
+        if flag == '--forcar':
+            args.append('--force')
+        elif flag == '--concurso':
+            i += 1
+            concurso = extra[i]
+        elif flag == '--config':
+            i += 1
+            _aplicar_config_legado(Path(extra[i]), projeto)
+        else:
+            args.append(flag)
+        i += 1
+    args.append('analyze')
+    if concurso is not None:
+        args.append(concurso)
+    return main(args)
+
+
+def _aplicar_config_legado(caminho: Path, projeto: Path) -> None:
+    """O legado lia `config.yaml`; o app lê `[analise]` em `.gabarito-vivo/config.toml`."""
+    import tomli_w
+    import yaml
+
+    dados = yaml.safe_load(caminho.read_text(encoding='utf-8')) or {}
+    pasta = projeto / '.gabarito-vivo'
+    pasta.mkdir(parents=True, exist_ok=True)
+    (pasta / 'config.toml').write_text(tomli_w.dumps({'analise': dados}), encoding='utf-8')
 
 
 def ler_csv(caminho: Path) -> pd.DataFrame:

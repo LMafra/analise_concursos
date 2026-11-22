@@ -154,7 +154,7 @@ def _avisar_revisao_antiga(config: ConcursoConfig, revisado: Path) -> None:
 
 
 _CAMPOS_CANDIDATO = frozenset({'nome', 'respostas', 'resultado_oficial'})
-_CAMPOS_RESPOSTAS = frozenset({'arquivo', 'folha'})
+_CAMPOS_RESPOSTAS = frozenset({'arquivo', 'folha', 'template', 'total_itens', 'itens_por_coluna'})
 _CAMPOS_RESULTADO = frozenset({'identificador'})
 
 
@@ -171,6 +171,13 @@ def _validar_respostas_perfil(caminho: Path, respostas: object) -> None:
     chave = 'arquivo' if tem_arquivo else 'folha'
     if not isinstance(respostas[chave], str) or not respostas[chave]:
         raise ConfiguracaoInvalidaError(f'{caminho}: respostas.{chave} = {respostas[chave]!r} é inválido')
+    if 'template' in respostas and not isinstance(respostas['template'], str):
+        raise ConfiguracaoInvalidaError(
+            f'{caminho}: respostas.template = {respostas["template"]!r} é inválido'
+        )
+    for nome in ('total_itens', 'itens_por_coluna'):
+        if nome in respostas and not isinstance(respostas[nome], int):
+            raise ConfiguracaoInvalidaError(f'{caminho}: respostas.{nome} = {respostas[nome]!r} é inválido')
 
 
 def _validar_resultado_perfil(caminho: Path, resultado: object) -> None:

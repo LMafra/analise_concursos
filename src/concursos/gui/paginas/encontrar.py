@@ -204,7 +204,11 @@ class PainelEncontrar:
         except Exception as erro:  # noqa: BLE001
             logger.debug('falha na busca do PCI pela GUI', exc_info=True)
             causa = getattr(erro, 'causa', str(erro))
-            if 'sem rede' in causa.lower() or 'sem cache' in causa.lower() or 'offline' in causa.lower():
+            if (
+                'sem rede' in causa.lower()
+                or 'sem resultado guardado' in causa.lower()
+                or 'offline' in causa.lower()
+            ):
                 self.concursos = []
                 self.mensagem_vazia = (
                     'Sem internet e sem resultado guardado. Ligue a internet ou busque de novo mais tarde.'

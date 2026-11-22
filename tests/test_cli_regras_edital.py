@@ -21,11 +21,11 @@ def edital(*paginas: str) -> dict[str, str]:
 
 
 def estruturado(analises) -> dict:
-    return json.loads((analises / 'sintetico' / 'edital_estruturado.json').read_text(encoding='utf-8'))
+    return json.loads((analises / 'candidato' / 'sintetico' / 'edital_estruturado.json').read_text(encoding='utf-8'))
 
 
 def discrepancias(analises):
-    return ler_csv(analises / 'sintetico' / 'discrepancias_edital.csv')
+    return ler_csv(analises / 'candidato' / 'sintetico' / 'discrepancias_edital.csv')
 
 
 def test_edital_estruturado_ganha_a_identificacao_e_mantem_o_conteudo_programatico(raizes):
@@ -119,7 +119,7 @@ def test_retificacao_declarada_sobrescreve_o_corte_e_marca_a_fonte(raizes):
     )
     assert cortes['geral']['fonte'] == 'edital'
     assert dados['identificacao']['edital']['valor'] == 'EDITAL Nº 1 – CFE, DE 2 DE JANEIRO DE 2026'
-    assert ler_correcao(analises / 'sintetico')[0].nota_corte != 7.0
+    assert ler_correcao(analises / 'candidato' / 'sintetico')[0].nota_corte != 7.0
 
 
 def test_retificacao_ausente_deixa_o_concurso_incompleto(raizes, capsys):
@@ -194,7 +194,7 @@ def test_cabecalho_do_relatorio_mostra_o_nome_oficial_e_o_cargo(raizes):
 
     assert analisar(provas, analises) == 0
 
-    relatorio = (analises / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
+    relatorio = (analises / 'candidato' / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
     assert (
         '- Concurso: Conselho Federal de Exemplo (CFE) (EDITAL Nº 1 – CFE, DE 2 DE JANEIRO DE 2026)'
         in relatorio
@@ -203,7 +203,7 @@ def test_cabecalho_do_relatorio_mostra_o_nome_oficial_e_o_cargo(raizes):
 
 
 def catalogo(analises) -> str:
-    return (analises / 'sintetico' / 'catalogo_edital.md').read_text(encoding='utf-8')
+    return (analises / 'candidato' / 'sintetico' / 'catalogo_edital.md').read_text(encoding='utf-8')
 
 
 def test_catalogo_tem_a_tabela_as_propostas_e_os_descartados(raizes):

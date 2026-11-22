@@ -35,7 +35,7 @@ def criar(provas, paginas: list[str] = PAGINAS):
 
 
 def topicos(analises) -> list[tuple[str, str]]:
-    desempenho = ler_csv(analises / 'sintetico' / 'desempenho_por_topico.csv')
+    desempenho = ler_csv(analises / 'candidato' / 'sintetico' / 'desempenho_por_topico.csv')
     return list(zip(desempenho['disciplina'], desempenho['topico'], strict=True))
 
 
@@ -49,7 +49,7 @@ def test_sugestao_por_similaridade_aparece_no_desempenho_e_na_revisao(raizes):
         ('Banco de Dados', 'Bancos de dados NoSQL'),
         ('Língua Portuguesa', 'Domínio da ortografia'),
     ]
-    questoes = ler_csv(analises / 'sintetico' / 'questoes.csv')
+    questoes = ler_csv(analises / 'candidato' / 'sintetico' / 'questoes.csv')
     assert {'topico_sugerido', 'score', 'topico', 'revisado'} <= set(questoes.columns)
     assert (questoes['score'] > 0).all()
     revisao = ler_csv(pasta / 'revisao' / 'questoes_revisado.csv')
@@ -82,7 +82,7 @@ def test_revisao_manual_sobrescreve_a_sugestao(raizes):
     assert analisar(provas, analises) == 0
 
     assert ('Língua Portuguesa', 'Reescrita de frases') in topicos(analises)
-    questoes = ler_csv(analises / 'sintetico' / 'questoes.csv').set_index('questao')
+    questoes = ler_csv(analises / 'candidato' / 'sintetico' / 'questoes.csv').set_index('questao')
     assert questoes.loc[3, ['topico', 'revisado']].tolist() == ['Reescrita de frases', True]
     assert questoes.loc[3, 'topico_sugerido'] == 'Domínio da ortografia'
 
@@ -96,7 +96,7 @@ def test_nome_de_topico_longo_fica_inteiro_nos_csvs_e_abreviado_no_relatorio(rai
 
     nome = f'Bancos de dados NoSQL e {TOPICO_LONGO}'
     assert ('Banco de Dados', nome) in topicos(analises)
-    relatorio = (analises / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
+    relatorio = (analises / 'candidato' / 'sintetico' / 'relatorio.md').read_text(encoding='utf-8')
     assert nome not in relatorio
     abreviado = next(linha for linha in relatorio.splitlines() if 'Bancos de dados NoSQL e' in linha)
     celula = next(c.strip() for c in abreviado.split('|') if 'Bancos de dados NoSQL e' in c)

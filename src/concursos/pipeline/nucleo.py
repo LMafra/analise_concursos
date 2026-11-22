@@ -148,6 +148,15 @@ def _pasta_temporaria(destino: Path) -> Path:
 
 
 def _promover(temporaria: Path, destino: Path) -> None:
+    """Substitui o destino pela temporária; preserva `historico/` (snapshot do gabarito preliminar)."""
+    from concursos.atualizacao import PASTA_HISTORICO
+
+    historico = destino / PASTA_HISTORICO
+    if historico.is_dir():
+        alvo = temporaria / PASTA_HISTORICO
+        if alvo.exists():
+            shutil.rmtree(alvo)
+        shutil.copytree(historico, alvo)
     if destino.exists():
         shutil.rmtree(destino)
     temporaria.rename(destino)
@@ -239,9 +248,8 @@ def analisar_concurso(
     edital = ler_edital(config, documentos)
     gabaritos = {prova.chave: ler_gabarito(config, prova) for prova in config.provas}
     anunciar(Etapa.LENDO_FOLHA)
-    respostas = ler_respostas(
-        config, origem_leitura, configuracao.limiar_confianca, configuracao.perfil_calibrado
-    )
+    # Depuração e CSV vão para `destino` (pasta temporária); `origem_leitura` só no diff/histórico.
+    respostas = ler_respostas(config, destino, configuracao.limiar_confianca, configuracao.perfil_calibrado)
     anunciar(Etapa.CORRIGINDO)
     resultados = corrigir(config, gabaritos, respostas, disciplinas_por_questao(config))
     anunciar(Etapa.CLASSIFICANDO)
@@ -269,7 +277,7 @@ def analisar_concurso(
     regras = regras_do_edital(
         config, documentos_da_regra, resultados, correcoes, destino, taxonomia, configuracao.cliente_llm
     )
-    diff = diff_da_troca(origem_leitura, resultados)
+    diff = diff_da_troca(origem_leitura, resultados, destino)
     gravar_validacao(validacao, destino)
     conteudo = ConteudoRelatorio(
         geral=geral,
