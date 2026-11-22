@@ -25,7 +25,7 @@ CONFIG = {
 def projeto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     raiz = tmp_path / 'projeto'
     (raiz / 'provas').mkdir(parents=True)
-    (raiz / '.concurso').mkdir()
+    (raiz / '.gabarito-vivo').mkdir()
     monkeypatch.chdir(raiz)
     return raiz
 
@@ -127,7 +127,7 @@ def test_discover_dry_run_nao_chama_nem_grava(projeto, transporte):
     ligar()
     assert main(['--dry-run', 'discover', '--cargo', 'analista', '--register', '1']) == 1
     assert transporte.chamadas == []
-    assert not (projeto / '.concurso' / 'cache').exists()
+    assert not (projeto / '.gabarito-vivo' / 'cache').exists()
 
 
 def test_falha_do_servidor_e_erro_do_ambiente(projeto, monkeypatch, capsys):
@@ -150,7 +150,7 @@ def test_parametro_recusado_e_erro_do_usuario(projeto, monkeypatch):
 def test_register_e_forget_mexem_so_nos_interesses(projeto, transporte, capsys):
     ligar()
     assert main(['discover', '--cargo', 'analista', '--register', '2']) == 0
-    arquivo = projeto / '.concurso' / 'interesses_pci.yaml'
+    arquivo = projeto / '.gabarito-vivo' / 'interesses_pci.yaml'
     itens = yaml.safe_load(arquivo.read_text(encoding='utf-8'))['interesses']
     assert [(i['id'], i['titulo'], i['fim']) for i in itens] == [(2, 'Prefeitura Beta', '2026-11-20')]
     assert sorted(p.name for p in (projeto / 'provas').iterdir()) == []
@@ -182,7 +182,7 @@ def test_add_pci_vincula_a_pasta_ao_interesse(projeto, transporte):
         'titulo': 'Câmara Alfa',
         'link': 'https://www.pciconcursos.com.br/noticias/1',
     }
-    itens = yaml.safe_load((projeto / '.concurso' / 'interesses_pci.yaml').read_text(encoding='utf-8'))
+    itens = yaml.safe_load((projeto / '.gabarito-vivo' / 'interesses_pci.yaml').read_text(encoding='utf-8'))
     assert itens['interesses'][0]['concurso'] == 'camara_alfa'
     assert main(['--yes', 'add', str(pasta)]) == 0
     assert ler_dados(pasta)['pci']['id'] == 1

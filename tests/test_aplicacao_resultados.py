@@ -7,7 +7,7 @@ from concursos.config.contexto import resolver_contexto
 def test_sem_analise_nada_existe_ainda(tmp_path: Path):
     (tmp_path / 'provas').mkdir()
 
-    achados = resultados(resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.concurso'))
+    achados = resultados(resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.gabarito-vivo'))
 
     assert achados.pasta == tmp_path / 'analises'
     assert achados.indice is None
@@ -27,7 +27,7 @@ def test_acha_relatorio_recomendacoes_e_pratica_do_candidato(tmp_path: Path):
     (pasta / 'pratica' / 'erros_tec.csv').write_text('id\n1\n', encoding='utf-8')
 
     achados = resultados(
-        resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.concurso', candidato='ana_teste')
+        resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.gabarito-vivo', candidato='ana_teste')
     )
 
     assert achados.indice == pasta / 'index.html'

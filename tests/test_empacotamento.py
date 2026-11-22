@@ -300,16 +300,16 @@ def test_arquivos_do_empacotamento_existem():
     pasta = RAIZ / 'empacotamento'
     for relativo in (
         'launcher.py',
-        'concurso-analise.spec',
+        'gabarito-vivo.spec',
         'hooks/hook-concursos.py',
         'coletar_licencas.py',
         'tesseract/obter_windows.ps1',
-        'inno/concurso-analise.iss',
+        'inno/gabarito-vivo.iss',
         'windows/versao.py',
         'windows/obter_webview2.ps1',
         'linux/verificar_bibliotecas.sh',
         'linux/bibliotecas_do_sistema.txt',
-        'icones/concurso-analise-256.png',
+        'icones/gabarito-vivo-256.png',
         'LICENSES/LEIA-ME.md',
     ):
         assert (pasta / relativo).is_file(), relativo
@@ -325,7 +325,7 @@ def test_launcher_chama_freeze_support_antes_de_tudo():
 
 
 def test_instalador_por_usuario_com_versao_no_nome():
-    texto = (RAIZ / 'empacotamento' / 'inno' / 'concurso-analise.iss').read_text(encoding='utf-8-sig')
+    texto = (RAIZ / 'empacotamento' / 'inno' / 'gabarito-vivo.iss').read_text(encoding='utf-8-sig')
 
     assert 'PrivilegesRequired=lowest' in texto
     assert 'OutputBaseFilename=gabarito-vivo-{#Versao}-windows-x64-setup' in texto
@@ -371,7 +371,7 @@ def test_recurso_de_versao_identifica_o_produto_e_o_editor(tmp_path):
 
 
 def test_spec_usa_o_recurso_de_versao_nos_dois_executaveis():
-    texto = (RAIZ / 'empacotamento' / 'concurso-analise.spec').read_text(encoding='utf-8')
+    texto = (RAIZ / 'empacotamento' / 'gabarito-vivo.spec').read_text(encoding='utf-8')
 
     assert texto.count('version=recurso(') == 2
 
@@ -392,7 +392,7 @@ def test_lista_de_bibliotecas_do_sistema_e_so_a_glibc():
 
 def test_appdir_tem_desktop_valido_icone_e_versao():
     montar = (RAIZ / 'empacotamento' / 'linux' / 'montar_appimage.sh').read_text(encoding='utf-8')
-    desktop = (RAIZ / 'empacotamento' / 'linux' / 'concurso-analise.desktop').read_text(encoding='utf-8')
+    desktop = (RAIZ / 'empacotamento' / 'linux' / 'gabarito-vivo.desktop').read_text(encoding='utf-8')
 
     assert 'verificar_bibliotecas.sh' in montar
     assert '.DirIcon' in montar
@@ -409,7 +409,7 @@ def test_mutex_so_no_windows():
 
 
 def test_setup_espera_o_mutex_e_reabre_com_reabrir():
-    texto = (RAIZ / 'empacotamento' / 'inno' / 'concurso-analise.iss').read_text(encoding='utf-8-sig')
+    texto = (RAIZ / 'empacotamento' / 'inno' / 'gabarito-vivo.iss').read_text(encoding='utf-8-sig')
 
     assert '#define Mutex "gabarito-vivo"' in texto
     assert "CheckForMutexes('{#Mutex}')" in texto

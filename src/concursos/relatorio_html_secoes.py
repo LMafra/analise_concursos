@@ -1008,7 +1008,7 @@ def _avisos(pasta: Path) -> list[Observacao]:
             (
                 f'{plural(revisar, "resposta")} da folha com leitura incerta; confira na tela Analisar.',
                 f'{revisar} leituras da folha para revisar: corrija o respostas_extraidas.csv e rode '
-                f'`concurso-analise analyze {pasta.name} --reuse-csv`',
+                f'`gabarito-vivo analyze {pasta.name} --reuse-csv`',
             )
         )
     return [Observacao(pasta.name, texto, detalhe) for texto, detalhe in avisos]

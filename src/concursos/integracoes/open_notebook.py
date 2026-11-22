@@ -354,7 +354,7 @@ def _erro_http(metodo: str, caminho: str, erro: urllib.error.HTTPError) -> OpenN
 
 
 def _multipart(campos: dict[str, str], arquivo: _Arquivo | None) -> tuple[bytes, str]:
-    fronteira = f'concurso-analise-{uuid.uuid4().hex}'
+    fronteira = f'gabarito-vivo-{uuid.uuid4().hex}'
     partes: list[bytes] = []
     for nome, valor in campos.items():
         partes.append(

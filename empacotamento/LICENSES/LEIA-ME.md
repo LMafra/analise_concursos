@@ -1,6 +1,6 @@
 # Licenças dos componentes do executável
 
-O concurso-analise empacotado leva junto, sem modificação:
+O gabarito-vivo empacotado leva junto, sem modificação:
 
 | Componente | Licença | Onde está o texto |
 |---|---|---|

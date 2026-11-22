@@ -32,7 +32,7 @@ def test_analisar_exemplo_gera_o_relatorio_fora_do_projeto_do_usuario(tmp_path, 
     assert indice == home / 'exemplo' / 'analises' / exemplo.CANDIDATO / 'index.html'
     assert indice.is_file()
     assert not (projeto_do_usuario / 'analises').exists()
-    assert not (projeto_do_usuario / '.concurso').exists()
+    assert not (projeto_do_usuario / '.gabarito-vivo').exists()
 
 
 def test_analisar_exemplo_recria_a_pasta_a_cada_uso(tmp_path, projeto_do_usuario):

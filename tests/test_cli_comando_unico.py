@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from conftest import criar_concurso
 
-from concursos.cli import executar_legado, main
+from concursos.cli import main
 from concursos.config.contexto import resolver_contexto
 from concursos.migracao import candidato_padrao
 
@@ -81,7 +81,7 @@ def test_dry_run_lista_os_concursos_e_nao_grava_nada(projeto, home_isolada, caps
     assert 'alfa' in saida and 'analisaria' in saida
     assert 'beta' in saida and 'pularia' in saida
     assert not (projeto / 'analises').exists()
-    assert not (projeto / '.concurso').exists()
+    assert not (projeto / '.gabarito-vivo').exists()
 
 
 def _pasta_sem_cadastro(projeto: Path) -> Path:
@@ -144,11 +144,11 @@ def test_opcao_desconhecida_e_erro_de_uso_sem_traceback(projeto, capsys):
 
 
 def test_contexto_usa_concurso_home_e_a_pasta_atual(tmp_path):
-    contexto = resolver_contexto(cwd=tmp_path, ambiente={'CONCURSO_HOME': str(tmp_path / 'h')})
+    contexto = resolver_contexto(cwd=tmp_path, ambiente={'GABARITO_VIVO_HOME': str(tmp_path / 'h')})
 
     assert contexto.home == tmp_path / 'h'
     assert contexto.logs == tmp_path / 'h' / 'logs'
-    assert contexto.projeto == tmp_path / '.concurso'
+    assert contexto.projeto == tmp_path / '.gabarito-vivo'
     assert contexto.provas == tmp_path / 'provas'
     assert contexto.analises == tmp_path / 'analises'
 
@@ -156,28 +156,6 @@ def test_contexto_usa_concurso_home_e_a_pasta_atual(tmp_path):
 def test_contexto_sem_variavel_usa_a_pasta_do_usuario(tmp_path):
     contexto = resolver_contexto(cwd=tmp_path, ambiente={}, data_dir=tmp_path / 'dados')
 
-    assert contexto.home == Path.home() / '.concurso'
+    assert contexto.home == Path.home() / '.gabarito-vivo'
     assert contexto.projeto == tmp_path / 'dados'
 
-
-def test_comando_legado_continua_e_avisa_que_esta_obsoleto(projeto, caplog):
-    criar_concurso(projeto / 'provas', 'alfa', config('alfa'), ARQUIVOS)
-
-    with caplog.at_level(logging.WARNING):
-        assert main(['status', '--provas', str(projeto / 'provas')]) == 0
-        assert main(['analisar', '--provas', 'provas', '--analises', 'analises']) == 0
-
-    avisos = [r.getMessage() for r in caplog.records if 'obsoleto' in r.getMessage()]
-    assert any('analyze' in aviso for aviso in avisos)
-    assert (projeto / 'analises' / 'alfa' / 'relatorio.md').exists()
-
-
-def test_executavel_concursos_avisa_uma_vez(projeto, capsys, monkeypatch):
-    criar_concurso(projeto / 'provas', 'alfa', config('alfa'), ARQUIVOS)
-    monkeypatch.setattr('sys.argv', ['concursos', 'status'])
-
-    with pytest.raises(SystemExit) as saida:
-        executar_legado()
-
-    assert saida.value.code == 0
-    assert capsys.readouterr().err.count('obsoleto') == 1

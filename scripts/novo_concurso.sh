@@ -276,8 +276,8 @@ fi
 stage "Cadastrar"
 say "O cadastro detecta o papel de cada arquivo e pergunta só o que for ambíguo (cargo, tipo, banca)."
 say "Ao final ele mostra o concurso.yaml e pede confirmação antes de gravar."
-if confirm "Rodar 'concurso-analise add $PASTA' agora?"; then
-  until uv run concurso-analise add "$PASTA"; do
+if confirm "Rodar 'gabarito-vivo add $PASTA' agora?"; then
+  until uv run gabarito-vivo add "$PASTA"; do
     warn "O cadastro não foi concluído (veja a mensagem acima)."
     confirm "Corrigiu os arquivos e quer tentar de novo?" || break
   done
@@ -285,9 +285,9 @@ fi
 
 stage "Analisar"
 say "A análise processa o concurso, atualiza o consolidado em $ANALISES_DIR/<candidato>/consolidado/ e abre o relatório."
-if confirm "Rodar 'concurso-analise analyze $CONCURSO' agora?"; then
-  if uv run concurso-analise --provas "$PROVAS_DIR" --analises "$ANALISES_DIR" analyze "$CONCURSO"; then
-    uv run concurso-analise --provas "$PROVAS_DIR" status
+if confirm "Rodar 'gabarito-vivo analyze $CONCURSO' agora?"; then
+  if uv run gabarito-vivo --provas "$PROVAS_DIR" --analises "$ANALISES_DIR" analyze "$CONCURSO"; then
+    uv run gabarito-vivo --provas "$PROVAS_DIR" status
   else
     warn "A análise falhou; veja o log acima."
   fi
@@ -295,9 +295,9 @@ fi
 
 stage "Próximos passos"
 step "Revise os tópicos sugeridos em $PASTA/revisao/questoes_revisado.csv (colunas disciplina e topico)."
-step "Corrigiu a revisão, trocou um arquivo ou saiu o gabarito definitivo? Rode: uv run concurso-analise"
-step "Veja a situação de todos os concursos com: uv run concurso-analise status"
-step "Reabra o relatório com: uv run concurso-analise report"
+step "Corrigiu a revisão, trocou um arquivo ou saiu o gabarito definitivo? Rode: uv run gabarito-vivo"
+step "Veja a situação de todos os concursos com: uv run gabarito-vivo status"
+step "Reabra o relatório com: uv run gabarito-vivo report"
 pause "Pressione Enter para concluir"
 
 finish

@@ -12,7 +12,7 @@ NOVIDADE = aplicacao.Novidade(
     canal=CanalAtualizacao.STABLE,
     notas='https://github.com/LMafra/analise_concursos/releases/tag/v0.6.0',
     plataforma='linux-x86_64',
-    artefato=Artefato('concurso-analise-0.6.0-linux-x86_64.AppImage', 'a' * 64, 250_000_000),
+    artefato=Artefato('gabarito-vivo-0.6.0-linux-x86_64.AppImage', 'a' * 64, 250_000_000),
     url='https://github.com/LMafra/analise_concursos/releases/download/v0.6.0/x',
 )
 

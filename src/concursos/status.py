@@ -40,14 +40,14 @@ def listar_concursos(raiz_provas: Path) -> list[Path]:
 
 def _status_sem_config(pasta: Path) -> StatusConcurso | None:
     if not (pasta / ARQUIVO_CONFIG).exists():
-        motivo = f'{ARQUIVO_CONFIG} ausente; rode `concurso-analise add {pasta}`'
+        motivo = f'{ARQUIVO_CONFIG} ausente; rode `gabarito-vivo add {pasta}`'
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
     if vinculo_sem_provas(pasta) is not None:
-        motivo = f'falta o edital e os arquivos da prova; adicione-os à pasta e rode `concurso-analise add {pasta}`'
+        motivo = f'falta o edital e os arquivos da prova; adicione-os à pasta e rode `gabarito-vivo add {pasta}`'
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
     if (simulado := simulado_sem_provas(pasta)) is not None:
         pagina = simulado.get('link') or 'a página da prova no PCI'
-        motivo = f'faltam os arquivos da prova; baixe-os em {pagina} e rode `concurso-analise add {pasta}`'
+        motivo = f'faltam os arquivos da prova; baixe-os em {pagina} e rode `gabarito-vivo add {pasta}`'
         return StatusConcurso(pasta.name, Situacao.INCOMPLETO, (motivo,), '-', None)
     return None
 
@@ -71,7 +71,7 @@ def _motivos_obrigatorios(
         lista.append(f'{config.caminho(arquivo)}: arquivo ausente ({papel})')
     if config.edital is None:
         motivos.append(
-            f'edital ausente; adicione o PDF do edital à pasta e rode `concurso-analise add {pasta}`'
+            f'edital ausente; adicione o PDF do edital à pasta e rode `gabarito-vivo add {pasta}`'
         )
     if config.respostas_arquivo is None and config.folha is None:
         motivos.append('respostas não configuradas (folha de resposta ou respostas.txt)')
@@ -113,10 +113,38 @@ def avaliar(pasta: Path, candidato: str | None = None) -> StatusConcurso:
     avisos = (
         *opcionais,
         *(f'{t.novo}: gabarito definitivo será aplicado na próxima análise' for t in pendencias.trocas),
+        *_aviso_respostas_parciais(config),
     )
     return StatusConcurso(
         config.nome, Situacao.COMPLETO, avisos, config.status_gabarito, config, pendencias.trocas
     )
+
+
+def _aviso_respostas_parciais(config: ConcursoConfig) -> tuple[str, ...]:
+    """Se o arquivo de respostas cobre menos questões do que o gabarito, avisa sem tirar o completo."""
+    if config.respostas_arquivo is None:
+        return ()
+    caminho = config.caminho(config.respostas_arquivo)
+    if not caminho.exists() or caminho.suffix.lower() not in {'.txt', '.csv'}:
+        return ()
+    esperadas = {q for prova in config.provas for q in prova.questoes}
+    if not esperadas:
+        return ()
+    try:
+        texto = caminho.read_text(encoding='utf-8')
+    except OSError:
+        return ()
+    respondidas: set[int] = set()
+    for linha in texto.splitlines():
+        pedaco = linha.strip().split()
+        if not pedaco:
+            continue
+        numero = pedaco[0].rstrip('.').split(',')[0]
+        if numero.isdigit():
+            respondidas.add(int(numero))
+    if respondidas and respondidas < esperadas:
+        return (f'respostas parciais: {len(respondidas)} de {len(esperadas)} questões',)
+    return ()
 
 
 def formatar_tabela(status: list[StatusConcurso]) -> str:

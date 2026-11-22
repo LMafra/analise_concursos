@@ -125,6 +125,36 @@ def raiz() -> None:
         )
         ui.label(NOME_DO_APP).classes('text-lg font-bold')
         ui.space()
+        campo_busca = (
+            ui.input(placeholder='Buscar concurso ou tópico')
+            .props('dense outlined clearable')
+            .classes('w-64')
+            .mark('busca-global')
+        )
+        resultados_busca = ui.column().classes('absolute z-10 bg-white shadow-md p-2').style(
+            'top: 3.5rem; right: 1rem; min-width: 16rem; display: none'
+        )
+
+        def ao_buscar() -> None:
+            from concursos.aplicacao import busca
+
+            resultados_busca.clear()
+            termo = campo_busca.value or ''
+            if ESTADO.projeto is None or not termo.strip():
+                resultados_busca.style('display: none')
+                return
+            achados = busca.procurar(ESTADO.contexto(), termo)
+            with resultados_busca:
+                if not achados:
+                    ui.label('Nada encontrado.').classes('text-sm')
+                for item in achados:
+                    ui.button(
+                        f'{item.tipo}: {item.rotulo}',
+                        on_click=lambda r=item.rota: ui.navigate.to(r),
+                    ).props('flat dense').classes('w-full')
+            resultados_busca.style('display: block')
+
+        campo_busca.on('update:model-value', ao_buscar)
         ui.button(icon='new_releases', on_click=lambda: ui.navigate.to('/sobre')).props(
             'flat dense no-caps'
         ).bind_text_from(
@@ -216,9 +246,14 @@ def executar(
     pasta: Path | None = None, *, navegador: bool = False, porta: int | None = None, abrir: bool = True
 ) -> None:
     """O navegador é aberto pelo `abrir_no_navegador` da CLI, que acha o do Windows no WSL."""
-    inicial = pasta or projeto_inicial(Path.cwd(), resolver_home() / 'config.toml')
+    from concursos.aplicacao.lixeira import esvaziar
+
+    home = resolver_home()
+    esvaziar(home)
+    inicial = pasta or projeto_inicial(Path.cwd(), home / 'config.toml')
     if inicial is not None:
         ESTADO.abrir_projeto(inicial)
+        esvaziar(ESTADO.contexto().projeto)
     decisao = decidir_janela(navegador)
     nativa = decisao is DecisaoJanela.NATIVA
     ESTADO.decisao_janela = decisao

@@ -329,7 +329,7 @@ class _Cadastro:
             return anterior
         self.interacao.mostrar(
             'Aviso: nenhum edital; o concurso ficará incompleto. Adicione o PDF do edital à pasta e rode '
-            f'`concurso-analise add {self.pasta}` de novo.'
+            f'`gabarito-vivo add {self.pasta}` de novo.'
         )
         return None
 

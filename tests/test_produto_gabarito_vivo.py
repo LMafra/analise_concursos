@@ -1,4 +1,4 @@
-"""Identidade Gabarito Vivo: comando, alias e superfície de produto."""
+"""Identidade Gabarito Vivo: comando e superfície de produto."""
 
 from concursos import produto
 from concursos.atualizador import PADRAO_ARQUIVO
@@ -8,14 +8,14 @@ from concursos.gui import tema
 def test_nome_e_comando_principais() -> None:
     assert produto.NOME == 'Gabarito Vivo'
     assert produto.COMANDO == 'gabarito-vivo'
-    assert produto.COMANDO_LEGADO == 'concurso-analise'
-    assert produto.PACOTE == 'concurso-analise'
+    assert produto.PACOTE == 'gabarito-vivo'
 
 
-def test_artefatos_aceitam_prefixo_novo_e_legado() -> None:
+def test_artefatos_aceitam_prefixo_novo() -> None:
     assert PADRAO_ARQUIVO.match('gabarito-vivo-0.7.0-linux-x86_64.AppImage')
-    assert PADRAO_ARQUIVO.match('concurso-analise-0.7.0-windows-x64-setup.exe')
+    assert PADRAO_ARQUIVO.match('gabarito-vivo-0.7.0-windows-x64-setup.exe')
     assert not PADRAO_ARQUIVO.match('outro-app-0.7.0-linux-x86_64.AppImage')
+    assert not PADRAO_ARQUIVO.match('concurso-analise-0.7.0-linux-x86_64.AppImage')
 
 
 def test_tokens_sem_azul_material_padrao() -> None:
@@ -30,7 +30,9 @@ def test_cli_tem_entry_points_no_pyproject() -> None:
 
     texto = Path('pyproject.toml').read_text(encoding='utf-8')
     assert 'gabarito-vivo = "concursos.cli:executar"' in texto
-    assert 'concurso-analise = "concursos.cli:executar_legado_analise"' in texto
+    assert 'gabarito-vivo-gui = "concursos.cli:executar_gui"' in texto
+    assert 'concurso-analise' not in texto
+    assert 'executar_legado' not in texto
 
 
 def test_relatorio_root_usa_tokens() -> None:

@@ -81,7 +81,7 @@ def fracos(*linhas: tuple[str, str]) -> pd.DataFrame:
 
 
 def test_ler_mapa_resolve_o_catalogo_pela_raiz(tmp_path):
-    arquivo = tmp_path / 'projeto' / '.concurso' / 'biblioteca.yaml'
+    arquivo = tmp_path / 'projeto' / '.gabarito-vivo' / 'biblioteca.yaml'
     arquivo.parent.mkdir(parents=True)
     arquivo.write_text(
         'catalogo: ../books/Bookshelf/README.md\ndisciplinas:\n  Banco de Dados: "TI - Banco de Dados › SQL e Teoria"\n',

@@ -25,7 +25,7 @@ async def test_tres_passos_grava_candidato_e_chega_ao_resultado(user: User, proj
     user.find(marker='continuar').click()
 
     await user.should_see('Passo 3 de 3: Primeiro resultado')
-    config = tomllib.loads((projeto / '.concurso' / 'config.toml').read_text(encoding='utf-8'))
+    config = tomllib.loads((projeto / '.gabarito-vivo' / 'config.toml').read_text(encoding='utf-8'))
     assert config['candidato'] == {'ultimo': 'ana_teste'}
     assert (projeto / 'provas' / ARQUIVO_LEIA_ME).is_file()
     assert ESTADO.candidato == 'ana_teste'
@@ -39,7 +39,7 @@ async def test_sem_nome_fica_no_primeiro_passo_com_erro_e_dica(user: User, proje
 
     await user.should_see('erro: Falta o seu nome.')
     await user.should_see('Passo 1 de 3: Seu nome')
-    assert not (projeto / '.concurso' / 'config.toml').exists()
+    assert not (projeto / '.gabarito-vivo' / 'config.toml').exists()
 
 
 async def test_voltar_mantem_o_que_foi_digitado(user: User, projeto, home_isolada):

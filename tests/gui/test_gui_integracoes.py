@@ -378,7 +378,7 @@ async def test_soltar_planilha_confere_as_colunas_importa_e_analisa(user: User, 
     await user.should_see('análise pedida')
     (exportacao,) = (projeto / 'tec').iterdir()
     assert exportacao.name.startswith('tec-erros-planilha-historico-')
-    assert not any((projeto / '.concurso' / cadastro.PASTA_ENVIOS).iterdir())
+    assert not any((projeto / '.gabarito-vivo' / cadastro.PASTA_ENVIOS).iterdir())
 
 
 async def test_planilha_sem_coluna_obrigatoria_mostra_erro_e_mantem_a_conferencia(user: User, projeto):

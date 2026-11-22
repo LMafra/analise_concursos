@@ -146,7 +146,7 @@ def test_definitivo_de_outro_cargo_deixa_desatualizado(raizes, capsys):
     assert ler_config(pasta) == original
     saida = status(provas, capsys)
     assert 'desatualizado' in saida
-    assert 'g_def.txt' in saida and 'concurso-analise add' in saida
+    assert 'g_def.txt' in saida and 'gabarito-vivo add' in saida
 
 
 def test_dois_definitivos_candidatos_deixam_desatualizado(raizes, capsys):
@@ -172,7 +172,7 @@ def test_arquivo_nao_cadastrado_deixa_desatualizado(raizes, capsys):
 
     saida = status(provas, capsys)
 
-    assert 'desatualizado' in saida and 'anotacoes.docx' in saida and 'concurso-analise add' in saida
+    assert 'desatualizado' in saida and 'anotacoes.docx' in saida and 'gabarito-vivo add' in saida
 
 
 def test_com_gabarito_definitivo_troca_o_arquivo_ignora_o_anterior_e_registra_o_evento():

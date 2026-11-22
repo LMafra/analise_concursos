@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import shutil
+import threading
 from collections.abc import Callable
 from pathlib import Path
 
@@ -51,6 +53,10 @@ class ConcursoNaoEncontradoError(ValueError):
     pass
 
 
+class AnaliseCancelada(Exception):
+    """O usuário pediu para cancelar; a pasta temporária já foi descartada."""
+
+
 def analisar_todos(
     raiz_provas: Path,
     raiz_analises: Path,
@@ -62,27 +68,31 @@ def analisar_todos(
     ao_progresso: Callable[[str, int, int], None] | None = None,
     ao_etapa: Callable[[str, Etapa], None] | None = None,
     extras: manifesto.Extras | None = None,
+    cancelar: threading.Event | None = None,
 ) -> bool:
     """Analisa os concursos completos que mudaram; retorna False se algum falhou durante a análise.
 
     Com candidato, `raiz_analises` é a pasta dele e só entram os concursos com `candidatos/<candidato>/`.
     `ao_progresso(concurso, indice, total)` é chamado antes de cada concurso, a partir de 1;
     `ao_etapa(concurso, etapa)`, em cada etapa de um concurso analisado e com `''` antes do consolidado.
+    `cancelar` interrompe entre concursos e entre etapas; o que já foi promovido fica.
     """
     configuracao = configuracao or ConfiguracaoGlobal()
     sucesso = True
     situacoes = {}
     pastas = _selecionar(raiz_provas, apenas)
     for indice, pasta in enumerate(pastas, start=1):
+        _checar_cancelamento(cancelar)
         if ao_progresso is not None:
             ao_progresso(pasta.name, indice, len(pastas))
         destino = raiz_analises / pasta.name
         etapa = (lambda e, nome=pasta.name: ao_etapa(nome, e)) if ao_etapa is not None else None
         situacao, analisado = _analisar_se_necessario(
-            pasta, destino, forcar, configuracao, taxonomia, candidato, etapa, extras
+            pasta, destino, forcar, configuracao, taxonomia, candidato, etapa, extras, cancelar
         )
         situacoes[pasta.name] = situacao
         sucesso &= analisado
+    _checar_cancelamento(cancelar)
     if ao_etapa is not None:
         ao_etapa('', Etapa.CONSOLIDANDO)
     consolidar(
@@ -128,6 +138,26 @@ def _selecionar(raiz_provas: Path, apenas: str | None) -> list[Path]:
     raise ConcursoNaoEncontradoError(f'{raiz_provas / apenas}: concurso não encontrado')
 
 
+def _checar_cancelamento(cancelar: threading.Event | None) -> None:
+    if cancelar is not None and cancelar.is_set():
+        raise AnaliseCancelada()
+
+
+def _pasta_temporaria(destino: Path) -> Path:
+    return destino.parent / f'.tmp-{destino.name}'
+
+
+def _promover(temporaria: Path, destino: Path) -> None:
+    if destino.exists():
+        shutil.rmtree(destino)
+    temporaria.rename(destino)
+
+
+def _descartar(temporaria: Path) -> None:
+    if temporaria.exists():
+        shutil.rmtree(temporaria, ignore_errors=True)
+
+
 def _analisar_se_necessario(
     pasta: Path,
     destino: Path,
@@ -137,6 +167,7 @@ def _analisar_se_necessario(
     candidato: str | None,
     etapa: Callable[[Etapa], None] | None = None,
     extras: manifesto.Extras | None = None,
+    cancelar: threading.Event | None = None,
 ) -> tuple[StatusConcurso, bool]:
     """A situação do concurso depois da troca de gabarito, se houve, e se a análise não falhou."""
     situacao = avaliar(pasta, candidato)
@@ -154,14 +185,22 @@ def _analisar_se_necessario(
         avisar(
             logger,
             f'{situacao.nome}: o cadastro deste concurso não está completo; pulei a análise dele.',
-            'complete o que falta em Concursos (ou rode concurso-analise status para ver o quê).',
+            'complete o que falta em Concursos (ou rode gabarito-vivo status para ver o quê).',
             f'{situacao.situacao}: {"; ".join(situacao.motivos)}',
         )
         return situacao, True
-    manifesto.invalidar(destino)
+    temporaria = _pasta_temporaria(destino)
+    _descartar(temporaria)
     try:
-        analisar_concurso(situacao.config, destino, configuracao, taxonomia, etapa)
+        analisar_concurso(
+            situacao.config, temporaria, configuracao, taxonomia, etapa, cancelar, leitura=destino
+        )
+        _promover(temporaria, destino)
+    except AnaliseCancelada:
+        _descartar(temporaria)
+        raise
     except (ValueError, FileNotFoundError, RuntimeError) as erro:
+        _descartar(temporaria)
         logger.error(
             '%s',
             f'{situacao.nome}: não consegui analisar este concurso; os outros seguem normalmente.',
@@ -181,11 +220,17 @@ def analisar_concurso(
     configuracao: ConfiguracaoGlobal,
     taxonomia: dict[str, DisciplinaCanonica] | None = None,
     etapa: Callable[[Etapa], None] | None = None,
+    cancelar: threading.Event | None = None,
+    leitura: Path | None = None,
 ) -> None:
+    """`destino` recebe as saídas; `leitura` (se houver) é a análise anterior, para a folha e o diff."""
+
     def anunciar(atual: Etapa) -> None:
+        _checar_cancelamento(cancelar)
         if etapa is not None:
             etapa(atual)
 
+    origem_leitura = leitura if leitura is not None else destino
     logger.info('Analisando %s', config.nome)
     if taxonomia is None:
         taxonomia = taxonomia_do_contexto()
@@ -194,7 +239,9 @@ def analisar_concurso(
     edital = ler_edital(config, documentos)
     gabaritos = {prova.chave: ler_gabarito(config, prova) for prova in config.provas}
     anunciar(Etapa.LENDO_FOLHA)
-    respostas = ler_respostas(config, destino, configuracao.limiar_confianca, configuracao.perfil_calibrado)
+    respostas = ler_respostas(
+        config, origem_leitura, configuracao.limiar_confianca, configuracao.perfil_calibrado
+    )
     anunciar(Etapa.CORRIGINDO)
     resultados = corrigir(config, gabaritos, respostas, disciplinas_por_questao(config))
     anunciar(Etapa.CLASSIFICANDO)
@@ -222,7 +269,7 @@ def analisar_concurso(
     regras = regras_do_edital(
         config, documentos_da_regra, resultados, correcoes, destino, taxonomia, configuracao.cliente_llm
     )
-    diff = diff_da_troca(destino, resultados)
+    diff = diff_da_troca(origem_leitura, resultados)
     gravar_validacao(validacao, destino)
     conteudo = ConteudoRelatorio(
         geral=geral,
@@ -237,6 +284,7 @@ def analisar_concurso(
         identificacao=regras.identificacao if regras else None,
     )
     (destino / 'relatorio.md').write_text(gerar_relatorio(config, conteudo), encoding='utf-8')
+    _checar_cancelamento(cancelar)
     logger.info('Saídas de %s gravadas em %s', config.nome, destino)
 
 

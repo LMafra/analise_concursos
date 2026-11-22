@@ -37,7 +37,7 @@ LIVROS_POR_TOPICO = 3
 MAXIMO_CONSULTAS = 4
 MINIMO_PALAVRAS_CONSULTA = 2
 MAXIMO_NOTEBOOKS_BUSCA = 50
-TITULO_NOTA = 'concurso-analise: recomendações de estudo'
+TITULO_NOTA = 'gabarito-vivo: recomendações de estudo'
 _SEPARADORES_DE_CONSULTA = re.compile(r'[.:;()]')
 _ROTULO_DA_FONTE = {
     FonteRecomendacao.LEGISLACAO: 'legislação',
@@ -49,7 +49,7 @@ _ROTULO_DA_FONTE = {
 
 @dataclass(frozen=True)
 class MapaBiblioteca:
-    """`.concurso/biblioteca.yaml`: disciplina canônica → categorias `<main> › <sub>` da estante."""
+    """`.gabarito-vivo/biblioteca.yaml`: disciplina canônica → categorias `<main> › <sub>` da estante."""
 
     disciplinas: dict[str, tuple[str, ...]]
     catalogo: Path | None = None

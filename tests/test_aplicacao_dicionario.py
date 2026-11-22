@@ -10,7 +10,7 @@ from concursos.erros import ErroDoUsuario
 @pytest.fixture
 def contexto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     raiz = tmp_path / 'projeto'
-    (raiz / '.concurso').mkdir(parents=True)
+    (raiz / '.gabarito-vivo').mkdir(parents=True)
     monkeypatch.chdir(raiz)
     return resolver_contexto()
 

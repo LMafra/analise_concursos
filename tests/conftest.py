@@ -15,7 +15,7 @@ collect_ignore = [] if importlib.util.find_spec('nicegui') else ['gui']
 @pytest.fixture(autouse=True)
 def home_isolada(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / 'home_concurso'
-    monkeypatch.setenv('CONCURSO_HOME', str(home))
+    monkeypatch.setenv('GABARITO_VIVO_HOME', str(home))
     return home
 
 

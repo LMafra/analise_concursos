@@ -20,6 +20,6 @@ export UV_PYTHON_PREFERENCE=only-managed
 uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento --python 3.12
 bash empacotamento/tesseract/obter_linux.sh
 uv run --no-sync python empacotamento/coletar_licencas.py
-uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/concurso-analise.spec
-VERSAO=$(uv run --no-sync python -c "from importlib.metadata import version; print(version('concurso-analise'))")
+uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/gabarito-vivo.spec
+VERSAO=$(uv run --no-sync python -c "from importlib.metadata import version; print(version('gabarito-vivo'))")
 bash empacotamento/linux/montar_appimage.sh "$VERSAO"

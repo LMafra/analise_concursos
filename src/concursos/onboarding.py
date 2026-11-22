@@ -39,8 +39,8 @@ Coloque aqui uma pasta por concurso, por exemplo provas/meu_concurso/, com:
 - as suas respostas em candidatos/<seu_nome>/: respostas.txt, respostas.csv
   (colunas questao,alternativa) ou a foto/PDF da folha de respostas.
 
-Depois rode `concurso-analise add provas/meu_concurso` para gerar o concurso.yaml
-e `concurso-analise` para analisar.
+Depois rode `gabarito-vivo add provas/meu_concurso` para gerar o concurso.yaml
+e `gabarito-vivo` para analisar.
 """
 
 

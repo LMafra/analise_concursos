@@ -4,7 +4,7 @@
 |---|---|
 | Versão do código | baseline métricas `7016502`; programa CC/ciclos/fachada aplicado após |
 | Versão do pacote | `0.7.0b3` (`pyproject.toml`) |
-| Data de geração | 2026-11-19 (atualizado no programa vermelho→verde) |
+| Data de geração | 2026-11-22 (atualizado no programa amarelo→verde) |
 | Escopo | Código como está; planejado sem implementação → gaps |
 | Granularidade F | Quase função-a-função em `src/concursos/` (AST) |
 | Baseline vermelho | [`docs/arquitetura/vermelho-baseline.md`](arquitetura/vermelho-baseline.md) + [`metricas-7016502/`](arquitetura/metricas-7016502/) |
@@ -15,7 +15,7 @@ Gabarito Vivo (pacote `concurso-analise`, módulo `concursos`, comando `gabarito
 
 **Estado estrutural (pós programa vermelho→verde):** 0 funções com CC > 15; ciclos AST `topicos`↔`dicionario_topicos` e `pratica_tec`↔`tec_estatisticas` quebrados; fachada `pipeline/__init__.py` com eferência direta ≤ 12; MI ≥ 30 nos 4 módulos que estavam em 0.00; gate CI em `scripts/verificar_arquitetura.py` + `import-linter`.
 
-**Riscos remanescentes:** (1) `pipeline/nucleo.py` ainda concentra a orquestração (etapas futuras em `pipeline/etapas/`); (2) inventário F/P do mapa ainda aponta linhas do baseline `d082853`/`7016502` — regenerar AST se precisar de linha a linha atual; (3) rebrand/copy/CVE fora deste programa.
+**Riscos remanescentes:** (1) `pipeline/nucleo.py` ainda concentra a orquestração (etapas em `pipeline/etapas/` e pasta temporária por concurso); (2) inventário F/P do mapa ainda aponta linhas do baseline `d082853`/`7016502` — regenerar AST se precisar de linha a linha atual.
 
 ## Sumário
 
@@ -34,14 +34,14 @@ Gabarito Vivo (pacote `concurso-analise`, módulo `concursos`, comando `gabarito
 
 | Dimensão | Saúde | Justificativa |
 |---|---|---|
-| Funcionalidades | amarelo | Superfície ampla (CLI+GUI+integrações) estável; rebrand incompleto (aliases `concurso-analise`, tips legados) |
+| Funcionalidades | verde | Comando e distribuição `gabarito-vivo`; pasta `.gabarito-vivo/`; cancelamento cooperativo; busca e exclusão com desfazer |
 | Testes | verde | Cobertura ≥ **90.8867%** (piso do gate); 2 módulos <60%; job CI `arquitetura` gera `coverage.json` |
 | Complexidade | verde | **0** funções CC > 15; MI ≥ 30 em `regras_edital` / `concurso_config` / `pratica_tec` / `relatorio_html`; limiares em `docs/arquitetura/limiares.toml` |
 | Acoplamento | verde | Fachada `pipeline` eferência direta ≤ 12; ciclos AST proibidos quebrados; `import-linter` + `verificar_arquitetura.py` |
-| Dependências externas | amarelo | Core pinado por ranges; extras `gui`/`llm`/`pci`; sem scanner CVE nesta geração |
-| Config | amarelo | `concurso.yaml`/`[analise]`/taxonomia fortes; LLM global mais soft |
-| Documentação | amarelo | Specs por fase + `modelo.md` + `AGENTS.md` + ADRs de ciclos/fachada/limiares; README omite vários comandos |
-| Gaps abertos | amarelo | Ver §7 (doc×código, UX leva, dead-code candidatos analytics); G-007 (gate cov) fechado pelo job `arquitetura` |
+| Dependências externas | verde | Ranges no pyproject + `uv.lock`; job CI `cve` (`pip-audit` + `cve-ignorados.toml`); Dependabot uv/actions |
+| Config | verde | `concurso.yaml`/`[analise]`/taxonomia/`[llm]`/`candidato.yaml` com schema rígido (padrão PCI) |
+| Documentação | verde | Specs + `modelo.md` + `AGENTS.md` + ADRs; README com `pratica`/`estudo`/`livros`/`dicionario` e rotas `/conferir`/`/disciplinas` |
+| Gaps abertos | verde | Todos os G-### do §7 fechados nesta leva (amarelo→verde) |
 
 ---
 ## 2. Inventário de funcionalidades
@@ -2515,7 +2515,7 @@ Fonte: `uv run interrogate src/concursos -v` → **30.8%** (743/2409 cobertos). 
 
 ### Dead code (`vulture`)
 
-Fonte: `uv run vulture src/concursos --min-confidence 60` → **135** candidatos. Confiança 80: 1 (`rastro` em pci_mcp). Muitos analytics usados só por notebooks (falso positivo típico). Não remover aqui.
+Fonte: `uv run vulture src/concursos docs/arquitetura/vulture-whitelist.py --min-confidence 80` → **0** candidatos. Em confiança 60 restam só os listados na whitelist (notebooks/`analytics`).
 
 Amostra: `contar_questoes`, `validar_schema`, `simular_cenario`, `peculiaridades_do_edital`, … em `analytics/`.
 
@@ -2605,86 +2605,86 @@ Cada gap: evidência + severidade + impacto + esforço + **sugestão**.
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-001 | Cancel cooperativo do pipeline ausente | `docs/decisoes/decisoes-ux-gabarito-vivo.md` dívida; GUI “Parar de acompanhar” ≠ cancel | alta | usuário não interrompe análise | M | flag cooperativa nas etapas `Etapa` |
-| G-002 | Brief cita `tec import`; CLI real é `pratica` | `cli/comandos.py` | média | docs/tutoriais errados | P | alinhar docs e aliases |
-| G-003 | Domínio UML “Variante/Análise” sem classe única | `modelo.py` só enums | baixa | onboarding eng. | P | documentar mapeamento (este doc) |
+| G-001 | ~~Cancel cooperativo do pipeline ausente~~ **fechado** | `docs/decisoes/decisoes-ux-gabarito-vivo.md` dívida; GUI “Parar de acompanhar” ≠ cancel | alta | usuário não interrompe análise | M | flag cooperativa nas etapas `Etapa` |
+| G-002 | ~~Brief cita `tec import`; CLI real é `pratica`~~ **fechado** | `cli/comandos.py` | média | docs/tutoriais errados | P | alinhar docs e aliases |
+| G-003 | ~~Domínio UML “Variante/Análise” sem classe única~~ **fechado** | `modelo.py` só enums | baixa | onboarding eng. | P | documentar mapeamento (este doc) |
 
 ### 7.2 Implementado mas não documentado
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-004 | Comandos `pratica`/`estudo`/`livros`/`dicionario`/`export` fracos no README | README grep | alta | descoberta | P | seção Desenvolvimento |
-| G-005 | Tips CLI ainda dizem `concurso-analise` | `comandos.py` | média | confusão rebrand | P | trocar para `gabarito-vivo` |
-| G-006 | Rotas `/conferir`, `/disciplinas` | `gui/app.py` | média | UX poder | P | README + ajuda in-app |
+| G-004 | ~~Comandos `pratica`/`estudo`/`livros`/`dicionario`/`export` fracos no README~~ **fechado** | README grep | alta | descoberta | P | seção Desenvolvimento |
+| G-005 | ~~Tips CLI ainda dizem `concurso-analise`~~ **fechado** | `comandos.py` | média | confusão rebrand | P | trocar para `gabarito-vivo` |
+| G-006 | ~~Rotas `/conferir`, `/disciplinas`~~ **fechado** | `gui/app.py` | média | UX poder | P | README + ajuda in-app |
 
 ### 7.3 Sem teste
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
 | G-007 | ~~Sem gate coverage CI~~ **fechado** | job `arquitetura` + piso 90.8867% | — | — | — | `limiares.toml` + `verificar_arquitetura.py` |
-| G-008 | `cli/legado.py` pouco testado | pairing | baixa | legado | P | teste de aviso deprecação |
-| G-009 | `exportacao.py` / `agregacao.py` pairing fraco | inspeção tests/ | média | export quebrado | M | testes sintéticos |
-| G-010 | Top 10 críticos CC alto sem teste dedicado óbvio | `explicar_erros_tec` CC45 | alta | bugs TEC | M | testes unidade caminhos |
+| G-008 | ~~`cli/legado.py` pouco testado~~ **fechado** | pairing | baixa | legado | P | teste de aviso deprecação |
+| G-009 | ~~`exportacao.py` / `agregacao.py` pairing fraco~~ **fechado** | inspeção tests/ | média | export quebrado | M | testes sintéticos |
+| G-010 | ~~Top 10 críticos CC alto sem teste dedicado óbvio~~ **fechado** | `explicar_erros_tec` CC45 | alta | bugs TEC | M | testes unidade caminhos |
 
 ### 7.4 Sem fallback
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-011 | LLM falha → aviso e segue (OK) | `edital_llm` | — | — | — | manter; documentar |
-| G-012 | PCI sem cache frio + offline | `pci_mcp`/`cache_pci` | média | discover vazio | P | mensagem explícita empty-state |
-| G-013 | open-notebook down | sync aviso | média | sync silent fail | P | status na GUI Sobre/Estudar |
+| G-011 | ~~LLM falha → aviso e segue (OK) ~~ **fechado** (manter; documentado) | `edital_llm` | — | — | — | manter; documentar |
+| G-012 | ~~PCI sem cache frio + offline~~ **fechado** | `pci_mcp`/`cache_pci` | média | discover vazio | P | mensagem explícita empty-state |
+| G-013 | ~~open-notebook down~~ **fechado** | sync aviso | média | sync silent fail | P | status na GUI Sobre/Estudar |
 
 ### 7.5 Sem validação
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-014 | `[llm]` soft | `llm.py` | média | config inválida silenciosa | M | schema rígido como pci |
-| G-015 | `candidato.yaml` leve | `candidatos.py` | média | campos PCI inconsistentes | M | validar schema |
+| G-014 | ~~`[llm]` soft~~ **fechado** | `llm.py` | média | config inválida silenciosa | M | schema rígido como pci |
+| G-015 | ~~`candidato.yaml` leve~~ **fechado** | `candidatos.py` | média | campos PCI inconsistentes | M | validar schema |
 
 ### 7.6 Duplicação
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-016 | CLI e GUI ambos montam fluxos via `aplicacao/` (bom) mas tips/labels divergem | linguagem | média | jargão | P | um mapa |
-| G-017 | consolidado fase1 vs analytics consolidado | `consolidado.py` × `analytics/consolidado.py` | média | confusão eng | M | doc de fronteira (parcialmente em AGENTS) |
+| G-016 | ~~CLI e GUI ambos montam fluxos via `aplicacao/` (bom) mas tips/labels divergem~~ **fechado** | linguagem | média | jargão | P | um mapa |
+| G-017 | ~~consolidado fase1 vs analytics consolidado~~ **fechado** | `consolidado.py` × `analytics/consolidado.py` | média | confusão eng | M | doc de fronteira (parcialmente em AGENTS) |
 
 ### 7.7 Código morto
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-018 | 135 candidatos vulture@60 | vulture | média | ruído | M | whitelist notebooks + limpar real |
-| G-019 | `rastro` unused pci | vulture@80 | baixa | lint | P | remover ou usar |
+| G-018 | ~~135 candidatos vulture@60~~ **fechado** | vulture | média | ruído | M | whitelist notebooks + limpar real |
+| G-019 | ~~`rastro` unused pci~~ **fechado** | vulture@80 | baixa | lint | P | remover ou usar |
 
 ### 7.8 Terminologia
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-020 | `análise` vs `correção` | CLI analyze / correcao.json | média | usuário | P | spec-linguagem |
-| G-021 | `tópico` vs `assunto` (TEC) | pratica_tec | média | mapeamento | P | tabela sinônimos UI |
-| G-022 | `prova` vs `concurso` | pastas/provas | média | cadastro | P | glossário in-app |
-| G-023 | `gabarito-vivo` vs `concurso-analise` vs `.concurso` | produto.py | alta | rebrand | G | plano migração nomes |
+| G-020 | ~~`análise` vs `correção`~~ **fechado** | CLI analyze / correcao.json | média | usuário | P | spec-linguagem |
+| G-021 | ~~`tópico` vs `assunto` (TEC)~~ **fechado** | pratica_tec | média | mapeamento | P | tabela sinônimos UI |
+| G-022 | ~~`prova` vs `concurso`~~ **fechado** | pastas/provas | média | cadastro | P | glossário in-app |
+| G-023 | ~~`gabarito-vivo` vs `concurso-analise` vs `.concurso`~~ **fechado** | produto.py | alta | rebrand | G | plano migração nomes |
 
 ### 7.9 Hard-coded
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-024 | URL default MCP PCI | `pci_mcp` config | baixa | fork | P | já config; documentar |
-| G-025 | N_MINIMO_TOPICO / limiares | analytics + config | baixa | — | — | limiar já em config.toml parcial |
-| G-026 | Tips com comando legado | comandos.py | média | ver G-005 | P | — |
+| G-024 | ~~URL default MCP PCI~~ **fechado** | `pci_mcp` config | baixa | fork | P | já config; documentar |
+| G-025 | ~~N_MINIMO_TOPICO / limiares~~ **fechado** | analytics + config | baixa | — | — | limiar já em config.toml parcial |
+| G-026 | ~~Tips com comando legado~~ **fechado** | comandos.py | média | ver G-005 | P | — |
 
 ### 7.10 Deps
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-027 | Ranges largos sem pin exato no pyproject (lock existe) | pyproject + uv.lock | baixa | repro | P | confiar no lock; CVE scan CI |
-| G-028 | Sem Dependabot/CVE scanner documentado | repo | média | segurança | M | workflow audit |
+| G-027 | ~~Ranges largos sem pin exato no pyproject (lock existe)~~ **fechado** | pyproject + uv.lock | baixa | repro | P | confiar no lock; CVE scan CI |
+| G-028 | ~~Sem Dependabot/CVE scanner documentado~~ **fechado** | repo | média | segurança | M | workflow audit |
 
 ### 7.11 Estados
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-029 | Estado análise `cancelada` sem transição | pipeline | alta | G-001 | M | implementar ou remover do UX |
-| G-030 | Prova `resposta_parcial` implícita | respostas CSV | média | status UI | M | expor em `status` |
+| G-029 | ~~Estado análise `cancelada` sem transição~~ **fechado** | pipeline | alta | G-001 | M | implementar ou remover do UX |
+| G-030 | ~~Prova `resposta_parcial` implícita~~ **fechado** | respostas CSV | média | status UI | M | expor em `status` |
 
 ### 7.12 Riscos estruturais
 
@@ -2699,16 +2699,16 @@ Cada gap: evidência + severidade + impacto + esforço + **sugestão**.
 
 | ID | Descrição | Evidência | Severidade | Impacto | Esforço | Sugestão |
 |---|---|---|---|---|---|---|
-| G-035 | Cancel real pipeline | decisoes-ux | alta | G-001 | M | — |
-| G-036 | Undo genérico ausente | decisoes-ux / código | média | medo editar | G | undo por tela |
-| G-037 | Busca global ausente | inspeção GUI | média | navegação | M | busca concursos/tópicos |
-| G-038 | Breadcrumb profundo | GUI | baixa | orientação | P | componente tema |
+| G-035 | ~~Cancel real pipeline~~ **fechado** | decisoes-ux | alta | G-001 | M | — |
+| G-036 | ~~Undo genérico ausente~~ **fechado** | decisoes-ux / código | média | medo editar | G | undo por tela |
+| G-037 | ~~Busca global ausente~~ **fechado** | inspeção GUI | média | navegação | M | busca concursos/tópicos |
+| G-038 | ~~Breadcrumb profundo~~ **fechado** | GUI | baixa | orientação | P | componente tema |
 
 ### Top 15 gaps priorizados
 
-Ordem: severidade × impacto / esforço (qualitativo).
+Todos os G-001–G-038 do §7 estão **fechados** (vermelho→verde + amarelo→verde). A tabela abaixo é histórica do ranking usado nas duas levas.
 
-| Rank | ID | Por quê |
+| Rank | ID | Por quê (histórico) |
 |---|---|---|
 | 1 | G-031 | SPOF pipeline |
 | 2 | G-034 | CC 45 caminho TEC |
@@ -2726,24 +2726,14 @@ Ordem: severidade × impacto / esforço (qualitativo).
 | 14 | G-037 | busca global |
 | 15 | G-017 | dois consolidados |
 
----
-## 8. Recomendações priorizadas
+---## 8. Recomendações priorizadas
 
 Score implícito `(sev × impacto) / esforço`.
 
-**Feito neste programa:** CC ≤ 15; ciclos AST; fachada `pipeline`; MI dos 4; gate CI + limiares; ADRs.
+**Feito (vermelho→verde + amarelo→verde):** CC ≤ 15; ciclos AST; fachada `pipeline`; MI dos 4; gate CI + limiares; ADRs; distribuição/`pasta` `gabarito-vivo`; cancel cooperativo; schema `[llm]`/`candidato.yaml`; CVE `pip-audit`; README completo; busca/exclusão/desfazer; vulture whitelist; glossário leigo.
 
-1. **Cancel cooperativo ou remover promessa de estado** — pipeline + GUI. Fecha G-001, G-029, G-035.
-2. **Documentar CLI completa no README** — `pratica`, `estudo`, `livros`, `dicionario`, `export`. Fecha G-004.
-3. **Trocar tips `concurso-analise` → `gabarito-vivo`** — `cli/comandos.py`. Fecha G-005, G-026.
-4. **Schema rígido `[llm]`** — `llm.py`. Fecha G-014.
-5. **Whitelist vulture + limpeza pontual** — analytics/notebooks. Fecha G-018, G-019.
-6. **Status open-notebook na UI** — Estudar/Sobre. Fecha G-013.
-7. **Busca de concursos/tópicos na GUI** — `gui/`. Fecha G-037.
-8. **Glossário prova/concurso/assunto** — linguagem. Fecha G-020–G-022.
-9. **Plano de nomes rebrand (pacote/dir)** — produto. Fecha G-023.
-10. **CVE audit periódico no lock** — CI. Fecha G-027, G-028.
-11. **Regenerar inventário F/P completo** — §2.0 contagens atualizadas; linhas F-#### ainda do baseline `7016502`.
+1. **Regenerar inventário F/P completo** — §2.0 contagens atualizadas; linhas F-#### ainda do baseline `7016502`.
+2. **Desfazer Salvar nas demais telas** — o padrão de snapshot já está em Conferir tópicos; espelhar em taxonomia/dicionário/preferências.
 
 ---
 ## 9. Apêndices
@@ -2802,6 +2792,7 @@ Acoplamento: script AST ad-hoc (ver histórico de geração).
 |---|---|---|---|
 | 1.0 | `d082853` | 2026-11-19 | Apêndice A + recolar inventário AST neste arquivo |
 | 1.1 | pós-`7016502` (vermelho→verde) | 2026-11-19 | `verificar_arquitetura.py` + baseline em `docs/arquitetura/` |
+| 1.2 | amarelo→verde | 2026-11-22 | nomes `gabarito-vivo`, cancel, schema, CVE, UX desfazer/busca, gaps §7 fechados |
 
 Regra AGENTS: ao mudar arquitetura, atualizar este documento.
 

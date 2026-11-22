@@ -29,7 +29,7 @@ FERRAMENTAS = (
     'buscar_por_cidade',
     'pesquisar_provas',
 )
-DICA_INSTALAR = "instale o extra: `uv tool install 'concurso-analise[pci]'` (ou `uv sync --extra pci`)"
+DICA_INSTALAR = "instale o extra: `uv tool install 'gabarito-vivo[pci]'` (ou `uv sync --extra pci`)"
 DICA_SERVIDOR = 'o site do PCI pode estar fora do ar; tente de novo mais tarde.'
 DICA_FORMATO = 'atualize o app; o PCI mudou a forma de responder (o app foi testado com a versão 1.0.0 dele).'
 CAUSA_FORMATO = 'O PCI respondeu num formato que o app não conhece.'
@@ -191,6 +191,8 @@ class TransporteSdk:
     def __exit__(
         self, tipo: type[BaseException] | None, erro: BaseException | None, rastro: TracebackType | None
     ) -> None:
+        if erro is not None and rastro is not None:
+            logger.debug('fechando transporte PCI após erro', exc_info=(tipo, erro, rastro))
         self.fechar()
 
     def _abrir(self) -> Any:

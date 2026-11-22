@@ -235,6 +235,47 @@ def acoes_do_concurso(item, mostrado: NomeDoConcurso | None = None) -> None:
                 'Corrigir nome',
                 on_click=lambda: corrigir_nome(nome, mostrado.titulo if mostrado else nome),
             ).mark(f'corrigir-nome-{nome}')
+            ui.menu_item(
+                'Excluir concurso',
+                on_click=lambda n=nome: confirmar_exclusao(n),
+            ).props('class=text-negative').mark(f'excluir-{nome}')
+
+
+def confirmar_exclusao(nome: str) -> None:
+    from concursos.aplicacao import exclusao
+    from concursos.gui.componentes import toasts
+
+    if ESTADO.ocupado:
+        ui.notify('Espere a análise terminar para excluir um concurso.', type='warning')
+        return
+    with ui.dialog() as dialogo, ui.card().classes('w-96'):
+        ui.label(f'Excluir "{nome}"?').classes('text-lg font-bold')
+        ui.label(
+            'A pasta da prova e as análises de todos os candidatos vão para a lixeira. '
+            'Você pode desfazer nesta sessão.'
+        ).classes('text-sm')
+
+        def confirmar() -> None:
+            dialogo.close()
+            try:
+                itens = exclusao.excluir_concurso(ESTADO.contexto(), nome)
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+                return
+
+            def desfazer() -> None:
+                exclusao.desfazer_exclusao(ESTADO.contexto(), itens)
+                ui.navigate.to('/')
+
+            toasts.com_desfazer(f'Concurso {nome} excluído. Desfazer?', desfazer)
+            ui.navigate.to('/')
+
+        with ui.row().style(tema.gap('sm')):
+            ui.button('Excluir', icon='delete', on_click=confirmar).props('color=negative').mark(
+                'confirmar-excluir'
+            )
+            ui.button('Voltar', on_click=dialogo.close).props('flat')
+    dialogo.open()
 
 
 def pedir_analise() -> None:

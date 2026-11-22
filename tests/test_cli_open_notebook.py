@@ -218,7 +218,7 @@ def com_biblioteca(projeto: Path, disciplina: str = 'Conhecimentos') -> None:
         '| SQL Cookbook | Anthony Molinaro | `SQL Cookbook - Anthony Molinaro.pdf` |\n',
         encoding='utf-8',
     )
-    (projeto / '.concurso' / 'biblioteca.yaml').write_text(
+    (projeto / '.gabarito-vivo' / 'biblioteca.yaml').write_text(
         f'catalogo: estante.md\ndisciplinas:\n  {disciplina}: ["TI - Banco de Dados › SQL e Teoria"]\n',
         encoding='utf-8',
     )
@@ -246,7 +246,7 @@ def test_com_biblioteca_a_analise_grava_recomendacoes_e_a_secao_sem_rede(projeto
 
 
 def test_disciplina_fora_da_taxonomia_e_erro_do_usuario(projeto, capsys):
-    (projeto / '.concurso' / 'taxonomia.yaml').write_text(
+    (projeto / '.gabarito-vivo' / 'taxonomia.yaml').write_text(
         'Conhecimentos:\n  bloco: geral\n', encoding='utf-8'
     )
     com_biblioteca(projeto, 'Banco de dados')

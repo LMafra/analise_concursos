@@ -54,7 +54,7 @@ def servidor():
 
 
 def sincronizador(servidor: ServidorOpenNotebook, projeto: Path) -> Sincronizador:
-    estado = EstadoSincronizacao.ler(projeto / '.concurso' / 'open_notebook.json')
+    estado = EstadoSincronizacao.ler(projeto / '.gabarito-vivo' / 'open_notebook.json')
     return Sincronizador(ClienteOpenNotebook(servidor.url), estado)
 
 
@@ -66,7 +66,7 @@ def sincronizar(servidor, projeto, **opcoes) -> Sincronizador:
         projeto / 'analises' / 'zuleica',
         'zuleica',
         limiar=0.6,
-        arquivo_taxonomia=projeto / '.concurso' / 'taxonomia.yaml',
+        arquivo_taxonomia=projeto / '.gabarito-vivo' / 'taxonomia.yaml',
         **opcoes,
     )
     sinc.gravar_estado()
@@ -77,7 +77,7 @@ def test_artefatos_do_concurso_tem_titulo_deterministico_e_cabecalho(projeto):
     documentos, ausentes = artefatos_do_concurso(projeto / 'analises' / 'zuleica' / 'alfa', 'alfa')
 
     titulos = {d.chave: d.titulo for d in documentos}
-    assert titulos['relatorio.md'] == 'concurso-analise: alfa/relatorio.md'
+    assert titulos['relatorio.md'] == 'gabarito-vivo: alfa/relatorio.md'
     assert 'questoes.csv' in titulos and 'relatorio.html' not in titulos
     relatorio = next(d for d in documentos if d.chave == 'relatorio.md')
     assert relatorio.conteudo.startswith('Arquivo: relatorio.md; concurso: alfa\n\n')
@@ -104,7 +104,7 @@ def test_texto_do_html_tira_tags_e_script():
 
 def test_sha256_muda_com_o_conteudo():
     assert Documento('a', 't', 'x').sha256 != Documento('a', 't', 'y').sha256
-    assert titulo_da_source('alfa', 'questoes.csv') == 'concurso-analise: alfa/questoes.csv'
+    assert titulo_da_source('alfa', 'questoes.csv') == 'gabarito-vivo: alfa/questoes.csv'
 
 
 def test_resumo_do_concurso_traz_acertos_e_disciplinas_sem_llm(projeto):
@@ -126,7 +126,7 @@ def test_pseudonimo_estavel_por_instancia(tmp_path):
 
 
 def test_estado_grava_so_quando_muda(tmp_path):
-    estado = EstadoSincronizacao.ler(tmp_path / '.concurso' / 'estado.json')
+    estado = EstadoSincronizacao.ler(tmp_path / '.gabarito-vivo' / 'estado.json')
     estado.rotulo('http://a', 'zuleica', incluir_nome=False)
 
     assert estado.gravar() is True
@@ -140,18 +140,18 @@ def test_primeira_sincronizacao_cria_notebooks_sources_e_notas_sem_nome(projeto,
     assert nomes == ['Consolidado — candidato 1', 'alfa — candidato 1', 'beta — candidato 1']
     alfa = next(i for i, n in servidor.notebooks.items() if n['name'].startswith('alfa'))
     titulos = {s['title'] for s in servidor.sources_do_notebook(alfa)}
-    assert 'concurso-analise: alfa/relatorio.md' in titulos
+    assert 'gabarito-vivo: alfa/relatorio.md' in titulos
     assert [n['title'] for n in servidor.notas_do_notebook(alfa)] == [TITULO_RESUMO]
     assert sinc.relatorio.sucesso and len(sinc.relatorio.notebooks_criados) == 3
     enviado = json.dumps([*servidor.sources.values(), *servidor.notas.values(), *servidor.notebooks.values()])
     assert 'zuleica' not in enviado
-    estado = json.loads((projeto / '.concurso' / 'open_notebook.json').read_text(encoding='utf-8'))
+    estado = json.loads((projeto / '.gabarito-vivo' / 'open_notebook.json').read_text(encoding='utf-8'))
     assert estado['instancias'][servidor.url]['pseudonimos'] == {'zuleica': 'candidato 1'}
 
 
 def test_segunda_sincronizacao_sem_mudanca_nao_escreve_nada(projeto, servidor):
     sincronizar(servidor, projeto)
-    estado = projeto / '.concurso' / 'open_notebook.json'
+    estado = projeto / '.gabarito-vivo' / 'open_notebook.json'
     mtime = estado.stat().st_mtime_ns
     escritas = len(servidor.escritas)
 
@@ -172,12 +172,12 @@ def test_artefato_alterado_apaga_e_recria_so_aquela_source(projeto, servidor):
 
     assert sinc.relatorio.sources_trocadas == 1 and sinc.relatorio.sources_enviadas == 0
     titulos = [s['title'] for s in servidor.sources.values()]
-    assert titulos.count('concurso-analise: alfa/relatorio.md') == 1
+    assert titulos.count('gabarito-vivo: alfa/relatorio.md') == 1
 
 
 def test_estado_perdido_reusa_notebook_e_troca_source_pelo_titulo(projeto, servidor):
     sincronizar(servidor, projeto)
-    (projeto / '.concurso' / 'open_notebook.json').unlink()
+    (projeto / '.gabarito-vivo' / 'open_notebook.json').unlink()
 
     sinc = sincronizar(servidor, projeto)
 
@@ -191,7 +191,7 @@ def test_source_de_outro_titulo_nunca_e_apagada(projeto, servidor):
     sincronizar(servidor, projeto)
     alfa = next(i for i, n in servidor.notebooks.items() if n['name'].startswith('alfa'))
     ClienteOpenNotebook(servidor.url).adicionar_source_texto(alfa, 'minhas anotações', 'texto meu')
-    (projeto / '.concurso' / 'open_notebook.json').unlink()
+    (projeto / '.gabarito-vivo' / 'open_notebook.json').unlink()
 
     sincronizar(servidor, projeto)
 
@@ -327,7 +327,7 @@ def test_recomendacoes_vao_como_nota_do_consolidado(projeto, servidor):
 
     consolidado = next(i for i, n in servidor.notebooks.items() if n['name'].startswith('Consolidado'))
     notas = {n['title']: n['content'] for n in servidor.notas_do_notebook(consolidado)}
-    assert notas['concurso-analise: recomendações de estudo'].startswith('# Recomendações de estudo')
+    assert notas['gabarito-vivo: recomendações de estudo'].startswith('# Recomendações de estudo')
 
 
 def test_caderno_de_erros_vira_notebook_com_uma_source_por_disciplina(projeto, servidor):
@@ -342,8 +342,8 @@ def test_caderno_de_erros_vira_notebook_com_uma_source_por_disciplina(projeto, s
     assert servidor.notebooks[notebook]['name'] == 'Caderno de erros — candidato 1'
     titulos = sorted(s['title'] for s in servidor.sources_do_notebook(notebook))
     assert titulos == [
-        'concurso-analise: caderno de erros/Legislação Tributária',
-        'concurso-analise: caderno de erros/Sem disciplina',
+        'gabarito-vivo: caderno de erros/Legislação Tributária',
+        'gabarito-vivo: caderno de erros/Sem disciplina',
     ]
     escritas = len(servidor.escritas)
     sincronizar(servidor, projeto, caderno_de_erros=caderno)

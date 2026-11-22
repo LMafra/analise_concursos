@@ -298,7 +298,7 @@ def sincronizar_depois_da_analise(opcoes: Opcoes, candidatos: list[str | None]) 
         avisar(
             logger,
             'Algo deu errado ao atualizar seus materiais de estudo; a análise seguiu normalmente.',
-            'tente de novo mais tarde; se continuar, veja o registro em ~/.concurso/logs/.',
+            'tente de novo mais tarde; se continuar, veja o registro em ~/.gabarito-vivo/logs/.',
             str(erro),
         )
         logger.debug('open-notebook: detalhe da falha', exc_info=True)
@@ -326,7 +326,7 @@ def exigir_pci_ligado(configuracao: ConfiguracaoPciMcp) -> None:
     if not configuracao.enabled:
         raise ErroDoUsuario(
             'A busca de concursos abertos (PCI Concursos) está desligada.',
-            'ligue em Concursos > Encontrar concursos ou com concurso-analise pci enable.',
+            'ligue em Concursos > Encontrar concursos ou com gabarito-vivo pci enable.',
         )
 
 
@@ -455,7 +455,7 @@ def interesses(contexto: Contexto) -> Interesses:
     except ConfiguracaoInvalidaError as erro:
         raise ErroDoUsuario(
             'Não consegui ler a lista dos concursos que você acompanha.',
-            'apague o arquivo .concurso/interesses_pci.yaml e acompanhe os concursos de novo.',
+            'apague o arquivo .gabarito-vivo/interesses_pci.yaml e acompanhe os concursos de novo.',
             str(erro),
         ) from erro
 
@@ -715,7 +715,7 @@ def _finalizar_importacao_simulado(opcoes: Opcoes, pasta: Path, encontrados: dic
     except ValueError as erro:
         raise ErroDoUsuario(
             f'{pasta.name}: não consegui terminar o cadastro da prova.',
-            f'confira os arquivos e rode concurso-analise add {pasta}.',
+            f'confira os arquivos e rode gabarito-vivo add {pasta}.',
             str(erro),
         ) from erro
     if not cadastrado:
@@ -723,7 +723,7 @@ def _finalizar_importacao_simulado(opcoes: Opcoes, pasta: Path, encontrados: dic
     revisar_simulado(opcoes.contexto, pasta)
     opcoes.saida(
         f'simulado pronto em {pasta}; acrescente suas respostas com '
-        f'`concurso-analise add <arquivo> --candidate <nome> --concurso {pasta.name}`'
+        f'`gabarito-vivo add <arquivo> --candidate <nome> --concurso {pasta.name}`'
     )
     return 0
 
@@ -768,7 +768,7 @@ def importar_simulado(
     relatorio_html.abrir_no_navegador(link)
     if not arquivos:
         opcoes.saida(
-            f'abri {link}; salve os PDFs da prova e do gabarito em {pasta} e rode `concurso-analise add {pasta}`'
+            f'abri {link}; salve os PDFs da prova e do gabarito em {pasta} e rode `gabarito-vivo add {pasta}`'
         )
         return 0
     opcoes.saida(
@@ -780,7 +780,7 @@ def importar_simulado(
     if not encontrados:
         raise ErroDoUsuario(
             f'Nenhum arquivo da prova apareceu na sua pasta de downloads ({downloads}).',
-            f'salve os PDFs em {pasta} e rode concurso-analise add {pasta}.',
+            f'salve os PDFs em {pasta} e rode gabarito-vivo add {pasta}.',
             'a pasta de downloads se ajusta em pasta_downloads, na seção [pci_mcp]',
         )
     return _finalizar_importacao_simulado(opcoes, pasta, encontrados)

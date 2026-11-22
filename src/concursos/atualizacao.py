@@ -55,7 +55,7 @@ def verificar(config: ConcursoConfig) -> Pendencias:
     Troca só quando cada prova tem um único candidato e não há outro arquivo pendente; qualquer outro caso
     vira motivo de concurso desatualizado.
     """
-    instrucao = f'rode `concurso-analise add {config.pasta}`'
+    instrucao = f'rode `gabarito-vivo add {config.pasta}`'
     preliminares = [p for p in config.provas if p.gabarito.status is StatusGabarito.PRELIMINAR]
     candidatos = _candidatos_ja_definitivos(config, preliminares)
     motivos = _motivos_nao_cadastrados(config, preliminares, candidatos, instrucao)

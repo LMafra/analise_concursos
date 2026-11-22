@@ -49,7 +49,7 @@ def test_notebook_compartilhado_reusa_pelo_nome(servidor, tmp_path):
 
 def test_depois_da_analise_usa_a_instancia_gerenciada_quando_preparada(tmp_path, monkeypatch):
     contexto = Contexto(
-        tmp_path, tmp_path / 'home', tmp_path / '.concurso', tmp_path / 'provas', tmp_path / 'a'
+        tmp_path, tmp_path / 'home', tmp_path / '.gabarito-vivo', tmp_path / 'provas', tmp_path / 'a'
     )
     chamadas = []
     monkeypatch.setattr(
@@ -68,7 +68,7 @@ def test_depois_da_analise_usa_a_instancia_gerenciada_quando_preparada(tmp_path,
 
 def test_sem_preparar_nada_e_sincronizado(tmp_path, monkeypatch):
     contexto = Contexto(
-        tmp_path, tmp_path / 'home', tmp_path / '.concurso', tmp_path / 'provas', tmp_path / 'a'
+        tmp_path, tmp_path / 'home', tmp_path / '.gabarito-vivo', tmp_path / 'provas', tmp_path / 'a'
     )
     monkeypatch.setattr(
         integracoes, 'sincronizar_gerenciada', lambda *a: pytest.fail('não devia sincronizar')
@@ -79,7 +79,7 @@ def test_sem_preparar_nada_e_sincronizado(tmp_path, monkeypatch):
 
 def test_falha_do_open_notebook_do_app_nao_manda_configurar_o_endereco(tmp_path, monkeypatch, caplog):
     contexto = Contexto(
-        tmp_path, tmp_path / 'home', tmp_path / '.concurso', tmp_path / 'provas', tmp_path / 'a'
+        tmp_path, tmp_path / 'home', tmp_path / '.gabarito-vivo', tmp_path / 'provas', tmp_path / 'a'
     )
     monkeypatch.setattr(
         estudo, 'situacao_do_estudo', lambda c: estudo.SituacaoEstudo(True, '1.15.1-1', False, False, '')

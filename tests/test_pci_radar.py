@@ -103,7 +103,7 @@ def projeto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, home_isolada: Path)
     raiz = tmp_path / 'projeto'
     pasta = raiz / 'provas' / 'alfa'
     pasta.mkdir(parents=True)
-    (raiz / '.concurso').mkdir()
+    (raiz / '.gabarito-vivo').mkdir()
     (pasta / 'concurso.yaml').write_text(yaml.safe_dump(com_edital_minimo(pasta, CONCURSO)), encoding='utf-8')
     (pasta / 'gabarito.txt').write_text('1 A\n2 B\n3 C\n4 D\n', encoding='utf-8')
     candidata = pasta / 'candidatos' / 'alice'
@@ -225,4 +225,4 @@ def test_doctor_sem_o_extra_avisa_como_instalar(projeto: Path, monkeypatch: pyte
     monkeypatch.setattr('concursos.doctor._sdk_mcp_instalado', lambda: False)
     ligar()
     main(['doctor'])
-    assert "uv tool install 'concurso-analise[pci]'" in capsys.readouterr().out
+    assert "uv tool install 'gabarito-vivo[pci]'" in capsys.readouterr().out

@@ -14,8 +14,11 @@ logger = logging.getLogger('concursos')
 
 
 def pagina(concurso: str | None = None) -> None:
+    from concursos.gui.componentes.navegacao import breadcrumb
+
     if not exigir_projeto():
         return
+    breadcrumb(('Minhas Provas', '/'), ('Respostas', None))
     FormularioDeRespostas(concurso)
 
 

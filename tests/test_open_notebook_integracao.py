@@ -20,9 +20,9 @@ def cliente() -> ClienteOpenNotebook:
 
 
 def test_sincroniza_duas_vezes_sem_escrever_na_segunda(cliente, tmp_path):
-    nome = f'concurso-analise teste {uuid.uuid4().hex[:8]}'
-    documento = Documento('relatorio.md', 'concurso-analise: teste/relatorio.md', '# Relatório fictício\n')
-    nota = Documento('resumo', 'concurso-analise: resumo executivo', 'Resumo fictício.\n')
+    nome = f'gabarito-vivo teste {uuid.uuid4().hex[:8]}'
+    documento = Documento('relatorio.md', 'gabarito-vivo: teste/relatorio.md', '# Relatório fictício\n')
+    nota = Documento('resumo', 'gabarito-vivo: resumo executivo', 'Resumo fictício.\n')
     estado = EstadoSincronizacao.ler(tmp_path / 'estado.json')
 
     primeira = Sincronizador(cliente, estado)

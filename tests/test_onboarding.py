@@ -62,7 +62,7 @@ def test_aceitando_os_padroes_grava_as_tres_configuracoes_e_gera_o_indice(
     candidato = candidato_padrao()
     assert candidato in ler(home_isolada / 'config.toml')['candidatos']['conhecidos']
     assert (home_isolada / 'candidatos' / f'{candidato}.toml').exists()
-    projeto_toml = ler(projeto / '.concurso' / 'config.toml')
+    projeto_toml = ler(projeto / '.gabarito-vivo' / 'config.toml')
     assert projeto_toml['pastas'] == {'provas': 'provas', 'analises': 'analises'}
     assert projeto_toml['candidato']['ultimo'] == candidato
     assert (projeto / 'analises' / candidato / 'index.html').exists()
@@ -76,7 +76,7 @@ def test_sem_tty_nada_e_perguntado_e_os_padroes_vao_para_o_log(projeto, monkeypa
         assert main([]) == 0
 
     assert 'usando os padrões' in caplog.text
-    assert (projeto / '.concurso' / 'config.toml').exists()
+    assert (projeto / '.gabarito-vivo' / 'config.toml').exists()
 
 
 def test_llm_pela_variavel_sem_tty_mostra_o_que_vai_para_o_provedor(
@@ -100,7 +100,7 @@ def test_provedor_invalido_na_variavel_e_erro_com_dica(projeto, monkeypatch, cap
 
     erro = capsys.readouterr().err
     assert 'chatbot' in erro and 'dica:' in erro
-    assert not (projeto / '.concurso' / 'config.toml').exists()
+    assert not (projeto / '.gabarito-vivo' / 'config.toml').exists()
 
 
 def test_com_yes_usa_os_padroes_mesmo_com_tty(projeto, monkeypatch):
@@ -108,7 +108,7 @@ def test_com_yes_usa_os_padroes_mesmo_com_tty(projeto, monkeypatch):
     roteirizar(monkeypatch, '')
 
     assert main(['--yes']) == 0
-    assert (projeto / '.concurso' / 'config.toml').exists()
+    assert (projeto / '.gabarito-vivo' / 'config.toml').exists()
 
 
 def test_segunda_execucao_nao_pergunta_e_init_oferece_as_respostas_atuais(projeto, monkeypatch, capsys):
@@ -125,7 +125,7 @@ def test_segunda_execucao_nao_pergunta_e_init_oferece_as_respostas_atuais(projet
     assert main(['init']) == 0
     saida = capsys.readouterr().out
     assert '[1/6] Seu nome [Ana Souza]' in saida
-    assert ler(projeto / '.concurso' / 'config.toml')['candidato']['ultimo'] == 'ana_souza'
+    assert ler(projeto / '.gabarito-vivo' / 'config.toml')['candidato']['ultimo'] == 'ana_souza'
 
 
 def test_pasta_de_provas_inexistente_e_criada_com_leia_me(projeto, monkeypatch, capsys):
@@ -144,17 +144,17 @@ def test_recusar_o_resumo_nao_grava_nada(projeto, monkeypatch):
     roteirizar(monkeypatch, '\n\n\n\n\nn\n')
 
     assert main([]) == 1
-    assert not (projeto / '.concurso').exists()
+    assert not (projeto / '.gabarito-vivo').exists()
 
 
 def test_respostas_por_flag_e_variavel_nao_sao_perguntadas(projeto, tmp_path, monkeypatch, capsys):
     outras = tmp_path / 'outras'
     criar_concurso(outras, 'alfa', CONFIG, ARQUIVOS)
-    monkeypatch.setenv('CONCURSO_CANDIDATO', 'Bia')
+    monkeypatch.setenv('GABARITO_VIVO_CANDIDATO', 'Bia')
     roteirizar(monkeypatch, '\n' * 10)
 
     assert main(['--provas', str(outras)]) == 0
 
     saida = capsys.readouterr().out
     assert 'Seu nome' not in saida and 'Pasta de provas' not in saida
-    assert ler(projeto / '.concurso' / 'config.toml')['pastas']['provas'] == str(outras)
+    assert ler(projeto / '.gabarito-vivo' / 'config.toml')['pastas']['provas'] == str(outras)

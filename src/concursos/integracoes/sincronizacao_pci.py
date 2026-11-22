@@ -1,4 +1,4 @@
-"""O que o app faz com o PCI: descoberta, interesses (`.concurso/interesses_pci.yaml`) e a sessão de consultas."""
+"""O que o app faz com o PCI: descoberta, interesses (`.gabarito-vivo/interesses_pci.yaml`) e a sessão de consultas."""
 
 import json
 import logging

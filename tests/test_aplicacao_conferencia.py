@@ -26,7 +26,7 @@ def contexto(tmp_path) -> Contexto:
     contexto = Contexto(
         raiz=tmp_path,
         home=tmp_path / 'home',
-        projeto=tmp_path / '.concurso',
+        projeto=tmp_path / '.gabarito-vivo',
         provas=tmp_path / 'provas',
         analises=tmp_path / 'analises',
     )

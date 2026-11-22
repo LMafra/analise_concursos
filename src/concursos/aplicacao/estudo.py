@@ -267,7 +267,7 @@ def avisar_atualizacao_da_biblioteca(opcoes: Opcoes, transporte=None) -> None:  
     if disponivel is not None:
         opcoes.saida(
             f'biblioteca: versão nova {disponivel.manifesto.versao}; '
-            'para instalar: concurso-analise estudo preparar'
+            'para instalar: gabarito-vivo estudo preparar'
         )
 
 

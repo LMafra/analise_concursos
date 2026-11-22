@@ -1,5 +1,5 @@
 [project]
-name = "concurso-analise"
+name = "gabarito-vivo"
 version = "0.7.0b3"
 description = "Gabarito Vivo: correção e análise de provas de concurso por disciplina e tópico"
 readme = "README.md"
@@ -45,9 +45,6 @@ gui = [
 [project.scripts]
 gabarito-vivo = "concursos.cli:executar"
 gabarito-vivo-gui = "concursos.cli:executar_gui"
-concurso-analise = "concursos.cli:executar_legado_analise"
-concurso-analise-gui = "concursos.cli:executar_gui_legado"
-concursos = "concursos.cli:executar_legado"
 
 [build-system]
 requires = ["uv_build>=0.13.0,<0.14.0"]

@@ -39,7 +39,31 @@ jobs:
         run: uv run pytest
 
       - name: Smoke de ponta a ponta (uvx num projeto temporário)
-        run: uv run --no-project python scripts/smoke.py uvx --python ${{ matrix.python }} --from "${{ github.workspace }}" concurso-analise
+        run: uv run --no-project python scripts/smoke.py uvx --python ${{ matrix.python }} --from "${{ github.workspace }}" gabarito-vivo
+
+  cve:
+    name: cve / pip-audit
+    runs-on: ubuntu-latest
+    env:
+      CI: 'true'
+      NO_COLOR: '1'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.13.0'
+          python-version: '3.12'
+          enable-cache: true
+
+      - name: Dependências
+        run: uv sync --locked --extra gui --extra llm --extra pci
+
+      - name: Exportar requirements do lock
+        run: uv export --frozen --no-dev --extra gui --extra llm --extra pci -o /tmp/requirements-audit.txt
+
+      - name: pip-audit
+        run: uv run --no-project python scripts/auditar_cve.py /tmp/requirements-audit.txt
 
   arquitetura:
     name: arquitetura / Python 3.12
@@ -88,8 +112,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Imagem
-        run: docker build -t concurso-analise .
+        run: docker build -t gabarito-vivo .
       - name: Doctor e smoke no container
         run: |
-          docker run --rm -v /tmp:/dados concurso-analise doctor
-          docker run --rm -v "$PWD/scripts:/s:ro" --entrypoint python concurso-analise /s/smoke.py
+          docker run --rm -v /tmp:/dados gabarito-vivo doctor
+          docker run --rm -v "$PWD/scripts:/s:ro" --entrypoint python gabarito-vivo /s/smoke.py

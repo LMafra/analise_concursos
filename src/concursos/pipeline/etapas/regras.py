@@ -51,7 +51,7 @@ def regras_do_edital(
 
 
 def taxonomia_do_contexto() -> dict[str, DisciplinaCanonica] | None:
-    """Taxonomia do projeto (`.concurso/` ou legado na raiz); vazia ou inválida vira None na validação."""
+    """Taxonomia do projeto (`.gabarito-vivo/` ou legado na raiz); vazia ou inválida vira None na validação."""
     caminho = resolver_contexto().taxonomia
     if not caminho.exists():
         return None

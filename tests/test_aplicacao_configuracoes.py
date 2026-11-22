@@ -10,7 +10,7 @@ from concursos.erros import ErroDoUsuario
 
 @pytest.fixture
 def contexto(tmp_path: Path):
-    return resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.concurso')
+    return resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.gabarito-vivo')
 
 
 @pytest.fixture

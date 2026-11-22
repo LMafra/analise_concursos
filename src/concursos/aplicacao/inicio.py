@@ -27,7 +27,7 @@ def executar_onboarding(
         respostas = onboarding.perguntar(contexto, set(opcoes.fornecidos), opcoes.interacao, ambiente)
     except onboarding.OnboardingCanceladoError:
         raise ErroDoUsuario(
-            'Configuração inicial cancelada; nada foi gravado.', 'rode concurso-analise init quando quiser.'
+            'Configuração inicial cancelada; nada foi gravado.', 'rode gabarito-vivo init quando quiser.'
         ) from None
     except CalibracaoError as erro:
         raise ErroDoUsuario(
@@ -48,7 +48,7 @@ def executar_onboarding(
     if contexto.provas.is_dir() and not listar_concursos(contexto.provas):
         opcoes.saida(
             f'nenhum concurso em {contexto.provas} ainda; siga o {onboarding.ARQUIVO_LEIA_ME} '
-            'e rode `concurso-analise` de novo'
+            'e rode `gabarito-vivo` de novo'
         )
         return 0
     return analisar(opcoes)

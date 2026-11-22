@@ -94,9 +94,9 @@ def test_perfil_calibrado_e_usado_nas_leituras_do_projeto(projeto, monkeypatch):
 
     assert main(['--yes', 'init']) == 0
 
-    calibrado = yaml.safe_load((projeto / '.concurso' / ARQUIVO_CALIBRADO).read_text(encoding='utf-8'))
+    calibrado = yaml.safe_load((projeto / '.gabarito-vivo' / ARQUIVO_CALIBRADO).read_text(encoding='utf-8'))
     assert calibrado['alternativas'] == 'ABCD'
-    assert (projeto / '.concurso' / 'calibracao.png').exists()
+    assert (projeto / '.gabarito-vivo' / 'calibracao.png').exists()
     respostas = ler_csv(projeto / 'analises' / candidato_padrao() / 'ficticia' / 'respostas_extraidas.csv')
     assert ''.join(respostas['alternativa_marcada']) == ''.join(MARCAS[q] for q in range(1, TOTAL + 1))
 
@@ -107,7 +107,7 @@ def test_calibracao_reprovada_nao_grava_nada(projeto, monkeypatch, capsys):
     assert main(['--yes', 'init']) == 1
 
     assert 'dica:' in capsys.readouterr().err
-    assert not (projeto / '.concurso').exists()
+    assert not (projeto / '.gabarito-vivo').exists()
 
 
 def test_no_wizard_a_calibracao_reprovada_explica_e_pergunta_de_novo(
@@ -124,4 +124,4 @@ def test_no_wizard_a_calibracao_reprovada_explica_e_pergunta_de_novo(
     saida = capsys.readouterr().out
     assert 'erro: você digitou E' in saida and 'dica:' in saida
     assert 'Calibração aprovada' in saida
-    assert (projeto / '.concurso' / ARQUIVO_CALIBRADO).exists()
+    assert (projeto / '.gabarito-vivo' / ARQUIVO_CALIBRADO).exists()

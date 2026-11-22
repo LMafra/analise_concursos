@@ -5,9 +5,8 @@ Consolida o diagnóstico UI/UX, as respostas NotebookLM (blocos A–E) e o grill
 ## Entrega
 
 - **Leva única** do diagnóstico §1–§8 + rename, em **5 PRs** com gate (tokens/relatório → chrome/IA → padrões → rename → aceite).
-- Pacote Python `concursos` e pasta `.concurso/` **não** mudam de nome.
-- Distribuição PyPI/uv permanece `concurso-analise` (`importlib.metadata`); o comando principal é `gabarito-vivo`.
-- Alias CLI `concurso-analise` / `concurso-analise-gui` com aviso de deprecation até a próxima major.
+- Pacote Python `concursos` permanece; pasta de dados e projeto é `.gabarito-vivo/` (migração única a partir de `.concurso/`).
+- Distribuição PyPI/uv e comando: `gabarito-vivo`. Sem alias legado.
 - Aceite: `docs/produto/checklist-aceite-gabarito-vivo.md`.
 
 ## Navegação
@@ -32,9 +31,9 @@ Progressive disclosure: top 3–5 fracos por impacto; disciplinas em `<details>`
 ## Fluxos
 
 - Onboarding ≤3 passos; sem área de foco no schema; aterrissagem: há diagnóstico → Resultados, senão Minhas Provas + CTA.
-- Loading: etapas leigas + skeleton + log em accordion; botão **“Parar de acompanhar”** (nunca “cancelar”).
+- Loading: etapas leigas + skeleton + log em accordion; botão **Cancelar análise** (corte cooperativo entre etapas; pasta temporária).
 - Conferir + edital a confirmar: master-detail + sticky; novo concurso: wizard.
-- Excluir prova/gabarito: Undo via toast; modal só para apagar tudo.
+- Excluir concurso / livro / Salvar: Undo via toast e lixeira de sessão; modal de confirmação na exclusão do concurso.
 - On-blur + inline; sumário se >7 campos; dirty nav com “Continuar editando”.
 - Falha parcial PCI/IA: banner no bloco; ≤1 toast consolidado.
 - Toasts: sucesso 4–6 s; erro persistente + `aria-live`.
@@ -53,7 +52,7 @@ Cinco tarefas think-aloud (diagnóstico, estudo da semana, lacuna, tendência, t
 
 ## Fora de escopo desta leva
 
-Telemetria; nuvem; rename do GitHub / pacote Python / `.concurso/`; tipografia display; motion fino; visual-regression automatizada NiceGUI; cancel cooperativo no pipeline (dívida mínima se não couber); área de foco modelada.
+Telemetria; nuvem; rename do repositório GitHub / pacote Python `concursos`; tipografia display; motion fino; visual-regression automatizada NiceGUI; área de foco modelada.
 
 ## Protótipos HTML — o que não entra
 

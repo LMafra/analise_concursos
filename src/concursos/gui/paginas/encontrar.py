@@ -196,12 +196,21 @@ class PainelEncontrar:
                 mostrar_erro(erro)
                 return
         self.botao.disable()
+        self.mensagem_vazia = None
         try:
             self.concursos = await run.io_bound(
                 integracoes.descobrir, Opcoes(ESTADO.contexto()), refresh=refresh, **filtros
             )
         except Exception as erro:  # noqa: BLE001
             logger.debug('falha na busca do PCI pela GUI', exc_info=True)
+            causa = getattr(erro, 'causa', str(erro))
+            if 'sem rede' in causa.lower() or 'sem cache' in causa.lower() or 'offline' in causa.lower():
+                self.concursos = []
+                self.mensagem_vazia = (
+                    'Sem internet e sem resultado guardado. Ligue a internet ou busque de novo mais tarde.'
+                )
+                self.mostrar()
+                return
             mostrar_erro(erro)
             return
         finally:
@@ -213,7 +222,7 @@ class PainelEncontrar:
         self.resultado.clear()
         with self.resultado:
             if not self.concursos:
-                ui.label('Nenhum concurso com esses filtros.')
+                ui.label(getattr(self, 'mensagem_vazia', None) or 'Nenhum concurso com esses filtros.')
                 return
             for concurso in self.concursos:
                 with ui.card().classes('w-full').mark(f'concurso-{concurso.id}'):

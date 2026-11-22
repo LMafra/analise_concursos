@@ -50,7 +50,7 @@ def hashes(raiz: Path) -> dict[str, str]:
 
 
 def config_toml(raiz: Path) -> dict:
-    return tomllib.loads((raiz / '.concurso' / 'config.toml').read_text(encoding='utf-8'))
+    return tomllib.loads((raiz / '.gabarito-vivo' / 'config.toml').read_text(encoding='utf-8'))
 
 
 def backups(home: Path) -> list[Path]:
@@ -99,7 +99,7 @@ def test_configuracao_e_taxonomia_vao_para_o_projeto(legado):
     assert config['analise'] == {'limiar_topico_baixo': 0.4}
     assert config['candidato']['ultimo'] == candidato_padrao()
     assert config['migracao']['versao'] == 4
-    taxonomia = legado / '.concurso' / 'taxonomia.yaml'
+    taxonomia = legado / '.gabarito-vivo' / 'taxonomia.yaml'
     assert taxonomia.read_text(encoding='utf-8') == TAXONOMIA_LEGADA
     assert not (legado / 'config.yaml').exists()
     assert not (legado / 'taxonomia.yaml').exists()
@@ -156,7 +156,7 @@ def test_dry_run_lista_a_migracao_e_nao_grava_nada(legado, home_isolada, capsys)
     assert 'migraria' in saida
     assert str(Path('analises', 'alfa')) in saida and 'config.yaml' in saida
     assert hashes(legado) == antes
-    assert not (legado / '.concurso').exists()
+    assert not (legado / '.gabarito-vivo').exists()
     assert backups(home_isolada) == []
 
 

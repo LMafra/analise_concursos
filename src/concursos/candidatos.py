@@ -153,6 +153,60 @@ def _avisar_revisao_antiga(config: ConcursoConfig, revisado: Path) -> None:
         )
 
 
+_CAMPOS_CANDIDATO = frozenset({'nome', 'respostas', 'resultado_oficial'})
+_CAMPOS_RESPOSTAS = frozenset({'arquivo', 'folha'})
+_CAMPOS_RESULTADO = frozenset({'identificador'})
+
+
+def _validar_respostas_perfil(caminho: Path, respostas: object) -> None:
+    if not isinstance(respostas, dict):
+        raise ConfiguracaoInvalidaError(f'{caminho}: respostas = {respostas!r} é inválido')
+    extras = sorted(set(respostas) - _CAMPOS_RESPOSTAS)
+    if extras:
+        raise ConfiguracaoInvalidaError(
+            f'{caminho}: respostas tem campo desconhecido {", ".join(extras)}'
+        )
+    tem_arquivo = 'arquivo' in respostas
+    tem_folha = 'folha' in respostas
+    if tem_arquivo == tem_folha:
+        raise ConfiguracaoInvalidaError(
+            f'{caminho}: respostas precisa de arquivo ou folha, só um dos dois'
+        )
+    chave = 'arquivo' if tem_arquivo else 'folha'
+    if not isinstance(respostas[chave], str) or not respostas[chave]:
+        raise ConfiguracaoInvalidaError(f'{caminho}: respostas.{chave} = {respostas[chave]!r} é inválido')
+
+
+def _validar_resultado_perfil(caminho: Path, resultado: object) -> None:
+    if not isinstance(resultado, dict):
+        raise ConfiguracaoInvalidaError(f'{caminho}: resultado_oficial = {resultado!r} é inválido')
+    extras = sorted(set(resultado) - _CAMPOS_RESULTADO)
+    if extras:
+        raise ConfiguracaoInvalidaError(
+            f'{caminho}: resultado_oficial tem campo desconhecido {", ".join(extras)}'
+        )
+    if 'identificador' in resultado and not isinstance(resultado['identificador'], str):
+        raise ConfiguracaoInvalidaError(
+            f'{caminho}: resultado_oficial.identificador = {resultado["identificador"]!r} é inválido'
+        )
+
+
+def _validar_perfil(caminho: Path, dados: dict) -> dict:
+    desconhecidos = sorted(set(dados) - _CAMPOS_CANDIDATO)
+    if desconhecidos:
+        raise ConfiguracaoInvalidaError(
+            f'{caminho}: campo desconhecido {", ".join(desconhecidos)}; '
+            f'os campos são {", ".join(sorted(_CAMPOS_CANDIDATO))}'
+        )
+    if 'nome' in dados and not isinstance(dados['nome'], str):
+        raise ConfiguracaoInvalidaError(f'{caminho}: nome = {dados["nome"]!r} é inválido')
+    if 'respostas' in dados:
+        _validar_respostas_perfil(caminho, dados['respostas'])
+    if 'resultado_oficial' in dados:
+        _validar_resultado_perfil(caminho, dados['resultado_oficial'])
+    return dados
+
+
 def ler_perfil(config: ConcursoConfig, candidato: str) -> dict:
     """O `candidato.yaml`; sem ele, o perfil inferido dos arquivos da subpasta."""
     pasta = pasta_do_candidato(config.pasta, candidato)
@@ -160,9 +214,12 @@ def ler_perfil(config: ConcursoConfig, candidato: str) -> dict:
     if not caminho.exists():
         return inferir_perfil(pasta)
     try:
-        return yaml.safe_load(caminho.read_text(encoding='utf-8')) or {}
+        dados = yaml.safe_load(caminho.read_text(encoding='utf-8')) or {}
     except yaml.YAMLError as erro:
         raise ConfiguracaoInvalidaError(f'{caminho}: {erro}') from erro
+    if not isinstance(dados, dict):
+        raise ConfiguracaoInvalidaError(f'{caminho}: o perfil precisa ser um mapeamento')
+    return _validar_perfil(caminho, dados)
 
 
 def inferir_perfil(pasta: Path) -> dict:

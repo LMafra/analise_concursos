@@ -212,8 +212,8 @@ def test_incluir_simulados_no_projeto_traz_o_simulado(tmp_path: Path, monkeypatc
     raiz = tmp_path / 'projeto'
     provas, analises = raiz / 'provas', raiz / 'analises'
     provas.mkdir(parents=True)
-    (raiz / '.concurso').mkdir()
-    (raiz / '.concurso' / 'config.toml').write_text('[analise]\nincluir_simulados = true\n', encoding='utf-8')
+    (raiz / '.gabarito-vivo').mkdir()
+    (raiz / '.gabarito-vivo' / 'config.toml').write_text('[analise]\nincluir_simulados = true\n', encoding='utf-8')
     monkeypatch.chdir(raiz)
     (raiz / 'config.yaml').write_text('incluir_simulados: true\n', encoding='utf-8')
 
@@ -229,7 +229,7 @@ def test_add_de_respostas_data_o_simulado_com_hoje(tmp_path: Path, monkeypatch: 
     raiz = tmp_path / 'projeto'
     provas = raiz / 'provas'
     provas.mkdir(parents=True)
-    (raiz / '.concurso').mkdir()
+    (raiz / '.gabarito-vivo').mkdir()
     monkeypatch.chdir(raiz)
     sem_data = {chave: valor for chave, valor in SIMULADO.items() if chave != 'data_prova'}
     pasta = criar_concurso(provas, 'simulado', sem_data, {'gabarito.txt': ARQUIVOS_SIMULADO['gabarito.txt']})
@@ -248,7 +248,7 @@ def test_add_de_respostas_data_o_simulado_com_hoje(tmp_path: Path, monkeypatch: 
 def projeto_pci(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     raiz = tmp_path / 'projeto'
     (raiz / 'provas').mkdir(parents=True)
-    (raiz / '.concurso').mkdir()
+    (raiz / '.gabarito-vivo').mkdir()
     monkeypatch.chdir(raiz)
     criar_concurso(raiz / 'provas', 'alvo', ALVO, ARQUIVOS_ALVO)
     falso = TransporteFalso(

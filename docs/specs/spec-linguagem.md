@@ -265,3 +265,14 @@ Moram em `analytics/painel.py`, com teste.
 - **Tradução de avisos:** cada aviso que o código produz tem padrão em `linguagem.traduzir_aviso`.
 - **GUI:** nenhum `ui.button` com "open-notebook", "MCP", "embedding", "cache", "TF-IDF", "LLM", "CSV", "limiar"; todo nome de arquivo na tela vem de `rotulo_do_arquivo` (`tests/gui/test_rotulos_de_arquivo.py`); o detalhe técnico de um erro fica num "Ver detalhes técnicos" fechado.
 - **Paridade:** `scripts/paridade.py comparar --esperadas scripts/paridade_esperadas.toml` sai com 0 depois da mudança.
+
+## 9. Glossário prova / concurso / tópico
+
+| Termo | Significado na tela |
+|---|---|
+| análise | O diagnóstico completo (notas, tópicos, relatório). |
+| correção | A nota da prova segundo a regra da banca e do edital. |
+| tópico | Tema do edital mapeado às questões. |
+| assunto | Tema do TEC; o app traduz para tópico do edital. |
+| prova | Um caderno (bloco de questões) dentro do concurso. |
+| concurso | A pasta em `provas/` (edital, gabaritos, respostas). |

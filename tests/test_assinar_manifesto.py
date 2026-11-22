@@ -34,8 +34,8 @@ def chave(monkeypatch) -> str:
 
 def release(pasta: Path, versao: str = '0.6.0') -> Path:
     pasta.mkdir(exist_ok=True)
-    (pasta / f'concurso-analise-{versao}-windows-x64-setup.exe').write_bytes(b'win')
-    (pasta / f'concurso-analise-{versao}-linux-x86_64.AppImage').write_bytes(b'linux')
+    (pasta / f'gabarito-vivo-{versao}-windows-x64-setup.exe').write_bytes(b'win')
+    (pasta / f'gabarito-vivo-{versao}-linux-x86_64.AppImage').write_bytes(b'linux')
     (pasta / 'SHA256SUMS').write_text('x')
     return pasta
 
@@ -59,7 +59,7 @@ def test_recusa_chave_que_nao_esta_no_pacote(script, chave, tmp_path):
 
 def test_recusa_release_sem_os_dois_artefatos(script, chave, tmp_path):
     pasta = release(tmp_path / 'dist')
-    (pasta / 'concurso-analise-0.6.0-linux-x86_64.AppImage').unlink()
+    (pasta / 'gabarito-vivo-0.6.0-linux-x86_64.AppImage').unlink()
 
     with pytest.raises(SystemExit, match='linux-x86_64'):
         script.assinar('0.6.0', pasta, chave, '2026-12-01')
@@ -68,7 +68,7 @@ def test_recusa_release_sem_os_dois_artefatos(script, chave, tmp_path):
 def test_conferir_pega_artefato_trocado(script, chave, tmp_path):
     pasta = release(tmp_path / 'dist')
     script.assinar('0.6.0', pasta, chave, '2026-12-01')
-    (pasta / 'concurso-analise-0.6.0-windows-x64-setup.exe').write_bytes(b'outro')
+    (pasta / 'gabarito-vivo-0.6.0-windows-x64-setup.exe').write_bytes(b'outro')
 
     with pytest.raises(Exception, match='diferente do publicado'):
         script.conferir(pasta)

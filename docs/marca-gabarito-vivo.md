@@ -109,9 +109,9 @@ Botão / input / card / selo: hover (leve escurecimento da borda), focus-visible
 | Superfície | Valor |
 |---|---|
 | Nome mostrado | Gabarito Vivo |
-| CLI | `gabarito-vivo` (alias `concurso-analise` com deprecation) |
-| Pacote PyPI / `importlib` | `concurso-analise` |
+| CLI | `gabarito-vivo` |
+| Pacote PyPI / `importlib` | `gabarito-vivo` |
 | Pacote Python | `concursos` |
-| Pasta global | `~/.concurso/` |
+| Pasta global | `~/.gabarito-vivo/` |
 | Artefatos de release | `gabarito-vivo-<versão>-…` (atualizador ainda aceita o prefixo legado) |
 | Aceite | `docs/produto/checklist-aceite-gabarito-vivo.md` |

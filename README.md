@@ -440,7 +440,7 @@ No fim, o relatório abre no navegador (no WSL, no navegador do Windows). Rodar 
 
 ### Comandos
 
-Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa o que mudou.
+Sem subcomando, `gabarito-vivo` faz o onboarding (na primeira vez) e analisa o que mudou. O pacote Python continua `concursos`; a pasta de configuração é `.gabarito-vivo/`.
 
 | Comando | O que faz |
 |---|---|
@@ -453,18 +453,22 @@ Sem subcomando, `concurso-analise` faz o onboarding (na primeira vez) e analisa 
 | `report` | Reabre o último relatório HTML. |
 | `export --format csv\|parquet\|md` | Grava o consolidado do candidato, uma linha por questão. |
 | `doctor` | Confere uv, Python, Tesseract, permissão de escrita, espaço em disco, a chave do LLM e a configuração do open-notebook, com o comando de correção para o seu sistema. |
-| `upgrade` | No executável, procura a versão nova no GitHub (canal de `[atualizacao]`, ou `--canal stable`/`beta`); com `--run`, baixa, confere e instala. Fora dele, mostra o comando do uv; com `--run`, executa `uv tool upgrade concurso-analise`. |
+| `upgrade` | No executável, procura a versão nova no GitHub (canal de `[atualizacao]`, ou `--canal stable`/`beta`); com `--run`, baixa, confere e instala. Fora dele, mostra o comando do uv; com `--run`, executa `uv tool upgrade gabarito-vivo`. |
 | `notebook enable\|disable\|sync` | Liga, desliga ou envia agora as análises para um open-notebook seu (veja [open-notebook](docs/detalhes-tecnicos.md#open-notebook)). |
 | `discover` | Busca no PCI Concursos os concursos com inscrições abertas ou prestes a abrir; `--register ID` acompanha um deles (veja [PCI Concursos](docs/detalhes-tecnicos.md#pci-concursos)). |
 | `pci enable\|disable\|provas` | Liga ou desliga o PCI, ou lista as provas anteriores de um concurso e importa uma como simulado. |
+| `pratica import\|repetir\|explicar\|pci` | Importa erros do TEC, repete questões, pede explicações no open-notebook ou busca provas no PCI pelos assuntos errados. |
+| `estudo preparar\|status` | Prepara ou consulta a biblioteca de estudo (open-notebook gerenciado). |
+| `livros add\|list\|remove\|ask` | Adiciona, lista, remove ou pergunta nos livros da biblioteca. |
+| `dicionario` | Liga, mede ou aplica o dicionário de temas. |
+
+Na janela, **Conferir** (`/conferir`) revisa tópicos e dados do edital; **Disciplinas e temas** (`/disciplinas`) edita a taxonomia e o dicionário.
 
 Flags globais, antes do subcomando: `--yes` (aceita os padrões sem perguntar), `--quiet`, `--verbose`, `--dry-run` (mostra o que seria feito, sem gravar nada), `--force` (reprocessa tudo), `--candidate`, `--all-candidates`, `--no-open`, `--no-llm`, `--offline`, `--data-dir`, `--provas` e `--analises`.
 
 Sem terminal interativo, com a variável `CI` ou com `--yes`, nada é perguntado: o app usa os padrões e os lista no log.
 
-Códigos de saída: 0 sucesso, 1 problema nos seus dados ou na configuração, 2 problema no ambiente. Um erro aparece em até três linhas: `erro:` com o que aconteceu, `dica:` com o que fazer e, quando houver, `detalhe:` com o texto técnico. Um aviso segue o mesmo formato, com `aviso:`. O traceback fica em `~/.concurso/logs/concurso-analise.log`.
-
-O comando antigo `concursos` continua funcionando, com aviso de obsoleto.
+Códigos de saída: 0 sucesso, 1 problema nos seus dados ou na configuração, 2 problema no ambiente. Um erro aparece em até três linhas: `erro:` com o que aconteceu, `dica:` com o que fazer e, quando houver, `detalhe:` com o texto técnico. Um aviso segue o mesmo formato, com `aviso:`. O traceback fica em `~/.gabarito-vivo/logs/gabarito-vivo.log`.
 
 ### Organizar as provas
 

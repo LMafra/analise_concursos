@@ -50,7 +50,7 @@ def projeto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def com_pratica(projeto: Path, extra: str = '') -> None:
-    config = projeto / '.concurso' / 'config.toml'
+    config = projeto / '.gabarito-vivo' / 'config.toml'
     atual = config.read_text(encoding='utf-8') if config.exists() else ''
     config.parent.mkdir(exist_ok=True)
     config.write_text(atual + f'\n[pratica]\nentrada_tec = "tec"\n{extra}', encoding='utf-8')
@@ -152,8 +152,8 @@ def test_caderno_de_erros_so_vai_ao_open_notebook_com_consentimento(projeto, ser
     assert main(['--yes', '--no-open', '--candidate', 'zuleica']) == 0
     assert not any(n['name'].startswith('Caderno de erros') for n in servidor.notebooks.values())
 
-    com_pratica_e_open_notebook = (projeto / '.concurso' / 'config.toml').read_text(encoding='utf-8')
-    (projeto / '.concurso' / 'config.toml').write_text(
+    com_pratica_e_open_notebook = (projeto / '.gabarito-vivo' / 'config.toml').read_text(encoding='utf-8')
+    (projeto / '.gabarito-vivo' / 'config.toml').write_text(
         com_pratica_e_open_notebook.replace(
             'entrada_tec = "tec"', 'entrada_tec = "tec"\nopen_notebook = true'
         ),
@@ -185,7 +185,7 @@ def test_import_de_planilha_cria_a_secao_e_analisa(projeto, tmp_path):
 
     assert main(['--yes', '--no-open', 'pratica', 'import', str(planilha), '--candidate', 'zuleica']) == 0
 
-    assert '[pratica]' in (projeto / '.concurso' / 'config.toml').read_text(encoding='utf-8')
+    assert '[pratica]' in (projeto / '.gabarito-vivo' / 'config.toml').read_text(encoding='utf-8')
     assert [p.name.startswith('tec-erros-planilha-historico-') for p in (projeto / 'tec').iterdir()] == [True]
     assert erros_tec(projeto).read_text(encoding='utf-8').splitlines()[1].startswith('q4321,')
 

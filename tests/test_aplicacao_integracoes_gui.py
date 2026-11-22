@@ -16,7 +16,7 @@ ENTRADA = Path(__file__).parent / 'contrato_tec' / 'entrada'
 
 @pytest.fixture
 def contexto(tmp_path: Path):
-    return resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.concurso')
+    return resolver_contexto(cwd=tmp_path, data_dir=tmp_path / '.gabarito-vivo')
 
 
 def copias(tmp_path: Path, *nomes: str) -> list[Path]:
