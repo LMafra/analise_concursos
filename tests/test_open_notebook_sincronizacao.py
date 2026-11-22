@@ -42,7 +42,7 @@ def projeto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         (pasta / 'candidatos' / 'zuleica').mkdir(parents=True)
         (pasta / 'candidatos' / 'zuleica' / 'respostas.txt').write_text(respostas, encoding='utf-8')
     monkeypatch.chdir(raiz)
-    assert main(['--yes', '--no-open']) == 0
+    assert main(['--yes', '--no-open', '--candidate', 'zuleica']) == 0
     return raiz
 
 

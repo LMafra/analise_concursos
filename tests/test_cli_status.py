@@ -147,6 +147,25 @@ def test_status_do_gabarito_vira_enum_ao_carregar(raizes):
     assert carregar_concurso(pasta).provas[0].gabarito.status is StatusGabarito.PRELIMINAR
 
 
+def test_status_com_pasta_do_candidato_usa_as_respostas_dele(raizes, capsys):
+    from concursos.candidatos import ARQUIVO_CANDIDATO, pasta_do_candidato
+
+    provas, _ = raizes
+    pasta = criar_concurso(provas, 'completo', config('completo'), ARQUIVOS)
+    perfil = pasta_do_candidato(pasta, 'candidato')
+    perfil.mkdir(parents=True)
+    (perfil / 'respostas.txt').write_text(ARQUIVOS['respostas.txt'], encoding='utf-8')
+    (perfil / ARQUIVO_CANDIDATO).write_text(
+        yaml.safe_dump({'respostas': {'arquivo': 'respostas.txt'}}), encoding='utf-8'
+    )
+    (pasta / 'respostas.txt').unlink()
+
+    capsys.readouterr()
+    assert main(['--candidate', 'candidato', 'status', '--provas', str(provas)]) == 0
+    linha = capsys.readouterr().out.splitlines()[2]
+    assert 'completo' in linha and 'incompleto' not in linha
+
+
 EDITAL_MANUAL = """conhecimentos:
   - nome: Conhecimentos Gerais
     disciplinas:

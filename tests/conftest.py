@@ -19,9 +19,7 @@ CANDIDATO = 'candidato'
 def home_isolada(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / 'home_concurso'
     monkeypatch.setenv('GABARITO_VIVO_HOME', str(home))
-    # O candidato fica no helper `analisar` (`--candidate`); não força via env, para status e
-    # fixtures com outro slug (ex.: zuleica) usarem o layout certo.
-    monkeypatch.delenv('GABARITO_VIVO_CANDIDATO', raising=False)
+    monkeypatch.setenv('GABARITO_VIVO_CANDIDATO', CANDIDATO)
     return home
 
 

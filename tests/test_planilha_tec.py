@@ -272,7 +272,7 @@ def test_planilha_convertida_e_json_valido(contexto, tmp_path):
 def test_saidas_da_pratica_so_com_a_analise_feita(contexto):
     assert pratica.saidas_da_pratica(contexto) == pratica.SaidasDaPratica(None, None)
 
-    pasta = contexto.analises / 'pratica'
+    pasta = contexto.analises / 'candidato' / 'pratica'
     pasta.mkdir(parents=True)
     (pasta / 'resumo_pratica.md').write_text('# Prioridades', encoding='utf-8')
     (pasta / 'simulado_tec.html').write_text('<html></html>', encoding='utf-8')

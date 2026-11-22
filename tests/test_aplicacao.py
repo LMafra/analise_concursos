@@ -90,7 +90,8 @@ def test_analisar_sem_ao_progresso_funciona_como_antes(raiz):
     assert analise.analisar(Opcoes(resolver_contexto(cwd=raiz), sim=True, abrir=False)) == 0
 
 
-def test_escolher_candidato_recusa_quando_ha_mais_de_um_e_nenhum_foi_escolhido(raiz, tmp_path):
+def test_escolher_candidato_recusa_quando_ha_mais_de_um_e_nenhum_foi_escolhido(raiz, tmp_path, monkeypatch):
+    monkeypatch.delenv('GABARITO_VIVO_CANDIDATO', raising=False)
     pasta = criar_concurso(raiz / 'provas', 'alfa', config('alfa'), ARQUIVOS)
     respostas = tmp_path / 'respostas.txt'
     respostas.write_text('1 A\n2 B\n', encoding='utf-8')
