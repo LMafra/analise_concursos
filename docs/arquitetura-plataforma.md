@@ -17,6 +17,8 @@ Gabarito Vivo (pacote `concurso-analise`, módulo `concursos`, comando `gabarito
 
 **Riscos remanescentes:** (1) `pipeline/nucleo.py` ainda concentra a orquestração (etapas em `pipeline/etapas/` e pasta temporária por concurso); (2) inventário F/P do mapa ainda aponta linhas do baseline `d082853`/`7016502` — regenerar AST se precisar de linha a linha atual.
 
+**Frontend (auditoria `audit/frontend-f1-f6`):** dashboard 3 fontes (`analytics/dashboard_fontes.py`) na 1ª dobra do `index.html` e na home GUI; `topicos.html`/`tec.html`; alvos 44px e drawer mobile. Mapa e bugs em `docs/frontend/`. Detalhe: `docs/frontend/reestruturacao.md`.
+
 ## Sumário
 
 1. [Sumário executivo](#sumário-executivo)
