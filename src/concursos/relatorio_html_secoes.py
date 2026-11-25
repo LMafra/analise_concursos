@@ -60,6 +60,7 @@ from concursos.pratica_tec import ARQUIVO_RESUMO, PASTA_PRATICA
 from concursos.relatorio import TITULO_DETALHES_TECNICOS
 from concursos.resultado_oficial import formatar
 from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
+from concursos.texto import abreviar
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +178,26 @@ summary {{ cursor: pointer; }}
 summary h2, summary h3 {{ display: inline; }}
 footer {{ margin-top: var(--space-lg); color: var(--color-text-muted); font-size: 0.8rem; }}
 .nota {{ color: var(--color-text-muted); font-size: 0.85rem; }}
+.dashboard {{ margin: var(--space-lg) 0 var(--space-xl); }}
+.dashboard-grade {{ display: grid; grid-template-columns: 1fr; gap: var(--space-md); }}
+@media (min-width: 900px) {{
+  .dashboard-grade {{ grid-template-columns: 1fr 1fr 1fr; }}
+}}
+.sub-dashboard {{ border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  padding: var(--space-md); box-shadow: var(--shadow-sm); }}
+.sub-dashboard h3 {{ margin: 0 0 var(--space-sm); font-size: 1rem; }}
+.sub-dashboard .kpis {{ display: flex; flex-direction: column; gap: var(--space-sm); }}
+.sub-dashboard a.kpi {{ display: flex; flex-direction: column; gap: 0.15rem; text-decoration: none;
+  color: inherit; padding: var(--space-sm); border-radius: var(--radius-sm);
+  border: 1px solid transparent; }}
+.sub-dashboard a.kpi:hover, .sub-dashboard a.kpi:focus-visible {{
+  border-color: var(--color-border); background: var(--color-bg-base); }}
+.sub-dashboard a.kpi strong {{ font-size: 0.8rem; color: var(--color-text-muted); font-weight: 500; }}
+.sub-dashboard a.kpi > span {{ font-size: 1.05rem; font-weight: 600; }}
+@media print {{
+  .dashboard-grade {{ grid-template-columns: 1fr 1fr 1fr; }}
+}}
+
 @media (max-width: 36rem) {{
   .diagnostico {{ grid-template-columns: 1fr; }}
   .diagnostico-margem {{ text-align: left; }}
@@ -260,11 +281,28 @@ def _corpo_do_indice(
     evolucao_tecnica,
 ) -> str:
     agora = datetime.now()
+    from concursos.analytics.dashboard_fontes import (
+        html_dashboard,
+        kpis_concursos_resumo,
+        kpis_simulados,
+        kpis_tec,
+    )
+
+    n_sim = sum(1 for v in simulados.values() if v)
+    ultimo_sim = next((nome for nome, v in simulados.items() if v), None)
+    dash = html_dashboard(
+        [
+            kpis_concursos_resumo(painel.kpis),
+            kpis_tec(raiz_analises),
+            kpis_simulados(n_sim, ultimo_sim),
+        ]
+    )
     return '\n'.join(
         [
             f'<h1>Relatório de {escape(raiz_analises.name)}</h1>',
             f'<p class="nota">Situação em {agora:%d/%m/%Y}'
             f' · {escape(plural(painel.kpis.concursos, "concurso"))}</p>',
+            dash,
             f'<p class="resumo">{escape(painel.resumo)}</p>',
             _diagnostico_ultima_prova(painel),
             _cards(painel, suficiente),
@@ -345,8 +383,67 @@ def gerar_relatorio_html(
     )
     indice = raiz_analises / ARQUIVO_INDICE
     indice.write_text(_pagina(f'Relatório de {raiz_analises.name}', corpo), encoding='utf-8')
+    _gravar_relatorios_por_topico(raiz_analises, painel, suficiente)
     logger.info('Relatório HTML gravado em %s', indice)
     return indice
+
+
+def _gravar_relatorios_por_topico(raiz_analises: Path, painel: Painel, suficiente: bool) -> None:
+    """`topicos.html` e `tec.html` ao lado do index — links do dashboard."""
+    from concursos.analytics.dashboard_fontes import kpis_tec
+
+    linhas_topicos = ['<h1>Por tópico</h1>', '<p><a href="index.html">← Voltar ao resumo</a></p>']
+    topicos = topicos_por_impacto(painel.grupos) if suficiente else []
+    if topicos:
+        linhas_topicos.append(
+            '<table><thead><tr><th>Disciplina</th><th>Tópico</th><th>Acertos</th>'
+            '<th>n</th><th>Prioridade</th></tr></thead><tbody>'
+        )
+        for t in topicos:
+            linhas_topicos.append(
+                f'<tr><td>{escape(t.disciplina)}</td><td>{escape(abreviar(t.topico, 80))}</td>'
+                f'<td>{t.acertos}</td><td>{t.n}</td><td>{t.prioridade:.2f}</td></tr>'
+            )
+        linhas_topicos.append('</tbody></table>')
+    else:
+        linhas_topicos.append('<p class="nota">Analise mais provas para listar tópicos prioritários.</p>')
+    (raiz_analises / 'topicos.html').write_text(
+        _pagina('Por tópico', '\n'.join(linhas_topicos)), encoding='utf-8'
+    )
+
+    sub = kpis_tec(raiz_analises)
+    linhas_tec = [
+        '<h1>Prática no TEC</h1>',
+        '<p><a href="index.html">← Voltar ao resumo</a></p>',
+        '<p class="nota">Agrupado por matéria e assunto. Caderno é filtro opcional na GUI.</p>',
+    ]
+    if sub.vazio:
+        linhas_tec.append(f'<p>{escape(sub.vazio)}</p>')
+    else:
+        linhas_tec.append('<ul>')
+        for kpi in sub.kpis:
+            linhas_tec.append(f'<li><strong>{escape(kpi.rotulo)}</strong>: {escape(kpi.valor)}</li>')
+        linhas_tec.append('</ul>')
+        # Tabela mat→ass a partir do CSV, se existir
+        from concursos.pratica.constantes import ARQUIVO_RESPOSTAS, PASTA_PRATICA
+
+        csv_path = raiz_analises / PASTA_PRATICA / ARQUIVO_RESPOSTAS
+        if csv_path.is_file():
+            df = pd.read_csv(csv_path, keep_default_na=False)
+            if {'mat', 'ass', 'resultado'}.issubset(df.columns):
+                linhas_tec.append(
+                    '<table><thead><tr><th>Matéria</th><th>Assunto</th><th>Acertos</th>'
+                    '<th>Erros</th><th>n</th></tr></thead><tbody>'
+                )
+                for (mat, ass), g in df.groupby(['mat', 'ass'], dropna=False):
+                    a = int((g['resultado'] == 'acerto').sum())
+                    e = int((g['resultado'] == 'erro').sum())
+                    linhas_tec.append(
+                        f'<tr><td>{escape(str(mat))}</td><td>{escape(str(ass))}</td>'
+                        f'<td>{a}</td><td>{e}</td><td>{len(g)}</td></tr>'
+                    )
+                linhas_tec.append('</tbody></table>')
+    (raiz_analises / 'tec.html').write_text(_pagina('Prática no TEC', '\n'.join(linhas_tec)), encoding='utf-8')
 
 
 def abrir_no_navegador(caminho: Path | str) -> None:

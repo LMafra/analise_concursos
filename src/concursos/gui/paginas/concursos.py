@@ -68,6 +68,9 @@ def meus_concursos() -> None:
                 .mark('fazer-onboarding')
             ):
                 ui.button('Começar', icon='arrow_forward', on_click=lambda: ui.navigate.to('/inicio'))
+        from concursos.gui.componentes import dashboard as dash_home
+
+        dash_home.renderizar()
         seletor_de_candidato()
         if not lista_de_concursos():
             return
