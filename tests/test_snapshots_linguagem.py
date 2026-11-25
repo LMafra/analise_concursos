@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from syrupy.extensions.single_file import SingleFileSnapshotExtension, WriteMode
-from test_cli_relatorio_html import concursos_html, concurso, indice, projeto, respostas  # noqa: F401
+from test_cli_relatorio_html import concurso, concursos_html, indice, projeto, respostas  # noqa: F401
 
 from concursos.cli import main
 from concursos.concurso_config import ConfiguracaoInvalidaError

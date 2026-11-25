@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from concursos.analytics.painel import FAIXA_NO_LIMITE, Prova, StatusProva
+from concursos.analytics.painel import Prova, StatusProva
 from concursos.linguagem import numero, percentual, plural
 from concursos.pratica.constantes import ARQUIVO_RESPOSTAS, PASTA_PRATICA
 

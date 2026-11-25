@@ -4,12 +4,12 @@ from pathlib import Path, PureWindowsPath
 
 from nicegui import events, run, ui
 
+from concursos.analytics.dashboard_fontes import MetasDashboard
 from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao import dicionario, estudo, ia, inicio, integracoes
 from concursos.aplicacao.cadastro import nova_pasta_de_envio
 from concursos.aplicacao.nomes import opcoes_de_concurso
 from concursos.aplicacao.opcoes import Opcoes
-from concursos.analytics.dashboard_fontes import MetasDashboard
 from concursos.aplicacao.preferencias import (
     PreferenciasAnalise,
     gravar_analise,

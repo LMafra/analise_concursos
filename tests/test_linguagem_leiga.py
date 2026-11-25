@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 import pytest
-from test_cli_relatorio_html import concurso, indice, projeto, respostas  # noqa: F401
+from test_cli_relatorio_html import concurso, concursos_html, indice, projeto, respostas  # noqa: F401
 
 from concursos.cli import main
 from concursos.linguagem import SELOS, TERMOS_TECNICOS_DA_MENSAGEM, TERMOS_TECNICOS_DO_RELATORIO
@@ -91,10 +91,11 @@ def analisado(projeto: Path) -> Path:  # noqa: F811
 
 
 def test_parte_principal_do_indice_sem_jargao(analisado):
-    html = indice(analisado).read_text(encoding='utf-8')
+    painel = indice(analisado).read_text(encoding='utf-8')
+    assert [termo for termo in TERMOS_TECNICOS_DO_RELATORIO if termo in painel] == []
 
+    html = concursos_html(analisado).read_text(encoding='utf-8')
     principal = _parte_principal(html, '<details id="detalhes-tecnicos">')
-
     assert [termo for termo in TERMOS_TECNICOS_DO_RELATORIO if termo in principal] == []
 
 
@@ -107,7 +108,7 @@ def test_parte_principal_do_relatorio_do_concurso_sem_jargao(analisado):
 
 
 def test_indice_tem_tres_cards_e_um_selo_por_prova(analisado):
-    html = indice(analisado).read_text(encoding='utf-8')
+    html = concursos_html(analisado).read_text(encoding='utf-8')
 
     secao = html.split('id="como-estou-saindo"', 1)[1].split('</table>', 1)[0]
     assert html.count('<div class="card">') == 3
