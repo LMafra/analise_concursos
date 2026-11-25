@@ -6,11 +6,13 @@ from nicegui import ui
 
 
 def sucesso(mensagem: str, *, segundos: float = 5) -> None:
-    ui.notify(mensagem, type='positive', timeout=int(segundos * 1000), close_button=True)
+    # Quasar: role=alert implícito no notify; timeout curto = efêmero.
+    ui.notify(mensagem, type='positive', timeout=int(segundos * 1000), close_button=True, position='top')
 
 
 def erro(mensagem: str) -> None:
-    ui.notify(mensagem, type='negative', timeout=0, close_button=True)
+    # timeout=0: permanece até fechar (erro persistente).
+    ui.notify(mensagem, type='negative', timeout=0, close_button=True, position='top')
 
 
 def com_desfazer(mensagem: str, ao_desfazer: Callable[[], None], *, segundos: float = 8) -> None:

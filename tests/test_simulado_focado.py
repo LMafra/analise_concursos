@@ -121,7 +121,7 @@ def test_simulado_sem_respostas_ganha_a_revisao_e_o_arquivo_na_analise(
     assert sorted(revisao['questao']) == [1, 2, 3, 4]
     [arquivo] = analises.glob(f'*/{simulado_focado.ARQUIVO_SIMULADO_FOCADO}')
     assert '# Simulado focado' in arquivo.read_text(encoding='utf-8')
-    assert 'Simulado focado' in (arquivo.parents[1] / 'index.html').read_text(encoding='utf-8')
+    assert 'Simulado focado' in (arquivo.parents[1] / 'concursos.html').read_text(encoding='utf-8')
     mtime = arquivo.stat().st_mtime_ns
     assert main(['--yes', '--no-open', '--offline']) == 0
     assert arquivo.stat().st_mtime_ns == mtime

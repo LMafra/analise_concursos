@@ -60,10 +60,14 @@ from concursos.pratica_tec import ARQUIVO_RESUMO, PASTA_PRATICA
 from concursos.relatorio import TITULO_DETALHES_TECNICOS
 from concursos.resultado_oficial import formatar
 from concursos.simulado_focado import ARQUIVO_SIMULADO_FOCADO
+from concursos.texto import abreviar
 
 logger = logging.getLogger(__name__)
 
 ARQUIVO_INDICE = 'index.html'
+ARQUIVO_CONCURSOS = 'concursos.html'
+ARQUIVO_TEC = 'tec.html'
+ARQUIVO_SIMULADOS = 'simulados.html'
 ARQUIVO_RELATORIO_HTML = 'relatorio.html'
 _SELOS_DA_CORRECAO = {
     'edital': ('regra do edital', 'ok'),
@@ -177,6 +181,26 @@ summary {{ cursor: pointer; }}
 summary h2, summary h3 {{ display: inline; }}
 footer {{ margin-top: var(--space-lg); color: var(--color-text-muted); font-size: 0.8rem; }}
 .nota {{ color: var(--color-text-muted); font-size: 0.85rem; }}
+.dashboard {{ margin: var(--space-lg) 0 var(--space-xl); }}
+.dashboard-grade {{ display: grid; grid-template-columns: 1fr; gap: var(--space-md); }}
+@media (min-width: 900px) {{
+  .dashboard-grade {{ grid-template-columns: 1fr 1fr 1fr; }}
+}}
+.sub-dashboard {{ border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  padding: var(--space-md); box-shadow: var(--shadow-sm); }}
+.sub-dashboard h3 {{ margin: 0 0 var(--space-sm); font-size: 1rem; }}
+.sub-dashboard .kpis {{ display: flex; flex-direction: column; gap: var(--space-sm); }}
+.sub-dashboard a.kpi {{ display: flex; flex-direction: column; gap: 0.15rem; text-decoration: none;
+  color: inherit; padding: var(--space-sm); border-radius: var(--radius-sm);
+  border: 1px solid transparent; }}
+.sub-dashboard a.kpi:hover, .sub-dashboard a.kpi:focus-visible {{
+  border-color: var(--color-border); background: var(--color-bg-base); }}
+.sub-dashboard a.kpi strong {{ font-size: 0.8rem; color: var(--color-text-muted); font-weight: 500; }}
+.sub-dashboard a.kpi > span {{ font-size: 1.05rem; font-weight: 600; }}
+@media print {{
+  .dashboard-grade {{ grid-template-columns: 1fr 1fr 1fr; }}
+}}
+
 @media (max-width: 36rem) {{
   .diagnostico {{ grid-template-columns: 1fr; }}
   .diagnostico-margem {{ text-align: left; }}
@@ -245,7 +269,64 @@ def _fontes_do_painel(raiz_analises: Path, pastas: list[Path]) -> FontesDasAcoes
     )
 
 
-def _corpo_do_indice(
+def _metas_dashboard(raiz_provas: Path):
+    from concursos.analytics.dashboard_fontes import metas_do_toml, metas_padrao
+    from concursos.config.contexto import ler_toml
+
+    for caminho in (
+        raiz_provas.parent / 'config.toml',
+        raiz_provas.parent / '.concurso' / 'config.toml',
+        raiz_provas.parent / '.gabarito-vivo' / 'config.toml',
+    ):
+        if caminho.is_file():
+            return metas_do_toml(ler_toml(caminho))
+    return metas_padrao()
+
+
+def _registros_simulados(raiz_provas: Path, pastas: list[Path], simulados: dict):
+    from concursos.analytics.dashboard_fontes import RegistroSimulado
+
+    regs = []
+    for pasta in pastas:
+        if not simulados.get(pasta.name):
+            continue
+        resumo = _resumo(pasta, raiz_provas / pasta.name)
+        regs.append(
+            RegistroSimulado(
+                resumo.titulo,
+                'PCI',
+                resumo.percentual,
+                resumo.data_prova or '',
+            )
+        )
+    return regs
+
+
+def _corpo_dashboard(
+    raiz_analises: Path, raiz_provas: Path, pastas: list[Path], simulados: dict, painel: Painel
+) -> str:
+    from concursos.analytics.dashboard_fontes import (
+        html_dashboard,
+        kpis_concursos,
+        kpis_simulados,
+        kpis_tec,
+    )
+
+    metas = _metas_dashboard(raiz_provas)
+    return html_dashboard(
+        [
+            kpis_concursos(painel.provas, destino_base=ARQUIVO_CONCURSOS),
+            kpis_tec(raiz_analises, metas, destino_base=ARQUIVO_TEC),
+            kpis_simulados(
+                _registros_simulados(raiz_provas, pastas, simulados),
+                metas,
+                destino_base=ARQUIVO_SIMULADOS,
+            ),
+        ]
+    )
+
+
+def _corpo_concursos(
     raiz_analises: Path,
     raiz_provas: Path,
     pastas: list[Path],
@@ -262,25 +343,19 @@ def _corpo_do_indice(
     agora = datetime.now()
     return '\n'.join(
         [
-            f'<h1>Relatório de {escape(raiz_analises.name)}</h1>',
+            f'<p><a href="{ARQUIVO_INDICE}">← Painel inicial</a></p>',
+            f'<h1 id="lista">Concursos — {escape(raiz_analises.name)}</h1>',
             f'<p class="nota">Situação em {agora:%d/%m/%Y}'
             f' · {escape(plural(painel.kpis.concursos, "concurso"))}</p>',
             f'<p class="resumo">{escape(painel.resumo)}</p>',
-            _diagnostico_ultima_prova(painel),
+            f'<div id="ultima-prova">{_diagnostico_ultima_prova(painel)}</div>',
             _cards(painel, suficiente),
             *_o_que_fazer(painel),
             _navegacao(secoes),
             *_como_estou_saindo(painel, concursos),
-            *_tabela_de_simulados(
-                [
-                    (_resumo(pasta, raiz_provas / pasta.name), simulados[pasta.name])
-                    for pasta in pastas
-                    if simulados[pasta.name]
-                ]
-            ),
             *_pontos_fortes(painel, consolidado),
             *_pontos_a_melhorar(painel, suficiente),
-            *_estou_evoluindo(painel, suficiente),
+            f'<div id="evolucao">{"".join(_estou_evoluindo(painel, suficiente))}</div>',
             _atalhos_das_secoes(secoes),
             _detalhes_tecnicos(
                 concursos,
@@ -329,7 +404,8 @@ def gerar_relatorio_html(
         limiar_topico_baixo,
         _fontes_do_painel(raiz_analises, pastas),
     )
-    corpo = _corpo_do_indice(
+    dash = _corpo_dashboard(raiz_analises, raiz_provas, pastas, simulados, painel)
+    corpo_concursos = _corpo_concursos(
         raiz_analises,
         raiz_provas,
         pastas,
@@ -344,9 +420,110 @@ def gerar_relatorio_html(
         evolucao_tecnica,
     )
     indice = raiz_analises / ARQUIVO_INDICE
-    indice.write_text(_pagina(f'Relatório de {raiz_analises.name}', corpo), encoding='utf-8')
-    logger.info('Relatório HTML gravado em %s', indice)
+    indice.write_text(_pagina(f'Painel — {raiz_analises.name}', dash), encoding='utf-8')
+    (raiz_analises / ARQUIVO_CONCURSOS).write_text(
+        _pagina(f'Concursos — {raiz_analises.name}', corpo_concursos), encoding='utf-8'
+    )
+    _gravar_tec_e_simulados(raiz_analises, raiz_provas, pastas, simulados, painel, suficiente)
+    logger.info(
+        'Relatório HTML gravado em %s (+ %s, %s, %s)',
+        indice,
+        ARQUIVO_CONCURSOS,
+        ARQUIVO_TEC,
+        ARQUIVO_SIMULADOS,
+    )
     return indice
+
+
+def _gravar_tec_e_simulados(
+    raiz_analises: Path,
+    raiz_provas: Path,
+    pastas: list[Path],
+    simulados: dict,
+    painel: Painel,
+    suficiente: bool,
+) -> None:
+    from concursos.analytics.dashboard_fontes import kpis_tec
+    from concursos.pratica.constantes import ARQUIVO_RESPOSTAS, PASTA_PRATICA
+
+    metas = _metas_dashboard(raiz_provas)
+    sub = kpis_tec(raiz_analises, metas)
+    linhas_tec = [
+        f'<p><a href="{ARQUIVO_INDICE}">← Painel inicial</a></p>',
+        '<h1 id="gargalo">Prática no TEC</h1>',
+        '<p class="nota">Agrupado por matéria → assunto. Caderno é filtro opcional na GUI.</p>',
+    ]
+    if sub.vazio:
+        linhas_tec.append(f'<p>{escape(sub.vazio)}</p>')
+    else:
+        linhas_tec.append('<ul>')
+        for kpi in sub.kpis:
+            linhas_tec.append(f'<li><strong>{escape(kpi.rotulo)}</strong>: {escape(kpi.valor)}</li>')
+        linhas_tec.append('</ul>')
+        csv_path = raiz_analises / PASTA_PRATICA / ARQUIVO_RESPOSTAS
+        if csv_path.is_file():
+            df = pd.read_csv(csv_path, keep_default_na=False)
+            if {'mat', 'ass', 'resultado'}.issubset(df.columns):
+                linhas_tec.append(
+                    '<table id="banca"><thead><tr><th>Matéria</th><th>Assunto</th><th>Acertos</th>'
+                    '<th>Erros</th><th>n</th></tr></thead><tbody>'
+                )
+                for (mat, ass), g in df.groupby(['mat', 'ass'], dropna=False):
+                    a = int((g['resultado'] == 'acerto').sum())
+                    e = int((g['resultado'] == 'erro').sum())
+                    linhas_tec.append(
+                        f'<tr><td>{escape(str(mat))}</td><td>{escape(str(ass))}</td>'
+                        f'<td>{a}</td><td>{e}</td><td>{len(g)}</td></tr>'
+                    )
+                linhas_tec.append('</tbody></table>')
+    if suficiente and painel.grupos:
+        topicos = topicos_por_impacto(painel.grupos)
+        if topicos:
+            linhas_tec.append('<h2>Tópicos fracos nas provas (contexto)</h2><ul>')
+            for t in topicos[:10]:
+                linhas_tec.append(f'<li>{escape(t.disciplina)} — {escape(abreviar(t.topico, 80))}</li>')
+            linhas_tec.append('</ul>')
+    (raiz_analises / ARQUIVO_TEC).write_text(
+        _pagina('Prática no TEC', '\n'.join(linhas_tec)), encoding='utf-8'
+    )
+
+    regs = _registros_simulados(raiz_provas, pastas, simulados)
+    linhas_sim = [
+        f'<p><a href="{ARQUIVO_INDICE}">← Painel inicial</a></p>',
+        '<h1 id="ultimo">Simulados</h1>',
+        '<p class="nota">PCI e TEC misturados por propósito (treino sob pressão).</p>',
+    ]
+    from concursos.analytics.dashboard_fontes import EMPTY_SIMULADOS
+
+    if not regs:
+        linhas_sim.append(f'<p>{escape(EMPTY_SIMULADOS)}</p>')
+    else:
+        linhas_sim.append(
+            '<table id="evolucao"><thead><tr><th>Nome</th><th>Origem</th>'
+            '<th>Acertos</th><th>Data</th></tr></thead><tbody>'
+        )
+        for r in sorted(regs, key=lambda x: x.data, reverse=True):
+            linhas_sim.append(
+                f'<tr><td>{escape(r.nome)}</td><td>{escape(r.origem)}</td>'
+                f'<td>{percentual(r.percentual)}</td><td>{escape(r.data)}</td></tr>'
+            )
+        linhas_sim.append('</tbody></table>')
+        linhas_sim.append(
+            '<p id="gargalo" class="nota">Gargalos por assunto: use a GUI Estudar / Simulado.</p>'
+        )
+    # tabela de simulados já usada no índice antigo
+    tabela = _tabela_de_simulados(
+        [
+            (_resumo(pasta, raiz_provas / pasta.name), simulados[pasta.name])
+            for pasta in pastas
+            if simulados.get(pasta.name)
+        ]
+    )
+    if tabela:
+        linhas_sim.extend(tabela)
+    (raiz_analises / ARQUIVO_SIMULADOS).write_text(
+        _pagina('Simulados', '\n'.join(linhas_sim)), encoding='utf-8'
+    )
 
 
 def abrir_no_navegador(caminho: Path | str) -> None:

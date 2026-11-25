@@ -5,6 +5,7 @@ from nicegui import ui
 from concursos import onboarding
 from concursos.analytics.nome_concurso import NomeDoConcurso
 from concursos.aplicacao import analise, cadastro, conferencia, nomes
+from concursos.aplicacao.nomes import titulo_amigavel_da_pasta
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
@@ -15,6 +16,7 @@ from concursos.gui.paginas import tec
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
 from concursos.gui.textos import mostrar_erro, rotulo
+from concursos.linguagem import caminho_curto
 from concursos.status import Situacao
 
 logger = logging.getLogger('concursos')
@@ -37,8 +39,9 @@ def pagina(aba: str | None = None) -> None:
         with ui.row().classes('items-center').style(tema.gap('sm')):
             ui.label('Minhas Provas').classes('text-2xl font-bold')
             ui.space()
-            ui.label(f'Projeto: {ESTADO.projeto}').classes('text-sm ca-texto-suave')
-            ui.button('Trocar', on_click=lambda: ui.navigate.to('/projeto')).props('flat dense')
+            with ui.label(f'Projeto: {caminho_curto(ESTADO.projeto)}').classes('text-sm ca-texto-suave'):
+                ui.tooltip(str(ESTADO.projeto))
+            ui.button('Trocar', on_click=lambda: ui.navigate.to('/projeto')).props('flat').classes('ca-alvo')
         with ui.tabs().classes('w-full') as abas:
             guias = {chave: ui.tab(titulo).mark(f'aba-{chave}') for chave, titulo in ABAS.items()}
         with ui.tab_panels(abas, value=guias.get(aba or '', guias['lista'])).classes('w-full'):
@@ -61,6 +64,9 @@ def meus_concursos() -> None:
                 .mark('fazer-onboarding')
             ):
                 ui.button('Começar', icon='arrow_forward', on_click=lambda: ui.navigate.to('/inicio'))
+        from concursos.gui.componentes import dashboard as dash_home
+
+        dash_home.renderizar()
         seletor_de_candidato()
         if not lista_de_concursos():
             return
@@ -128,9 +134,9 @@ def lista_de_concursos() -> bool:
             with ui.item():
                 with ui.item_section():
                     with ui.row().classes('items-center').style(tema.gap('sm')):
-                        ui.item_label(nome.titulo if nome else item.nome).classes('font-bold').mark(
-                            f'nome-{item.nome}'
-                        )
+                        ui.item_label(nome.titulo if nome else titulo_amigavel_da_pasta(item.nome)).classes(
+                            'font-bold'
+                        ).mark(f'nome-{item.nome}')
                         if nome and nome.a_confirmar:
                             with situacao('a confirmar', Tom.ALERTA, icone='help').mark(
                                 f'a-confirmar-{item.nome}'

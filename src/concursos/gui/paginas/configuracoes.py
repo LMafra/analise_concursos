@@ -4,6 +4,7 @@ from pathlib import Path, PureWindowsPath
 
 from nicegui import events, run, ui
 
+from concursos.analytics.dashboard_fontes import MetasDashboard
 from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao import dicionario, estudo, ia, inicio, integracoes
 from concursos.aplicacao.cadastro import nova_pasta_de_envio
@@ -12,8 +13,10 @@ from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.preferencias import (
     PreferenciasAnalise,
     gravar_analise,
+    gravar_dashboard,
     gravar_tema_da_gui,
     ler_analise,
+    ler_dashboard,
     tema_da_gui,
 )
 from concursos.calibracao import QUESTOES_CALIBRACAO
@@ -54,6 +57,10 @@ def pagina(secao: str | None = None) -> None:
             ).classes('text-sm')
         try:
             secao_da_analise()
+        except Exception as erro:  # noqa: BLE001
+            mostrar_erro(erro)
+        try:
+            secao_do_dashboard()
         except Exception as erro:  # noqa: BLE001
             mostrar_erro(erro)
         secao_das_disciplinas()
@@ -122,6 +129,82 @@ def secao_da_analise() -> None:
             ui.notify('Configurações gravadas; valem na próxima análise.', type='positive')
 
         ui.button('Salvar', icon='save', on_click=salvar).mark('salvar-analise')
+
+
+def secao_do_dashboard() -> None:
+    atuais = ler_dashboard(ESTADO.contexto())
+    with cartao('Metas do painel inicial', icone='dashboard'):
+        ui.label(
+            'Definem os selos (alto / em evolução / atenção) dos KPIs de TEC e simulados. '
+            'A banca alvo filtra o terceiro KPI do TEC.'
+        ).classes('text-sm ca-texto-suave')
+        tec_alta = controle_de_limiar(
+            'TEC — meta alta (desempenho alto)',
+            atuais.tec_alta,
+            'Taxa ≥ este valor recebe o selo verde.',
+            'dash-tec-alta',
+        )
+        tec_media = controle_de_limiar(
+            'TEC — meta média (em evolução)',
+            atuais.tec_media,
+            'Entre média e alta: âmbar; abaixo: terracota.',
+            'dash-tec-media',
+        )
+        sim_alta = controle_de_limiar(
+            'Simulado — meta alta',
+            atuais.simulado_alta,
+            'Último simulado ≥ este valor: aprovado no treino.',
+            'dash-sim-alta',
+        )
+        sim_media = controle_de_limiar(
+            'Simulado — meta média',
+            atuais.simulado_media,
+            'Zona de alerta entre média e alta.',
+            'dash-sim-media',
+        )
+        amostra = (
+            rotulo(
+                ui.number(
+                    'Amostra mínima por assunto (gargalo)',
+                    value=atuais.amostra_minima,
+                    min=1,
+                    max=100,
+                    step=1,
+                ),
+                'amostra mínima',
+            )
+            .classes('w-full')
+            .mark('dash-amostra')
+        )
+        banca = (
+            rotulo(
+                ui.input('Banca alvo (TEC)', value=atuais.banca_alvo),
+                'banca alvo',
+            )
+            .classes('w-full')
+            .mark('dash-banca')
+        )
+        ui.label('Ex.: CEBRASPE, FGV. Vazio = banca mais frequente no histórico TEC.').classes(
+            'text-sm ca-texto-suave'
+        )
+
+        def salvar() -> None:
+            metas = MetasDashboard(
+                tec_alta=round(float(tec_alta.value), 2),
+                tec_media=round(float(tec_media.value), 2),
+                simulado_alta=round(float(sim_alta.value), 2),
+                simulado_media=round(float(sim_media.value), 2),
+                amostra_minima=int(amostra.value or 10),
+                banca_alvo=(banca.value or '').strip(),
+            )
+            try:
+                gravar_dashboard(ESTADO.contexto(), metas)
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+                return
+            ui.notify('Metas do painel gravadas.', type='positive')
+
+        ui.button('Salvar metas', icon='save', on_click=salvar).classes('ca-alvo').mark('salvar-dashboard')
 
 
 def secao_das_disciplinas() -> None:

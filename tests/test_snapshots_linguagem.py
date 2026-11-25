@@ -1,12 +1,12 @@
-"""Retratos do texto que o usuário lê: cada seção do `index.html`, as mensagens da CLI e as da janela. Uma mudança
-de redação aparece no diff do retrato; atualize com `uv run pytest --snapshot-update` depois de conferir."""
+"""Retratos do texto que o usuário lê: o painel (`index.html`), as seções de `concursos.html`, as mensagens da CLI e as da
+janela. Uma mudança de redação aparece no diff do retrato; atualize com `uv run pytest --snapshot-update` depois de conferir."""
 
 import re
 from pathlib import Path
 
 import pytest
 from syrupy.extensions.single_file import SingleFileSnapshotExtension, WriteMode
-from test_cli_relatorio_html import concurso, indice, projeto, respostas  # noqa: F401
+from test_cli_relatorio_html import concurso, concursos_html, indice, projeto, respostas  # noqa: F401
 
 from concursos.cli import main
 from concursos.concurso_config import ConfiguracaoInvalidaError
@@ -54,8 +54,11 @@ def analisado(projeto: Path, capsys: pytest.CaptureFixture[str]) -> tuple[Path, 
 
 def test_secoes_do_indice(analisado, snapshot):
     raiz, _ = analisado
-    html = mascarar(indice(raiz).read_text(encoding='utf-8'), raiz)
+    painel = mascarar(indice(raiz).read_text(encoding='utf-8'), raiz)
+    assert 'id="dashboard"' in painel
+    assert painel == snapshot(name='painel-inicial', extension_class=SecaoHtml)
 
+    html = mascarar(concursos_html(raiz).read_text(encoding='utf-8'), raiz)
     secoes = secoes_do_indice(html)
 
     assert list(secoes) == [

@@ -117,3 +117,11 @@ def test_important_so_na_camada_de_overrides():
     assert camada is not None
     assert '!important' in camada.group(1)
     assert '!important' not in tema.CSS.replace(camada.group(0), '')
+
+
+def test_ca_alvo_vence_dense_do_quasar():
+    camada = re.search(r'@layer overrides \{(.*?)\n\}', tema.CSS, re.DOTALL)
+    assert camada is not None
+    assert f'min-height: {tema.ALVO_MINIMO} !important' in camada.group(1)
+    assert '.q-btn-group .q-btn' in camada.group(1)
+    assert '.ca-grade-respostas' in tema.CSS

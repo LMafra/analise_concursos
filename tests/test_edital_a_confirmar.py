@@ -151,7 +151,7 @@ def test_sem_campos_faltando_nao_gera_o_arquivo(projeto):
 def test_selo_do_edital_no_indice(projeto):
     assert main(['--candidate', 'ana']) == 0
 
-    assert 'edital: mínima' in (projeto / 'analises' / 'ana' / 'index.html').read_text(encoding='utf-8')
+    assert 'edital: mínima' in (projeto / 'analises' / 'ana' / 'concursos.html').read_text(encoding='utf-8')
 
 
 def test_valor_invalido_na_confirmacao_cita_o_arquivo(tmp_path):

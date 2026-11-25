@@ -226,8 +226,8 @@ def com_biblioteca(projeto: Path, disciplina: str = 'Conhecimentos') -> None:
 
 def test_sem_biblioteca_nem_legislacao_nao_ha_recomendacoes(projeto):
     assert not recomendacoes(projeto).exists()
-    indice = (projeto / 'analises' / 'zuleica' / 'index.html').read_text(encoding='utf-8')
-    assert 'id="onde-estudar"' not in indice
+    concursos = (projeto / 'analises' / 'zuleica' / 'concursos.html').read_text(encoding='utf-8')
+    assert 'id="onde-estudar"' not in concursos
 
 
 def test_com_biblioteca_a_analise_grava_recomendacoes_e_a_secao_sem_rede(projeto, servidor):
@@ -237,8 +237,8 @@ def test_com_biblioteca_a_analise_grava_recomendacoes_e_a_secao_sem_rede(projeto
     assert main(['--yes', '--no-open', '--offline', '--candidate', 'zuleica']) == 0
 
     assert recomendacoes(projeto).read_text(encoding='utf-8').startswith('# Onde estudar')
-    indice = (projeto / 'analises' / 'zuleica' / 'index.html').read_text(encoding='utf-8')
-    assert '<details id="onde-estudar"><summary><h2>Onde estudar</h2></summary>' in indice
+    concursos = (projeto / 'analises' / 'zuleica' / 'concursos.html').read_text(encoding='utf-8')
+    assert '<details id="onde-estudar"><summary><h2>Onde estudar</h2></summary>' in concursos
     assert servidor.pedidos == []
     antes = mtimes(projeto / 'analises')
     assert main(['--yes', '--no-open', '--offline', '--candidate', 'zuleica']) == 0

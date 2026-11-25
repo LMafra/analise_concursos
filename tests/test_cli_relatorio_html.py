@@ -46,14 +46,23 @@ def indice(raiz: Path) -> Path:
     return raiz / 'analises' / 'alice' / 'index.html'
 
 
+def concursos_html(raiz: Path) -> Path:
+    return raiz / 'analises' / 'alice' / 'concursos.html'
+
+
 def test_indice_liga_cada_concurso_ao_seu_relatorio_com_os_numeros(projeto):
     assert main(['--candidate', 'alice']) == 0
 
-    html = indice(projeto).read_text(encoding='utf-8')
+    painel = indice(projeto).read_text(encoding='utf-8')
+    assert 'id="dashboard"' in painel
+    assert 'Concursos (Provas Reais)' in painel
+    html = concursos_html(projeto).read_text(encoding='utf-8')
     assert 'href="alfa/relatorio.html"' in html
     assert '3 de 4' in html and '75' in html
     relatorio = projeto / 'analises' / 'alice' / 'alfa' / 'relatorio.html'
     assert '<table>' in relatorio.read_text(encoding='utf-8')
+    assert (projeto / 'analises' / 'alice' / 'tec.html').is_file()
+    assert (projeto / 'analises' / 'alice' / 'simulados.html').is_file()
 
 
 def test_relatorio_do_concurso_fecha_os_detalhes_tecnicos(projeto):
@@ -84,7 +93,7 @@ def test_percentual_do_indice_segue_a_regra_da_banca(projeto):
 
     assert main(['--candidate', 'alice']) == 0
 
-    html = indice(projeto).read_text(encoding='utf-8')
+    html = concursos_html(projeto).read_text(encoding='utf-8')
     linha = re.search(r'<tr><td><a href="gama/.*?</tr>', html).group(0)
     assert '3 de 4' in linha
     assert '50,0%' in linha and '2 de 4 pontos' in linha
@@ -95,7 +104,7 @@ def test_percentual_do_indice_segue_a_regra_da_banca(projeto):
 def test_indice_diz_o_que_o_app_decidiu_sozinho_e_a_origem(projeto):
     assert main(['--candidate', 'alice']) == 0
 
-    html = indice(projeto).read_text(encoding='utf-8')
+    html = concursos_html(projeto).read_text(encoding='utf-8')
     principal, apendice = html.split('<details id="detalhes-tecnicos">')
     assert 'perfil da banca' not in principal
     assert 'Como o app chegou nesses números' in apendice
@@ -114,7 +123,14 @@ def test_indice_e_um_painel_com_resumo_cards_e_selos(projeto):
 
     assert main(['--candidate', 'alice']) == 0
 
-    html = indice(projeto).read_text(encoding='utf-8')
+    painel = indice(projeto).read_text(encoding='utf-8')
+    assert 'id="dashboard"' in painel
+    assert 'dashboard-grade' in painel
+    assert 'Prática no TEC' in painel
+    assert 'Simulados' in painel
+    assert 'percentil' not in painel.lower()
+
+    html = concursos_html(projeto).read_text(encoding='utf-8')
     assert re.search(r'<p class="resumo">Você fez 2 concursos\.', html)
     assert html.count('<div class="card">') == 3
     assert 'Indicadores principais' in html
@@ -142,7 +158,11 @@ def test_indice_e_um_painel_com_resumo_cards_e_selos(projeto):
 def test_html_funciona_sem_rede(projeto):
     assert main(['--candidate', 'alice']) == 0
 
-    for arquivo in (indice(projeto), projeto / 'analises' / 'alice' / 'alfa' / 'relatorio.html'):
+    for arquivo in (
+        indice(projeto),
+        concursos_html(projeto),
+        projeto / 'analises' / 'alice' / 'alfa' / 'relatorio.html',
+    ):
         html = arquivo.read_text(encoding='utf-8')
         assert '<style>' in html
         assert not re.search(r'(?:src|href)="(?:https?:|//|/)', html)
@@ -168,7 +188,7 @@ def test_reprocessar_abre_de_novo(projeto, navegador):
     assert main(['--candidate', 'alice']) == 0
 
     assert len(navegador) == 2
-    assert '4 de 4' in indice(projeto).read_text(encoding='utf-8')
+    assert '4 de 4' in concursos_html(projeto).read_text(encoding='utf-8')
 
 
 def test_no_open_nao_abre(projeto, navegador):
@@ -200,7 +220,7 @@ def test_evolucao_e_gap_com_dois_concursos(projeto):
 
     assert main(['--candidate', 'alice']) == 0
 
-    html = indice(projeto).read_text(encoding='utf-8')
+    html = concursos_html(projeto).read_text(encoding='utf-8')
     assert 'Estou evoluindo?' in html
     assert 'consolidado/evolucao_zscore.png' in html
     assert '<figcaption>' in html
@@ -211,7 +231,7 @@ def test_evolucao_e_gap_com_dois_concursos(projeto):
 def test_evolucao_com_um_concurso_explica_o_minimo(projeto):
     assert main(['--candidate', 'alice']) == 0
 
-    assert 'pelo menos 2 concursos' in indice(projeto).read_text(encoding='utf-8')
+    assert 'pelo menos 2 concursos' in concursos_html(projeto).read_text(encoding='utf-8')
 
 
 @pytest.mark.parametrize('formato', ['csv', 'parquet', 'md'])
@@ -239,7 +259,7 @@ def test_export_formato_invalido(projeto):
 
 def test_nome_sem_edital_aparece_a_confirmar_e_o_corrigido_vence(projeto):
     assert main(['--candidate', 'alice']) == 0
-    html = indice(projeto).read_text(encoding='utf-8')
+    html = concursos_html(projeto).read_text(encoding='utf-8')
     assert 'a confirmar' in html
     assert 'alfa: o nome “alfa” não veio do edital; confirme na tela Concursos.' in html
     assert 'nome do concurso: alfa (da pasta do concurso); a confirmar em Concursos' in html
@@ -249,6 +269,6 @@ def test_nome_sem_edital_aparece_a_confirmar_e_o_corrigido_vence(projeto):
     (pasta / 'concurso.yaml').write_text(yaml.safe_dump({**dados, 'titulo': 'Alfa 2025'}), encoding='utf-8')
     assert main(['--candidate', 'alice']) == 0
 
-    html = indice(projeto).read_text(encoding='utf-8')
+    html = concursos_html(projeto).read_text(encoding='utf-8')
     assert '>Alfa 2025</a>' in html
     assert 'nome do concurso' not in html
