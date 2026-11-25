@@ -118,10 +118,7 @@ def renderizar() -> None:
     with (
         ui.element('div')
         .classes('w-full')
-        .style(
-            'display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));'
-            f'{tema.gap("md")}'
-        )
+        .style(f'display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));{tema.gap("md")}')
         .mark('dashboard-home')
     ):
         for sub in subs:

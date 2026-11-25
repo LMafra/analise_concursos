@@ -84,7 +84,5 @@ def opcoes_de_concurso(contexto: Contexto) -> dict[str, str]:
             opcoes[pasta.name] = nome_no_projeto(contexto, carregar_concurso(pasta)).titulo
         except (ConfiguracaoInvalidaError, FileNotFoundError):
             sem_cadastro = nome_sem_cadastro(pasta)
-            opcoes[pasta.name] = (
-                sem_cadastro.titulo if sem_cadastro else titulo_amigavel_da_pasta(pasta.name)
-            )
+            opcoes[pasta.name] = sem_cadastro.titulo if sem_cadastro else titulo_amigavel_da_pasta(pasta.name)
     return opcoes

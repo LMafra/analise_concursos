@@ -302,7 +302,9 @@ def _registros_simulados(raiz_provas: Path, pastas: list[Path], simulados: dict)
     return regs
 
 
-def _corpo_dashboard(raiz_analises: Path, raiz_provas: Path, pastas: list[Path], simulados: dict, painel: Painel) -> str:
+def _corpo_dashboard(
+    raiz_analises: Path, raiz_provas: Path, pastas: list[Path], simulados: dict, painel: Painel
+) -> str:
     from concursos.analytics.dashboard_fontes import (
         html_dashboard,
         kpis_concursos,
@@ -423,7 +425,13 @@ def gerar_relatorio_html(
         _pagina(f'Concursos — {raiz_analises.name}', corpo_concursos), encoding='utf-8'
     )
     _gravar_tec_e_simulados(raiz_analises, raiz_provas, pastas, simulados, painel, suficiente)
-    logger.info('Relatório HTML gravado em %s (+ %s, %s, %s)', indice, ARQUIVO_CONCURSOS, ARQUIVO_TEC, ARQUIVO_SIMULADOS)
+    logger.info(
+        'Relatório HTML gravado em %s (+ %s, %s, %s)',
+        indice,
+        ARQUIVO_CONCURSOS,
+        ARQUIVO_TEC,
+        ARQUIVO_SIMULADOS,
+    )
     return indice
 
 
@@ -475,7 +483,9 @@ def _gravar_tec_e_simulados(
             for t in topicos[:10]:
                 linhas_tec.append(f'<li>{escape(t.disciplina)} — {escape(abreviar(t.topico, 80))}</li>')
             linhas_tec.append('</ul>')
-    (raiz_analises / ARQUIVO_TEC).write_text(_pagina('Prática no TEC', '\n'.join(linhas_tec)), encoding='utf-8')
+    (raiz_analises / ARQUIVO_TEC).write_text(
+        _pagina('Prática no TEC', '\n'.join(linhas_tec)), encoding='utf-8'
+    )
 
     regs = _registros_simulados(raiz_provas, pastas, simulados)
     linhas_sim = [

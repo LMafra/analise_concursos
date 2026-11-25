@@ -11,13 +11,9 @@ from concursos.analytics.painel import Prova, StatusProva
 from concursos.linguagem import numero, percentual, plural
 from concursos.pratica.constantes import ARQUIVO_RESPOSTAS, PASTA_PRATICA
 
-EMPTY_CONCURSOS = (
-    'Cadastre sua primeira prova real para ativar o raio-X de notas de corte e pontos fracos.'
-)
+EMPTY_CONCURSOS = 'Cadastre sua primeira prova real para ativar o raio-X de notas de corte e pontos fracos.'
 EMPTY_TEC = 'Importe seu histórico de respostas do TEC para mapear os assuntos com maior taxa de erro.'
-EMPTY_SIMULADOS = (
-    'Gere ou registre um simulado para acompanhar sua evolução de treino e ritmo de prova.'
-)
+EMPTY_SIMULADOS = 'Gere ou registre um simulado para acompanhar sua evolução de treino e ritmo de prova.'
 CTA_CONCURSOS = 'Cadastrar Primeira Prova'
 CTA_TEC = 'Importar Respostas do TEC'
 CTA_SIMULADOS = 'Registrar Primeiro Simulado'
@@ -184,6 +180,67 @@ def kpis_concursos(
     return SubDashboard('concursos', 'Concursos (Provas Reais)', kpis, extras=extras)
 
 
+def _gargalo_tec(df: pd.DataFrame, metas: MetasDashboard, destino_base: str) -> KpiItem:
+    melhor_ruim = None
+    if {'mat', 'ass'}.issubset(df.columns):
+        for (mat, ass), g in df.groupby(['mat', 'ass'], dropna=False):
+            t, _, nn = _taxa_df(g)
+            if nn < metas.amostra_minima:
+                continue
+            if melhor_ruim is None or t < melhor_ruim[0]:
+                melhor_ruim = (t, mat, ass, nn)
+    if melhor_ruim is None:
+        return KpiItem(
+            'Maior gargalo de acertos',
+            f'ℹ️ Precisa de ≥{metas.amostra_minima} questões por assunto',
+            destino_base,
+            selo=SeloKpi('ℹ️ Amostra insuficiente', 'info'),
+        )
+    t, mat, ass, _nn = melhor_ruim
+    return KpiItem(
+        'Maior gargalo de acertos',
+        f'{mat} > {ass} ({percentual(100.0 * t)} acertos)',
+        f'{destino_base}#gargalo',
+        selo=SeloKpi('⚠️ Ponto fraco prioritário', 'abaixo'),
+    )
+
+
+def _banca_resolvida(df: pd.DataFrame, metas: MetasDashboard) -> str:
+    if metas.banca_alvo:
+        return metas.banca_alvo
+    if 'banca' not in df.columns:
+        return ''
+    freqs = df['banca'].replace('', pd.NA).dropna().value_counts()
+    return str(freqs.index[0]) if not freqs.empty else ''
+
+
+def _kpi_banca_alvo(df: pd.DataFrame, metas: MetasDashboard, destino_base: str) -> KpiItem:
+    banca = _banca_resolvida(df, metas)
+    selo = SeloKpi('ℹ️ Banca oficial', 'info')
+    if not banca or 'banca' not in df.columns:
+        return KpiItem(
+            'Desempenho na banca alvo',
+            'ℹ️ Defina a banca alvo em Configurações',
+            destino_base,
+            selo=selo,
+        )
+    sub = df[df['banca'].astype(str).str.contains(banca, case=False, na=False)]
+    if sub.empty:
+        return KpiItem(
+            'Desempenho na banca alvo',
+            f'ℹ️ Sem questões de {banca}',
+            destino_base,
+            selo=selo,
+        )
+    t, _, _nn = _taxa_df(sub)
+    return KpiItem(
+        'Desempenho na banca alvo',
+        f'{percentual(100.0 * t)} em {banca}',
+        f'{destino_base}#banca',
+        selo=selo,
+    )
+
+
 def kpis_tec(
     raiz_candidato: Path,
     metas: MetasDashboard | None = None,
@@ -198,7 +255,7 @@ def kpis_tec(
     if df.empty or 'resultado' not in df.columns:
         return SubDashboard('tec', 'Prática no TEC', [], vazio=EMPTY_TEC, cta=CTA_TEC)
 
-    taxa, acertos, n = _taxa_df(df)
+    taxa, _acertos, n = _taxa_df(df)
     pct = percentual(100.0 * taxa)
     kpis = [
         KpiItem(
@@ -206,75 +263,10 @@ def kpis_tec(
             f'{pct} ({plural(n, "questão")})',
             destino_base,
             selo=_selo_por_taxa(taxa, metas.tec_alta, metas.tec_media, pct),
-        )
+        ),
+        _gargalo_tec(df, metas, destino_base),
+        _kpi_banca_alvo(df, metas, destino_base),
     ]
-
-    # Gargalo: menor taxa com amostra mínima
-    gargalo = None
-    if {'mat', 'ass'}.issubset(df.columns):
-        melhor_ruim = None
-        for (mat, ass), g in df.groupby(['mat', 'ass'], dropna=False):
-            t, _, nn = _taxa_df(g)
-            if nn < metas.amostra_minima:
-                continue
-            if melhor_ruim is None or t < melhor_ruim[0]:
-                melhor_ruim = (t, mat, ass, nn)
-        if melhor_ruim:
-            t, mat, ass, nn = melhor_ruim
-            gargalo = KpiItem(
-                'Maior gargalo de acertos',
-                f'{mat} > {ass} ({percentual(100.0 * t)} acertos)',
-                f'{destino_base}#gargalo',
-                selo=SeloKpi('⚠️ Ponto fraco prioritário', 'abaixo'),
-            )
-    if gargalo:
-        kpis.append(gargalo)
-    else:
-        kpis.append(
-            KpiItem(
-                'Maior gargalo de acertos',
-                f'ℹ️ Precisa de ≥{metas.amostra_minima} questões por assunto',
-                destino_base,
-                selo=SeloKpi('ℹ️ Amostra insuficiente', 'info'),
-            )
-        )
-
-    # Banca alvo
-    banca = metas.banca_alvo
-    if not banca and 'banca' in df.columns:
-        freqs = df['banca'].replace('', pd.NA).dropna().value_counts()
-        if not freqs.empty:
-            banca = str(freqs.index[0])
-    if banca and 'banca' in df.columns:
-        sub = df[df['banca'].astype(str).str.contains(banca, case=False, na=False)]
-        if not sub.empty:
-            t, _, nn = _taxa_df(sub)
-            kpis.append(
-                KpiItem(
-                    'Desempenho na banca alvo',
-                    f'{percentual(100.0 * t)} em {banca}',
-                    f'{destino_base}#banca',
-                    selo=SeloKpi('ℹ️ Banca oficial', 'info'),
-                )
-            )
-        else:
-            kpis.append(
-                KpiItem(
-                    'Desempenho na banca alvo',
-                    f'ℹ️ Sem questões de {banca}',
-                    destino_base,
-                    selo=SeloKpi('ℹ️ Banca oficial', 'info'),
-                )
-            )
-    else:
-        kpis.append(
-            KpiItem(
-                'Desempenho na banca alvo',
-                'ℹ️ Defina a banca alvo em Configurações',
-                destino_base,
-                selo=SeloKpi('ℹ️ Banca oficial', 'info'),
-            )
-        )
     return SubDashboard('tec', 'Prática no TEC', kpis[:3])
 
 
@@ -369,10 +361,7 @@ def html_dashboard(subs: list[SubDashboard]) -> str:
     blocos = []
     for sub in subs:
         if sub.vazio:
-            corpo = (
-                f'<p class="empty-msg">{escape(sub.vazio)}</p>'
-                f'<p class="nota">{escape(sub.cta or "")}</p>'
-            )
+            corpo = f'<p class="empty-msg">{escape(sub.vazio)}</p><p class="nota">{escape(sub.cta or "")}</p>'
         else:
             itens = []
             for kpi in sub.kpis:
@@ -387,10 +376,11 @@ def html_dashboard(subs: list[SubDashboard]) -> str:
             corpo = '<div class="kpis">' + ''.join(itens) + '</div>'
             if sub.extras:
                 extras = ''.join(
-                    f'<li><strong>{escape(e.rotulo)}</strong>: {escape(e.valor)}</li>'
-                    for e in sub.extras
+                    f'<li><strong>{escape(e.rotulo)}</strong>: {escape(e.valor)}</li>' for e in sub.extras
                 )
-                corpo += f'<details class="dash-extras"><summary>Mais dados</summary><ul>{extras}</ul></details>'
+                corpo += (
+                    f'<details class="dash-extras"><summary>Mais dados</summary><ul>{extras}</ul></details>'
+                )
         blocos.append(
             f'<section class="sub-dashboard" id="dash-{escape(sub.id)}">'
             f'<h3>{escape(sub.titulo)}</h3>{corpo}</section>'

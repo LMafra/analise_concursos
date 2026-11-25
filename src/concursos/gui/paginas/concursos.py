@@ -39,13 +39,9 @@ def pagina(aba: str | None = None) -> None:
         with ui.row().classes('items-center').style(tema.gap('sm')):
             ui.label('Minhas Provas').classes('text-2xl font-bold')
             ui.space()
-            with ui.label(f'Projeto: {caminho_curto(ESTADO.projeto)}').classes(
-                'text-sm ca-texto-suave'
-            ):
+            with ui.label(f'Projeto: {caminho_curto(ESTADO.projeto)}').classes('text-sm ca-texto-suave'):
                 ui.tooltip(str(ESTADO.projeto))
-            ui.button('Trocar', on_click=lambda: ui.navigate.to('/projeto')).props('flat').classes(
-                'ca-alvo'
-            )
+            ui.button('Trocar', on_click=lambda: ui.navigate.to('/projeto')).props('flat').classes('ca-alvo')
         with ui.tabs().classes('w-full') as abas:
             guias = {chave: ui.tab(titulo).mark(f'aba-{chave}') for chave, titulo in ABAS.items()}
         with ui.tab_panels(abas, value=guias.get(aba or '', guias['lista'])).classes('w-full'):
@@ -138,9 +134,9 @@ def lista_de_concursos() -> bool:
             with ui.item():
                 with ui.item_section():
                     with ui.row().classes('items-center').style(tema.gap('sm')):
-                        ui.item_label(
-                            nome.titulo if nome else titulo_amigavel_da_pasta(item.nome)
-                        ).classes('font-bold').mark(f'nome-{item.nome}')
+                        ui.item_label(nome.titulo if nome else titulo_amigavel_da_pasta(item.nome)).classes(
+                            'font-bold'
+                        ).mark(f'nome-{item.nome}')
                         if nome and nome.a_confirmar:
                             with situacao('a confirmar', Tom.ALERTA, icone='help').mark(
                                 f'a-confirmar-{item.nome}'
