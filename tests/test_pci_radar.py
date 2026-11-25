@@ -141,7 +141,7 @@ def ligar() -> None:
 def test_desligado_nao_gera_radar_nem_chama_o_pci(projeto: Path):
     assert main(['--candidate', 'alice']) == 0
     assert not (projeto / 'analises' / 'alice' / ARQUIVO_RADAR).exists()
-    assert 'id="prazos"' not in (projeto / 'analises' / 'alice' / 'index.html').read_text()
+    assert 'id="prazos"' not in (projeto / 'analises' / 'alice' / 'concursos.html').read_text()
 
 
 def test_radar_depois_da_analise_no_indice_status_e_doctor(
@@ -155,13 +155,13 @@ def test_radar_depois_da_analise_no_indice_status_e_doctor(
     assert transporte.chamadas == [('buscar_por_cargo', {'cargo': 'analista', 'uf': 'mg'})]
     radar = json.loads((destino / ARQUIVO_RADAR_JSON).read_text(encoding='utf-8'))
     assert [item['id'] for item in radar['itens']] == [1]
-    indice = (destino / 'index.html').read_text(encoding='utf-8')
-    assert '<details id="prazos"><summary><h2>Prazos dos editais</h2></summary>' in indice
-    assert 'Câmara Alfa' in indice
+    concursos = (destino / 'concursos.html').read_text(encoding='utf-8')
+    assert '<details id="prazos"><summary><h2>Prazos dos editais</h2></summary>' in concursos
+    assert 'Câmara Alfa' in concursos
     markdown = (destino / ARQUIVO_RADAR).read_text(encoding='utf-8')
     assert re.search(r'\d{2}/\d{2}/\d{4}', markdown) and not re.search(r'\d{4}-\d{2}-\d{2}', markdown)
     assert not re.search(
-        r'\d{4}-\d{2}-\d{2}', indice.split('<details id="prazos">')[1].split('</details>')[0]
+        r'\d{4}-\d{2}-\d{2}', concursos.split('<details id="prazos">')[1].split('</details>')[0]
     )
     assert re.match(r'\d{4}-\d{2}-\d{2}$', radar['data_referencia'])
     capsys.readouterr()

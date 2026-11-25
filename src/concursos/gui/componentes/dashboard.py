@@ -1,20 +1,38 @@
-"""Bloco de dashboard (3 fontes) no topo de Minhas Provas."""
+"""Bloco de dashboard (3 fontes) no topo de Minhas Provas — paridade com index.html."""
 
 from pathlib import Path
 
 from nicegui import ui
 
 from concursos.analytics.dashboard_fontes import (
+    CTA_CONCURSOS,
+    CTA_SIMULADOS,
+    CTA_TEC,
     KpiItem,
+    MetasDashboard,
+    RegistroSimulado,
     SubDashboard,
-    kpis_concursos_resumo,
+    kpis_concursos,
     kpis_simulados,
     kpis_tec,
+    metas_do_toml,
+    metas_padrao,
 )
-from concursos.analytics.painel import Kpis, Tendencia
+from concursos.analytics.painel import Prova
+from concursos.config.contexto import ler_toml
 from concursos.gui import tema
 from concursos.gui.estado import ESTADO
 from concursos.pratica.constantes import PASTA_PRATICA
+
+
+def _metas() -> MetasDashboard:
+    try:
+        cfg = ESTADO.contexto().config_projeto
+        if cfg.is_file():
+            return metas_do_toml(ler_toml(cfg))
+    except Exception:  # noqa: BLE001
+        pass
+    return metas_padrao()
 
 
 def _raiz_candidato() -> Path | None:
@@ -33,70 +51,75 @@ def _raiz_candidato() -> Path | None:
     return None
 
 
-def _concursos(raiz: Path) -> SubDashboard:
-    provas = [
-        p
-        for p in raiz.glob('*/relatorio.md')
-        if p.parent.name not in {PASTA_PRATICA, 'consolidado', 'export'}
-    ]
-    n = len(provas)
-    indicadores = Kpis(
-        concursos=n,
-        provas=n,
-        acima=0,
-        abaixo=0,
-        no_limite=0,
-        com_corte=0,
-        melhor=None,
-        mais_fraco=None,
-        tendencia=Tendencia(
-            'indefinida',
-            'Ver resultados',
-            '→',
-            'Abra Resultados para o diagnóstico completo.',
-        ),
-    )
-    sub = kpis_concursos_resumo(indicadores)
-    return SubDashboard(
-        sub.id,
-        sub.titulo,
-        [KpiItem(k.rotulo, k.valor, '/resultados', k.detalhe) for k in sub.kpis],
-        sub.vazio,
-        'Cadastrar primeira prova' if sub.vazio else None,
-    )
+def _provas_leves(raiz: Path) -> list[Prova]:
+    provas = []
+    for md in raiz.glob('*/relatorio.md'):
+        if md.parent.name in {PASTA_PRATICA, 'consolidado', 'export'}:
+            continue
+        provas.append(Prova(concurso=md.parent.name, titulo=md.parent.name, percentual=0.0))
+    return provas
+
+
+def _regs_simulados(raiz: Path) -> list[RegistroSimulado]:
+    regs = []
+    pratica = raiz / PASTA_PRATICA
+    if pratica.is_dir():
+        for html in pratica.glob('simulado*.html'):
+            regs.append(RegistroSimulado(html.stem, 'TEC', 0.0, ''))
+    return regs
 
 
 def renderizar() -> None:
     raiz = _raiz_candidato()
-    if raiz is None:
-        return
-    pratica = raiz / PASTA_PRATICA
-    n_sim = len(list(pratica.glob('simulado*.html'))) if pratica.is_dir() else 0
-    tec = kpis_tec(raiz)
-    sim = kpis_simulados(n_sim)
+    metas = _metas()
+    provas = _provas_leves(raiz) if raiz else []
+    # Preferir provas do painel se o index já tiver sido gerado — fallback leve
+    conc = kpis_concursos(provas, destino_base='/resultados?aba=concursos')
+    tec = (
+        kpis_tec(raiz, metas, destino_base='/resultados?aba=tec')
+        if raiz
+        else SubDashboard('tec', 'Prática no TEC', [], vazio='…', cta=CTA_TEC)
+    )
+    sim = kpis_simulados(
+        _regs_simulados(raiz) if raiz else [],
+        metas,
+        destino_base='/resultados?aba=simulados',
+    )
+    # Remap CTAs GUI
+    ctas = {
+        'concursos': ('/novo', CTA_CONCURSOS),
+        'tec': ('/?aba=tec', CTA_TEC),
+        'simulados': ('/estudar?aba=simulado', CTA_SIMULADOS),
+    }
     subs = [
-        _concursos(raiz),
+        SubDashboard(
+            conc.id,
+            conc.titulo,
+            [KpiItem(k.rotulo, k.valor, '/resultados?aba=concursos', k.detalhe, k.selo) for k in conc.kpis],
+            conc.vazio,
+            conc.cta,
+            conc.extras,
+        ),
         SubDashboard(
             tec.id,
             tec.titulo,
-            [KpiItem(k.rotulo, k.valor, '/estudar?aba=pratica', k.detalhe) for k in tec.kpis],
+            [KpiItem(k.rotulo, k.valor, '/resultados?aba=tec', k.detalhe, k.selo) for k in tec.kpis],
             tec.vazio,
-            'Importar do TEC' if tec.vazio else None,
+            tec.cta,
         ),
         SubDashboard(
             sim.id,
             sim.titulo,
-            [KpiItem(k.rotulo, k.valor, '/estudar?aba=simulado', k.detalhe) for k in sim.kpis],
+            [KpiItem(k.rotulo, k.valor, '/resultados?aba=simulados', k.detalhe, k.selo) for k in sim.kpis],
             sim.vazio,
-            'Ver simulados' if sim.vazio else None,
+            sim.cta,
         ),
     ]
-    ctas = {'concursos': '/novo', 'tec': '/?aba=tec', 'simulados': '/estudar?aba=simulado'}
     with (
         ui.element('div')
         .classes('w-full')
         .style(
-            'display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));'
+            'display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));'
             f'{tema.gap("md")}'
         )
         .mark('dashboard-home')
@@ -106,10 +129,10 @@ def renderizar() -> None:
                 ui.label(sub.titulo).classes('text-subtitle1 font-bold')
                 if sub.vazio:
                     ui.label(sub.vazio).classes('text-sm ca-texto-suave')
-                    if sub.cta:
-                        ui.button(
-                            sub.cta, on_click=lambda d=ctas[sub.id]: ui.navigate.to(d)
-                        ).props('flat').classes('ca-alvo')
+                    rota, rotulo = ctas[sub.id]
+                    ui.button(rotulo, on_click=lambda d=rota: ui.navigate.to(d)).props('outline').classes(
+                        'ca-alvo'
+                    )
                 else:
                     for kpi in sub.kpis:
                         with (
@@ -120,3 +143,9 @@ def renderizar() -> None:
                         ):
                             ui.label(kpi.rotulo).classes('text-caption ca-texto-suave')
                             ui.label(kpi.valor).classes('text-body1 font-bold')
+                            if kpi.selo:
+                                ui.label(kpi.selo.texto).classes('text-caption')
+                    if sub.extras:
+                        with ui.expansion('Mais dados', icon='info').classes('w-full'):
+                            for e in sub.extras:
+                                ui.label(f'{e.rotulo}: {e.valor}').classes('text-sm')

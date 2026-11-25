@@ -6,8 +6,11 @@ Implementação em `relatorio_html_secoes` (extraída para manter o MI do módul
 
 from concursos.relatorio_html_secoes import (  # noqa: F401
     _CSS,
+    ARQUIVO_CONCURSOS,
     ARQUIVO_INDICE,
     ARQUIVO_RELATORIO_HTML,
+    ARQUIVO_SIMULADOS,
+    ARQUIVO_TEC,
     ConcursoNoIndice,
     Observacao,
     _no_wsl,
@@ -16,8 +19,11 @@ from concursos.relatorio_html_secoes import (  # noqa: F401
 )
 
 __all__ = [
+    'ARQUIVO_CONCURSOS',
     'ARQUIVO_INDICE',
     'ARQUIVO_RELATORIO_HTML',
+    'ARQUIVO_SIMULADOS',
+    'ARQUIVO_TEC',
     'ConcursoNoIndice',
     'Observacao',
     '_CSS',

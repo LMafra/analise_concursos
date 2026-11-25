@@ -4,14 +4,17 @@ from nicegui.testing.user import User
 
 from concursos.aplicacao import analise, estudo
 from concursos.exportacao import FormatoExportacao
-from concursos.relatorio_html import ARQUIVO_INDICE, ARQUIVO_RELATORIO_HTML
+from concursos.relatorio_html import ARQUIVO_CONCURSOS, ARQUIVO_INDICE, ARQUIVO_SIMULADOS, ARQUIVO_TEC
 
 
 def com_relatorio(projeto: Path) -> Path:
     (projeto / 'provas').mkdir(exist_ok=True)
     pasta = projeto / 'analises'
     pasta.mkdir(exist_ok=True)
-    (pasta / ARQUIVO_INDICE).write_text('<html><body>relatório</body></html>', encoding='utf-8')
+    (pasta / ARQUIVO_INDICE).write_text('<html><body>painel</body></html>', encoding='utf-8')
+    (pasta / ARQUIVO_CONCURSOS).write_text('<html><body>concursos</body></html>', encoding='utf-8')
+    (pasta / ARQUIVO_TEC).write_text('<html><body>tec</body></html>', encoding='utf-8')
+    (pasta / ARQUIVO_SIMULADOS).write_text('<html><body>simulados</body></html>', encoding='utf-8')
     return pasta
 
 
@@ -20,7 +23,7 @@ async def test_sem_relatorio_explica_como_gerar(user: User, projeto):
 
     await user.open('/resultados')
 
-    await user.should_see(marker='sem-relatorio')
+    await user.should_see(marker='sem-concursos')
     await user.should_see('Analisar')
 
 
@@ -29,11 +32,11 @@ async def test_relatorio_vai_num_iframe_servido_so_por_endereco_proprio(user: Us
 
     await user.open('/resultados')
 
-    await user.should_see(marker='relatorio')
-    iframe = next(iter(user.find(marker='relatorio').elements))
+    await user.should_see(marker='relatorio-concursos')
+    iframe = next(iter(user.find(marker='relatorio-concursos').elements))
     assert iframe.tag == 'iframe'
     assert iframe.props['src'].startswith('/_analises/')
-    assert '/index.html?v=' in iframe.props['src']
+    assert '/concursos.html?v=' in iframe.props['src']
     assert str(projeto) not in iframe.props['src']
 
 
@@ -43,22 +46,18 @@ async def test_abrir_no_navegador_abre_o_index(user: User, projeto, navegador):
     await user.open('/resultados')
     user.find(marker='abrir-navegador').click()
 
-    assert navegador == [pasta / ARQUIVO_INDICE]
+    assert navegador == [pasta / ARQUIVO_CONCURSOS]
 
 
-async def test_seletor_troca_o_iframe_para_o_concurso(user: User, projeto):
-    pasta = com_relatorio(projeto)
-    concurso = pasta / 'alfa'
-    concurso.mkdir()
-    (concurso / ARQUIVO_RELATORIO_HTML).write_text('<html><body>alfa</body></html>', encoding='utf-8')
+async def test_aba_tec_troca_o_iframe(user: User, projeto):
+    com_relatorio(projeto)
 
     await user.open('/resultados')
-    await user.should_see(marker='seletor-concurso-relatorio')
-    seletor = next(iter(user.find(marker='seletor-concurso-relatorio').elements))
-    seletor.set_value('alfa')
+    user.find(marker='aba-resultado-tec').click()
 
-    iframe = next(iter(user.find(marker='relatorio').elements))
-    assert '/alfa/relatorio.html?v=' in iframe.props['src']
+    await user.should_see(marker='relatorio-tec')
+    iframe = next(iter(user.find(marker='relatorio-tec').elements))
+    assert '/tec.html?v=' in iframe.props['src']
 
 
 async def test_recomendacoes_explicam_quando_ainda_nao_existem(user: User, projeto):
@@ -118,17 +117,16 @@ async def test_topico_fraco_abre_a_pergunta_nos_livros(user: User, projeto, monk
     await user.should_see(marker='procurar-nos-livros')
     user.find(marker='procurar-nos-livros').click()
 
-    await user.should_see(marker='nada-encontrado')
+    await user.should_see(marker='nada-encontrado', retries=60)
     assert perguntas == ['crase']
 
 
-async def test_simulado_e_pratica_leva_para_estudar(user: User, projeto, monkeypatch):
+async def test_aba_simulados_mostra_o_html(user: User, projeto):
     com_relatorio(projeto)
-    monkeypatch.setattr(estudo, 'listar_livros', lambda contexto: [])
-    monkeypatch.setattr(estudo, 'iniciar_trabalho', lambda contexto, ao_mudar=None: None)
-    monkeypatch.setattr(estudo, 'sugestoes_de_pergunta', lambda contexto: [])
 
     await user.open('/resultados')
-    user.find(marker='ir-estudar-simulado').click()
+    user.find(marker='aba-resultado-simulados').click()
 
-    await user.should_see(marker='aba-simulado')
+    await user.should_see(marker='relatorio-simulados')
+    iframe = next(iter(user.find(marker='relatorio-simulados').elements))
+    assert '/simulados.html?v=' in iframe.props['src']

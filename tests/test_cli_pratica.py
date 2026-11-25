@@ -169,9 +169,11 @@ def test_indice_ganha_a_secao_pratica_no_tec(projeto):
 
     assert main(['--yes', '--no-open', '--candidate', 'zuleica']) == 0
 
-    indice = (projeto / 'analises' / 'zuleica' / 'index.html').read_text(encoding='utf-8')
-    assert '<details id="pratica"><summary><h2>Prática no TEC</h2></summary>' in indice
-    assert 'Questões que você errou mais de uma vez' in indice
+    concursos = (projeto / 'analises' / 'zuleica' / 'concursos.html').read_text(encoding='utf-8')
+    assert '<details id="pratica"><summary><h2>Prática no TEC</h2></summary>' in concursos
+    assert 'Questões que você errou mais de uma vez' in concursos
+    tec = (projeto / 'analises' / 'zuleica' / 'tec.html').read_text(encoding='utf-8')
+    assert 'Prática no TEC' in tec
 
 
 def test_import_de_planilha_cria_a_secao_e_analisa(projeto, tmp_path):

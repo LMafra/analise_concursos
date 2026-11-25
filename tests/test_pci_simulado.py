@@ -206,13 +206,13 @@ def test_simulado_fica_fora_do_consolidado_por_padrao(raizes):
     assert concursos_analisados(provas, saida, incluir_simulados=True) == ['alvo', 'simulado']
     assert contar_questoes(saida, provas, incluir_simulados=False) == 4
     assert contar_questoes(saida) == 8
-    indice = gerar_relatorio_html(provas, saida, provas.parent / 'taxonomia.yaml', 0.6).read_text(
-        encoding='utf-8'
-    )
-    tabela_de_concursos = indice.split('>Como estou saindo</h2>')[1].split('<h3>')[0]
+    gerar_relatorio_html(provas, saida, provas.parent / 'taxonomia.yaml', 0.6)
+    concursos = (saida / 'concursos.html').read_text(encoding='utf-8')
+    tabela_de_concursos = concursos.split('>Como estou saindo</h2>')[1].split('<h3>')[0]
     assert 'simulado/relatorio.html' not in tabela_de_concursos
-    assert 'Simulados que você fez' in indice
-    assert LINK in indice
+    simulados_html = (saida / 'simulados.html').read_text(encoding='utf-8')
+    assert 'Simulados que você fez' in simulados_html
+    assert LINK in simulados_html
 
 
 def test_incluir_simulados_no_projeto_traz_o_simulado(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

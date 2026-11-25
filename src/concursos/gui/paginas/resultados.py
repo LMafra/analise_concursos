@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from nicegui import run, ui
 
@@ -6,13 +7,12 @@ from concursos.aplicacao import analise, estudo
 from concursos.aplicacao.resultados import (
     Resultados,
     abrir_no_navegador,
-    relatorios_disponiveis,
     resultados,
 )
 from concursos.exportacao import FormatoExportacao
 from concursos.gui import tema
 from concursos.gui.componentes.estado_vazio import estado_vazio
-from concursos.gui.componentes.relatorio import mostrar_relatorio, relatorio
+from concursos.gui.componentes.relatorio import relatorio
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.estudar import endereco_da_pergunta
 from concursos.gui.paginas.projeto import exigir_projeto
@@ -20,7 +20,6 @@ from concursos.gui.textos import mostrar_erro, rotulo
 
 logger = logging.getLogger('concursos')
 
-LINHAS_POR_PAGINA = 15
 SEM_RELATORIO = 'Analise as provas para corrigir e gerar o relatório com as suas notas e os tópicos fracos.'
 SEM_RECOMENDACOES = (
     'As indicações de leitura aparecem depois da análise, quando há livros em Estudar ou a legislação ligada; '
@@ -33,9 +32,11 @@ DESCRICAO_DOS_FORMATOS = {
 }
 
 
-def pagina() -> None:
+def pagina(aba: str | None = None) -> None:
     if not exigir_projeto():
         return
+    from concursos.relatorio_html_secoes import ARQUIVO_CONCURSOS, ARQUIVO_SIMULADOS, ARQUIVO_TEC
+
     with ui.column().classes('w-full').style(tema.gap('md')):
         seletor_do_candidato()
         try:
@@ -43,25 +44,95 @@ def pagina() -> None:
         except Exception as erro:  # noqa: BLE001
             mostrar_erro(erro)
             return
+        mapa = {
+            'concursos': ('Concursos', ARQUIVO_CONCURSOS, 'assignment'),
+            'tec': ('TEC', ARQUIVO_TEC, 'quiz'),
+            'simulados': ('Simulados', ARQUIVO_SIMULADOS, 'sports_esports'),
+        }
+        inicial = aba if aba in mapa else 'concursos'
         with ui.tabs().classes('w-full') as abas:
-            aba_relatorio = ui.tab('Relatório', icon='insights')
-            aba_recomendacoes = ui.tab('Tópicos', icon='menu_book')
-        with ui.tab_panels(abas, value=aba_relatorio).classes('w-full'):
-            with ui.tab_panel(aba_relatorio):
-                painel_do_relatorio(achados)
-            with ui.tab_panel(aba_recomendacoes):
+            guias = {
+                chave: ui.tab(titulo, icon=icone).mark(f'aba-resultado-{chave}')
+                for chave, (titulo, _, icone) in mapa.items()
+            }
+            aba_topicos = ui.tab('Tópicos', icon='menu_book')
+            aba_exportar = ui.tab('Exportar', icon='download').mark('exportar')
+        valor_inicial = guias[inicial]
+        with ui.tab_panels(abas, value=valor_inicial).classes('w-full'):
+            for chave, (_, arquivo, _) in mapa.items():
+                with ui.tab_panel(guias[chave]):
+                    caminho = achados.pasta / arquivo
+                    if not caminho.is_file():
+                        estado_vazio(
+                            'insights',
+                            'Ainda não há relatório',
+                            SEM_RELATORIO,
+                            acao='Analisar',
+                            ao_clicar=analisar,
+                            icone_da_acao='play_arrow',
+                            marca=f'sem-{chave}',
+                        )
+                    else:
+                        painel_html_fonte(achados, caminho, marca=f'relatorio-{chave}')
+            with ui.tab_panel(aba_topicos):
                 procurar_nos_livros()
                 if achados.recomendacoes is None:
                     estado_vazio(
                         'menu_book',
                         'Sem recomendações ainda',
                         SEM_RECOMENDACOES,
-                        acao='Ver o relatório',
-                        ao_clicar=lambda: abas.set_value(aba_relatorio),
+                        acao='Ver Concursos',
+                        ao_clicar=lambda: abas.set_value(guias['concursos']),
                         marca='sem-recomendacoes',
                     )
                 else:
                     ui.markdown(achados.recomendacoes).classes('w-full').mark('recomendacoes')
+            with ui.tab_panel(aba_exportar):
+                painel_de_exportacao()
+
+
+def painel_html_fonte(achados: Resultados, caminho: Path, *, marca: str = 'relatorio') -> None:
+    with ui.row().classes('items-center flex-wrap').style(tema.gap('sm')):
+        ui.button(
+            'Abrir no navegador',
+            icon='open_in_new',
+            on_click=lambda: abrir_no_navegador(caminho),
+        ).classes('ca-alvo').mark('abrir-navegador')
+        ui.button(
+            'Painel inicial',
+            icon='dashboard',
+            on_click=lambda: ui.navigate.to('/'),
+        ).props('flat').classes('ca-alvo')
+    relatorio(caminho, raiz=achados.pasta).mark(marca)
+
+
+def painel_de_exportacao() -> None:
+    ui.label('O consolidado tem uma linha por questão de todos os concursos analisados.')
+
+    async def exportar(formato: FormatoExportacao) -> None:
+        try:
+            destino = await run.io_bound(analise.exportar, ESTADO.contexto(), formato)
+        except Exception as erro:  # noqa: BLE001
+            logger.debug('falha na exportação pela GUI', exc_info=True)
+            mostrar_erro(erro)
+            return
+        saida.clear()
+        with saida:
+            ui.label(f'Exportado em {destino}').mark('exportado')
+            with ui.row():
+                ui.button('Baixar', icon='download', on_click=lambda: ui.download.file(destino)).props('flat')
+                ui.button(
+                    'Abrir a pasta',
+                    icon='folder_open',
+                    on_click=lambda: abrir_no_navegador(destino.parent),
+                ).props('flat')
+
+    with ui.row():
+        for formato, descricao in DESCRICAO_DOS_FORMATOS.items():
+            ui.button(descricao, on_click=lambda f=formato: exportar(f)).props('outline').mark(
+                f'exportar-{formato.value}'
+            )
+    saida = ui.column()
 
 
 def seletor_do_candidato() -> None:
@@ -80,84 +151,6 @@ def seletor_do_candidato() -> None:
     rotulo(ui.select(candidatos, label='Candidato', value=escolhido, on_change=trocar), 'candidato').mark(
         'candidato-resultados'
     )
-
-
-def painel_do_relatorio(achados: Resultados) -> None:
-    if achados.indice is None:
-        estado_vazio(
-            'insights',
-            'Ainda não há relatório',
-            SEM_RELATORIO,
-            acao='Analisar',
-            ao_clicar=analisar,
-            icone_da_acao='play_arrow',
-            marca='sem-relatorio',
-        )
-        return
-    indice = achados.indice
-    saida_export = ui.column().classes('w-full')
-
-    async def exportar(formato: FormatoExportacao) -> None:
-        try:
-            destino = await run.io_bound(analise.exportar, ESTADO.contexto(), formato)
-        except Exception as erro:  # noqa: BLE001
-            logger.debug('falha na exportação pela GUI', exc_info=True)
-            mostrar_erro(erro)
-            return
-        saida_export.clear()
-        with saida_export:
-            ui.label(f'Exportado em {destino}').mark('exportado')
-            with ui.row().style(tema.gap('sm')):
-                ui.button('Baixar', icon='download', on_click=lambda: ui.download.file(destino)).props('flat')
-                ui.button(
-                    'Abrir a pasta', icon='folder_open', on_click=lambda: abrir_no_navegador(destino.parent)
-                ).props('flat')
-
-    opcoes = relatorios_disponiveis(ESTADO.contexto())
-    escolhido = {'caminho': indice}
-    quadro_ref: list = []
-
-    def abrir_escolhido() -> None:
-        abrir_no_navegador(escolhido['caminho'])
-
-    with ui.row().classes('items-center flex-wrap').style(tema.gap('sm')):
-        if len(opcoes) > 1:
-            rotulos = {o.rotulo: o.caminho for o in opcoes}
-
-            def trocar_concurso(evento) -> None:
-                caminho = rotulos[evento.value]
-                escolhido['caminho'] = caminho
-                mostrar_relatorio(quadro_ref[0], caminho, raiz=achados.pasta)
-
-            rotulo(
-                ui.select(
-                    list(rotulos),
-                    label='Concurso analisado',
-                    value=opcoes[0].rotulo,
-                    on_change=trocar_concurso,
-                )
-                .props('dense options-dense')
-                .classes('min-w-48'),
-                'concurso analisado',
-            ).mark('seletor-concurso-relatorio')
-        ui.button('Abrir no navegador', icon='open_in_new', on_click=abrir_escolhido).mark('abrir-navegador')
-        with (
-            ui.button(icon='download')
-            .props('flat round aria-label="Exportar"')
-            .classes('ca-alvo')
-            .mark('exportar'),
-            ui.menu(),
-        ):
-            for formato, descricao in DESCRICAO_DOS_FORMATOS.items():
-                ui.menu_item(descricao, on_click=lambda f=formato: exportar(f)).mark(
-                    f'exportar-{formato.value}'
-                )
-        ui.button(
-            'Simulado e prática',
-            icon='quiz',
-            on_click=lambda: ui.navigate.to('/estudar?aba=simulado'),
-        ).props('flat').mark('ir-estudar-simulado')
-    quadro_ref.append(relatorio(indice, raiz=achados.pasta))
 
 
 def procurar_nos_livros() -> None:

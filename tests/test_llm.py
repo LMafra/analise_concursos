@@ -132,9 +132,9 @@ def test_campo_do_llm_aparece_no_indice_e_no_log(projeto, servidor, caplog):
     with caplog.at_level(logging.WARNING):
         assert main(['analyze', '--no-open']) == 0
 
-    indice = (projeto / 'analises' / 'ana' / 'index.html').read_text(encoding='utf-8')
-    assert 'alternativas da prova: 4 (LLM' in indice
-    assert 'data da prova: 2025-01-02 (LLM' in indice
+    concursos = (projeto / 'analises' / 'ana' / 'concursos.html').read_text(encoding='utf-8')
+    assert 'alternativas da prova: 4 (LLM' in concursos
+    assert 'data da prova: 2025-01-02 (LLM' in concursos
     assert 'Número de alternativas: a IA' in caplog.text and 'alternativas veio do LLM' in log_completo(
         caplog
     )
