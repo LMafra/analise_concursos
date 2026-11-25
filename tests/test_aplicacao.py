@@ -6,14 +6,17 @@ import pytest
 from conftest import criar_concurso
 from test_cli_comando_unico import ARQUIVOS, config
 
+from concursos.analytics.dashboard_fontes import MetasDashboard
 from concursos.aplicacao import analise, projeto
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.preferencias import (
     PreferenciasAnalise,
     gravar_analise,
+    gravar_dashboard,
     gravar_tema_da_gui,
     lembrar_projeto,
     ler_analise,
+    ler_dashboard,
     tema_da_gui,
     ultimo_projeto,
 )
@@ -130,6 +133,35 @@ def test_preferencias_recusam_limiar_fora_de_0_a_1_sem_gravar(raiz):
     with pytest.raises(ErroDoUsuario):
         gravar_analise(contexto, PreferenciasAnalise(1.5, 0.5, None))
     assert not contexto.config_projeto.exists()
+
+
+def test_preferencias_gravam_dashboard_e_recusam_metas_invalidas(raiz):
+    contexto = resolver_contexto(cwd=raiz)
+    assert ler_dashboard(contexto).banca_alvo == ''
+
+    gravar_dashboard(
+        contexto,
+        MetasDashboard(
+            tec_alta=0.9,
+            tec_media=0.8,
+            simulado_alta=0.7,
+            simulado_media=0.6,
+            amostra_minima=5,
+            banca_alvo='FGV',
+        ),
+    )
+    lidas = ler_dashboard(contexto)
+    assert lidas.tec_alta == 0.9 and lidas.banca_alvo == 'FGV' and lidas.amostra_minima == 5
+
+    gravar_dashboard(contexto, MetasDashboard(banca_alvo=''))
+    assert 'banca_alvo' not in tomllib.loads(contexto.config_projeto.read_text(encoding='utf-8'))['dashboard']
+
+    with pytest.raises(ErroDoUsuario, match='metas do TEC'):
+        gravar_dashboard(contexto, MetasDashboard(tec_alta=0.5, tec_media=0.8))
+    with pytest.raises(ErroDoUsuario, match='simulado'):
+        gravar_dashboard(contexto, MetasDashboard(simulado_alta=0.5, simulado_media=0.8))
+    with pytest.raises(ErroDoUsuario, match='amostra mínima'):
+        gravar_dashboard(contexto, MetasDashboard(amostra_minima=0))
 
 
 def test_ultimo_projeto_fica_na_secao_gui_da_configuracao_global(raiz, home_isolada):

@@ -174,3 +174,62 @@ def test_html_dashboard_vazio_e_com_extras():
         [kpis_concursos([Prova('a', 'A', 80.0, data='2025-01-01', gap=2.5, atingido=True)])]
     )
     assert 'dash-extras' in cheio and 'kpi-valor' in cheio
+
+
+def test_kpis_concursos_tendencia_e_sem_corte():
+    sem_corte = kpis_concursos([Prova('a', 'A', 50.0, data='2025-01-01', gap=None)])
+    assert 'Amostra inicial' in sem_corte.kpis[1].valor
+    assert sem_corte.kpis[0].selo and 'corte' in sem_corte.kpis[0].selo.texto.lower()
+
+    elevacao = kpis_concursos(
+        [
+            Prova('d', 'D', 90.0, data='2025-04-01', gap=1.0, atingido=True),
+            Prova('c', 'C', 85.0, data='2025-03-01', gap=1.0, atingido=True),
+            Prova('b', 'B', 80.0, data='2025-02-01', gap=1.0, atingido=True),
+            Prova('a', 'A', 40.0, data='2025-01-01', gap=-5.0, atingido=False),
+        ]
+    )
+    assert 'elevação' in elevacao.kpis[1].valor.lower() or '↗' in elevacao.kpis[1].valor
+
+    estavel = kpis_concursos(
+        [
+            Prova('d', 'D', 70.0, data='2025-04-01', gap=0.0, atingido=True),
+            Prova('c', 'C', 70.0, data='2025-03-01', gap=0.0, atingido=True),
+            Prova('b', 'B', 70.0, data='2025-02-01', gap=0.0, atingido=True),
+            Prova('a', 'A', 70.0, data='2025-01-01', gap=0.0, atingido=True),
+        ]
+    )
+    assert 'Estável' in estavel.kpis[1].valor
+
+
+def test_kpis_tec_csv_vazio_e_resumo_com_prova(tmp_path: Path):
+    from concursos.analytics.painel import tendencia_geral
+
+    pratica = tmp_path / 'pratica'
+    pratica.mkdir()
+    (pratica / 'tec_respostas.csv').write_text('resultado\n', encoding='utf-8')
+    assert kpis_tec(tmp_path).vazio == EMPTY_TEC
+
+    melhor = Prova('a', 'Alfa', 88.0, data='2025-01-01', gap=3.0, atingido=True)
+    resumo = kpis_concursos_resumo(
+        Kpis(
+            concursos=1,
+            provas=1,
+            acima=1,
+            abaixo=0,
+            no_limite=0,
+            com_corte=1,
+            melhor=melhor,
+            mais_fraco=None,
+            tendencia=tendencia_geral(None),
+        )
+    )
+    assert resumo.vazio is None and resumo.kpis
+
+    estavel_sim = kpis_simulados(
+        [
+            RegistroSimulado('B', 'PCI', 70.0, '2025-02-01'),
+            RegistroSimulado('A', 'TEC', 70.0, '2025-01-01'),
+        ]
+    )
+    assert 'Estável' in estavel_sim.kpis[1].valor
