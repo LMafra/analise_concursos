@@ -101,8 +101,9 @@ def raiz() -> None:
     ui.page_title(titulo())
     tema.aplicar_tema(tema_da_gui(resolver_home() / 'config.toml'))
     with (
-        ui.left_drawer(value=True)
-        .props('bordered show-if-above width=240')
+        # value=False: no mobile o drawer começa fechado; show-if-above abre fixo no desktop.
+        ui.left_drawer(value=False)
+        .props('bordered show-if-above breakpoint=1023 width=240')
         .style('background: var(--ca-superficie)') as menu
     ):
         bloco_da_marca()
@@ -118,7 +119,7 @@ def raiz() -> None:
         if ESTADO.no_navegador:
             ui.button('Fechar o app', icon='power_settings_new', on_click=fechar_app).props(
                 'flat align=left'
-            ).classes('w-full').mark('fechar-app')
+            ).classes('w-full ca-alvo').mark('fechar-app')
     with ui.header().classes('items-center').style(tema.gap('sm')):
         ui.button(icon='menu', on_click=menu.toggle).props('flat round aria-label="Abrir menu"').classes(
             'ca-alvo'

@@ -163,6 +163,11 @@ body {{ font-family: {FONTE}; background: var(--ca-fundo); color: var(--ca-texto
   .q-btn.bg-primary {{ color: var(--ca-sobre-primaria) !important; }}
   .text-primary, a, .nicegui-link {{ color: var(--ca-primaria-texto) !important; }}
   .q-header .q-btn {{ color: var(--ca-sobre-primaria) !important; }}
+  .q-btn.ca-alvo, button.ca-alvo {{ min-width: {ALVO_MINIMO} !important; min-height: {ALVO_MINIMO} !important; }}
+  .q-btn--dense.ca-alvo {{ padding-top: 8px !important; padding-bottom: 8px !important; }}
+  .q-btn-group .q-btn {{ min-width: {ALVO_MINIMO} !important; min-height: {ALVO_MINIMO} !important; }}
+  .q-uploader .q-btn {{ min-width: {ALVO_MINIMO} !important; min-height: {ALVO_MINIMO} !important; }}
+  .q-field--dense .q-field__control {{ min-height: {ALVO_MINIMO} !important; }}
   @media (prefers-reduced-motion: reduce) {{
     *, *::before, *::after {{ animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }}
   }}
@@ -171,6 +176,9 @@ body {{ font-family: {FONTE}; background: var(--ca-fundo); color: var(--ca-texto
 .ca-texto-suave {{ color: var(--ca-texto-suave); }}
 .ca-borda {{ border: 1px solid var(--ca-borda); border-radius: {RAIO_CARTAO}; }}
 .ca-alvo {{ min-width: {ALVO_MINIMO}; min-height: {ALVO_MINIMO}; }}
+.ca-grade-respostas {{ display: grid; grid-template-columns: 1fr; gap: {ESPACOS['sm']}; }}
+@media (min-width: 768px) {{ .ca-grade-respostas {{ grid-template-columns: 1fr 1fr; }} }}
+@media (min-width: 1024px) {{ .ca-grade-respostas {{ grid-template-columns: 1fr 1fr 1fr; }} }}
 {_tons()}
 .ca-aviso {{ background: var(--ca-tom-fundo); color: var(--ca-texto); border-left: 4px solid var(--ca-tom-icone);
   border-radius: {RAIO_CARTAO}; padding: {ESPACOS['md']}; box-shadow: none; }}

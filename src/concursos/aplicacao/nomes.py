@@ -2,6 +2,7 @@
 pela leitura rápida do edital (sem OCR nem IA)."""
 
 import json
+import re
 from dataclasses import asdict
 from pathlib import Path
 
@@ -63,6 +64,15 @@ def nome_sem_cadastro(pasta: Path) -> NomeDoConcurso | None:
     return NomeDoConcurso(titulo, '', FonteRegra.PCI, CONFIANCA_PCI, True, 'do título no PCI Concursos')
 
 
+def titulo_amigavel_da_pasta(nome: str) -> str:
+    """Slug de pasta → texto legível quando não há título do edital/PCI (sem jargão de id)."""
+    limpo = re.sub(r'_pci\d+$', '', nome, flags=re.IGNORECASE)
+    limpo = re.sub(r'[_-]+', ' ', limpo).strip()
+    if not limpo or limpo == nome:
+        return nome
+    return limpo[:1].upper() + limpo[1:].lower()
+
+
 def opcoes_de_concurso(contexto: Contexto) -> dict[str, str]:
     """`{pasta: nome mostrado}` de cada concurso, para os selects; a pasta sem `concurso.yaml` aparece pelo
     próprio nome."""
@@ -74,5 +84,7 @@ def opcoes_de_concurso(contexto: Contexto) -> dict[str, str]:
             opcoes[pasta.name] = nome_no_projeto(contexto, carregar_concurso(pasta)).titulo
         except (ConfiguracaoInvalidaError, FileNotFoundError):
             sem_cadastro = nome_sem_cadastro(pasta)
-            opcoes[pasta.name] = sem_cadastro.titulo if sem_cadastro else pasta.name
+            opcoes[pasta.name] = (
+                sem_cadastro.titulo if sem_cadastro else titulo_amigavel_da_pasta(pasta.name)
+            )
     return opcoes

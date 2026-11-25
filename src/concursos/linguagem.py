@@ -96,6 +96,15 @@ def rotulo_do_arquivo(nome: str | PurePath) -> str:
     return f'{rotulo} ({texto})' if rotulo else texto
 
 
+def caminho_curto(caminho: str | PurePath, *, partes: int = 2) -> str:
+    """Últimos segmentos do caminho para a UI; path completo fica no tooltip."""
+    p = PurePath(caminho)
+    pedacos = [parte for parte in p.parts if parte not in ('/', '\\')]
+    if len(pedacos) <= partes:
+        return str(caminho)
+    return '…/' + '/'.join(pedacos[-partes:])
+
+
 def percentual(valor: float, casas: int = 1) -> str:
     return f'{valor:.{casas}f}'.replace('.', ',') + '%'
 

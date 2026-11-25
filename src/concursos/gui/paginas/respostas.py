@@ -59,7 +59,11 @@ class FormularioDeRespostas:
                 .mark('candidato-respostas')
             )
             self.questoes()
-            self.botao = ui.button('Gravar respostas', icon='save', on_click=self.gravar).mark('gravar')
+            self.botao = (
+                ui.button('Gravar respostas', icon='save', on_click=self.gravar)
+                .classes('ca-alvo')
+                .mark('gravar')
+            )
             self.resultado = ui.column().classes('w-full')
 
     @ui.refreshable_method
@@ -70,12 +74,12 @@ class FormularioDeRespostas:
         except Exception as erro:  # noqa: BLE001
             mostrar_erro(erro)
             return
-        with ui.grid(columns=3).classes('w-full').style(tema.gap('xs', 'lg')):
+        with ui.element('div').classes('w-full ca-grade-respostas'):
             for questao in folha.questoes:
                 with ui.row().classes('items-center no-wrap').style(tema.gap('sm')):
                     ui.label(f'{questao}').classes('w-8 text-right font-mono')
                     self.marcadas[questao] = rotulo(
-                        ui.toggle(folha.alternativas, clearable=True).props('dense'),
+                        ui.toggle(folha.alternativas, clearable=True).classes('ca-alvo'),
                         f'questão {questao}',
                     ).mark(f'q{questao}')
 
