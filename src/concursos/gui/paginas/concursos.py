@@ -282,7 +282,7 @@ def acoes_do_concurso(item, mostrado: NomeDoConcurso | None = None) -> None:
     with ui.row().classes('items-center').style(tema.gap('xs')):
         if pendentes:
             ui.button(
-                'Conferir',
+                f'Conferir ({pendentes})',
                 on_click=lambda: ui.navigate.to(f'/conferir?concurso={nome}'),
             ).props('outline dense no-caps').classes('ca-alvo').mark(f'conferir-{nome}')
         if completo:

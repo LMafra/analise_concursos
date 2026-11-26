@@ -56,37 +56,34 @@ def pagina(secao: str | None = None) -> None:
                 secao_da_meta_pessoal()
             except Exception as erro:  # noqa: BLE001
                 mostrar_erro(erro)
-            with ui.expansion('Avançado (opcional)', icon='tune', value=secao == 'avancado').classes(
-                'w-full'
-            ).mark('avancado'):
-                with ui.column().classes('w-full').style(tema.gap('lg')):
-                    with ui.row().classes('w-full items-baseline justify-between flex-wrap').style(
-                        tema.gap('sm')
-                    ):
-                        ui.label('Avançado (opcional)').classes('font-bold').classes('hidden')
-                        ui.label('Fechado por padrão').classes('text-sm ca-texto-suave')
-                    with ui.column().style(tema.gap('sm')):
-                        ui.label('Seus dados pertencem a você').classes('font-bold')
-                        ui.label(
-                            'O Gabarito Vivo funciona diretamente no seu computador. Suas notas, gabaritos e '
-                            'relatórios nunca são enviados para a internet, salvo se você ligar um recurso '
-                            'opcional.'
-                        ).classes('text-sm ca-texto-suave')
-                    secao_do_cargo()
-                    try:
-                        secao_do_dashboard()
-                    except Exception as erro:  # noqa: BLE001
-                        mostrar_erro(erro)
-                    try:
-                        secao_da_analise()
-                    except Exception as erro:  # noqa: BLE001
-                        mostrar_erro(erro)
-                    secao_das_disciplinas()
-                    secao_do_projeto()
-                    SecaoDaCalibracao()
-                    SecaoDaIa()
-                    secao_restaurar_exemplo()
-                    secao_avancada(aberta=True)
+            with (
+                ui.expansion('Avançado (opcional)', icon='tune', value=secao == 'avancado')
+                .classes('w-full')
+                .mark('avancado'),
+                ui.column().classes('w-full').style(tema.gap('lg')),
+            ):
+                ui.label('Fechado por padrão').classes('text-sm ca-texto-suave')
+                ui.label('Seus dados pertencem a você').classes('font-bold')
+                ui.label(
+                    'O Gabarito Vivo funciona diretamente no seu computador. Suas notas, gabaritos e '
+                    'relatórios nunca são enviados para a internet, salvo se você ligar um recurso '
+                    'opcional.'
+                ).classes('text-sm ca-texto-suave')
+                secao_do_cargo()
+                try:
+                    secao_do_dashboard()
+                except Exception as erro:  # noqa: BLE001
+                    mostrar_erro(erro)
+                try:
+                    secao_da_analise()
+                except Exception as erro:  # noqa: BLE001
+                    mostrar_erro(erro)
+                secao_das_disciplinas()
+                secao_do_projeto()
+                SecaoDaCalibracao()
+                SecaoDaIa()
+                secao_restaurar_exemplo()
+                secao_avancada(aberta=True)
 
 
 def controle_de_limiar(titulo: str, valor: float, explicacao: str, marca: str) -> ui.slider:
@@ -226,14 +223,14 @@ def _fmt_pontos(valor: float) -> str:
 
 
 def secao_do_dashboard() -> None:
-    """Demais limiares do painel (além da meta pessoal da tela principal)."""
+    """Demais metas do painel (além da meta pessoal da tela principal)."""
     from concursos.gui.componentes.campo import campo
 
     atuais = ler_dashboard(ESTADO.contexto())
     with ui.column().classes('w-full').style(tema.gap('md')):
         ui.label('Outras metas do painel').classes('text-lg font-bold')
         ui.label(
-            'Os selos do painel (alto / em evolução / atenção) usam estes limiares, além da meta pessoal.'
+            'Os selos do painel (alto / em evolução / atenção) usam estes valores, além da meta pessoal.'
         ).classes('text-sm ca-texto-suave')
         tec_media = controle_de_limiar(
             'TEC — meta média (em evolução)',

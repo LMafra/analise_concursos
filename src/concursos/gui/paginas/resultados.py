@@ -403,7 +403,7 @@ def painel_de_exportacao(escolhido: str | None = None) -> None:
                 f'{rotulo_prova}.'
             ).classes('ca-texto-suave')
             ui.button(
-                'Baixar planilha (.csv)',
+                'Baixar planilha',
                 on_click=lambda: exportar(FormatoExportacao.CSV),
             ).props('no-caps').classes('ca-alvo').mark('exportar-csv')
         with ui.card().classes('w-full').style(tema.gap('md')):
@@ -412,7 +412,7 @@ def painel_de_exportacao(escolhido: str | None = None) -> None:
                 'Arquivo de texto leve com os tópicos prioritários do consolidado.'
             ).classes('ca-texto-suave')
             ui.button(
-                'Baixar plano de revisão (.txt)',
+                'Baixar plano de revisão',
                 on_click=lambda: exportar(FormatoExportacao.MD),
             ).props('outline no-caps').classes('ca-alvo').mark('exportar-md')
         with ui.expansion('Outros formatos', icon='more_horiz').classes('w-full'):

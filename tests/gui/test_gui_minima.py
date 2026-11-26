@@ -148,7 +148,7 @@ def test_janela_que_fecha_sem_carregar_reabre_uma_vez_so(monkeypatch, tmp_path, 
     monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: None)
     monkeypatch.setattr(gui_app.sys, 'platform', 'darwin')
     gui_app.executar(tmp_path, porta=8123)
-    marcar, encerrar = ao_subir
+    marcar, encerrar = ao_subir[-2:]
 
     encerrar()
     encerrar()
@@ -161,7 +161,7 @@ def test_janela_usada_e_fechada_nao_reabre(monkeypatch, tmp_path, ao_subir, reab
     monkeypatch.setattr(gui_app.ui, 'run', lambda raiz, **kwargs: None)
     monkeypatch.setattr(gui_app.sys, 'platform', 'darwin')
     gui_app.executar(tmp_path, porta=8123)
-    marcar, encerrar = ao_subir
+    marcar, encerrar = ao_subir[-2:]
 
     marcar()
     encerrar()
