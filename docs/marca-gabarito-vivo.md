@@ -36,9 +36,9 @@ Ferramenta desktop local que transforma a ansiedade pós-prova em diagnóstico t
 
 | Token | Valor |
 |---|---|
-| espaço xs → xl | 4 / 8 / 16 / 24 / 32 px |
-| raio sm / md / pill | 4 / 8 / 9999 px |
-| elevação 1 / 2 | `0 1px 2px rgb(0 0 0 / .08)` / `0 8px 24px rgb(0 0 0 / .16)` |
+| espaço xs → 2xl | 4 / 8 / 16 / 24 / 40 / 64 px |
+| raio sm / md / lg / pill | 4 / 10 / 14 / 9999 px |
+| elevação 1 / 2 | `0 1px 2px rgb(20 40 43 / .05), 0 6px 16px rgb(20 40 43 / .04)` / `0 8px 24px rgb(0 0 0 / .16)` |
 | alvo mínimo | 44 × 44 px |
 | foco | outline 3 px na cor `--ca-foco` |
 
@@ -51,24 +51,24 @@ Ferramenta desktop local que transforma a ansiedade pós-prova em diagnóstico t
 | Primária (teal-ink) | `#14282B` |
 | Sobre primária | `#FFFFFF` |
 | Primária como texto / link | `#14282B` |
-| Fundo / superfície | `#FAFAFA` / `#FFFFFF` |
-| Texto / suave / borda | `#14282B` / `#475569` / `#CBD5E1` |
-| Acima (fundo / texto) | `#E6F4ED` / `#0E5A37` |
-| Limite (fundo / texto) | `#FEF3C7` / `#92400E` |
-| Abaixo (fundo / texto) | `#FCEBE6` / `#8C2D0D` |
-| Info | fundo `#E6F0F0`, ícone/texto `#14282B` |
-| Erro (falha de sistema) | fundo `#FCEBE6`, ícone/texto `#8C2D0D` |
+| Fundo / superfície | `#F8FAFC` / `#FFFFFF` |
+| Texto / suave / borda | `#14282B` / `#475569` / `#E2E8F0` |
+| Acima (fundo / texto) | `#ECFDF5` / `#117A4B` |
+| Limite (fundo / texto) | `#FFFBEB` / `#92400E` |
+| Abaixo (fundo / texto) | `#FEF2EE` / `#9A3412` |
+| Info | fundo `#E6EFF0`, ícone/texto `#14282B` |
+| Erro (falha de sistema) | fundo `#FEF2EE`, ícone/texto `#9A3412` |
 
 ### Escuro
 
 | Papel | Hex |
 |---|---|
-| Fundo / superfície | `#121E20` / `#1A2C2F` |
-| Texto / suave | `#E6ECEC` / `#94A3B8` |
+| Fundo / superfície | `#0D1719` / `#142225` |
+| Texto / suave | `#EAF2F3` / `#A8BDC1` |
 | Primária (destaque) | `#4ADE80` sobre superfície escura para botões; estrutura permanece teal |
-| Acima | `#143324` / `#4ADE80` |
-| Limite | `#3B2D11` / `#FCD34D` |
-| Abaixo | `#3A1C14` / `#F87171` |
+| Acima | `#112A20` / `#4ADE80` |
+| Limite | `#2A200D` / `#FCD34D` |
+| Abaixo | `#2D1812` / `#FBCFC0` |
 | Gráfico nota / corte | `#38BDF8` / `#FBBF24`; desvio `rgba(248,113,113,0.15)` |
 
 Print (`@media print`): fundo `#FFFFFF`, texto `#111111`; ocultar navegação e CTAs de app.
