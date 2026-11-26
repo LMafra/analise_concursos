@@ -154,7 +154,10 @@ def _pontos(tabela: pd.DataFrame) -> tuple[PontoDeNota, ...]:
         atingido = None if pd.isna(linha.atingido) else bool(linha.atingido)
         ponto = PontoDeNota(str(linha.concurso), int(linha.ordem), nota, corte, atingido)
         atual = escolhidos.get(ponto.concurso)
-        if atual is None or (ponto.corte is not None and (atual.corte is None or ponto.nota - ponto.corte < atual.nota - (atual.corte or 0))):
+        if atual is None or (
+            ponto.corte is not None
+            and (atual.corte is None or ponto.nota - ponto.corte < atual.nota - (atual.corte or 0))
+        ):
             escolhidos[ponto.concurso] = ponto
     return tuple(sorted(escolhidos.values(), key=lambda ponto: ponto.ordem))
 

@@ -194,39 +194,46 @@ def lista_de_concursos(situacoes: list) -> bool:
         pontos = {}
     with ui.column().classes('w-full ca-lista-provas').style(tema.gap('sm')):
         for item in situacoes:
-            nome = nome_mostrado(item)
-            ponto = pontos.get(item.nome)
-            with ui.element('div').classes('ca-linha-prova'):
-                with ui.column().style(tema.gap('xs')):
-                    titulo = nome.titulo if nome else titulo_amigavel_da_pasta(item.nome)
-                    ui.label(titulo).classes('font-bold').mark(f'nome-{item.nome}')
-                    if nome and nome.subtitulo:
-                        ui.label(nome.subtitulo).classes('text-sm ca-texto-suave')
-                    with ui.row().classes('items-center').style(tema.gap('sm')):
-                        situacao(item.situacao.value, TOM_DA_SITUACAO.get(item.situacao, Tom.INFO))
-                        if ponto is not None and ponto.corte is not None:
-                            if ponto.atingido is False:
-                                situacao('Abaixo do corte', Tom.ERRO, icone='close')
-                            elif ponto.atingido:
-                                situacao('Acima do corte', Tom.SUCESSO, icone='check')
-                        if nome and nome.a_confirmar:
-                            with situacao('a confirmar', Tom.ALERTA, icone='help').mark(
-                                f'a-confirmar-{item.nome}'
-                            ):
-                                ui.tooltip(f'Nome {nome.origem}. Use "Corrigir nome" se não estiver certo.')
-                        with ui.label(f'gabarito: {item.gabarito}').classes('text-sm'):
-                            ui.tooltip(EXPLICACAO_GABARITO)
-                with ui.column().classes('items-end').style(tema.gap('xs')):
-                    if ponto is None:
-                        ui.label('Sem nota').classes('text-sm ca-texto-suave')
-                    else:
-                        ui.label(f'{ponto.nota:.1f}%'.replace('.', ',')).classes('text-h6 font-bold')
-                        if ponto.corte is not None:
-                            ui.label(f'Corte: {ponto.corte:.1f}%'.replace('.', ',')).classes(
-                                'text-sm ca-texto-suave'
-                            )
-                acoes_do_concurso(item, nome)
+            _linha_da_prova(item, pontos.get(item.nome), nome_mostrado(item))
     return True
+
+
+def _linha_da_prova(item, ponto, nome: NomeDoConcurso | None) -> None:
+    with ui.element('div').classes('ca-linha-prova'):
+        with ui.column().style(tema.gap('xs')):
+            titulo = nome.titulo if nome else titulo_amigavel_da_pasta(item.nome)
+            ui.label(titulo).classes('font-bold').mark(f'nome-{item.nome}')
+            if nome and nome.subtitulo:
+                ui.label(nome.subtitulo).classes('text-sm ca-texto-suave')
+            with ui.row().classes('items-center').style(tema.gap('sm')):
+                situacao(item.situacao.value, TOM_DA_SITUACAO.get(item.situacao, Tom.INFO))
+                _selo_do_corte(ponto)
+                if nome and nome.a_confirmar:
+                    with situacao('a confirmar', Tom.ALERTA, icone='help').mark(f'a-confirmar-{item.nome}'):
+                        ui.tooltip(f'Nome {nome.origem}. Use "Corrigir nome" se não estiver certo.')
+                with ui.label(f'gabarito: {item.gabarito}').classes('text-sm'):
+                    ui.tooltip(EXPLICACAO_GABARITO)
+        _coluna_da_nota(ponto)
+        acoes_do_concurso(item, nome)
+
+
+def _selo_do_corte(ponto) -> None:
+    if ponto is None or ponto.corte is None:
+        return
+    if ponto.atingido is False:
+        situacao('Abaixo do corte', Tom.ERRO, icone='close')
+    elif ponto.atingido:
+        situacao('Acima do corte', Tom.SUCESSO, icone='check')
+
+
+def _coluna_da_nota(ponto) -> None:
+    with ui.column().classes('items-end').style(tema.gap('xs')):
+        if ponto is None:
+            ui.label('Sem nota').classes('text-sm ca-texto-suave')
+            return
+        ui.label(f'{ponto.nota:.1f}%'.replace('.', ',')).classes('text-h6 font-bold')
+        if ponto.corte is not None:
+            ui.label(f'Corte: {ponto.corte:.1f}%'.replace('.', ',')).classes('text-sm ca-texto-suave')
 
 
 def sem_edital(item) -> bool:

@@ -183,28 +183,13 @@ def svg_nota_corte(pontos: tuple[PontoDeNota, ...], *, atual: str | None = None)
 
     destaque = atual if atual is not None else pontos[-1].concurso
     corte_destaque = next((ponto.corte for ponto in pontos if ponto.concurso == destaque), None)
-    faixa = ''
-    if corte_destaque is not None:
-        y_corte = y(corte_destaque)
-        faixa = (
-            f'<rect x="{esquerda}" y="{y(maximo):.1f}" width="{largura_util}" '
-            f'height="{max(0.0, y_corte - y(maximo)):.1f}" fill="var(--ca-sucesso-icone)" '
-            'fill-opacity="0.12"></rect>'
-        )
-    grades = ''.join(
-        f'<line x1="{esquerda}" y1="{y(marca):.1f}" x2="{largura - direita}" y2="{y(marca):.1f}" '
-        f'stroke="var(--ca-borda)" stroke-width="1"></line>'
-        f'<text x="{esquerda - 8}" y="{y(marca) + 4:.1f}" text-anchor="end" '
-        f'fill="var(--ca-texto-suave)" font-size="11" font-weight="600">{marca}</text>'
-        for marca in marcas
-    )
-    passo = largura_util / (len(pontos) - 1) if len(pontos) > 1 else largura_util / 2
-    xs = [
-        esquerda + (indice * passo if len(pontos) > 1 else largura_util / 2) for indice in range(len(pontos))
-    ]
+    xs = _xs_do_grafico(len(pontos), esquerda, largura_util)
     linha_nota = ' '.join(f'{x:.1f},{y(ponto.nota):.1f}' for x, ponto in zip(xs, pontos, strict=True))
-    cortes = [(x, ponto) for x, ponto in zip(xs, pontos, strict=True) if ponto.corte is not None]
-    linha_corte = ' '.join(f'{x:.1f},{y(ponto.corte):.1f}' for x, ponto in cortes)
+    linha_corte = ' '.join(
+        f'{x:.1f},{y(ponto.corte):.1f}'
+        for x, ponto in zip(xs, pontos, strict=True)
+        if ponto.corte is not None
+    )
     pontos_svg = ''.join(
         _ponto_do_grafico(x, ponto, y, altura, ponto.concurso == destaque)
         for x, ponto in zip(xs, pontos, strict=True)
@@ -212,12 +197,40 @@ def svg_nota_corte(pontos: tuple[PontoDeNota, ...], *, atual: str | None = None)
     return (
         f'<svg class="ca-grafico-svg" viewBox="0 0 {largura} {altura}" role="img" '
         'aria-label="Gráfico comparando suas notas com a nota de corte de cada concurso">'
-        f'{faixa}{grades}'
+        f'{_faixa_acima_do_corte(esquerda, largura_util, maximo, corte_destaque, y)}'
+        f'{_grades_do_grafico(esquerda, direita, largura, marcas, y)}'
         f'<polyline fill="none" stroke="var(--ca-borda)" stroke-width="2" stroke-dasharray="5 5" '
         f'points="{linha_corte}"></polyline>'
         f'<polyline fill="none" stroke="var(--ca-primaria)" stroke-width="3" stroke-linecap="round" '
         f'stroke-linejoin="round" points="{linha_nota}"></polyline>'
         f'{pontos_svg}</svg>'
+    )
+
+
+def _xs_do_grafico(quantidade: int, esquerda: float, largura_util: float) -> list[float]:
+    if quantidade <= 1:
+        return [esquerda + largura_util / 2]
+    passo = largura_util / (quantidade - 1)
+    return [esquerda + indice * passo for indice in range(quantidade)]
+
+
+def _faixa_acima_do_corte(esquerda, largura_util, maximo, corte, y) -> str:
+    if corte is None:
+        return ''
+    return (
+        f'<rect x="{esquerda}" y="{y(maximo):.1f}" width="{largura_util}" '
+        f'height="{max(0.0, y(corte) - y(maximo)):.1f}" fill="var(--ca-sucesso-icone)" '
+        'fill-opacity="0.12"></rect>'
+    )
+
+
+def _grades_do_grafico(esquerda, direita, largura, marcas, y) -> str:
+    return ''.join(
+        f'<line x1="{esquerda}" y1="{y(marca):.1f}" x2="{largura - direita}" y2="{y(marca):.1f}" '
+        f'stroke="var(--ca-borda)" stroke-width="1"></line>'
+        f'<text x="{esquerda - 8}" y="{y(marca) + 4:.1f}" text-anchor="end" '
+        f'fill="var(--ca-texto-suave)" font-size="11" font-weight="600">{marca}</text>'
+        for marca in marcas
     )
 
 
