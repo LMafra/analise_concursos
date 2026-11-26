@@ -189,16 +189,22 @@ def test_cli_livros_add_list_remove(tmp_path, monkeypatch, capsys):
     assert 'vazia' in capsys.readouterr().out
 
 
-def test_opcoes_de_concurso_e_disciplina(contexto):
+def test_opcoes_de_concurso_e_disciplina(contexto, monkeypatch):
     (contexto.provas / 'sefaz-df-2026').mkdir(parents=True)
     (contexto.provas / '.oculta').mkdir()
+    prova = contexto.analises / 'sefaz'
+    prova.mkdir(parents=True)
+    (prova / 'questoes.csv').write_text('disciplina\nConstitucional\nnao_mapeado\n', encoding='utf-8')
     contexto.taxonomia.parent.mkdir(parents=True, exist_ok=True)
     contexto.taxonomia.write_text(
-        'Direito Constitucional:\n  bloco: especifico\n  nomes: [Constitucional]\n', encoding='utf-8'
+        'Direito Constitucional:\n  bloco: especifico\n  nomes: [Constitucional]\n'
+        'Só na lista:\n  bloco: geral\n  nomes: []\n',
+        encoding='utf-8',
     )
+    monkeypatch.setattr(estudo, 'listar_livros', lambda contexto: [SimpleNamespace(disciplina='Português')])
 
     assert estudo.concursos_do_projeto(contexto) == ['sefaz-df-2026']
-    assert estudo.disciplinas_sugeridas(contexto) == ['Geral', 'Direito Constitucional']
+    assert estudo.disciplinas_sugeridas(contexto) == ['Geral', 'Direito Constitucional', 'Português']
 
 
 def _disponivel(versao: str):

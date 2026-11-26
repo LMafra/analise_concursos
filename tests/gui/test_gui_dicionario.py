@@ -124,6 +124,7 @@ async def test_configuracoes_resume_o_dicionario(user: User, projeto, temas):
         existe=True, ligado=True, entradas=[CRASE], ultimo=UltimoGanho(0.61, 0.68, 210, '2026-11-06', False)
     )
     await user.open('/configuracoes')
+    user.find(marker='avancado').click()
 
     await user.should_see('Usado, com 1 temas.')
     await user.should_see('acertos 61% → 68%')

@@ -134,6 +134,7 @@ async def test_chip_no_cabecalho_so_com_versao_nova(user: User):
 
 async def test_avancado_grava_canal_e_aviso_que_comecam_desligados(user: User, projeto, home_isolada):
     await user.open('/configuracoes')
+    user.find(marker='avancado').click()
     assert elemento(user, 'verificar-ao-abrir').value is False
     assert elemento(user, 'canal-atualizacao').value == 'stable'
 

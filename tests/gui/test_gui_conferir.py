@@ -131,6 +131,7 @@ async def test_juntar_disciplinas(user: User, projeto, conferir):
 
 async def test_configuracoes_abre_disciplinas(user: User, projeto, conferir):
     await user.open('/configuracoes')
+    user.find(marker='avancado').click()
 
     user.find(marker='abrir-disciplinas').click()
     await user.should_see('Disciplinas e temas')

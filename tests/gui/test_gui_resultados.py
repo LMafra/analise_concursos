@@ -121,6 +121,47 @@ async def test_topico_fraco_abre_a_pergunta_nos_livros(user: User, projeto, monk
     assert perguntas == ['crase']
 
 
+async def test_filtro_de_concurso_escolhe_o_diagnostico(user: User, projeto, monkeypatch):
+    from concursos.aplicacao import nomes
+    from concursos.aplicacao import resultados as resultados_mod
+    from concursos.aplicacao.resultados import PontoDeNota, ResumoVisual
+
+    com_relatorio(projeto)
+    resumo = ResumoVisual(
+        pontos=(
+            PontoDeNota('alfa-2024', 1, 60.0, 70.0, False),
+            PontoDeNota('beta-2025', 2, 80.0, 70.0, True),
+        )
+    )
+    monkeypatch.setattr(resultados_mod, 'resumo_visual', lambda contexto: resumo)
+    monkeypatch.setattr(
+        nomes,
+        'opcoes_de_concurso',
+        lambda contexto: {
+            'alfa-2024': 'Alfa 2024 — Analista',
+            'beta-2025': 'Beta 2025 — Auditor',
+        },
+    )
+
+    await user.open('/resultados')
+
+    await user.should_see(marker='concurso-resultados')
+    await user.should_see('Concurso selecionado')
+    select = user.find(marker='concurso-resultados').elements.pop()
+    assert 'ca-seletor' in select._classes
+    assert any(
+        'ca-rotulo-campo' in elemento._classes for elemento in user.find('Concurso selecionado').elements
+    )
+    assert select.value == 'beta-2025'
+    await user.should_see('beta-2025 — 10,0 pontos percentuais acima do corte')
+
+    await user.open('/resultados?concurso=alfa-2024')
+
+    select = user.find(marker='concurso-resultados').elements.pop()
+    assert select.value == 'alfa-2024'
+    await user.should_see('alfa-2024 — 10,0 pontos percentuais abaixo do corte')
+
+
 async def test_aba_simulados_mostra_o_html(user: User, projeto):
     com_relatorio(projeto)
 

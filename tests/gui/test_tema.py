@@ -119,6 +119,24 @@ def test_important_so_na_camada_de_overrides():
     assert '!important' not in tema.CSS.replace(camada.group(0), '')
 
 
+def test_cartao_global_e_plano_e_a_acao_tem_a_faixa():
+    assert '.q-card' in tema.CSS
+    assert 'box-shadow: none' in tema.CSS
+    assert f'padding: {tema.ESPACOS["lg"]}' in tema.CSS
+    assert '.ca-grade-acoes' in tema.CSS
+    assert 'border-left: 4px solid var(--ca-alerta-icone)' in tema.CSS
+    assert '.ca-botoes' in tema.CSS
+    assert '.q-uploader__header .q-btn { color: var(--ca-sobre-primaria) !important; }' in tema.CSS
+    assert "content: 'Adicionar livro'" in tema.CSS
+    assert '.ca-campo' in tema.CSS
+    assert '.ca-rotulo-campo' in tema.CSS
+    assert '.ca-titulo-pagina' in tema.CSS
+    assert '.ca-radio-cartoes' in tema.CSS
+    assert '.ca-barra-salvar' in tema.CSS
+    assert '--ca-contorno: #94A3B8' in tema.CSS
+    assert 'border: 1px solid var(--ca-contorno) !important' in tema.CSS
+
+
 def test_ca_alvo_vence_dense_do_quasar():
     camada = re.search(r'@layer overrides \{(.*?)\n\}', tema.CSS, re.DOTALL)
     assert camada is not None

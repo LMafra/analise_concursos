@@ -394,18 +394,17 @@ async def test_planilha_sem_coluna_obrigatoria_mostra_erro_e_mantem_a_conferenci
     assert ESTADO.pedir_analise is False
 
 
-async def test_com_a_pratica_analisada_mostra_prioridades_e_simulado(user: User, projeto, navegador):
+async def test_com_a_pratica_analisada_mostra_o_resumo_sem_os_botoes_antigos(user: User, projeto):
     pasta = projeto / 'analises' / 'pratica'
     pasta.mkdir(parents=True)
     (pasta / 'resumo_pratica.md').write_text('# Prioridades da semana', encoding='utf-8')
-    (pasta / 'simulado_tec.html').write_text('<html></html>', encoding='utf-8')
     await abrir_aba(user, 'Prática no TEC')
 
-    user.find(marker='ver-prioridades').click()
     await user.should_see('Prioridades da semana')
-    user.find(marker='ver-simulado-tec').click()
-
-    assert navegador == [pasta / 'simulado_tec.html']
+    await user.should_not_see('Repetir erros')
+    await user.should_not_see('Buscar provas no PCI')
+    await user.should_not_see('Explicar erros no caderno de estudo')
+    await user.should_not_see('Ver prioridades')
 
 
 @pytest.fixture

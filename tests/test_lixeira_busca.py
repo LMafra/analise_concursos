@@ -62,4 +62,30 @@ def test_busca_concurso(tmp_path: Path) -> None:
     (ctx.provas / 'tcu_25').mkdir()
     (ctx.provas / 'fgv_24').mkdir()
     achados = busca.procurar(ctx, 'tcu')
-    assert any(a.rotulo == 'tcu_25' for a in achados)
+    assert [a for a in achados if a.rotulo == 'tcu_25'] == [
+        busca.ResultadoBusca('Concurso', 'tcu_25', '/resultados?aba=concursos&concurso=tcu_25')
+    ]
+
+
+def test_busca_de_topico_abre_o_simulado(tmp_path: Path, monkeypatch) -> None:
+    from concursos.aplicacao.resultados import ResumoVisual, TopicoParaAgir
+
+    ctx = _contexto(tmp_path)
+    monkeypatch.setattr(
+        'concursos.aplicacao.resultados.resumo_visual',
+        lambda contexto: ResumoVisual(fracos=(TopicoParaAgir('Português', 'Crase', 20.0),)),
+    )
+    assert busca.procurar(ctx, 'crase') == [
+        busca.ResultadoBusca('Tópico fraco', 'Crase', '/estudar?aba=simulado&topico=Crase')
+    ]
+
+
+def test_busca_ignora_topico_acima_do_limiar(tmp_path: Path, monkeypatch) -> None:
+    from concursos.aplicacao.resultados import ResumoVisual, TopicoParaAgir
+
+    ctx = _contexto(tmp_path)
+    monkeypatch.setattr(
+        'concursos.aplicacao.resultados.resumo_visual',
+        lambda contexto: ResumoVisual(fracos=(TopicoParaAgir('Português', 'Crase', 80.0),)),
+    )
+    assert busca.procurar(ctx, 'crase') == []
