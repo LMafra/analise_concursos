@@ -8,6 +8,7 @@ from concursos.aplicacao.opcoes import Opcoes
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.navegacao import breadcrumb
+from concursos.gui.componentes.situacao import situacao
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.progresso import Andamento, HandlerDoPainel
@@ -17,6 +18,19 @@ from concursos.modelo import Etapa
 
 logger = logging.getLogger('concursos')
 
+PASSOS_VISUAIS = (
+    ('Lendo o edital', 'Identificando matérias, número de questões e pesos', {None, Etapa.LENDO_ARQUIVOS}),
+    (
+        'Corrigindo a prova',
+        'Conferindo sua folha de respostas com o gabarito oficial',
+        {Etapa.LENDO_FOLHA, Etapa.CORRIGINDO, Etapa.CLASSIFICANDO},
+    ),
+    (
+        'Montando o relatório',
+        'Calculando onde você ganha mais pontos na próxima prova',
+        {Etapa.GERANDO_RELATORIOS, Etapa.CONSOLIDANDO},
+    ),
+)
 ETAPAS_LEIGAS = {
     None: 'Preparando…',
     Etapa.LENDO_ARQUIVOS: 'Lendo gabarito e arquivos',
@@ -42,41 +56,61 @@ class PainelDeAnalise:
     def __init__(self) -> None:
         self.andamento = Andamento()
         self.cancelar = threading.Event()
-        with ui.column().classes('w-full max-w-4xl').style(tema.gap('md')):
-            self.titulo = (
-                ui.label('Pronto para analisar o que mudou.')
-                .classes('text-lg')
-                .props('role=status aria-live=polite')
-                .mark('titulo-analise')
-            )
-            ui.label(
-                'A análise pode levar alguns minutos. Você pode cancelar; o que já tiver terminado fica.'
-            ).classes('text-sm ca-texto-suave')
-            self.barra = ui.linear_progress(value=0, show_value=False).props(
-                'aria-label="andamento da análise"'
-            )
-            self.esqueleto = ui.skeleton().classes('w-full h-40').props('aria-hidden=true')
-            self.esqueleto.set_visibility(False)
-            self.resultado = ui.column().classes('w-full')
+        self._passos_desenhados: tuple[str, ...] | None = None
+        with ui.column().classes('w-full max-w-3xl').style(tema.gap('md')):
+            with ui.card().classes('w-full').style(tema.gap('md')):
+                situacao('Processando neste computador', Tom.INFO, icone='schedule')
+                self.titulo = (
+                    ui.label('Pronto para analisar o que mudou.')
+                    .classes('ca-titulo-pagina')
+                    .props('role=status aria-live=polite')
+                    .mark('titulo-analise')
+                )
+                ui.label(
+                    'Estamos organizando tudo sem pressa. Leva apenas alguns segundos.'
+                ).classes('ca-texto-suave')
+                self.barra = ui.linear_progress(value=0, show_value=False).props(
+                    'aria-label="andamento da análise"'
+                )
+                self.percentual = ui.label('0% concluído').classes('text-sm ca-texto-suave').mark(
+                    'percentual-analise'
+                )
+                self.esqueleto = ui.skeleton().classes('w-full h-16').props('aria-hidden=true')
+                self.esqueleto.set_visibility(False)
+                self.passos = ui.column().classes('w-full').style(tema.gap('sm'))
+                self.resultado = ui.column().classes('w-full')
+                with ui.row().classes('w-full justify-between').style(tema.gap('sm')):
+                    self.parar = (
+                        ui.button('Cancelar', on_click=self.cancelar_analise)
+                        .props('outline no-caps')
+                        .classes('ca-alvo')
+                        .mark('cancelar-analise')
+                    )
+                    self.parar.set_visibility(False)
+                    with ui.row().style(tema.gap('sm')):
+                        self.botao = (
+                            ui.button('Analisar', on_click=self.iniciar)
+                            .props('no-caps')
+                            .classes('ca-alvo')
+                            .mark('iniciar')
+                        )
+                        self.ver_resultados = (
+                            ui.button(
+                                'Ver resultados agora',
+                                on_click=lambda: ui.navigate.to('/resultados'),
+                            )
+                            .props('no-caps')
+                            .classes('ca-alvo')
+                            .mark('ver-resultados-agora')
+                        )
+                        self.ver_resultados.disable()
             with (
                 ui.expansion('Ver detalhes técnicos de processamento', icon='list')
                 .classes('w-full')
                 .mark('painel-log')
             ):
                 self.log = ui.log(max_lines=2000).classes('h-72 w-full').mark('log')
-            with ui.row().style(tema.gap('sm')):
-                self.botao = (
-                    ui.button('Analisar', icon='play_arrow', on_click=self.iniciar)
-                    .classes('ca-alvo')
-                    .mark('iniciar')
-                )
-                self.parar = (
-                    ui.button('Cancelar análise', icon='stop', on_click=self.cancelar_analise)
-                    .props('flat')
-                    .classes('ca-alvo')
-                    .mark('cancelar-analise')
-                )
-                self.parar.set_visibility(False)
+        self._desenhar_passos()
         ui.timer(0.2, self.atualizar)
 
     def cancelar_analise(self) -> None:
@@ -136,6 +170,8 @@ class PainelDeAnalise:
         for linha in self.andamento.retirar_linhas():
             self.log.push(linha)
         passo = self.andamento.passo
+        self._atualizar_ver_resultados()
+        self._desenhar_passos()
         if not ESTADO.ocupado:
             return
         etapa = self.andamento.etapa
@@ -143,9 +179,55 @@ class PainelDeAnalise:
         if etapa is Etapa.CONSOLIDANDO:
             self.barra.value = 1
             self.titulo.text = leiga
+            self.percentual.text = '100% concluído'
         elif passo is not None:
             self.barra.value = passo.fracao
             self.titulo.text = f'{leiga} ({passo.indice} de {passo.total}: {passo.concurso})'
+            self.percentual.text = f'{int(passo.fracao * 100)}% concluído'
+
+    def _desenhar_passos(self) -> None:
+        if not ESTADO.ocupado:
+            indice = len(PASSOS_VISUAIS) if self.titulo.text == 'Análise concluída.' else -1
+        else:
+            etapa = self.andamento.etapa
+            indice = 0
+            for posicao, (_, _, etapas) in enumerate(PASSOS_VISUAIS):
+                if etapa in etapas:
+                    indice = posicao
+                    break
+        estados = tuple(
+            'feito' if passo < indice else 'atual' if passo == indice else 'espera'
+            for passo in range(len(PASSOS_VISUAIS))
+        )
+        if estados == self._passos_desenhados:
+            return
+        self._passos_desenhados = estados
+        self.passos.clear()
+        with self.passos:
+            pares = zip(PASSOS_VISUAIS, estados, strict=True)
+            for numero, ((titulo, descricao, _), estado) in enumerate(pares, start=1):
+                with ui.row().classes('w-full items-center justify-between').style(tema.gap('sm')):
+                    with ui.column().style(tema.gap('xs')):
+                        ui.label(f'{numero}. {titulo}').classes('font-bold')
+                        ui.label(descricao).classes('text-sm ca-texto-suave')
+                    if estado == 'feito':
+                        situacao('Pronto', Tom.SUCESSO, icone='check')
+                    elif estado == 'atual':
+                        situacao('Em andamento', Tom.INFO, icone='schedule')
+                    else:
+                        situacao('Aguardando', Tom.INFO, icone='schedule')
+
+    def _atualizar_ver_resultados(self) -> None:
+        from concursos.aplicacao.resultados import resultados
+
+        try:
+            pronto = resultados(ESTADO.contexto()).indice is not None
+        except Exception:  # noqa: BLE001
+            pronto = False
+        if pronto:
+            self.ver_resultados.enable()
+        else:
+            self.ver_resultados.disable()
 
     def _mostrar_cancelado(self) -> None:
         self.barra.value = 1

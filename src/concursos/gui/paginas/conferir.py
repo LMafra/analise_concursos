@@ -5,16 +5,16 @@ from concursos.aplicacao.conferencia import CampoAConfirmar, LinhaTopico, OpcaoT
 from concursos.datas import data_br
 from concursos.gui import tema
 from concursos.gui.componentes import toasts
-from concursos.gui.componentes.aviso import aviso
-from concursos.gui.componentes.cartao import cartao
+from concursos.gui.componentes.campo import cabecalho_da_pagina
+from concursos.gui.componentes.campo import campo as campo_com_rotulo
 from concursos.gui.componentes.estado_vazio import estado_vazio
-from concursos.gui.componentes.navegacao import breadcrumb, voltar
+from concursos.gui.componentes.navegacao import voltar
 from concursos.gui.componentes.reanalise import Reanalise
 from concursos.gui.componentes.situacao import situacao
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
-from concursos.gui.textos import mostrar_erro, rotulo
+from concursos.gui.textos import mostrar_erro
 from concursos.modelo import TipoCampo
 from concursos.texto import abreviar
 from concursos.topicos import NAO_MAPEADO
@@ -29,9 +29,7 @@ def pagina(concurso: str | None = None, aba: str | None = None) -> None:
     if not exigir_projeto():
         return
     with ui.column().classes('w-full max-w-5xl').style(tema.gap('md')):
-        breadcrumb(('Minhas Provas', '/'), (f'Conferir {concurso or ""}'.strip(), None))
         voltar('Voltar para Minhas Provas', '/')
-        ui.label(f'Conferir {concurso or ""}'.strip()).classes('text-2xl font-bold')
         if not concurso:
             estado_vazio(
                 'fact_check',
@@ -49,16 +47,28 @@ def pagina(concurso: str | None = None, aba: str | None = None) -> None:
         except Exception as erro:  # noqa: BLE001
             mostrar_erro(erro)
             return
+        pendentes = sum(1 for linha in linhas if linha.pendente)
+
+        def selo() -> None:
+            if pendentes:
+                situacao(
+                    f'{pendentes} questões aguardando conferência',
+                    Tom.ALERTA,
+                    icone='priority_high',
+                )
+            elif linhas:
+                situacao('Tudo conferido', Tom.SUCESSO, icone='check')
+
+        cabecalho_da_pagina(
+            f'Conferir — {concurso}',
+            'Confirme os tópicos sugeridos pela leitura automática e complete o que o edital '
+            'não trouxe fechado.',
+            ao_lado=selo,
+        )
         reanalise = Reanalise()
-        with ui.tabs().classes('w-full') as abas:
-            aba_topicos = ui.tab('Tópicos das questões', icon='topic').mark('aba-topicos')
-            aba_edital = ui.tab('Dados do edital', icon='description').mark('aba-edital')
-        inicial = aba_edital if aba == 'edital' or (campos and not linhas) else aba_topicos
-        with ui.tab_panels(abas, value=inicial).classes('w-full'):
-            with ui.tab_panel(aba_topicos):
-                TopicosDasQuestoes(concurso, linhas, opcoes, reanalise)
-            with ui.tab_panel(aba_edital):
-                DadosDoEdital(concurso, campos, reanalise)
+        if campos:
+            DadosDoEdital(concurso, campos, reanalise)
+        TopicosDasQuestoes(concurso, linhas, opcoes, reanalise)
 
 
 def valor_inicial(linha: LinhaTopico, opcoes: list[OpcaoTopico]) -> str | None:
@@ -107,18 +117,20 @@ class TopicosDasQuestoes:
                 ):
                     for linha in confiaveis:
                         self.linha(linha)
-            with (
-                ui.row()
-                .classes('w-full sticky bottom-0 q-pa-sm')
-                .style('background: var(--ca-superficie); box-shadow: var(--ca-borda)')
-            ):
-                ui.button('Salvar alterações', icon='save', on_click=self.salvar).classes('ca-alvo').mark(
-                    'salvar-topicos'
-                )
-                ui.button(
-                    'Descartar',
-                    on_click=lambda: toasts.sujo_ao_sair(self._topicos_sujos, '/'),
-                ).props('flat').classes('ca-alvo')
+            with ui.element('div').classes('ca-barra-salvar'):
+                with ui.column().style(tema.gap('xs')):
+                    ui.label(f'Alterações em {self.concurso}').classes('font-bold')
+                    ui.label(
+                        'Ao salvar, atualizamos seu diagnóstico e voltamos para Minhas Provas.'
+                    ).classes('text-sm ca-texto-suave')
+                with ui.row().classes('items-center').style(tema.gap('sm')):
+                    ui.button(
+                        'Cancelar',
+                        on_click=lambda: toasts.sujo_ao_sair(self._topicos_sujos, '/'),
+                    ).props('outline no-caps').classes('ca-alvo')
+                    ui.button('Salvar alterações', on_click=self.salvar).props('no-caps').classes(
+                        'ca-alvo'
+                    ).mark('salvar-topicos')
 
     def _topicos_sujos(self) -> bool:
         return any(self.escolhas[chave].value != self.iniciais[chave] for chave in self.escolhas)
@@ -126,18 +138,24 @@ class TopicosDasQuestoes:
     def linha(self, linha: LinhaTopico) -> None:
         opcoes = {NENHUM: ROTULO_NENHUM, **{str(i): o.rotulo for i, o in enumerate(self.opcoes)}}
         inicial = valor_inicial(linha, self.opcoes)
-        with cartao():
-            ui.label(f'Questão {linha.questao} ({linha.prova})').classes('font-bold')
-            ui.label(abreviar(linha.enunciado, TAMANHO_ENUNCIADO)).classes('text-sm')
+        with ui.card().classes('w-full').style(tema.gap('sm')):
+            with ui.row().classes('w-full items-center justify-between flex-wrap').style(tema.gap('sm')):
+                ui.label(f'Questão {linha.questao}').classes('font-bold')
+                situacao(
+                    'Tópico sugerido' if linha.pendente else 'Conferido',
+                    Tom.ALERTA if linha.pendente else Tom.SUCESSO,
+                    icone='priority_high' if linha.pendente else 'check',
+                )
+            ui.label(abreviar(linha.enunciado, TAMANHO_ENUNCIADO)).classes('text-sm ca-texto-suave')
             sugerido = 'nenhum' if linha.topico_sugerido == NAO_MAPEADO else linha.topico_sugerido
             ui.label(f'O app sugeriu: {abreviar(sugerido, TAMANHO_ENUNCIADO)}').classes(
                 'text-sm ca-texto-suave'
             )
-            seletor = rotulo(
-                ui.select(opcoes, value=inicial, label='Tópico do edital', with_input=True, clearable=True),
-                f'tópico da questão {linha.questao}',
-            ).classes('w-full')
-            seletor.mark(f'topico-{linha.prova}-{linha.questao}')
+            seletor = campo_com_rotulo(
+                'Tópico da questão (editável)',
+                ui.select(opcoes, value=inicial, with_input=True, clearable=True),
+                marca=f'topico-{linha.prova}-{linha.questao}',
+            )
         self.escolhas[linha.chave] = seletor
         self.iniciais[linha.chave] = inicial
 
@@ -185,54 +203,58 @@ class DadosDoEdital:
                     marca='sem-campos',
                 )
                 return
-            aviso(
-                'O app não achou estes dados no edital',
-                'Preencha os que você souber; os vazios ficam com o valor padrão da banca.',
-                tom=Tom.ALERTA,
-            )
-            for campo in campos:
-                self.campo(campo)
-            with ui.row().classes('w-full sticky bottom-0 q-pa-sm').style('background: var(--ca-superficie)'):
-                ui.button('Salvar alterações', icon='save', on_click=self.salvar).classes('ca-alvo').mark(
-                    'salvar-campos'
-                )
-                ui.button(
-                    'Descartar',
-                    on_click=lambda: toasts.sujo_ao_sair(self._campos_sujos, '/'),
-                ).props('flat')
+            with ui.card().classes('w-full ca-metrica ca-tom-alerta').style(tema.gap('md')):
+                ui.label('O edital deixou isto em aberto').classes('text-lg font-bold')
+                ui.label(
+                    'Esses campos ajudam a medir sua distância exata até a aprovação.'
+                ).classes('text-sm ca-texto-suave')
+                with ui.element('div').classes('ca-grade-form'):
+                    for item in campos:
+                        self.campo(item)
+            with ui.element('div').classes('ca-barra-salvar'):
+                with ui.column().style(tema.gap('xs')):
+                    ui.label(f'Alterações em {self.concurso}').classes('font-bold')
+                    ui.label(
+                        'Ao salvar, atualizamos seu diagnóstico e voltamos para Minhas Provas.'
+                    ).classes('text-sm ca-texto-suave')
+                with ui.row().classes('items-center').style(tema.gap('sm')):
+                    ui.button(
+                        'Cancelar',
+                        on_click=lambda: toasts.sujo_ao_sair(self._campos_sujos, '/'),
+                    ).props('outline no-caps')
+                    ui.button('Salvar alterações', on_click=self.salvar).props('no-caps').classes(
+                        'ca-alvo'
+                    ).mark('salvar-campos')
 
     def _campos_sujos(self) -> bool:
         return any(
             (entrada.value or '') != self.iniciais.get(chave, '') for chave, entrada in self.entradas.items()
         )
 
-    def campo(self, campo: CampoAConfirmar) -> None:
-        with cartao():
-            if campo.tipo is TipoCampo.DATA:
-                inicial = data_br(campo.valor)
-                entrada = ui.input(campo.rotulo, value=inicial, placeholder='DD/MM/AAAA').props(
-                    'mask="##/##/####"'
-                )
-                ajuda = ui.label('').classes('text-sm').mark(f'erro-{campo.campo}')
+    def campo(self, item: CampoAConfirmar) -> None:
+        if item.tipo is TipoCampo.DATA:
+            inicial = data_br(item.valor)
+            entrada = ui.input(value=inicial, placeholder='DD/MM/AAAA').props('mask="##/##/####"')
+            ajuda = ui.label('').classes('text-sm').mark(f'erro-{item.campo}')
 
-                def validar_data(e=None, entrada=entrada, ajuda=ajuda) -> None:  # noqa: ANN001
-                    texto = (entrada.value or '').strip()
-                    if not texto:
-                        ajuda.set_text('')
-                        return
-                    if len(texto) != 10 or texto[2] != '/' or texto[5] != '/':
-                        ajuda.set_text('Use o formato DD/MM/AAAA.')
-                        return
+            def validar_data(e=None, entrada=entrada, ajuda=ajuda) -> None:  # noqa: ANN001
+                texto = (entrada.value or '').strip()
+                if not texto:
                     ajuda.set_text('')
+                    return
+                if len(texto) != 10 or texto[2] != '/' or texto[5] != '/':
+                    ajuda.set_text('Use o formato DD/MM/AAAA.')
+                    return
+                ajuda.set_text('')
 
-                entrada.on('blur', validar_data)
-            else:
-                inicial = campo.valor or ''
-                entrada = ui.input(campo.rotulo, value=inicial).props('inputmode=decimal')
-            entrada.classes('w-full').mark(f'campo-{campo.campo}')
-            ui.label(campo.explicacao).classes('text-sm ca-texto-suave')
-        self.entradas[campo.campo] = entrada
-        self.iniciais[campo.campo] = inicial
+            entrada.on('blur', validar_data)
+        else:
+            inicial = item.valor or ''
+            entrada = ui.input(value=inicial).props('inputmode=decimal')
+        campo_com_rotulo(item.rotulo, entrada, marca=f'campo-{item.campo}')
+        ui.label(item.explicacao).classes('text-sm ca-texto-suave')
+        self.entradas[item.campo] = entrada
+        self.iniciais[item.campo] = inicial
 
     def salvar(self) -> None:
         valores = {campo: entrada.value or '' for campo, entrada in self.entradas.items()}

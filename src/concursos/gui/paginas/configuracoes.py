@@ -43,32 +43,50 @@ EXPLICACAO_ALVO = (
 
 
 def pagina(secao: str | None = None) -> None:
-    from concursos.gui.componentes.navegacao import breadcrumb
+    from concursos.gui.componentes.campo import cabecalho_da_pagina
 
     if not exigir_projeto():
         return
-    breadcrumb(('Configurações', None))
     with ui.column().classes('w-full max-w-2xl').style(tema.gap('lg')):
-        ui.label('Configurações').classes('text-2xl font-bold')
-        with cartao('Seus dados pertencem a você', icone='lock'):
-            ui.label(
-                'O Gabarito Vivo funciona diretamente no seu computador. Suas notas, gabaritos e '
-                'relatórios nunca são enviados para a internet, salvo se você ligar um recurso opcional.'
-            ).classes('text-sm')
-        try:
-            secao_da_analise()
-        except Exception as erro:  # noqa: BLE001
-            mostrar_erro(erro)
-        try:
-            secao_do_dashboard()
-        except Exception as erro:  # noqa: BLE001
-            mostrar_erro(erro)
-        secao_das_disciplinas()
-        secao_do_projeto()
-        secao_da_aparencia()
-        SecaoDaIa()
-        SecaoDaCalibracao()
-        secao_avancada(aberta=secao == 'avancado')
+        cabecalho_da_pagina('Configurações', 'Ajuste a aparência e sua meta pessoal de nota.')
+        with ui.card().classes('w-full').style(tema.gap('lg')):
+            secao_da_aparencia()
+            ui.separator()
+            try:
+                secao_da_meta_pessoal()
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+            with ui.expansion('Avançado (opcional)', icon='tune', value=secao == 'avancado').classes(
+                'w-full'
+            ).mark('avancado'):
+                with ui.column().classes('w-full').style(tema.gap('lg')):
+                    with ui.row().classes('w-full items-baseline justify-between flex-wrap').style(
+                        tema.gap('sm')
+                    ):
+                        ui.label('Avançado (opcional)').classes('font-bold').classes('hidden')
+                        ui.label('Fechado por padrão').classes('text-sm ca-texto-suave')
+                    with ui.column().style(tema.gap('sm')):
+                        ui.label('Seus dados pertencem a você').classes('font-bold')
+                        ui.label(
+                            'O Gabarito Vivo funciona diretamente no seu computador. Suas notas, gabaritos e '
+                            'relatórios nunca são enviados para a internet, salvo se você ligar um recurso '
+                            'opcional.'
+                        ).classes('text-sm ca-texto-suave')
+                    secao_do_cargo()
+                    try:
+                        secao_do_dashboard()
+                    except Exception as erro:  # noqa: BLE001
+                        mostrar_erro(erro)
+                    try:
+                        secao_da_analise()
+                    except Exception as erro:  # noqa: BLE001
+                        mostrar_erro(erro)
+                    secao_das_disciplinas()
+                    secao_do_projeto()
+                    SecaoDaCalibracao()
+                    SecaoDaIa()
+                    secao_restaurar_exemplo()
+                    secao_avancada(aberta=True)
 
 
 def controle_de_limiar(titulo: str, valor: float, explicacao: str, marca: str) -> ui.slider:
@@ -84,6 +102,8 @@ def controle_de_limiar(titulo: str, valor: float, explicacao: str, marca: str) -
 
 
 def secao_da_analise() -> None:
+    from concursos.gui.componentes.campo import campo
+
     contexto = ESTADO.contexto()
     atuais = ler_analise(contexto)
     nomes = opcoes_de_concurso(contexto)
@@ -101,17 +121,13 @@ def secao_da_analise() -> None:
             'limiar-topico',
         )
         opcoes = {SEM_ALVO: SEM_ALVO, **nomes}
-        alvo = (
-            rotulo(
-                ui.select(
-                    opcoes,
-                    label='Concurso-alvo',
-                    value=atuais.concurso_alvo if atuais.concurso_alvo in nomes else SEM_ALVO,
-                ),
-                'concurso-alvo',
-            )
-            .classes('w-full')
-            .mark('concurso-alvo')
+        alvo = campo(
+            'Concurso-alvo',
+            ui.select(
+                opcoes,
+                value=atuais.concurso_alvo if atuais.concurso_alvo in nomes else SEM_ALVO,
+            ).props('popup-content-class=ca-seletor-lista'),
+            marca='concurso-alvo',
         )
         ui.label(EXPLICACAO_ALVO).classes('text-sm ca-texto-suave')
 
@@ -128,22 +144,97 @@ def secao_da_analise() -> None:
                 return
             ui.notify('Configurações gravadas; valem na próxima análise.', type='positive')
 
-        ui.button('Salvar', icon='save', on_click=salvar).mark('salvar-analise')
+        ui.button('Salvar', icon='save', on_click=salvar).props('no-caps').classes('ca-alvo').mark(
+            'salvar-analise'
+        )
+
+
+def _pontos(taxa: float) -> float:
+    return round(min(max(taxa, 0.5), 0.95) * 100, 1)
+
+
+def secao_da_meta_pessoal() -> None:
+    """Barra 50–95 e valor exato, como no protótipo; grava a meta alta do TEC."""
+    from concursos.gui.componentes.campo import campo
+
+    atuais = ler_dashboard(ESTADO.contexto())
+    pontos = _pontos(atuais.tec_alta)
+    with ui.column().classes('w-full').style(tema.gap('md')).mark('meta-pessoal'):
+        ui.label('Meta de nota pessoal').classes('text-lg font-bold')
+        ui.label('Usada como referência pessoal para seus próximos concursos.').classes(
+            'text-sm ca-texto-suave'
+        )
+        with ui.element('div').classes('ca-grade-form'):
+            with ui.column().classes('ca-campo w-full'):
+                rotulo_barra = ui.label(f'Ajuste pela barra ({_fmt_pontos(pontos)} pontos)').classes(
+                    'ca-rotulo-campo'
+                )
+                barra = (
+                    rotulo(
+                        ui.slider(min=50, max=95, step=0.5, value=pontos),
+                        'ajuste pela barra',
+                    )
+                    .classes('w-full')
+                    .mark('dash-tec-alta')
+                )
+            exata = campo(
+                'Valor exato (pontos)',
+                ui.number(value=pontos, min=50, max=95, step=0.5),
+                marca='meta-exata',
+            )
+
+        def da_barra(evento) -> None:
+            valor = float(evento.value)
+            exata.value = valor
+            rotulo_barra.set_text(f'Ajuste pela barra ({_fmt_pontos(valor)} pontos)')
+
+        def do_numero(evento) -> None:
+            if evento.value is None:
+                return
+            valor = min(max(float(evento.value), 50.0), 95.0)
+            barra.value = valor
+            rotulo_barra.set_text(f'Ajuste pela barra ({_fmt_pontos(valor)} pontos)')
+
+        barra.on_value_change(da_barra)
+        exata.on_value_change(do_numero)
+
+        def salvar() -> None:
+            valor = min(max(float(barra.value or pontos), 50.0), 95.0)
+            metas = MetasDashboard(
+                tec_alta=round(valor / 100, 2),
+                tec_media=atuais.tec_media,
+                simulado_alta=atuais.simulado_alta,
+                simulado_media=atuais.simulado_media,
+                amostra_minima=atuais.amostra_minima,
+                banca_alvo=atuais.banca_alvo,
+            )
+            try:
+                gravar_dashboard(ESTADO.contexto(), metas)
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+                return
+            ui.notify('Meta pessoal gravada.', type='positive')
+
+        ui.button('Salvar meta', icon='save', on_click=salvar).props('no-caps').classes('ca-alvo').mark(
+            'salvar-meta'
+        )
+
+
+def _fmt_pontos(valor: float) -> str:
+    texto = f'{valor:.1f}'.rstrip('0').rstrip('.')
+    return texto.replace('.', ',')
 
 
 def secao_do_dashboard() -> None:
+    """Demais limiares do painel (além da meta pessoal da tela principal)."""
+    from concursos.gui.componentes.campo import campo
+
     atuais = ler_dashboard(ESTADO.contexto())
-    with cartao('Metas do painel inicial', icone='dashboard'):
+    with ui.column().classes('w-full').style(tema.gap('md')):
+        ui.label('Outras metas do painel').classes('text-lg font-bold')
         ui.label(
-            'Definem os selos (alto / em evolução / atenção) dos KPIs de TEC e simulados. '
-            'A banca alvo filtra o terceiro KPI do TEC.'
+            'Os selos do painel (alto / em evolução / atenção) usam estes limiares, além da meta pessoal.'
         ).classes('text-sm ca-texto-suave')
-        tec_alta = controle_de_limiar(
-            'TEC — meta alta (desempenho alto)',
-            atuais.tec_alta,
-            'Taxa ≥ este valor recebe o selo verde.',
-            'dash-tec-alta',
-        )
         tec_media = controle_de_limiar(
             'TEC — meta média (em evolução)',
             atuais.tec_media,
@@ -162,35 +253,22 @@ def secao_do_dashboard() -> None:
             'Zona de alerta entre média e alta.',
             'dash-sim-media',
         )
-        amostra = (
-            rotulo(
-                ui.number(
-                    'Amostra mínima por assunto (gargalo)',
-                    value=atuais.amostra_minima,
-                    min=1,
-                    max=100,
-                    step=1,
-                ),
-                'amostra mínima',
-            )
-            .classes('w-full')
-            .mark('dash-amostra')
+        amostra = campo(
+            'Amostra mínima por assunto (gargalo)',
+            ui.number(value=atuais.amostra_minima, min=1, max=100, step=1),
+            marca='dash-amostra',
         )
-        banca = (
-            rotulo(
-                ui.input('Banca alvo (TEC)', value=atuais.banca_alvo),
-                'banca alvo',
-            )
-            .classes('w-full')
-            .mark('dash-banca')
+        banca = campo(
+            'Banca alvo (TEC)',
+            ui.input(value=atuais.banca_alvo, placeholder='Ex.: CEBRASPE, FGV'),
+            marca='dash-banca',
         )
-        ui.label('Ex.: CEBRASPE, FGV. Vazio = banca mais frequente no histórico TEC.').classes(
-            'text-sm ca-texto-suave'
-        )
+        ui.label('Vazio = banca mais frequente no histórico TEC.').classes('text-sm ca-texto-suave')
 
         def salvar() -> None:
+            meta = ler_dashboard(ESTADO.contexto())
             metas = MetasDashboard(
-                tec_alta=round(float(tec_alta.value), 2),
+                tec_alta=meta.tec_alta,
                 tec_media=round(float(tec_media.value), 2),
                 simulado_alta=round(float(sim_alta.value), 2),
                 simulado_media=round(float(sim_media.value), 2),
@@ -204,7 +282,9 @@ def secao_do_dashboard() -> None:
                 return
             ui.notify('Metas do painel gravadas.', type='positive')
 
-        ui.button('Salvar metas', icon='save', on_click=salvar).classes('ca-alvo').mark('salvar-dashboard')
+        ui.button('Salvar metas', icon='save', on_click=salvar).props('no-caps').classes('ca-alvo').mark(
+            'salvar-dashboard'
+        )
 
 
 def secao_das_disciplinas() -> None:
@@ -247,68 +327,148 @@ def secao_do_projeto() -> None:
         ui.button('Trocar', icon='folder_open', on_click=lambda: ui.navigate.to('/projeto')).props('flat')
 
 
-TEMAS = {TemaGui.SISTEMA.value: 'Auto', TemaGui.CLARO.value: 'Claro', TemaGui.ESCURO.value: 'Escuro'}
+TEMAS = {
+    TemaGui.CLARO.value: 'Claro',
+    TemaGui.ESCURO.value: 'Escuro',
+    TemaGui.SISTEMA.value: 'Automático',
+}
+
+
+def secao_do_cargo() -> None:
+    from concursos.candidatos import cargo_almejado, gravar_cargo_almejado
+    from concursos.gui.componentes.campo import campo
+
+    candidato = ESTADO.candidato or ESTADO.contexto().candidato
+    if not candidato:
+        return
+    with cartao('Cargo que você busca', icone='badge'):
+        ui.label('Aparece no menu, ao lado do seu nome. Não entra na busca de concursos.').classes(
+            'text-sm ca-texto-suave'
+        )
+        entrada = campo(
+            'Cargo',
+            ui.input(
+                value=cargo_almejado(resolver_home(), candidato),
+                placeholder='Ex.: Auditor Federal',
+            ),
+            marca='cargo-almejado',
+        )
+
+        def salvar() -> None:
+            try:
+                from concursos.candidatos import ler_perfil_global
+
+                perfil = ler_perfil_global(resolver_home(), candidato)
+                nome = str(perfil.get('nome') or candidato)
+                gravar_cargo_almejado(resolver_home(), nome, entrada.value or '')
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+                return
+            ui.notify('Cargo gravado.', type='positive')
+
+        ui.button('Salvar cargo', icon='save', on_click=salvar).props('no-caps').classes('ca-alvo').mark(
+            'salvar-cargo'
+        )
+
+
+def secao_restaurar_exemplo() -> None:
+    from concursos.aplicacao import exemplo as exemplo_app
+
+    home = resolver_home()
+    projeto = ESTADO.projeto
+    if projeto is None or projeto.resolve() != (home / exemplo_app.PASTA).resolve():
+        return
+    with cartao('Exemplo', icone='restart_alt').mark('restaurar-exemplo'):
+        ui.label('Recria o concurso de exemplo deste projeto. O seu projeto de provas não muda.').classes(
+            'text-sm ca-texto-suave'
+        )
+
+        async def restaurar() -> None:
+            try:
+                await run.io_bound(exemplo_app.analisar_exemplo, home)
+            except Exception as erro:  # noqa: BLE001
+                mostrar_erro(erro)
+                return
+            ui.notify('Exemplo recriado.', type='positive')
+            ui.navigate.to('/')
+
+        ui.button('Restaurar dados iniciais', icon='restart_alt', on_click=restaurar).props(
+            'outline no-caps'
+        ).classes('ca-alvo').mark('restaurar-exemplo-botao')
 
 
 def secao_da_aparencia() -> None:
     config_global = resolver_home() / 'config.toml'
-    with cartao('Aparência', icone='contrast'):
+    atual = tema_da_gui(config_global).value
+    ui.label('Aparência').classes('ca-rotulo-campo')
+    with ui.element('div').classes('ca-radio-cartoes').mark('tema-gui'):
+        for valor, nome in TEMAS.items():
+            botao = (
+                ui.button(nome, on_click=lambda v=valor: _aplicar_tema(config_global, v))
+                .props(f'outline no-caps aria-pressed={"true" if valor == atual else "false"}')
+                .classes('ca-radio-cartao ca-alvo')
+                .mark(f'tema-{valor}')
+            )
+            if valor == atual:
+                botao.props('unelevated')
 
-        def trocar(evento) -> None:
-            escolhido = TemaGui(evento.value)
-            gravar_tema_da_gui(config_global, escolhido)
-            ui.dark_mode(tema.VALOR_DO_MODO[escolhido])
 
-        rotulo(ui.toggle(TEMAS, value=tema_da_gui(config_global).value, on_change=trocar), 'tema').mark(
-            'tema-gui'
-        )
+def _aplicar_tema(config_global: Path, valor: str) -> None:
+    escolhido = TemaGui(valor)
+    gravar_tema_da_gui(config_global, escolhido)
+    ui.dark_mode(tema.VALOR_DO_MODO[escolhido])
+    ui.navigate.to('/configuracoes')
 
 
 class SecaoDaIa:
     """Desligada por padrão; ligar pede o provedor, mostra o que é enviado e guarda a chave no cofre."""
 
     def __init__(self) -> None:
+        from concursos.gui.componentes.campo import campo
+
         estado = ia.estado_da_ia(ESTADO.contexto())
-        with cartao('Inteligência artificial para ler editais', icone='smart_toy'):
-            self.usar = ui.checkbox(
-                'Usar inteligência artificial para ler editais', value=estado.ligada, on_change=self.alternar
-            ).mark('usar-ia')
-            ui.label('Precisa de uma chave de acesso do provedor que você escolher.').classes(
-                'text-sm ca-texto-suave'
-            )
-            self.situacao = ui.label(self.descrever(estado)).classes('text-sm').mark('situacao-ia')
-            with ui.column().classes('w-full').style(tema.gap('sm')) as self.formulario:
-                self.provedor = (
-                    rotulo(
-                        ui.select(
-                            ia.provedores(),
-                            label='Provedor',
-                            value=estado.provedor or ia.provedores()[0],
-                            on_change=lambda e: self.aviso.set_text(ia.aviso(e.value)),
-                        ),
-                        'provedor de IA',
+        with cartao('Leitura inteligente com assistência automática', icone='smart_toy'):
+            with ui.row().classes('w-full items-start justify-between flex-wrap').style(tema.gap('md')):
+                with ui.column().classes('flex-grow').style(tema.gap('xs')):
+                    ui.label(
+                        'Desativada por padrão — toda a leitura de editais e provas funciona por regras '
+                        'neste computador.'
+                    ).classes('text-sm ca-texto-suave')
+                    self.situacao = ui.label(self.descrever(estado)).classes('text-sm').mark(
+                        'situacao-ia'
                     )
-                    .classes('w-full')
-                    .mark('provedor-ia')
+                self.usar = ui.checkbox(
+                    'Usar inteligência artificial para ler editais',
+                    value=estado.ligada,
+                    on_change=self.alternar,
+                ).mark('usar-ia')
+            with ui.column().classes('w-full').style(tema.gap('sm')) as self.formulario:
+                self.provedor = campo(
+                    'Provedor',
+                    ui.select(
+                        ia.provedores(),
+                        value=estado.provedor or ia.provedores()[0],
+                        on_change=lambda e: self.aviso.set_text(ia.aviso(e.value)),
+                    ).props('popup-content-class=ca-seletor-lista'),
+                    marca='provedor-ia',
                 )
                 with aviso('O que vai para o provedor', tom=Tom.ALERTA).mark('aviso-ia-cartao'):
                     self.aviso = ui.label(ia.aviso(self.provedor.value)).classes(
                         'text-sm whitespace-pre-line'
                     )
                     self.aviso.mark('aviso-ia')
-                self.chave = (
-                    rotulo(
-                        ui.input('Chave de acesso', password=True, password_toggle_button=True),
-                        'chave de acesso',
-                    )
-                    .classes('w-full')
-                    .mark('chave-ia')
+                self.chave = campo(
+                    'Chave de acesso',
+                    ui.input(password=True, password_toggle_button=True),
+                    marca='chave-ia',
                 )
                 ui.label(
                     'A chave vai para o cofre de senhas do sistema (sem ele, para um arquivo só seu, na pasta do '
                     'app), nunca para os arquivos de configuração.'
                 ).classes('text-sm ca-texto-suave')
-                ui.button('Concordo e ligar', icon='check', on_click=self.ligar).mark('ligar-ia')
+                ui.button('Concordo e ligar', icon='check', on_click=self.ligar).props('no-caps').mark(
+                    'ligar-ia'
+                )
             self.formulario.set_visibility(estado.ligada)
             self.livros = ui.column().classes('w-full').style(tema.gap('sm'))
             self.desenhar_livros()
@@ -390,44 +550,48 @@ CANAIS = {
 
 
 def secao_avancada(aberta: bool = False) -> None:
+    """Preferências técnicas; o chamador decide se envolve num expansion."""
+    del aberta
     config_global = resolver_home() / 'config.toml'
     atuais = atualizacao.ler_preferencias(config_global)
-    with ui.expansion('Avançado', icon='tune', value=aberta).classes('w-full').mark('avancado'):
-        ui.label('Atualizações').classes('font-bold')
-        aviso = ui.checkbox('Avisar quando houver versão nova', value=atuais.verificar_ao_abrir).mark(
-            'verificar-ao-abrir'
-        )
-        ui.label(EXPLICACAO_AVISO).classes('text-sm ca-texto-suave')
-        canal = (
-            rotulo(ui.select(CANAIS, label='Canal', value=atuais.canal.value), 'canal de atualização')
-            .classes('w-full')
-            .mark('canal-atualizacao')
-        )
+    ui.separator()
+    from concursos.gui.componentes.campo import campo
 
-        def gravar() -> None:
+    ui.label('Atualizações').classes('font-bold')
+    aviso = ui.checkbox('Avisar quando houver versão nova', value=atuais.verificar_ao_abrir).mark(
+        'verificar-ao-abrir'
+    )
+    ui.label(EXPLICACAO_AVISO).classes('text-sm ca-texto-suave')
+    canal = campo(
+        'Canal',
+        ui.select(CANAIS, value=atuais.canal.value).props('popup-content-class=ca-seletor-lista'),
+        marca='canal-atualizacao',
+    )
+
+    def gravar() -> None:
+        try:
+            atualizacao.gravar_preferencias(
+                config_global, atualizacao.Preferencias(CanalAtualizacao(canal.value), bool(aviso.value))
+            )
+        except Exception as erro:  # noqa: BLE001
+            mostrar_erro(erro)
+            return
+        ui.notify('Preferência de atualização gravada.', type='positive')
+
+    aviso.on_value_change(gravar)
+    canal.on_value_change(gravar)
+    ui.separator()
+    caixa = ui.column().classes('w-full')
+
+    def montar() -> None:
+        caixa.clear()
+        with caixa:
             try:
-                atualizacao.gravar_preferencias(
-                    config_global, atualizacao.Preferencias(CanalAtualizacao(canal.value), bool(aviso.value))
-                )
+                OpenNotebookProprio(montar)
             except Exception as erro:  # noqa: BLE001
                 mostrar_erro(erro)
-                return
-            ui.notify('Preferência de atualização gravada.', type='positive')
 
-        aviso.on_value_change(gravar)
-        canal.on_value_change(gravar)
-        ui.separator()
-        caixa = ui.column().classes('w-full')
-
-        def montar() -> None:
-            caixa.clear()
-            with caixa:
-                try:
-                    OpenNotebookProprio(montar)
-                except Exception as erro:  # noqa: BLE001
-                    mostrar_erro(erro)
-
-        montar()
+    montar()
 
 
 class OpenNotebookProprio:
@@ -444,10 +608,12 @@ class OpenNotebookProprio:
         self.situacao = ui.label().mark('estado-notebook')
         self.descrever()
         if not configuracao.ativa:
-            url = (
-                rotulo(ui.input('Endereço do programa', value=configuracao.url), 'endereço')
-                .classes('w-full')
-                .mark('url-notebook')
+            from concursos.gui.componentes.campo import campo
+
+            url = campo(
+                'Endereço do programa',
+                ui.input(value=configuracao.url),
+                marca='url-notebook',
             )
             aviso_do_envio = texto_do_aviso(
                 integracoes.aviso_open_notebook(url.value, configuracao), 'notebook'
@@ -533,12 +699,18 @@ class SecaoDaCalibracao:
             ui.upload(label='Folha preenchida', auto_upload=True, on_upload=self.receber_folha).props(
                 'accept=".pdf,.png,.jpg,.jpeg"'
             ).classes('w-full').mark('folha-calibracao')
-            self.digitadas = rotulo(
-                ui.input(f'Respostas das {QUESTOES_CALIBRACAO} primeiras questões', placeholder='ABCD-'),
-                'respostas para a calibração',
-            ).mark('calibracao')
+            from concursos.gui.componentes.campo import campo
+
+            self.digitadas = campo(
+                f'Respostas das {QUESTOES_CALIBRACAO} primeiras questões',
+                ui.input(placeholder='ABCD-'),
+                marca='calibracao',
+            )
             self.botao = (
-                ui.button('Calibrar', icon='tune', on_click=self.calibrar).props('outline').mark('calibrar')
+                ui.button('Calibrar', icon='tune', on_click=self.calibrar)
+                .props('outline no-caps')
+                .classes('ca-alvo')
+                .mark('calibrar')
             )
 
     async def receber_folha(self, evento: events.UploadEventArguments) -> None:

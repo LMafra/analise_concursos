@@ -299,6 +299,27 @@ def gravar_perfil_global(home: Path, nome: str, atualizar: bool = False) -> Path
     return caminho
 
 
+def ler_perfil_global(home: Path, candidato: str) -> dict:
+    caminho = home / PASTA_PERFIS_GLOBAIS / f'{candidato}.toml'
+    return ler_toml(caminho) if caminho.is_file() else {}
+
+
+def cargo_almejado(home: Path, candidato: str | None) -> str:
+    """O cargo que a pessoa digitou para o cartão; vazio se ela ainda não informou."""
+    if not candidato:
+        return ''
+    return str(ler_perfil_global(home, candidato).get('cargo_almejado') or '').strip()
+
+
+def gravar_cargo_almejado(home: Path, nome: str, cargo: str) -> Path:
+    """Grava o cargo do cartão no perfil global, sem mexer nos cargos da busca."""
+    caminho = gravar_perfil_global(home, nome, atualizar=True)
+    dados = ler_toml(caminho)
+    dados['cargo_almejado'] = cargo.strip()
+    caminho.write_text(tomli_w.dumps(dados), encoding='utf-8')
+    return caminho
+
+
 def alvos_pci(home: Path, candidato: str) -> tuple[tuple[str, ...], str]:
     """Os cargos e a UF de `[pci]` no perfil global do candidato; sem perfil ou sem seção, vazios."""
     caminho = home / PASTA_PERFIS_GLOBAIS / f'{candidato}.toml'

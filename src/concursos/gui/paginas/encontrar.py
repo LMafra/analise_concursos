@@ -12,6 +12,7 @@ from concursos.datas import data_br
 from concursos.gui import tema
 from concursos.gui.componentes import toasts
 from concursos.gui.componentes.aviso import aviso
+from concursos.gui.componentes.campo import campo
 from concursos.gui.componentes.consentimento import consentimento
 from concursos.gui.componentes.dialogo import ver_texto
 from concursos.gui.componentes.situacao import situacao
@@ -19,7 +20,7 @@ from concursos.gui.estado import ESTADO
 from concursos.gui.interacao import InteracaoCanceladaError, InteracaoGui
 from concursos.gui.progresso import Andamento
 from concursos.gui.tema import Tom
-from concursos.gui.textos import mostrar_erro, rotulo
+from concursos.gui.textos import mostrar_erro
 from concursos.integracoes.pci_mcp import REGIOES, DatasInscricao
 from concursos.municipios import municipios, ufs
 
@@ -37,6 +38,7 @@ EXPLICACAO_TERMO = (
     'sem ela. Nada achado? Use menos palavras, ex.: "auditor tcu".'
 )
 TERMO_LIVRE = 'ex.: auditor sefaz df'
+DIAS_PRAZO_PROXIMO = 7
 
 
 def prazo(datas: DatasInscricao) -> str:
@@ -49,6 +51,19 @@ def prazo(datas: DatasInscricao) -> str:
     if dias < 0:
         return f'{fim} (encerradas)'
     return f'{fim} ({dias} {"dia" if dias == 1 else "dias"})'
+
+
+def selo_do_prazo(datas: DatasInscricao) -> tuple[str, Tom, str]:
+    dias = datas.dias_ate_fim
+    if dias is not None and dias < 0:
+        return 'Inscrições encerradas', Tom.INFO, 'event_busy'
+    if dias is not None and dias <= DIAS_PRAZO_PROXIMO:
+        return 'Prazo próximo', Tom.ALERTA, 'priority_high'
+    if dias is not None:
+        return 'Inscrições abertas', Tom.SUCESSO, 'check'
+    if datas.em_breve:
+        return 'Edital em breve', Tom.INFO, 'schedule'
+    return 'Prazo a confirmar', Tom.INFO, 'schedule'
 
 
 def lista(texto: str | None) -> list[str]:
@@ -100,69 +115,73 @@ class PainelEncontrar:
             return
         configuracao = integracoes.configuracao_pci(ESTADO.contexto())
         uf = configuracao.uf.upper()
-        ui.label(
-            'Sem filtro, a busca usa os cargos e a UF do seu perfil. Separe vários cargos por vírgula.'
-        ).classes('text-sm ca-texto-suave')
-        with ui.row().classes('w-full items-end').style(tema.gap('sm')):
-            self.cargo = (
-                rotulo(ui.input('Cargo', value=', '.join(configuracao.cargos)), 'cargo')
-                .classes('min-w-64')
-                .mark('filtro-cargo')
-            )
-            self.uf = (
-                rotulo(
-                    ui.select([QUALQUER, *ufs()], label='UF', value=uf or QUALQUER, on_change=self.trocar_uf),
-                    'UF',
+        with ui.card().classes('w-full').style(tema.gap('md')).mark('filtros-encontrar'):
+            ui.label(
+                'Sem filtro, a busca usa os cargos e a UF do seu perfil. Separe vários cargos por vírgula.'
+            ).classes('text-sm ca-texto-suave')
+            with ui.element('div').classes('ca-grade-form'):
+                self.cargo = campo(
+                    'Cargo',
+                    ui.input(value=', '.join(configuracao.cargos), placeholder='Ex.: Auditor, Analista'),
+                    marca='filtro-cargo',
                 )
-                .classes('w-28')
-                .mark('filtro-uf')
-            )
-            self.cidade = (
-                rotulo(
+                self.uf = campo(
+                    'UF',
+                    ui.select(
+                        [QUALQUER, *ufs()],
+                        value=uf or QUALQUER,
+                        on_change=self.trocar_uf,
+                    ).props('popup-content-class=ca-seletor-lista'),
+                    marca='filtro-uf',
+                )
+                self.cidade = campo(
+                    'Cidade',
                     ui.select(
                         municipios(uf),
-                        label='Cidade',
                         value=configuracao.cidade if configuracao.cidade in municipios(uf) else None,
                         with_input=True,
                         clearable=True,
-                    ),
-                    'cidade',
+                    ).props('popup-content-class=ca-seletor-lista'),
+                    marca='filtro-cidade',
                 )
-                .classes('min-w-48')
-                .mark('filtro-cidade')
-            )
-            self.cidade.set_enabled(bool(uf))
-            self.regiao = (
-                rotulo(
+                self.cidade.set_enabled(bool(uf))
+                self.regiao = campo(
+                    'Região',
                     ui.select(
                         [QUALQUER, *REGIOES],
-                        label='Região',
                         value=configuracao.regiao if configuracao.regiao in REGIOES else QUALQUER,
-                    ),
-                    'região',
+                    ).props('popup-content-class=ca-seletor-lista'),
+                    marca='filtro-regiao',
                 )
-                .classes('min-w-40')
-                .mark('filtro-regiao')
-            )
-            self.botao = ui.button('Buscar', icon='search', on_click=self.buscar).mark('buscar-pci')
-            self.lembrar = ui.checkbox('Lembrar estes filtros').mark('lembrar-filtros')
-        with ui.row().classes('items-center').style(tema.gap('sm')):
-            self.atualizado = ui.label().classes('text-sm ca-texto-suave').mark('situacao-cache')
-            self.atualizar = (
-                ui.button('Buscar de novo agora', icon='refresh', on_click=lambda: self.buscar(refresh=True))
-                .props('flat dense')
-                .mark('atualizar-pci')
-            )
+            with ui.row().classes('w-full items-center flex-wrap').style(tema.gap('sm')):
+                self.botao = (
+                    ui.button('Buscar', icon='search', on_click=self.buscar)
+                    .props('no-caps')
+                    .classes('ca-alvo')
+                    .mark('buscar-pci')
+                )
+                self.lembrar = ui.checkbox('Lembrar estes filtros').mark('lembrar-filtros')
+                self.atualizado = ui.label().classes('text-sm ca-texto-suave').mark('situacao-cache')
+                self.atualizar = (
+                    ui.button(
+                        'Buscar de novo agora',
+                        icon='refresh',
+                        on_click=lambda: self.buscar(refresh=True),
+                    )
+                    .props('flat dense no-caps')
+                    .mark('atualizar-pci')
+                )
         self.mostrar_cache()
-        self.resultado = ui.column().classes('w-full').style(tema.gap('sm'))
-        ui.separator()
-        ui.label('Concursos que você acompanha').classes('text-lg font-bold')
-        self.acompanhados()
-        for linha in integracoes.linhas_do_radar(ESTADO.contexto()):
-            ui.label(linha).classes('text-sm')
-        ui.button('Parar de buscar concursos abertos', on_click=lambda: desligar_pci(recarregar)).props(
-            'flat'
-        ).mark('desligar-pci')
+        self.resultado = ui.column().classes('w-full').style(tema.gap('md')).mark('resultado-encontrar')
+        with ui.card().classes('w-full').style(tema.gap('md')).mark('acompanhados'):
+            ui.label('Concursos que você acompanha').classes('text-lg font-bold')
+            self.acompanhados()
+            for linha in integracoes.linhas_do_radar(ESTADO.contexto()):
+                ui.label(linha).classes('text-sm ca-texto-suave')
+            ui.button(
+                'Parar de buscar concursos abertos',
+                on_click=lambda: desligar_pci(recarregar),
+            ).props('flat no-caps').mark('desligar-pci')
 
     def trocar_uf(self, evento) -> None:
         uf = escolhido(evento.value)
@@ -226,34 +245,51 @@ class PainelEncontrar:
         self.resultado.clear()
         with self.resultado:
             if not self.concursos:
-                ui.label(getattr(self, 'mensagem_vazia', None) or 'Nenhum concurso com esses filtros.')
+                ui.label(getattr(self, 'mensagem_vazia', None) or 'Nenhum concurso com esses filtros.').classes(
+                    'ca-texto-suave'
+                )
                 return
-            for concurso in self.concursos:
-                with ui.card().classes('w-full').mark(f'concurso-{concurso.id}'):
-                    ui.label(concurso.titulo).classes('font-bold')
-                    detalhes = ' · '.join(
-                        p for p in (integracoes.regiao_do_concurso(concurso), concurso.cargos_resumo) if p
-                    )
-                    ui.label(detalhes).classes('text-sm').mark(f'regiao-{concurso.id}')
-                    if concurso.vagas_salario:
-                        ui.label(concurso.vagas_salario).classes('text-sm')
-                    ui.label(f'Inscrições até {prazo(concurso.datas)}').classes('text-sm')
-                    with ui.row():
-                        ui.button(
-                            'Ver página',
-                            icon='open_in_new',
-                            on_click=lambda c=concurso: abrir_no_navegador(c.link),
-                        ).props('flat').mark(f'abrir-{concurso.id}')
-                        ui.button(
-                            'Acompanhar este concurso',
-                            icon='notifications',
-                            on_click=lambda c=concurso: self.acompanhar(c.id),
-                        ).props('outline').mark(f'acompanhar-{concurso.id}')
-                        ui.button(
-                            'Adicionar ao meu projeto',
-                            icon='library_add',
-                            on_click=lambda c=concurso: self.adicionar(c.id),
-                        ).mark(f'adicionar-{concurso.id}')
+            with ui.element('div').classes('ca-grade-cartoes'):
+                for concurso in self.concursos:
+                    self._cartao_do_concurso(concurso)
+
+    def _cartao_do_concurso(self, concurso) -> None:
+        texto_selo, tom, icone = selo_do_prazo(concurso.datas)
+        detalhes = ' · '.join(
+            p for p in (integracoes.regiao_do_concurso(concurso), concurso.cargos_resumo) if p
+        )
+        prazo_texto = f'Inscrições até {prazo(concurso.datas)}'
+        dica = ' · '.join(p for p in (prazo_texto, concurso.vagas_salario) if p)
+        with (
+            ui.card()
+            .classes('w-full')
+            .style(
+                'display: flex; flex-direction: column; justify-content: space-between; '
+                + tema.gap('md')
+            )
+            .mark(f'concurso-{concurso.id}')
+        ):
+            with ui.column().style(tema.gap('xs')):
+                situacao(texto_selo, tom, icone=icone)
+                ui.label(concurso.titulo).classes('text-lg font-bold')
+                ui.label(detalhes).classes('font-semibold').mark(f'regiao-{concurso.id}')
+                ui.label(dica).classes('text-sm ca-texto-suave')
+            with ui.row().classes('ca-botoes'):
+                ui.button(
+                    'Preparar cadastro',
+                    icon='library_add',
+                    on_click=lambda c=concurso: self.adicionar(c.id),
+                ).props('no-caps').classes('ca-alvo').mark(f'adicionar-{concurso.id}')
+                ui.button(
+                    'Acompanhar',
+                    icon='notifications',
+                    on_click=lambda c=concurso: self.acompanhar(c.id),
+                ).props('outline no-caps').mark(f'acompanhar-{concurso.id}')
+                ui.button(
+                    'Ver página',
+                    icon='open_in_new',
+                    on_click=lambda c=concurso: abrir_no_navegador(c.link),
+                ).props('flat no-caps').mark(f'abrir-{concurso.id}')
 
     def acompanhar(self, identificador: int) -> None:
         mensagens: list[str] = []
@@ -327,27 +363,35 @@ class PainelProvasAnteriores:
             return
         contexto = ESTADO.contexto()
         opcoes = {SEM_ALVO: SEM_ALVO, **opcoes_de_concurso(contexto)}
-        with ui.column().classes('w-full').style(tema.gap('sm')) as self.recipiente:
-            with ui.row().classes('w-full items-end').style(tema.gap('sm')):
-                self.alvo = (
-                    rotulo(
-                        ui.select(opcoes, label='Concurso-alvo', value=SEM_ALVO, on_change=self.trocar_alvo),
-                        'concurso-alvo',
+        with ui.column().classes('w-full').style(tema.gap('md')) as self.recipiente:
+            with ui.card().classes('w-full').style(tema.gap('md')).mark('filtros-provas'):
+                with ui.element('div').classes('ca-grade-form'):
+                    self.alvo = campo(
+                        'Concurso-alvo',
+                        ui.select(
+                            opcoes,
+                            value=SEM_ALVO,
+                            on_change=self.trocar_alvo,
+                        ).props('popup-content-class=ca-seletor-lista'),
+                        marca='alvo-provas',
                     )
-                    .classes('min-w-48')
-                    .mark('alvo-provas')
-                )
-                self.termo = (
-                    rotulo(ui.input('Termo', placeholder=TERMO_LIVRE), 'termo da busca')
-                    .classes('min-w-64')
-                    .mark('termo-provas')
-                )
-                self.botao = ui.button('Buscar', icon='search', on_click=self.buscar).mark('buscar-provas')
-            with ui.row().classes('items-start no-wrap').style(tema.gap('xs')):
-                ui.icon('info', size='sm').props('aria-hidden=true')
-                ui.label(EXPLICACAO_TERMO).classes('text-sm').mark('explicacao-termo')
-            ui.label(COMO_IMPORTAR).classes('text-sm')
-            self.resultado = ui.column().classes('w-full').style(tema.gap('sm'))
+                    self.termo = campo(
+                        'Termo',
+                        ui.input(placeholder=TERMO_LIVRE),
+                        marca='termo-provas',
+                    )
+                with ui.row().classes('w-full items-center flex-wrap').style(tema.gap('sm')):
+                    self.botao = (
+                        ui.button('Buscar', icon='search', on_click=self.buscar)
+                        .props('no-caps')
+                        .classes('ca-alvo')
+                        .mark('buscar-provas')
+                    )
+                with ui.row().classes('items-start no-wrap').style(tema.gap('xs')):
+                    ui.icon('info', size='sm').props('aria-hidden=true')
+                    ui.label(EXPLICACAO_TERMO).classes('text-sm ca-texto-suave').mark('explicacao-termo')
+                ui.label(COMO_IMPORTAR).classes('text-sm ca-texto-suave')
+            self.resultado = ui.column().classes('w-full').style(tema.gap('md')).mark('resultado-provas')
             self.importacao = ui.column().classes('w-full')
             self.focado = ui.column().classes('w-full')
             with ui.expansion('Mensagens da importação', icon='list').classes('w-full'):
@@ -393,39 +437,72 @@ class PainelProvasAnteriores:
         with self.resultado:
             ui.label(f'Busca: {self.achados.termo}').classes('text-sm ca-texto-suave').mark('termo-usado')
             if not self.achados.provas:
-                ui.label('Nenhuma prova anterior encontrada; tente outro termo.')
+                ui.label('Nenhuma prova anterior encontrada; tente outro termo.').classes('ca-texto-suave')
                 return
-            for prova in self.achados.provas:
-                with ui.card().classes('w-full').mark(f'prova-{prova.id}'):
-                    with ui.row().classes('items-center').style(tema.gap('sm')):
-                        self.marcadas[prova.id] = ui.checkbox().mark(f'selecionar-{prova.id}')
-                        ui.label(prova.descricao).classes('font-bold')
-                        if integracoes.ja_importada(raiz, prova):
-                            situacao('importada', Tom.SUCESSO, icone='check_circle')
-                    ano = f' ({prova.ano})' if prova.ano else ''
-                    ui.label(f'{prova.orgao}{ano} · {prova.organizadora}').classes('text-sm')
-                    with ui.row():
-                        ui.button(
-                            'Ver página',
-                            icon='open_in_new',
-                            on_click=lambda p=prova: abrir_no_navegador(p.link),
-                        ).props('flat')
-                        ui.button(
-                            'Importar como simulado',
-                            icon='download',
-                            on_click=lambda p=prova: self.importar([p.id]),
-                        ).props('outline').mark(f'importar-{prova.id}')
-            with ui.row().style(tema.gap('sm')):
+            with ui.element('div').classes('ca-grade-cartoes'):
+                for prova in self.achados.provas:
+                    self._cartao_da_prova(prova, raiz)
+            total = len(self.achados.provas)
+            with ui.row().classes('w-full items-center flex-wrap ca-botoes').style(tema.gap('sm')):
+                self.resumo_selecao = ui.label(f'{total} provas encontradas').classes(
+                    'text-sm ca-texto-suave'
+                ).mark('resumo-selecao')
                 ui.button(
                     'Importar selecionadas',
                     icon='checklist',
-                    on_click=lambda: self.importar([i for i, caixa in self.marcadas.items() if caixa.value]),
-                ).props('outline').mark('importar-selecionadas')
+                    on_click=lambda: self.importar(
+                        [i for i, caixa in self.marcadas.items() if caixa.value]
+                    ),
+                ).props('outline no-caps').classes('ca-alvo').mark('importar-selecionadas')
                 ui.button(
                     'Importar todas',
                     icon='download_for_offline',
                     on_click=lambda: self.importar([p.id for p in self.achados.provas]),
-                ).mark('importar-todas')
+                ).props('no-caps').classes('ca-alvo').mark('importar-todas')
+
+    def _cartao_da_prova(self, prova, raiz) -> None:
+        importada = integracoes.ja_importada(raiz, prova)
+        ano = f' ({prova.ano})' if prova.ano else ''
+        foco = f'{prova.orgao}{ano} · {prova.organizadora}'
+        with (
+            ui.card()
+            .classes('w-full')
+            .style(f'display: flex; flex-direction: column; justify-content: space-between; {tema.gap("md")}')
+            .mark(f'prova-{prova.id}')
+        ):
+            with ui.column().style(tema.gap('xs')):
+                with ui.row().classes('items-center').style(tema.gap('sm')):
+                    self.marcadas[prova.id] = ui.checkbox(on_change=self._atualizar_resumo).mark(
+                        f'selecionar-{prova.id}'
+                    )
+                    if importada:
+                        situacao('Já importada', Tom.SUCESSO, icone='check_circle')
+                    else:
+                        situacao('Prova anterior', Tom.INFO, icone='history')
+                ui.label(prova.descricao).classes('text-lg font-bold')
+                ui.label(f'Foco principal: {foco}').classes('text-sm ca-texto-suave')
+            with ui.row().classes('ca-botoes'):
+                ui.button(
+                    'Importar como simulado',
+                    icon='download',
+                    on_click=lambda p=prova: self.importar([p.id]),
+                ).props('no-caps').classes('ca-alvo').mark(f'importar-{prova.id}')
+                ui.button(
+                    'Ver página',
+                    icon='open_in_new',
+                    on_click=lambda p=prova: abrir_no_navegador(p.link),
+                ).props('flat no-caps')
+
+    def _atualizar_resumo(self) -> None:
+        if not hasattr(self, 'resumo_selecao') or self.achados is None:
+            return
+        marcadas = sum(1 for caixa in self.marcadas.values() if caixa.value)
+        if marcadas == 1:
+            self.resumo_selecao.set_text('1 prova selecionada')
+        elif marcadas:
+            self.resumo_selecao.set_text(f'{marcadas} provas selecionadas')
+        else:
+            self.resumo_selecao.set_text(f'{len(self.achados.provas)} provas encontradas')
 
     async def importar(self, identificadores: list[int]) -> None:
         if ESTADO.ocupado or self.achados is None:

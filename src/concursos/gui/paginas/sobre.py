@@ -32,15 +32,34 @@ def versao() -> str:
 
 
 def pagina() -> None:
-    from concursos.gui.componentes.navegacao import breadcrumb
+    from concursos.gui.componentes.campo import cabecalho_da_pagina
 
-    breadcrumb(('Sobre', None))
     resumo = sobre.resumo_do_app(resolver_home())
     situacao_estudo = None
     if ESTADO.projeto is not None:
         situacao_estudo = estudo.situacao_do_estudo(ESTADO.contexto())
-    with ui.column().classes('w-full max-w-2xl').style(tema.gap('md')):
-        ui.label(f'{NOME_DO_APP} {versao()}').classes('text-2xl font-bold').mark('versao')
+    with ui.column().classes('w-full max-w-2xl').style(tema.gap('lg')):
+        cabecalho_da_pagina(
+            'Sobre o Gabarito Vivo',
+            f'Versão {versao()} · Feito para acompanhar seus estudos sem ansiedade.',
+        )
+        ui.label(f'Versão {versao()}').classes('hidden').mark('versao')
+        with ui.card().classes('w-full ca-metrica ca-tom-sucesso').style(tema.gap('sm')):
+            situacao('Privacidade garantida', Tom.SUCESSO, icone='check')
+            ui.label('Seus dados ficam 100% neste computador').classes('text-lg font-bold')
+            ui.label(PRIVACIDADE).classes('text-sm ca-texto-suave')
+        with ui.element('div').classes('ca-grade-cartoes'):
+            with ui.card().classes('w-full').style(tema.gap('xs')):
+                ui.label('Linguagem direta').classes('font-bold')
+                ui.label(
+                    'Você vê quantos pontos faltam para o corte e quais 3 assuntos trazem o maior ganho real.'
+                ).classes('text-sm ca-texto-suave')
+            with ui.card().classes('w-full').style(tema.gap('xs')):
+                ui.label('Sem pressa nem ruído').classes('font-bold')
+                ui.label(
+                    'Botões grandes, alto contraste e cores usadas somente para indicar o que precisa de atenção.'
+                ).classes('text-sm ca-texto-suave')
+        ui.label(f'{NOME_DO_APP} {versao()}').classes('text-lg font-bold')
         with ui.row().classes('items-center').style(tema.gap('md')):
             ui.label(resumo.sistema).mark('sistema')
             situacao(
@@ -71,7 +90,6 @@ def pagina() -> None:
         SecaoDeAtualizacao(resumo.biblioteca_pronta)
         if ESTADO.projeto is not None:
             secao_do_ambiente()
-        ui.label(PRIVACIDADE).classes('ca-texto-suave')
 
 
 def secao_do_ambiente() -> None:

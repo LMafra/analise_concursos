@@ -46,6 +46,14 @@ class Onboarding:
                 .classes('w-full')
                 .mark('nome')
             )
+            self.cargo = (
+                rotulo(
+                    ui.input('Cargo que você busca', value=atuais.cargo or ''),
+                    'cargo que você busca',
+                )
+                .classes('w-full')
+                .mark('cargo')
+            )
             self.nome.on('keydown.enter', lambda: self.assistente.avancar())
         with self.assistente.passo(PASSO_PASTA):
             ui.label(f'As provas e as análises ficam em {raiz}.').mark('pasta-do-projeto')
@@ -103,7 +111,12 @@ class Onboarding:
 
     async def gravar(self) -> None:
         respostas = inicio.respostas_do_formulario(
-            self.contexto, self.nome.value or '', self.provas.value or '', self.analises.value or '', False
+            self.contexto,
+            self.nome.value or '',
+            self.provas.value or '',
+            self.analises.value or '',
+            False,
+            cargo=self.cargo.value or '',
         )
         opcoes = await run.io_bound(inicio.concluir_onboarding, Opcoes(self.contexto), respostas)
         ESTADO.candidato = opcoes.contexto.candidato

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from urllib.parse import quote
 
 from concursos.config.contexto import Contexto
 from concursos.status import listar_concursos
@@ -23,19 +24,37 @@ def procurar(contexto: Contexto, termo: str, *, limiar: float = 0.6) -> list[Res
     achados: list[ResultadoBusca] = []
     for pasta in listar_concursos(contexto.provas):
         if termo in pasta.name.casefold():
-            achados.append(ResultadoBusca('concurso', pasta.name, f'/?destaque={pasta.name}'))
-    consolidado = contexto.analises_do_candidato / 'consolidado' / 'desempenho_por_topico.csv'
-    if consolidado.exists():
-        import pandas as pd
-
-        tabela = pd.read_csv(consolidado, keep_default_na=False)
-        if {'topico', 'percentual'}.issubset(tabela.columns):
-            for _, linha in tabela.iterrows():
-                topico = str(linha['topico'])
-                try:
-                    percentual = float(linha['percentual'])
-                except (TypeError, ValueError):
-                    continue
-                if percentual < limiar * 100 and termo in topico.casefold():
-                    achados.append(ResultadoBusca('topico', topico, f'/resultados?topico={topico}'))
+            achados.append(
+                ResultadoBusca(
+                    'Concurso',
+                    pasta.name,
+                    f'/resultados?aba=concursos&concurso={quote(pasta.name)}',
+                )
+            )
+    achados.extend(_topicos(contexto, termo, limiar=limiar))
     return achados[:20]
+
+
+def _topicos(contexto: Contexto, termo: str, *, limiar: float) -> list[ResultadoBusca]:
+    """Tópicos fracos do resumo já gravado. Sem o consolidado, a busca segue só com os concursos."""
+    try:
+        from concursos.aplicacao.resultados import resumo_visual
+
+        fracos = resumo_visual(contexto).fracos
+    except Exception:  # noqa: BLE001
+        return []
+    vistos: set[str] = set()
+    achados: list[ResultadoBusca] = []
+    for fraco in fracos:
+        chave = fraco.topico.casefold()
+        if chave in vistos or termo not in chave or fraco.percentual >= limiar * 100:
+            continue
+        vistos.add(chave)
+        achados.append(
+            ResultadoBusca(
+                'Tópico fraco',
+                fraco.topico,
+                f'/estudar?aba=simulado&topico={quote(fraco.topico)}',
+            )
+        )
+    return achados
