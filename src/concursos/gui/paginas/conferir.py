@@ -120,9 +120,9 @@ class TopicosDasQuestoes:
             with ui.element('div').classes('ca-barra-salvar'):
                 with ui.column().style(tema.gap('xs')):
                     ui.label(f'Alterações em {self.concurso}').classes('font-bold')
-                    ui.label(
-                        'Ao salvar, atualizamos seu diagnóstico e voltamos para Minhas Provas.'
-                    ).classes('text-sm ca-texto-suave')
+                    ui.label('Ao salvar, atualizamos seu diagnóstico e voltamos para Minhas Provas.').classes(
+                        'text-sm ca-texto-suave'
+                    )
                 with ui.row().classes('items-center').style(tema.gap('sm')):
                     ui.button(
                         'Cancelar',
@@ -205,18 +205,18 @@ class DadosDoEdital:
                 return
             with ui.card().classes('w-full ca-metrica ca-tom-alerta').style(tema.gap('md')):
                 ui.label('O edital deixou isto em aberto').classes('text-lg font-bold')
-                ui.label(
-                    'Esses campos ajudam a medir sua distância exata até a aprovação.'
-                ).classes('text-sm ca-texto-suave')
+                ui.label('Esses campos ajudam a medir sua distância exata até a aprovação.').classes(
+                    'text-sm ca-texto-suave'
+                )
                 with ui.element('div').classes('ca-grade-form'):
                     for item in campos:
                         self.campo(item)
             with ui.element('div').classes('ca-barra-salvar'):
                 with ui.column().style(tema.gap('xs')):
                     ui.label(f'Alterações em {self.concurso}').classes('font-bold')
-                    ui.label(
-                        'Ao salvar, atualizamos seu diagnóstico e voltamos para Minhas Provas.'
-                    ).classes('text-sm ca-texto-suave')
+                    ui.label('Ao salvar, atualizamos seu diagnóstico e voltamos para Minhas Provas.').classes(
+                        'text-sm ca-texto-suave'
+                    )
                 with ui.row().classes('items-center').style(tema.gap('sm')):
                     ui.button(
                         'Cancelar',

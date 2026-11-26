@@ -245,9 +245,9 @@ class PainelEncontrar:
         self.resultado.clear()
         with self.resultado:
             if not self.concursos:
-                ui.label(getattr(self, 'mensagem_vazia', None) or 'Nenhum concurso com esses filtros.').classes(
-                    'ca-texto-suave'
-                )
+                ui.label(
+                    getattr(self, 'mensagem_vazia', None) or 'Nenhum concurso com esses filtros.'
+                ).classes('ca-texto-suave')
                 return
             with ui.element('div').classes('ca-grade-cartoes'):
                 for concurso in self.concursos:
@@ -263,10 +263,7 @@ class PainelEncontrar:
         with (
             ui.card()
             .classes('w-full')
-            .style(
-                'display: flex; flex-direction: column; justify-content: space-between; '
-                + tema.gap('md')
-            )
+            .style('display: flex; flex-direction: column; justify-content: space-between; ' + tema.gap('md'))
             .mark(f'concurso-{concurso.id}')
         ):
             with ui.column().style(tema.gap('xs')):
@@ -444,15 +441,15 @@ class PainelProvasAnteriores:
                     self._cartao_da_prova(prova, raiz)
             total = len(self.achados.provas)
             with ui.row().classes('w-full items-center flex-wrap ca-botoes').style(tema.gap('sm')):
-                self.resumo_selecao = ui.label(f'{total} provas encontradas').classes(
-                    'text-sm ca-texto-suave'
-                ).mark('resumo-selecao')
+                self.resumo_selecao = (
+                    ui.label(f'{total} provas encontradas')
+                    .classes('text-sm ca-texto-suave')
+                    .mark('resumo-selecao')
+                )
                 ui.button(
                     'Importar selecionadas',
                     icon='checklist',
-                    on_click=lambda: self.importar(
-                        [i for i, caixa in self.marcadas.items() if caixa.value]
-                    ),
+                    on_click=lambda: self.importar([i for i, caixa in self.marcadas.items() if caixa.value]),
                 ).props('outline no-caps').classes('ca-alvo').mark('importar-selecionadas')
                 ui.button(
                     'Importar todas',

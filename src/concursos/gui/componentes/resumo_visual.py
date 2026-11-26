@@ -68,15 +68,12 @@ def hero(
                         'pontos percentuais. Continue mantendo os pontos fortes.'
                     )
                 else:
-                    apoio = (
-                        f'Sua nota foi {_numero(ponto.nota)}% para um corte de '
-                        f'{_numero(ponto.corte)}%.'
-                    )
+                    apoio = f'Sua nota foi {_numero(ponto.nota)}% para um corte de {_numero(ponto.corte)}%.'
                 ui.label(apoio).classes('ca-texto-suave')
         if atalho:
-            ui.button(
-                rotulo_atalho, icon='arrow_forward', on_click=lambda: ui.navigate.to(destino)
-            ).classes('ca-alvo')
+            ui.button(rotulo_atalho, icon='arrow_forward', on_click=lambda: ui.navigate.to(destino)).classes(
+                'ca-alvo'
+            )
 
 
 def metricas_do_ponto(ponto: PontoDeNota, pontos: tuple[PontoDeNota, ...]) -> None:
@@ -95,9 +92,12 @@ def metricas_do_ponto(ponto: PontoDeNota, pontos: tuple[PontoDeNota, ...]) -> No
         else:
             tom_nota, legenda_nota = Tom.ALERTA, 'No limite do corte'
     tendencia, legenda_tendencia = _tendencia(pontos)
-    with ui.element('div').classes('w-full').style(
-        f'display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));{tema.gap("md")}'
-    ).mark('metricas-resultado'):
+    with (
+        ui.element('div')
+        .classes('w-full')
+        .style(f'display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));{tema.gap("md")}')
+        .mark('metricas-resultado')
+    ):
         cartao_metrica('Corte', corte, legenda_corte, Tom.INFO)
         cartao_metrica('Sua nota', _numero(ponto.nota), legenda_nota, tom_nota)
         cartao_metrica('Tendência', tendencia, legenda_tendencia, Tom.SUCESSO)
@@ -124,7 +124,9 @@ def atalhos_de_pratica() -> None:
     ):
         with ui.column().style(tema.gap('xs')):
             ui.label('Quer praticar agora mesmo?').classes('font-bold')
-            ui.label('Abra um simulado curto ou atualize seu treino no TEC.').classes('text-sm ca-texto-suave')
+            ui.label('Abra um simulado curto ou atualize seu treino no TEC.').classes(
+                'text-sm ca-texto-suave'
+            )
         with ui.row().classes('items-center').style(tema.gap('sm')):
             ui.button(
                 'Montar simulado',
@@ -143,7 +145,9 @@ def grafico(pontos: tuple[PontoDeNota, ...], *, atual: str | None = None) -> Non
             'ca-texto-suave'
         ).mark('grafico-vazio')
         return
-    with ui.element('div').classes('w-full ca-grafico-caixa').style(tema.gap('md')).mark('grafico-nota-corte'):
+    with (
+        ui.element('div').classes('w-full ca-grafico-caixa').style(tema.gap('md')).mark('grafico-nota-corte')
+    ):
         with ui.row().classes('w-full items-center justify-between flex-wrap').style(tema.gap('sm')):
             with ui.column().style(tema.gap('xs')):
                 ui.label('Sua nota comparada ao corte nas últimas provas').classes('text-lg font-bold')
@@ -196,13 +200,15 @@ def svg_nota_corte(pontos: tuple[PontoDeNota, ...], *, atual: str | None = None)
     )
     passo = largura_util / (len(pontos) - 1) if len(pontos) > 1 else largura_util / 2
     xs = [
-        esquerda + (indice * passo if len(pontos) > 1 else largura_util / 2)
-        for indice in range(len(pontos))
+        esquerda + (indice * passo if len(pontos) > 1 else largura_util / 2) for indice in range(len(pontos))
     ]
     linha_nota = ' '.join(f'{x:.1f},{y(ponto.nota):.1f}' for x, ponto in zip(xs, pontos, strict=True))
     cortes = [(x, ponto) for x, ponto in zip(xs, pontos, strict=True) if ponto.corte is not None]
     linha_corte = ' '.join(f'{x:.1f},{y(ponto.corte):.1f}' for x, ponto in cortes)
-    pontos_svg = ''.join(_ponto_do_grafico(x, ponto, y, altura, ponto.concurso == destaque) for x, ponto in zip(xs, pontos, strict=True))
+    pontos_svg = ''.join(
+        _ponto_do_grafico(x, ponto, y, altura, ponto.concurso == destaque)
+        for x, ponto in zip(xs, pontos, strict=True)
+    )
     return (
         f'<svg class="ca-grafico-svg" viewBox="0 0 {largura} {altura}" role="img" '
         'aria-label="Gráfico comparando suas notas com a nota de corte de cada concurso">'

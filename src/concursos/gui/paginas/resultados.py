@@ -43,6 +43,7 @@ def pagina(aba: str | None = None, concurso: str | None = None) -> None:
     escolhido = _concurso_escolhido(opcoes, concurso, resumo)
     abas_ref: list = []
     with ui.column().classes('w-full').style(tema.gap('lg')):
+
         def filtros() -> None:
             if opcoes or len(ESTADO.candidatos()) > 1:
                 with ui.column().classes('ca-filtros').style(_largura_do_filtro(opcoes)):
@@ -123,9 +124,7 @@ def _opcoes_do_filtro(resumo) -> dict[str, str]:
         opcoes = {}
     ordenadas: dict[str, str] = {}
     for ponto in sorted(resumo.pontos, key=lambda item: item.ordem, reverse=True):
-        ordenadas[ponto.concurso] = opcoes.get(ponto.concurso) or titulo_amigavel_da_pasta(
-            ponto.concurso
-        )
+        ordenadas[ponto.concurso] = opcoes.get(ponto.concurso) or titulo_amigavel_da_pasta(ponto.concurso)
     for chave, nome in opcoes.items():
         ordenadas.setdefault(chave, nome)
     return ordenadas
@@ -166,9 +165,7 @@ def seletor_do_concurso(opcoes: dict[str, str], escolhido: str | None, abas_ref:
 
     campo(
         'Concurso selecionado',
-        ui.select(opcoes, value=escolhido, on_change=trocar).props(
-            'popup-content-class=ca-seletor-lista'
-        ),
+        ui.select(opcoes, value=escolhido, on_change=trocar).props('popup-content-class=ca-seletor-lista'),
         marca='concurso-resultados',
     )
 
@@ -336,9 +333,7 @@ def painel_topicos(escolhido: str | None, resumo, achados: Resultados, abas, gui
             linhas = [
                 item
                 for item in fracos
-                if not termo
-                or termo in item.topico.casefold()
-                or termo in item.disciplina.casefold()
+                if not termo or termo in item.topico.casefold() or termo in item.disciplina.casefold()
             ]
             with lista:
                 if not linhas:
@@ -386,9 +381,7 @@ def painel_de_exportacao(escolhido: str | None = None) -> None:
         with saida:
             ui.label(f'Exportado em {destino}').mark('exportado')
             with ui.row():
-                ui.button('Baixar', icon='download', on_click=lambda: ui.download.file(destino)).props(
-                    'flat'
-                )
+                ui.button('Baixar', icon='download', on_click=lambda: ui.download.file(destino)).props('flat')
                 ui.button(
                     'Abrir a pasta',
                     icon='folder_open',
@@ -408,9 +401,9 @@ def painel_de_exportacao(escolhido: str | None = None) -> None:
             ).props('no-caps').classes('ca-alvo').mark('exportar-csv')
         with ui.card().classes('w-full').style(tema.gap('md')):
             ui.label('Salvar plano de revisão em texto').classes('text-lg font-bold')
-            ui.label(
-                'Arquivo de texto leve com os tópicos prioritários do consolidado.'
-            ).classes('ca-texto-suave')
+            ui.label('Arquivo de texto leve com os tópicos prioritários do consolidado.').classes(
+                'ca-texto-suave'
+            )
             ui.button(
                 'Baixar plano de revisão',
                 on_click=lambda: exportar(FormatoExportacao.MD),

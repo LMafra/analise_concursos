@@ -110,9 +110,7 @@ class TelaDeEnvio:
                 with ui.expansion('Mensagens do cadastro', icon='list').classes('w-full'):
                     self.mensagens = ui.log(max_lines=500).classes('h-40 w-full').mark('mensagens')
                 with ui.row().classes('w-full justify-end').style(tema.gap('sm')):
-                    ui.button('Cancelar', on_click=self.cancelar).props('outline no-caps').classes(
-                        'ca-alvo'
-                    )
+                    ui.button('Cancelar', on_click=self.cancelar).props('outline no-caps').classes('ca-alvo')
                     self.botao = (
                         ui.button('Cadastrar e analisar agora', on_click=self.cadastrar)
                         .props('no-caps')
@@ -241,6 +239,7 @@ class TelaDeEnvio:
             aviso('Concurso cadastrado.', tom=Tom.SUCESSO).mark('cadastrado'),
             ui.row().style(tema.gap('sm')),
         ):
+
             def analisar_agora() -> None:
                 ESTADO.pedir_analise = True
                 ui.navigate.to('/analise')

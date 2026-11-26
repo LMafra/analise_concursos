@@ -177,9 +177,7 @@ def quiz_do_tec(topico: str | None) -> bool:
     questoes = questoes[:LIMITE_QUIZ]
     if not questoes:
         return False
-    ui.label(f'{len(questoes)} questões dos seus erros no TEC').classes('text-lg font-bold').mark(
-        'quiz-tec'
-    )
+    ui.label(f'{len(questoes)} questões dos seus erros no TEC').classes('text-lg font-bold').mark('quiz-tec')
     if topico:
         ui.label(f'Filtro: {topico}').classes('text-sm ca-texto-suave')
     for questao in questoes:
@@ -213,9 +211,11 @@ def cartao_da_questao(questao) -> None:
             for alternativa in questao.alts:
                 letra = str(alternativa.get('l', '?'))
                 texto = str(alternativa.get('t', ''))
-                botao = ui.button(
-                    f'{letra}) {texto}', on_click=lambda escolha=letra: responder(escolha)
-                ).props('outline align=left').classes('w-full ca-alvo')
+                botao = (
+                    ui.button(f'{letra}) {texto}', on_click=lambda escolha=letra: responder(escolha))
+                    .props('outline align=left')
+                    .classes('w-full ca-alvo')
+                )
                 botoes.append(botao)
         else:
             campo = ui.input('Sua resposta').classes('w-full')
@@ -400,9 +400,9 @@ class MeusLivros:
         self.cabecalho.clear()
         with self.cabecalho:
             ui.label(f'Meus livros ({len(livros)})').classes('text-lg font-bold')
-            ui.label(
-                'Livros marcados como "Pronto" já podem ser consultados na aba Perguntar.'
-            ).classes('text-sm ca-texto-suave')
+            ui.label('Livros marcados como "Pronto" já podem ser consultados na aba Perguntar.').classes(
+                'text-sm ca-texto-suave'
+            )
         self.lista.clear()
         with self.lista:
             if not livros:
@@ -418,11 +418,7 @@ class MeusLivros:
     def linha(self, livro: Livro, preparado: bool) -> None:
         tom = TOM_DO_LIVRO[livro.estado]
         lendo = livro.estado in EM_LEITURA
-        with (
-            ui.element('div')
-            .classes(f'ca-linha-livro ca-tom-{tom}')
-            .mark(f'livro-{livro.sha[:12]}')
-        ):
+        with ui.element('div').classes(f'ca-linha-livro ca-tom-{tom}').mark(f'livro-{livro.sha[:12]}'):
             with ui.element('div').classes('ca-linha-livro-corpo'):
                 with ui.column().style(tema.gap('xs')):
                     ui.label(livro.nome).classes('font-bold')
@@ -530,9 +526,9 @@ class Perguntar:
 
         with ui.card().classes('w-full').style(tema.gap('md')):
             ui.label('Perguntar aos seus livros').classes('text-lg font-bold')
-            ui.label(
-                'Receba uma resposta curta com a página exata onde o assunto está explicado.'
-            ).classes('ca-texto-suave')
+            ui.label('Receba uma resposta curta com a página exata onde o assunto está explicado.').classes(
+                'ca-texto-suave'
+            )
             with ui.row().classes('w-full items-end flex-wrap').style(tema.gap('md')):
                 self.campo = campo(
                     'Sua dúvida sobre a matéria',
@@ -563,9 +559,7 @@ class Perguntar:
                 )
             self.sugestoes = ui.row().classes('w-full items-center').style(tema.gap('sm'))
             self.ia = ui.column().classes('w-full')
-            self.resultado = ui.column().classes('w-full').style(tema.gap('sm')).mark(
-                'resultado-pergunta'
-            )
+            self.resultado = ui.column().classes('w-full').style(tema.gap('sm')).mark('resultado-pergunta')
         self.desenhar_ia()
         ui.timer(0.1, self.carregar_sugestoes, once=True)
         if pergunta:

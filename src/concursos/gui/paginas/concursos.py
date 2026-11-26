@@ -26,6 +26,7 @@ EXPLICACAO_GABARITO = (
 )
 TOM_DA_SITUACAO = {Situacao.COMPLETO: Tom.SUCESSO, Situacao.INCOMPLETO: Tom.ALERTA}
 
+
 def pagina(aba: str | None = None) -> None:
     if not exigir_projeto():
         return
@@ -212,9 +213,7 @@ def lista_de_concursos(situacoes: list) -> bool:
                             with situacao('a confirmar', Tom.ALERTA, icone='help').mark(
                                 f'a-confirmar-{item.nome}'
                             ):
-                                ui.tooltip(
-                                    f'Nome {nome.origem}. Use "Corrigir nome" se não estiver certo.'
-                                )
+                                ui.tooltip(f'Nome {nome.origem}. Use "Corrigir nome" se não estiver certo.')
                         with ui.label(f'gabarito: {item.gabarito}').classes('text-sm'):
                             ui.tooltip(EXPLICACAO_GABARITO)
                 with ui.column().classes('items-end').style(tema.gap('xs')):
@@ -288,9 +287,7 @@ def acoes_do_concurso(item, mostrado: NomeDoConcurso | None = None) -> None:
         if completo:
             ui.button(
                 'Analisar',
-                on_click=lambda n=nome: ui.navigate.to(
-                    f'/resultados?aba=concursos&concurso={quote(n)}'
-                ),
+                on_click=lambda n=nome: ui.navigate.to(f'/resultados?aba=concursos&concurso={quote(n)}'),
             ).props('dense no-caps').classes('ca-alvo').mark(f'ver-{nome}')
         elif falta_edital:
             ui.button(

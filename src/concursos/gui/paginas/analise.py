@@ -66,14 +66,14 @@ class PainelDeAnalise:
                     .props('role=status aria-live=polite')
                     .mark('titulo-analise')
                 )
-                ui.label(
-                    'Estamos organizando tudo sem pressa. Leva apenas alguns segundos.'
-                ).classes('ca-texto-suave')
+                ui.label('Estamos organizando tudo sem pressa. Leva apenas alguns segundos.').classes(
+                    'ca-texto-suave'
+                )
                 self.barra = ui.linear_progress(value=0, show_value=False).props(
                     'aria-label="andamento da análise"'
                 )
-                self.percentual = ui.label('0% concluído').classes('text-sm ca-texto-suave').mark(
-                    'percentual-analise'
+                self.percentual = (
+                    ui.label('0% concluído').classes('text-sm ca-texto-suave').mark('percentual-analise')
                 )
                 self.esqueleto = ui.skeleton().classes('w-full h-16').props('aria-hidden=true')
                 self.esqueleto.set_visibility(False)

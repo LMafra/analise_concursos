@@ -431,9 +431,7 @@ class SecaoDaIa:
                         'Desativada por padrão — toda a leitura de editais e provas funciona por regras '
                         'neste computador.'
                     ).classes('text-sm ca-texto-suave')
-                    self.situacao = ui.label(self.descrever(estado)).classes('text-sm').mark(
-                        'situacao-ia'
-                    )
+                    self.situacao = ui.label(self.descrever(estado)).classes('text-sm').mark('situacao-ia')
                 self.usar = ui.checkbox(
                     'Usar inteligência artificial para ler editais',
                     value=estado.ligada,

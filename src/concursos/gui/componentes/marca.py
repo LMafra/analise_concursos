@@ -41,12 +41,7 @@ def cartao_da_pessoa() -> None:
     perfil = ler_perfil_global(home, candidato)
     nome = str(perfil.get('nome') or candidato)
     cargo = cargo_almejado(home, candidato)
-    with (
-        ui.row()
-        .classes('w-full items-center ca-pessoa')
-        .style(tema.gap('sm'))
-        .mark('cartao-pessoa')
-    ):
+    with ui.row().classes('w-full items-center ca-pessoa').style(tema.gap('sm')).mark('cartao-pessoa'):
         ui.label(_iniciais(nome)).classes('ca-avatar').props('aria-hidden=true')
         with ui.column().style(tema.gap('xs')):
             ui.label(nome).classes('font-bold')

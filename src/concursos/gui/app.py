@@ -149,8 +149,7 @@ def raiz() -> None:
                 ui.column()
                 .classes('absolute z-10 shadow-md p-2 ca-borda')
                 .style(
-                    'top: 3.5rem; right: 0; min-width: 16rem; display: none; '
-                    'background: var(--ca-superficie)'
+                    'top: 3.5rem; right: 0; min-width: 16rem; display: none; background: var(--ca-superficie)'
                 )
             )
 
