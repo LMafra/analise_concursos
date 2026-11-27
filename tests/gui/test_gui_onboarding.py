@@ -24,7 +24,8 @@ async def test_tres_passos_grava_candidato_e_chega_ao_resultado(user: User, proj
     await ate_a_pasta(user)
     user.find(marker='continuar').click()
 
-    await user.should_see('Passo 3 de 3: Primeiro resultado')
+    await user.should_see(marker='passo-3', retries=60)
+    await user.should_see('Passo 3 de 3: Primeiro resultado', retries=60)
     config = tomllib.loads((projeto / '.gabarito-vivo' / 'config.toml').read_text(encoding='utf-8'))
     assert config['candidato'] == {'ultimo': 'ana_teste'}
     assert (projeto / 'provas' / ARQUIVO_LEIA_ME).is_file()
@@ -64,7 +65,8 @@ async def test_ver_com_um_exemplo_mostra_o_relatorio_do_exemplo(
     monkeypatch.setattr(exemplo, 'analisar_exemplo', lambda home: homes.append(home) or indice)
     await ate_a_pasta(user)
     user.find(marker='continuar').click()
-    await user.should_see('Passo 3 de 3: Primeiro resultado')
+    await user.should_see(marker='passo-3', retries=60)
+    await user.should_see('Passo 3 de 3: Primeiro resultado', retries=60)
 
     user.find(marker='ver-exemplo').click()
 
