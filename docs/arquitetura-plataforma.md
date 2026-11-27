@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Versão do código | baseline métricas `7016502`; programa CC/ciclos/fachada aplicado após |
-| Versão do pacote | `0.7.0b3` (`pyproject.toml`) |
+| Versão do pacote | `0.7.0b4` (`pyproject.toml`) |
 | Data de geração | 2026-11-22 (atualizado no programa amarelo→verde) |
 | Escopo | Código como está; planejado sem implementação → gaps |
 | Granularidade F | Quase função-a-função em `src/concursos/` (AST) |

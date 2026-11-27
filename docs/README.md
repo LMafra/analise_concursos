@@ -60,6 +60,7 @@ Fontes e achados que embasam specs.
 | [release-v0.7.0b1.md](release/release-v0.7.0b1.md) | Notas da tag |
 | [release-v0.7.0b2.md](release/release-v0.7.0b2.md) | Notas da tag |
 | [release-v0.7.0b3.md](release/release-v0.7.0b3.md) | Notas da tag |
+| [release-v0.7.0b4.md](release/release-v0.7.0b4.md) | Notas da tag |
 
 Notas novas: `docs/release/release-v<versão>.md` (o `release.yml` lê esse caminho).
 

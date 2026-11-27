@@ -1,6 +1,6 @@
 [project]
 name = "gabarito-vivo"
-version = "0.7.0b3"
+version = "0.7.0b4"
 description = "Gabarito Vivo: correção e análise de provas de concurso por disciplina e tópico"
 readme = "README.md"
 license = "MIT"
