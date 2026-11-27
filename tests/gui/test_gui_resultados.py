@@ -162,6 +162,33 @@ async def test_filtro_de_concurso_escolhe_o_diagnostico(user: User, projeto, mon
     await user.should_see('alfa-2024 — 10,0 pontos percentuais abaixo do corte')
 
 
+async def test_resumo_mostra_hero_sem_corte_acoes_e_tendencia(user: User, projeto, monkeypatch):
+    from concursos.aplicacao import resultados as resultados_mod
+    from concursos.aplicacao.resultados import PontoDeNota, ResumoVisual, TopicoParaAgir
+
+    com_relatorio(projeto)
+    resumo = ResumoVisual(
+        pontos=(
+            PontoDeNota('alfa', 1, 50.0, None, None),
+            PontoDeNota('beta', 2, 55.0, 60.0, False),
+            PontoDeNota('gama', 3, 59.5, 60.0, None),
+            PontoDeNota('delta', 4, 70.0, 60.0, True),
+        ),
+        fracos=(TopicoParaAgir('Português', 'Crase', 20.0),),
+    )
+    monkeypatch.setattr(resultados_mod, 'resumo_visual', lambda contexto: resumo)
+
+    await user.open('/resultados?concurso=alfa')
+    await user.should_see('Sem corte calculável')
+    await user.should_see('Sua nota foi 50,0%.')
+
+    await user.open('/resultados?concurso=gama')
+    await user.should_see('No limite')
+    await user.should_see(marker='acoes-topicos')
+    await user.should_see('Crase')
+    await user.should_see('Treinar no simulado')
+
+
 async def test_aba_simulados_mostra_o_html(user: User, projeto):
     com_relatorio(projeto)
 

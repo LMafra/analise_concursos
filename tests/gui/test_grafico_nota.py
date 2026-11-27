@@ -7,7 +7,7 @@ from concursos.gui.componentes.resumo_visual import (
     svg_nota_corte,
 )
 from concursos.gui.paginas import configuracoes as pagina_config
-from concursos.gui.paginas.encontrar import prazo, selo_do_prazo
+from concursos.gui.paginas.encontrar import escolhido, lista, ou_nada, prazo, selo_do_prazo
 from concursos.gui.tema import Tom
 from concursos.integracoes.pci_mcp import DatasInscricao
 
@@ -79,5 +79,12 @@ def test_frase_da_serie_reflete_a_tendencia() -> None:
 def test_prazo_e_meta_em_pontos() -> None:
     assert 'dia' in prazo(DatasInscricao(fim='01/01/2027', dias_ate_fim=1))
     assert 'encerradas' in prazo(DatasInscricao(fim='01/01/2020', dias_ate_fim=-2))
+    assert prazo(DatasInscricao(texto='em aberto')) == 'em aberto'
     assert pagina_config._pontos(0.8) == 80.0
     assert pagina_config._fmt_pontos(80.5) == '80,5'
+    assert lista('Auditor, Analista,') == ['Auditor', 'Analista']
+    assert ou_nada('  x  ') == 'x'
+    assert ou_nada('   ') is None
+    assert escolhido('(qualquer)') is None
+    assert escolhido('DF') == 'DF'
+    assert selo_do_prazo(DatasInscricao())[0] == 'Prazo a confirmar'

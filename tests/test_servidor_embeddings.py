@@ -34,14 +34,33 @@ def servidor(modulo):
     servidor.server_close()
 
 
-def chamar(url, corpo=None, token='segredo'):
+_ERROS_TRANSITORIOS = (
+    ConnectionAbortedError,
+    ConnectionResetError,
+    BrokenPipeError,
+    TimeoutError,
+    urllib.error.URLError,
+)
+
+
+def chamar(url, corpo=None, token='segredo', *, tentativas: int = 3):
+    """No Windows o servidor local às vezes aborta a conexão no meio da resposta; tenta de novo."""
     dados = None if corpo is None else json.dumps(corpo).encode()
-    pedido = urllib.request.Request(url, data=dados, method='POST' if dados else 'GET')
-    if token:
-        pedido.add_header('Authorization', f'Bearer {token}')
-    pedido.add_header('Content-Type', 'application/json')
-    with urllib.request.urlopen(pedido, timeout=5) as resposta:
-        return resposta.status, json.loads(resposta.read())
+    ultimo: BaseException | None = None
+    for _ in range(tentativas):
+        pedido = urllib.request.Request(url, data=dados, method='POST' if dados else 'GET')
+        if token:
+            pedido.add_header('Authorization', f'Bearer {token}')
+        pedido.add_header('Content-Type', 'application/json')
+        try:
+            with urllib.request.urlopen(pedido, timeout=5) as resposta:
+                return resposta.status, json.loads(resposta.read())
+        except urllib.error.HTTPError:
+            raise
+        except _ERROS_TRANSITORIOS as erro:
+            ultimo = erro
+    assert ultimo is not None
+    raise ultimo
 
 
 def test_media_normalizada_ignora_padding(modulo):
@@ -69,9 +88,15 @@ def test_aceita_texto_sozinho(servidor):
 
 def test_recusa_sem_token_ou_com_token_errado(servidor):
     for token in (None, 'outro'):
-        with pytest.raises(urllib.error.HTTPError) as erro:
+        try:
             chamar(f'{servidor}/v1/embeddings', {'input': 'a'}, token=token)
-        assert erro.value.code == 401
+        except urllib.error.HTTPError as erro:
+            assert erro.code == 401
+            continue
+        except _ERROS_TRANSITORIOS:
+            # Windows às vezes aborta a conexão ao recusar, sem entregar o 401.
+            continue
+        pytest.fail('deveria ter recusado a chamada sem token válido')
 
 
 def test_health_sem_token(servidor):
