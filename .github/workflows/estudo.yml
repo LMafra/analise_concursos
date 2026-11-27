@@ -51,7 +51,7 @@ jobs:
             echo "montar=false" >> "$GITHUB_OUTPUT"
           fi
           echo "Upstream: ${tag:-sem release nova}" >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: versao
           path: empacotamento/estudo/versao.toml
@@ -95,7 +95,7 @@ jobs:
         run: |
           pacote=$(ls dist/estudo/estudo-*-${{ matrix.sistema }}.* | grep -v '\.extraido$')
           uv run --no-sync python scripts/smoke.py estudo "$pacote" | tee -a "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: estudo-${{ matrix.sistema }}
           path: dist/estudo/
