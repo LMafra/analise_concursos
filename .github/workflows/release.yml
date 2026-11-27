@@ -52,7 +52,7 @@ jobs:
         run: |
           uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
           uv run --no-sync python empacotamento/coletar_licencas.py
-          $versao = uv run --no-sync python -c "from importlib.metadata import version; print(version('concurso-analise'))"
+          $versao = uv run --no-sync python -c "from concursos.produto import versao_do_pacote; print(versao_do_pacote())"
           "VERSAO=$versao" >> $env:GITHUB_ENV
           $numerica = uv run --no-sync python -c "import sys; sys.path.insert(0, 'empacotamento/windows'); from versao import versao_numerica; print('.'.join(map(str, versao_numerica(sys.argv[1]))))" $versao
           "VERSAO_NUMERICA=$numerica" >> $env:GITHUB_ENV
@@ -307,7 +307,7 @@ jobs:
         run: |
           uv sync --locked --no-dev --extra gui --extra llm --extra pci --group empacotamento
           uv run --no-sync python empacotamento/coletar_licencas.py
-          echo "VERSAO=$(uv run --no-sync python -c "from importlib.metadata import version; print(version('concurso-analise'))")" >> "$GITHUB_ENV"
+          echo "VERSAO=$(uv run --no-sync python -c "from concursos.produto import versao_do_pacote; print(versao_do_pacote())")" >> "$GITHUB_ENV"
 
       - name: PyInstaller (.app)
         run: uv run --no-sync pyinstaller --noconfirm --distpath dist --workpath build empacotamento/gabarito-vivo.spec
