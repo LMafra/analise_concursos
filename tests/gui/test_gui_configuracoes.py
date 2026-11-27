@@ -19,7 +19,7 @@ def elemento(user: User, marca: str):
 async def test_limiares_e_concurso_alvo_gravam_analise_para_a_proxima_analise(user: User, projeto):
     criar_concurso(projeto / 'provas', 'alfa', config_simples('alfa'), ARQUIVOS_SIMPLES)
 
-    await user.open('/configuracoes')
+    await _abrir_avancado(user)
     elemento(user, 'limiar-confianca').value = 0.8
     elemento(user, 'limiar-topico').value = 0.5
     elemento(user, 'concurso-alvo').value = 'alfa'
@@ -31,8 +31,13 @@ async def test_limiares_e_concurso_alvo_gravam_analise_para_a_proxima_analise(us
     assert preferencias.concurso_alvo == 'alfa'
 
 
-async def test_ia_comeca_desmarcada_e_sem_formulario(user: User, projeto):
+async def _abrir_avancado(user: User) -> None:
     await user.open('/configuracoes')
+    user.find(marker='avancado').click()
+
+
+async def test_ia_comeca_desmarcada_e_sem_formulario(user: User, projeto):
+    await _abrir_avancado(user)
 
     assert elemento(user, 'usar-ia').value is False
     await user.should_not_see(marker='chave-ia')
@@ -44,7 +49,7 @@ async def test_ligar_ia_mostra_o_que_vai_e_guarda_a_chave_fora_do_toml(
     monkeypatch.setitem(sys.modules, 'keyring', None)
     monkeypatch.delenv('OPENAI_API_KEY', raising=False)
 
-    await user.open('/configuracoes')
+    await _abrir_avancado(user)
     user.find(marker='usar-ia').click()
     await user.should_see(marker='aviso-ia')
     await user.should_see('Só o texto do edital')
@@ -60,7 +65,7 @@ async def test_ligar_ia_mostra_o_que_vai_e_guarda_a_chave_fora_do_toml(
 
 
 async def test_desmarcar_desliga_a_ia(user: User, projeto, home_isolada):
-    await user.open('/configuracoes')
+    await _abrir_avancado(user)
     user.find(marker='usar-ia').click()
     elemento(user, 'provedor-ia').value = 'ollama'
     user.find(marker='ligar-ia').click()
@@ -74,7 +79,7 @@ async def test_desmarcar_desliga_a_ia(user: User, projeto, home_isolada):
 
 
 async def test_ia_nos_livros_so_com_a_ia_ligada_e_comeca_desmarcada(user: User, projeto, home_isolada):
-    await user.open('/configuracoes')
+    await _abrir_avancado(user)
     await user.should_not_see(marker='ia-livros')
     user.find(marker='usar-ia').click()
     elemento(user, 'provedor-ia').value = 'ollama'
@@ -91,9 +96,10 @@ async def test_ia_nos_livros_so_com_a_ia_ligada_e_comeca_desmarcada(user: User, 
 
 async def test_tema_comeca_no_do_sistema_e_grava_a_escolha(user: User, projeto, home_isolada):
     await user.open('/configuracoes')
-    assert elemento(user, 'tema-gui').value == 'sistema'
+    await user.should_see(marker='tema-sistema')
 
-    elemento(user, 'tema-gui').value = 'escuro'
+    user.find(marker='tema-escuro').click()
+    await user.should_see(marker='tema-escuro')
 
     config = tomllib.loads((home_isolada / 'config.toml').read_text(encoding='utf-8'))
     assert config['gui']['tema'] == 'escuro'
@@ -106,7 +112,7 @@ async def test_calibrar_grava_e_forca_a_proxima_analise(user: User, projeto, hom
         'salvar_calibracao',
         lambda contexto, folha, digitadas: chamadas.append((folha.name, digitadas)),
     )
-    await user.open('/configuracoes')
+    await _abrir_avancado(user)
     upload = next(iter(user.find(marker='folha-calibracao').elements))
     await upload.handle_uploads([ui.upload.SmallFileUpload('folha.png', 'image/png', b'png')])
     await asyncio.sleep(0.2)
@@ -120,7 +126,7 @@ async def test_calibrar_grava_e_forca_a_proxima_analise(user: User, projeto, hom
 
 
 async def test_calibrar_sem_folha_pede_a_folha(user: User, projeto, home_isolada):
-    await user.open('/configuracoes')
+    await _abrir_avancado(user)
 
     user.find(marker='calibrar').click()
 

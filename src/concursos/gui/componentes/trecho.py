@@ -22,7 +22,7 @@ def onde_esta(trecho: TrechoEncontrado) -> str:
 
 def trecho(achado: TrechoEncontrado) -> ui.card:
     """Um trecho para conferir: de onde veio (arquivo e página) em cima, o texto e o botão de abrir."""
-    with ui.card().classes('w-full ca-borda').style(f'{tema.gap("xs")}; box-shadow: none') as cartao:
+    with ui.card().classes('w-full').style(tema.gap('xs')) as cartao:
         with ui.row().classes('w-full items-center justify-between no-wrap').style(tema.gap('sm')):
             with ui.row().classes('items-center no-wrap').style(tema.gap('xs')):
                 ui.icon('menu_book' if achado.de_livro else 'insights', size='xs').props('aria-hidden=true')

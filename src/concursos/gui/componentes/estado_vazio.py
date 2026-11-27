@@ -18,8 +18,8 @@ def estado_vazio(
     """Tela sem conteúdo: diz o que falta e oferece o botão que resolve; o botão leva `<marca>-acao`."""
     with (
         ui.card()
-        .classes('w-full max-w-4xl items-center text-center ca-borda')
-        .style(f'{tema.gap("sm")}; padding: {tema.ESPACOS["xl"]}; box-shadow: none')
+        .classes('w-full max-w-4xl items-center text-center')
+        .style(f'{tema.gap("sm")}; padding: {tema.ESPACOS["xl"]}')
         .mark(marca) as elemento
     ):
         ui.icon(icone, size='xl').classes('ca-texto-suave').props('aria-hidden=true')

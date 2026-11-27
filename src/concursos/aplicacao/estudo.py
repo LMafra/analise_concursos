@@ -21,9 +21,10 @@ from concursos.aplicacao import atualizador as atualizacao
 from concursos.aplicacao.dicionario import dicionario_do_projeto
 from concursos.aplicacao.opcoes import Opcoes
 from concursos.aplicacao.projeto import curto, pasta_do_candidato
-from concursos.biblioteca import consultas_do_topico, topicos_fracos
+from concursos.biblioteca import consultas_do_topico, disciplinas_do_concurso, topicos_fracos
 from concursos.config.contexto import Contexto
 from concursos.configuracao import configuracao_do_projeto
+from concursos.correcao import TOPICO_NAO_MAPEADO
 from concursos.erros import ErroDoAmbiente, ErroDoUsuario, avisar
 from concursos.estudo import embeddings, instalacao
 from concursos.estudo.instalacao import PacoteDisponivel, Pastas
@@ -476,14 +477,32 @@ def concursos_do_projeto(contexto: Contexto) -> list[str]:
 
 
 def disciplinas_sugeridas(contexto: Contexto) -> list[str]:
-    """As opções do campo de disciplina: `Geral`, as da taxonomia e as dos livros já enviados."""
+    """`Geral`, as disciplinas cobradas nos concursos já analisados e as dos livros já enviados."""
     nomes = {fila.DISCIPLINA_PADRAO}
-    try:
-        nomes |= {d.nome for d in carregar_taxonomia(contexto.taxonomia).values()}
-    except (OSError, ValueError):
-        logger.debug('taxonomia ilegível; disciplinas só dos livros', exc_info=True)
-    nomes |= {livro.disciplina for livro in listar_livros(contexto)}
+    nomes |= _disciplinas_dos_concursos(contexto)
+    nomes |= {livro.disciplina for livro in listar_livros(contexto) if livro.disciplina}
+    nomes.discard(TOPICO_NAO_MAPEADO)
     return [fila.DISCIPLINA_PADRAO, *sorted(nomes - {fila.DISCIPLINA_PADRAO})]
+
+
+def _disciplinas_dos_concursos(contexto: Contexto) -> set[str]:
+    pasta = pasta_do_candidato(contexto)
+    if not pasta.is_dir():
+        return set()
+    try:
+        taxonomia = carregar_taxonomia(contexto.taxonomia)
+    except (OSError, ValueError):
+        logger.debug('taxonomia ilegível; as disciplinas ficam como estão na prova', exc_info=True)
+        taxonomia = {}
+    nomes: set[str] = set()
+    for filho in pasta.iterdir():
+        if not filho.is_dir():
+            continue
+        try:
+            nomes |= disciplinas_do_concurso(filho, taxonomia)
+        except (OSError, ValueError):
+            logger.debug('prova sem lista de disciplinas', exc_info=True)
+    return nomes
 
 
 # perguntar

@@ -8,10 +8,8 @@ import pandas as pd
 from nicegui import events, run, ui
 
 from concursos.aplicacao import cadastro, estudo
-from concursos.aplicacao.nomes import opcoes_de_concurso
 from concursos.aplicacao.opcoes import Opcoes
-from concursos.aplicacao.resultados import abrir_no_navegador, resultados
-from concursos.datas import data_br
+from concursos.aplicacao.resultados import resultados
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
 from concursos.gui.componentes.cartao import cartao
@@ -62,6 +60,12 @@ def tamanho(bytes_: int) -> str:
     return f'{max(bytes_ // 1024, 1)} KB'
 
 
+def _detalhe_do_livro(livro: Livro) -> str:
+    if livro.paginas:
+        return f'{livro.disciplina} · {livro.paginas} páginas'
+    return f'{livro.disciplina} · {tamanho(livro.tamanho)}'
+
+
 def assinatura(livros: list[Livro]) -> tuple:
     return tuple((livro.sha, livro.estado, livro.pagina, livro.disciplina) for livro in livros)
 
@@ -70,11 +74,16 @@ def endereco_da_pergunta(pergunta: str) -> str:
     return f'/estudar?aba=perguntar&pergunta={quote(pergunta)}'
 
 
-def pagina(aba: str | None = None, pergunta: str | None = None) -> None:
+def pagina(aba: str | None = None, pergunta: str | None = None, topico: str | None = None) -> None:
     if not exigir_projeto():
         return
     with ui.column().classes('w-full max-w-5xl').style(tema.gap('md')):
-        ui.label('Estudar').classes('text-2xl font-bold')
+        from concursos.gui.componentes.campo import cabecalho_da_pagina
+
+        cabecalho_da_pagina(
+            'Estudar',
+            'Consulte seus livros, tire dúvidas diretas e faça simulados curtos nos seus pontos fracos.',
+        )
         with ui.tabs().classes('w-full') as abas:
             aba_livros = ui.tab('Meus livros', icon='menu_book').mark('aba-livros')
             aba_perguntar = ui.tab('Perguntar', icon='search').mark('aba-perguntar')
@@ -94,39 +103,135 @@ def pagina(aba: str | None = None, pergunta: str | None = None) -> None:
             with ui.tab_panel(aba_perguntar):
                 Perguntar(pergunta or '', ao_adicionar=lambda: abas.set_value(aba_livros))
             with ui.tab_panel(aba_simulado):
-                painel_simulado()
+                painel_simulado(topico)
             with ui.tab_panel(aba_pratica):
                 painel_pratica()
 
 
-def painel_simulado() -> None:
+def painel_simulado(topico: str | None = None) -> None:
+    from concursos.gui.componentes.situacao import situacao
+    from concursos.gui.tema import Tom
+
+    with ui.card().classes('w-full').style(tema.gap('md')).mark('convite-simulado'):
+        if topico:
+            situacao(f'Tópico vindo do seu diagnóstico: {topico}', Tom.ALERTA, icone='priority_high')
+        else:
+            situacao('Simulado rápido', Tom.INFO, icone='schedule')
+        ui.label('10 questões dos seus tópicos fracos').classes('text-lg font-bold')
+        foco = (
+            f'Foco selecionado: {topico} (questões direcionadas aos seus erros recentes)'
+            if topico
+            else 'Até 10 questões escolhidas dos seus erros no TEC e dos tópicos fracos.'
+        )
+        ui.label(foco).classes('ca-texto-suave')
+        if topico:
+            ui.button(
+                'Usar todos os tópicos fracos',
+                on_click=lambda: ui.navigate.to('/estudar?aba=simulado'),
+            ).props('outline no-caps').classes('ca-alvo')
+
+    mostrou_quiz = quiz_do_tec(topico)
     try:
         achados = resultados(ESTADO.contexto())
     except Exception as erro:  # noqa: BLE001
         mostrar_erro(erro)
         return
-    if achados.simulado_focado is None and achados.simulado_tec is None:
-        estado_vazio(
-            'quiz',
-            'Sem simulado ainda',
-            'Importe provas anteriores em Concursos > Provas anteriores, ou traga a prática do TEC.',
-            acao='Ir para Concursos',
-            ao_clicar=lambda: ui.navigate.to('/concursos?aba=provas'),
-            marca='sem-simulado',
-        )
-        return
-    if achados.simulado_tec is not None:
-        simulado_tec = achados.simulado_tec
-        ui.button(
-            'Ver simulado com meus erros do TEC',
-            icon='quiz',
-            on_click=lambda: abrir_no_navegador(simulado_tec),
-        ).props('outline').mark('abrir-simulado-tec')
     if achados.simulado_focado is not None:
         ui.markdown(achados.simulado_focado).classes('w-full').mark('simulado-focado-resultados')
+        return
+    if mostrou_quiz:
+        return
+    estado_vazio(
+        'quiz',
+        'Sem simulado ainda',
+        'Importe provas anteriores em Concursos > Provas anteriores, ou traga a prática do TEC.',
+        acao='Ir para Concursos',
+        ao_clicar=lambda: ui.navigate.to('/concursos?aba=provas'),
+        marca='sem-simulado',
+    )
+
+
+LIMITE_QUIZ = 10
+
+
+def quiz_do_tec(topico: str | None) -> bool:
+    """Até 10 erros do TEC, com o gabarito só depois da resposta. Devolve se mostrou alguma."""
+    from concursos.aplicacao import tec_repeticao
+    from concursos.erros import ErroDoUsuario
+
+    try:
+        questoes = tec_repeticao.carregar_erros_da_pratica(Opcoes(ESTADO.contexto()))
+    except ErroDoUsuario:
+        return False
+    except Exception as erro:  # noqa: BLE001
+        mostrar_erro(erro)
+        return False
+    if topico:
+        chave = topico.casefold()
+        filtradas = [
+            questao
+            for questao in questoes
+            if chave in questao.ass.casefold() or chave in questao.mat.casefold()
+        ]
+        questoes = filtradas or questoes
+    questoes = questoes[:LIMITE_QUIZ]
+    if not questoes:
+        return False
+    ui.label(f'{len(questoes)} questões dos seus erros no TEC').classes('text-lg font-bold').mark('quiz-tec')
+    if topico:
+        ui.label(f'Filtro: {topico}').classes('text-sm ca-texto-suave')
+    for questao in questoes:
+        cartao_da_questao(questao)
+    return True
+
+
+def cartao_da_questao(questao) -> None:
+    from concursos.aplicacao import tec_repeticao
+
+    with ui.card().classes('w-full').style(tema.gap('sm')).mark(f'questao-{questao.id}'):
+        ui.label(f'{questao.mat} — {questao.ass}').classes('font-bold')
+        ui.markdown(questao.enun)
+        feedback = ui.column().classes('w-full')
+        botoes: list = []
+
+        def responder(letra: str) -> None:
+            resultado = tec_repeticao.registrar_tentativa(
+                Opcoes(ESTADO.contexto()), questao.id, letra, questao.gab, questao.tipo
+            )
+            for botao in botoes:
+                botao.disable()
+            feedback.clear()
+            with feedback:
+                if resultado == 'acerto':
+                    situacao('Acertou', Tom.SUCESSO)
+                else:
+                    situacao(f'Errou. Gabarito: {questao.gab}', Tom.ERRO)
+
+        if questao.alts:
+            for alternativa in questao.alts:
+                letra = str(alternativa.get('l', '?'))
+                texto = str(alternativa.get('t', ''))
+                botao = (
+                    ui.button(f'{letra}) {texto}', on_click=lambda escolha=letra: responder(escolha))
+                    .props('outline align=left')
+                    .classes('w-full ca-alvo')
+                )
+                botoes.append(botao)
+        else:
+            campo = ui.input('Sua resposta').classes('w-full')
+            ui.button('Responder', on_click=lambda: responder(campo.value or '')).classes('ca-alvo')
 
 
 def painel_pratica() -> None:
+    from concursos.gui.paginas import tec
+
+    with ui.card().classes('w-full').style(tema.gap('md')).mark('convite-pratica-tec'):
+        ui.label('Trazer prática do TEC para cá').classes('text-lg font-bold')
+        ui.label(
+            'Traga o relatório exportado do TEC para juntar sua porcentagem de acertos '
+            'aos resultados das provas.'
+        ).classes('ca-texto-suave')
+    tec.conteudo()
     try:
         achados = resultados(ESTADO.contexto())
     except Exception as erro:  # noqa: BLE001
@@ -136,13 +241,9 @@ def painel_pratica() -> None:
         estado_vazio(
             'school',
             'Sem prática no TEC ainda',
-            'Solte a planilha ou a captura em Minhas Provas > Importar do TEC.',
-            acao='Importar do TEC',
-            ao_clicar=lambda: ui.navigate.to('/?aba=tec'),
+            'Solte a planilha na área acima. A situação da prática aparece aqui depois da importação.',
             marca='sem-pratica',
         )
-    else:
-        ui.markdown(achados.pratica).classes('w-full').mark('pratica')
     for titulo, caminho in achados.tabelas_pratica.items():
         with ui.expansion(titulo, icon='table_chart').classes('w-full'):
             tabela = pd.read_csv(caminho, keep_default_na=False)
@@ -158,8 +259,10 @@ class MeusLivros:
         self.vista: tuple | None = None
         with ui.column().classes('w-full').style(tema.gap('md')) as self.raiz:
             self.preparo = ui.column().classes('w-full')
-            self.envio()
-            self.lista = ui.column().classes('w-full').style(tema.gap('sm'))
+            with ui.card().classes('w-full'):
+                self.cabecalho = ui.column().classes('w-full').style(tema.gap('xs'))
+                self.lista = ui.column().classes('w-full ca-lista-livros')
+                self.envio()
         self.desenhar_preparo()
         self.atualizar()
         estudo.iniciar_trabalho(self.contexto)
@@ -219,18 +322,10 @@ class MeusLivros:
     # enviar livros
 
     def envio(self) -> None:
-        with cartao('Adicionar livros', icone='upload_file'):
-            ui.label('PDF, EPUB, Word (DOCX) ou TXT, até 300 MB cada.').classes('text-sm')
-            with ui.row().classes('w-full items-end').style(tema.gap('md')):
-                self.concursos = rotulo(
-                    ui.select(
-                        opcoes_de_concurso(self.contexto),
-                        multiple=True,
-                        label='Concurso (opcional)',
-                        value=[],
-                    ).classes('min-w-64'),
-                    'concursos do livro',
-                ).mark('livro-concurso')
+        with ui.column().classes('w-full ca-acrescentar-livro').style(tema.gap('md')):
+            ui.label('Adicionar livro ao computador').classes('text-lg font-bold')
+            ui.label('PDF, EPUB, Word (DOCX) ou TXT, até 300 MB cada.').classes('text-sm ca-texto-suave')
+            with ui.element('div').classes('ca-grade-form'):
                 self.disciplina = rotulo(
                     ui.select(
                         estudo.disciplinas_sugeridas(self.contexto),
@@ -238,7 +333,7 @@ class MeusLivros:
                         value='Geral',
                         with_input=True,
                         new_value_mode='add-unique',
-                    ).classes('min-w-64'),
+                    ).classes('w-full'),
                     'disciplina do livro',
                 ).mark('livro-disciplina')
             self.upload = (
@@ -249,7 +344,7 @@ class MeusLivros:
                     on_multi_upload=self.receber,
                 )
                 .props(f'accept="{",".join(EXTENSOES)}"')
-                .classes('w-full')
+                .classes('w-full ca-soltar')
                 .mark('soltar-livros')
             )
 
@@ -266,7 +361,7 @@ class MeusLivros:
                 Opcoes(self.contexto),
                 caminhos,
                 disciplina=self.disciplina.value or None,
-                concursos=list(self.concursos.value or []),
+                concursos=(),
             )
         except Exception as erro:  # noqa: BLE001
             logger.debug('falha ao adicionar livros pela GUI', exc_info=True)
@@ -293,69 +388,73 @@ class MeusLivros:
         if assinatura(estudo.listar_livros(self.contexto)) != self.vista:
             self.atualizar()
 
+    def continuar_leitura(self) -> None:
+        estudo.iniciar_trabalho(self.contexto)
+        ui.notify('A leitura continua em segundo plano.', type='positive')
+        self.atualizar()
+
     def atualizar(self) -> None:
         livros = estudo.listar_livros(self.contexto)
         self.vista = assinatura(livros)
         preparado = estudo.situacao_do_estudo(self.contexto).preparado
+        self.cabecalho.clear()
+        with self.cabecalho:
+            ui.label(f'Meus livros ({len(livros)})').classes('text-lg font-bold')
+            ui.label('Livros marcados como "Pronto" já podem ser consultados na aba Perguntar.').classes(
+                'text-sm ca-texto-suave'
+            )
         self.lista.clear()
         with self.lista:
             if not livros:
-                estado_vazio(
-                    'menu_book',
-                    'Sua biblioteca está vazia',
-                    'Adicione um livro e o app lê página por página; dá para buscar nas páginas já lidas.',
-                    acao='Adicionar meu primeiro livro',
-                    ao_clicar=lambda: self.upload.run_method('pickFiles'),
-                    icone_da_acao='upload_file',
-                    marca='biblioteca-vazia',
-                )
+                with ui.column().style(tema.gap('xs')).mark('biblioteca-vazia'):
+                    ui.label('Sua biblioteca está vazia').classes('font-bold')
+                    ui.label(
+                        'Adicione um livro e o app lê página por página; dá para buscar nas páginas já lidas.'
+                    ).classes('ca-texto-suave')
                 return
-            lendo = [livro for livro in livros if livro.estado in EM_LEITURA]
-            if lendo:
-                with cartao('Preparando', icone='auto_stories').mark('livros-preparando'):
-                    for livro in lendo:
-                        texto = estudo.situacao_do_livro(livro, preparado)
-                        if livro.paginas:
-                            texto += ' (já dá para buscar nas lidas)'
-                        ui.label(f'{livro.nome}: {texto}').classes('text-sm')
-                        ui.linear_progress(
-                            value=livro.pagina / livro.paginas if livro.paginas else 0, show_value=False
-                        )
             for livro in livros:
                 self.linha(livro, preparado)
 
     def linha(self, livro: Livro, preparado: bool) -> None:
-        with (
-            ui.card()
-            .classes('w-full ca-borda')
-            .style(f'{tema.gap("xs")}; box-shadow: none')
-            .mark(f'livro-{livro.sha[:12]}')
-        ):
-            with ui.row().classes('w-full items-center justify-between no-wrap').style(tema.gap('sm')):
-                ui.label(livro.nome).classes('font-bold')
-                ui.button('Remover', icon='delete', on_click=lambda: self.confirmar_remocao(livro)).props(
-                    'flat dense'
-                ).mark(f'remover-{livro.sha[:12]}')
-            with ui.row().classes('w-full items-center').style(tema.gap('md')):
-                ui.label(tamanho(livro.tamanho)).classes('text-sm ca-texto-suave')
-                ui.label(f'Adicionado em {data_br(livro.adicionado_em)}').classes('text-sm ca-texto-suave')
-                rotulo(
-                    ui.select(
-                        sorted({*estudo.disciplinas_sugeridas(self.contexto), livro.disciplina}),
-                        value=livro.disciplina,
-                        with_input=True,
-                        new_value_mode='add-unique',
-                        on_change=lambda e: self.mudar_disciplina(livro, e.value),
-                    )
-                    .props('dense')
-                    .classes('min-w-48'),
-                    f'disciplina de {livro.nome}',
-                ).mark(f'disciplina-{livro.sha[:12]}')
-                situacao(
-                    estudo.situacao_do_livro(livro, preparado),
-                    TOM_DO_LIVRO[livro.estado],
-                    icone=ICONE_DO_LIVRO.get(livro.estado),
-                ).mark(f'situacao-{livro.sha[:12]}')
+        tom = TOM_DO_LIVRO[livro.estado]
+        lendo = livro.estado in EM_LEITURA
+        with ui.element('div').classes(f'ca-linha-livro ca-tom-{tom}').mark(f'livro-{livro.sha[:12]}'):
+            with ui.element('div').classes('ca-linha-livro-corpo'):
+                with ui.column().style(tema.gap('xs')):
+                    ui.label(livro.nome).classes('font-bold')
+                    ui.label(_detalhe_do_livro(livro)).classes('text-sm ca-texto-suave')
+                    if lendo and livro.paginas:
+                        ui.label('Já dá para buscar nas páginas lidas.').classes('text-sm ca-texto-suave')
+                with ui.element('div').classes('ca-botoes'):
+                    rotulo(
+                        ui.select(
+                            sorted({*estudo.disciplinas_sugeridas(self.contexto), livro.disciplina}),
+                            value=livro.disciplina,
+                            with_input=True,
+                            new_value_mode='add-unique',
+                            on_change=lambda e: self.mudar_disciplina(livro, e.value),
+                        )
+                        .props('dense')
+                        .classes('min-w-48'),
+                        f'disciplina de {livro.nome}',
+                    ).mark(f'disciplina-{livro.sha[:12]}')
+                    situacao(
+                        estudo.situacao_do_livro(livro, preparado),
+                        tom,
+                        icone=ICONE_DO_LIVRO.get(livro.estado),
+                    ).mark(f'situacao-{livro.sha[:12]}')
+                    if livro.estado is not EstadoLivro.PRONTO:
+                        ui.button(
+                            'Continuar a leitura',
+                            on_click=lambda: self.continuar_leitura(),
+                        ).props('outline no-caps').classes('ca-alvo').mark(f'ler-{livro.sha[:12]}')
+                    ui.button('Remover', on_click=lambda: self.confirmar_remocao(livro)).props(
+                        'flat no-caps'
+                    ).mark(f'remover-{livro.sha[:12]}')
+            if lendo:
+                ui.linear_progress(
+                    value=livro.pagina / livro.paginas if livro.paginas else 0, show_value=False
+                ).classes('w-full').mark('livros-preparando')
 
     async def mudar_disciplina(self, livro: Livro, disciplina: str | None) -> None:
         if not disciplina or disciplina == livro.disciplina:
@@ -423,29 +522,41 @@ class Perguntar:
     def __init__(self, pergunta: str, ao_adicionar: Callable[[], None]) -> None:
         self.contexto = ESTADO.contexto()
         self.ao_adicionar = ao_adicionar
-        with ui.column().classes('w-full').style(tema.gap('md')):
-            with ui.row().classes('w-full items-center no-wrap').style(tema.gap('sm')):
-                self.campo = rotulo(
-                    ui.input(placeholder='o que cai sobre licitações?', value=pergunta).classes('flex-grow'),
-                    'pergunta',
-                ).mark('campo-pergunta')
+        from concursos.gui.componentes.campo import campo
+
+        with ui.card().classes('w-full').style(tema.gap('md')):
+            ui.label('Perguntar aos seus livros').classes('text-lg font-bold')
+            ui.label('Receba uma resposta curta com a página exata onde o assunto está explicado.').classes(
+                'ca-texto-suave'
+            )
+            with ui.row().classes('w-full items-end flex-wrap').style(tema.gap('md')):
+                self.campo = campo(
+                    'Sua dúvida sobre a matéria',
+                    ui.input(
+                        placeholder='Ex.: Recurso hierárquico tem efeito suspensivo?',
+                        value=pergunta,
+                    ),
+                    marca='campo-pergunta',
+                )
                 self.campo.on('keydown.enter', self.perguntar)
-                ui.button('Perguntar', icon='search', on_click=self.perguntar).mark('perguntar')
-            with ui.row().classes('w-full items-center').style(tema.gap('md')):
-                ui.label('Procurar em:')
+                ui.button('Buscar nos livros', on_click=self.perguntar).props('no-caps').classes(
+                    'ca-alvo'
+                ).mark('perguntar')
+            with ui.row().classes('w-full items-end flex-wrap').style(tema.gap('md')):
+                ui.label('Procurar em:').classes('ca-rotulo-campo')
                 self.onde = (
                     ui.radio(OPCOES_DE_BUSCA, value=OndeProcurar.LIVROS.value)
                     .props('inline')
                     .mark('onde-procurar')
                 )
-                self.disciplina = rotulo(
+                self.disciplina = campo(
+                    'Disciplina',
                     ui.select(
                         [TODAS, *sorted({livro.disciplina for livro in estudo.listar_livros(self.contexto)})],
                         value=TODAS,
-                        label='Disciplina',
                     ).classes('min-w-48'),
-                    'disciplina da busca',
-                ).mark('filtro-disciplina')
+                    marca='filtro-disciplina',
+                )
             self.sugestoes = ui.row().classes('w-full items-center').style(tema.gap('sm'))
             self.ia = ui.column().classes('w-full')
             self.resultado = ui.column().classes('w-full').style(tema.gap('sm')).mark('resultado-pergunta')
@@ -480,7 +591,7 @@ class Perguntar:
         if not sugestoes:
             return
         with self.sugestoes:
-            ui.label('Sugestões:').classes('text-sm')
+            ui.label('Sugestões rápidas:').classes('text-sm ca-texto-suave')
             for sugestao in sugestoes:
                 ui.button(sugestao.rotulo, on_click=lambda s=sugestao: self.usar_sugestao(s.pergunta)).props(
                     'outline dense rounded no-caps'

@@ -97,7 +97,7 @@ async def test_dados_do_edital_com_data_invalida_mostra_o_erro(user: User, proje
     assert conferir['campos'] == [{'data_prova': '15/03/2026'}]
 
 
-async def test_card_do_concurso_mostra_as_pendencias(user: User, projeto, monkeypatch):
+async def test_card_do_concurso_mostra_as_pendencias(user: User, projeto, conferir, monkeypatch):
     from concursos.aplicacao import analise
     from concursos.status import Situacao, StatusConcurso
 
@@ -110,7 +110,7 @@ async def test_card_do_concurso_mostra_as_pendencias(user: User, projeto, monkey
 
     await user.should_see('Conferir (4)')
     user.find(marker='conferir-tcu').click()
-    await user.should_see('Conferir tcu')
+    await user.should_see('Conferir — tcu', retries=60)
 
 
 async def test_juntar_disciplinas(user: User, projeto, conferir):
@@ -131,6 +131,7 @@ async def test_juntar_disciplinas(user: User, projeto, conferir):
 
 async def test_configuracoes_abre_disciplinas(user: User, projeto, conferir):
     await user.open('/configuracoes')
+    user.find(marker='avancado').click()
 
     user.find(marker='abrir-disciplinas').click()
     await user.should_see('Disciplinas e temas')

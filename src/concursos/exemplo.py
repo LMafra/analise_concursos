@@ -20,6 +20,17 @@ GABARITO = 'ABCDEABCDE'
 RESPOSTAS = 'ABCDEEDCBA'
 
 
+def arquivos_do_exemplo() -> dict[str, str]:
+    """Gabarito e respostas sintéticos para a área de envio.
+
+    O edital manual é YAML e o cadastro trata todo YAML como arquivo do sistema, então ele não entra aqui.
+    """
+    return {
+        'gabarito.txt': _linhas(GABARITO),
+        'respostas.txt': _linhas(RESPOSTAS),
+    }
+
+
 def criar_exemplo(raiz: Path) -> Path:
     """Grava `<raiz>/provas/exemplo/` e devolve a pasta do concurso."""
     pasta = raiz / 'provas' / CONCURSO

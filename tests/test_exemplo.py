@@ -8,6 +8,14 @@ from concursos.aplicacao import exemplo as aplicacao_exemplo
 from concursos.status import Situacao, avaliar
 
 
+def test_arquivos_do_exemplo_trazem_gabarito_e_respostas():
+    arquivos = exemplo.arquivos_do_exemplo()
+
+    assert set(arquivos) == {'gabarito.txt', 'respostas.txt'}
+    assert '1 A' in arquivos['gabarito.txt']
+    assert '1 A' in arquivos['respostas.txt']
+
+
 def test_criar_exemplo_grava_um_concurso_completo_da_candidata_ficticia(tmp_path):
     pasta = exemplo.criar_exemplo(tmp_path)
 

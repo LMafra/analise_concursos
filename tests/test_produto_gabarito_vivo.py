@@ -41,4 +41,4 @@ def test_relatorio_root_usa_tokens() -> None:
     css = css_root_do_relatorio()
     assert css.startswith(':root {')
     assert '--color-primary: #14282B' in css
-    assert '--color-bg-base: #FAFAFA' in css
+    assert '--color-bg-base: #F8FAFC' in css

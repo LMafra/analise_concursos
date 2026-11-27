@@ -209,9 +209,14 @@ def test_onboarding_pela_gui_grava_como_o_init_e_cria_a_pasta_de_provas(tmp_path
     raiz = tmp_path / 'novo projeto'
     raiz.mkdir()
     monkeypatch.chdir(raiz)
+    monkeypatch.setenv('GABARITO_VIVO_HOME', str(tmp_path / 'home'))
     contexto = resolver_contexto(cwd=raiz, data_dir=raiz / '.gabarito-vivo')
     respostas = onboarding.Respostas(
-        nome='Ana Teste', provas=raiz / 'provas', analises=raiz / 'analises', doctor=False
+        nome='Ana Teste',
+        provas=raiz / 'provas',
+        analises=raiz / 'analises',
+        doctor=False,
+        cargo='Analista Judiciário',
     )
 
     novas = inicio.concluir_onboarding(Opcoes(contexto), respostas)
@@ -221,6 +226,24 @@ def test_onboarding_pela_gui_grava_como_o_init_e_cria_a_pasta_de_provas(tmp_path
     config = tomllib.loads(contexto.config_projeto.read_text(encoding='utf-8'))
     assert config['pastas'] == {'provas': 'provas', 'analises': 'analises'}
     assert config['candidato'] == {'ultimo': 'ana_teste'}
+    perfil = tomllib.loads((contexto.home / 'candidatos' / 'ana_teste.toml').read_text(encoding='utf-8'))
+    assert perfil['cargo_almejado'] == 'Analista Judiciário'
+
+
+def test_cargo_almejado_nao_substitui_os_cargos_da_busca(tmp_path):
+    from concursos.candidatos import gravar_cargo_almejado, gravar_perfil_global, ler_perfil_global
+
+    caminho = gravar_perfil_global(tmp_path, 'Ana Teste')
+    caminho.write_text(
+        caminho.read_text(encoding='utf-8') + '\n[pci]\ncargos = ["Analista"]\nuf = "SP"\n',
+        encoding='utf-8',
+    )
+
+    gravar_cargo_almejado(tmp_path, 'Ana Teste', 'Técnico Judiciário')
+
+    perfil = ler_perfil_global(tmp_path, 'ana_teste')
+    assert perfil['cargo_almejado'] == 'Técnico Judiciário'
+    assert perfil['pci'] == {'cargos': ['Analista'], 'uf': 'SP'}
 
 
 def test_formulario_do_onboarding_exige_nome_e_resolve_pastas_relativas(tmp_path):

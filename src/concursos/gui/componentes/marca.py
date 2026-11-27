@@ -20,7 +20,47 @@ _SVG = """
 </svg>
 """
 
-TAGLINE = 'diagnóstico pós-prova'
+TAGLINE = 'Acompanhamento calmo dos seus concursos'
+
+
+def cartao_da_pessoa() -> None:
+    """Nome e cargo digitados pela pessoa. Sem candidato, o cartão não aparece."""
+    from concursos.candidatos import cargo_almejado, ler_perfil_global
+    from concursos.config.contexto import resolver_home
+    from concursos.gui.estado import ESTADO
+
+    if ESTADO.projeto is None:
+        return
+    try:
+        candidato = ESTADO.candidato or ESTADO.contexto().candidato
+    except Exception:  # noqa: BLE001
+        return
+    if not candidato:
+        return
+    home = resolver_home()
+    perfil = ler_perfil_global(home, candidato)
+    nome = str(perfil.get('nome') or candidato)
+    cargo = cargo_almejado(home, candidato)
+    with ui.row().classes('w-full items-center ca-pessoa').style(tema.gap('sm')).mark('cartao-pessoa'):
+        ui.label(_iniciais(nome)).classes('ca-avatar').props('aria-hidden=true')
+        with ui.column().style(tema.gap('xs')):
+            ui.label(nome).classes('font-bold')
+            if cargo:
+                ui.label(cargo).classes('text-sm ca-texto-suave')
+            else:
+                ui.button(
+                    'Dizer o cargo que você busca',
+                    on_click=lambda: ui.navigate.to('/configuracoes'),
+                ).props('flat dense no-caps').classes('ca-alvo')
+
+
+def _iniciais(nome: str) -> str:
+    partes = [parte for parte in nome.split() if parte]
+    if not partes:
+        return '?'
+    if len(partes) == 1:
+        return partes[0][:2].upper()
+    return (partes[0][0] + partes[-1][0]).upper()
 
 
 def bloco_da_marca(*, com_tagline: bool = True) -> None:

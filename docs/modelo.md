@@ -399,7 +399,7 @@ Roda no comando sem subcomando quando o projeto não tem `config.toml`, e sempre
 - **Calibração:** detecta a grade da folha de amostra sem perfil, deduz o número de alternativas do espaçamento entre as colunas de bolhas (maior entre itens do que dentro de um item) e mede a tinta das 5 primeiras questões da primeira coluna. As respostas digitadas (letra ou `-`, sem diferença de caixa) separam as bolhas em marcadas e vazias: `vazio` e `cheio` são as medianas de cada grupo, e `limiar_marcada` fica no meio entre a marcada mais fraca e a vazia mais forte, na escala de 0 a 1 entre `vazio` e `cheio` (limitado a 0,05 a 0,95). Reprova, sem gravar nada, quando uma letra digitada não existe na grade, quando uma bolha digitada tem menos tinta que uma não digitada, ou quando todas estão em branco; no wizard interativo, mostra o erro com a `dica:` e pergunta de novo; por flag ou variável, para com código 1.
 - **Perfil calibrado:** `./.concurso/folha_calibrada.yaml` (`id: calibrado`, `alternativas`, `vazio`, `cheio`, `limiar_marcada`) e a imagem `./.concurso/calibracao.png`. Na leitura, os limiares dele substituem os padrão da detecção automática (sem `template` ou quando o perfil da folha falha); o perfil de OCR do `template` continua vindo antes.
 - **LLM:** ao escolher um provedor pela primeira vez, o wizard diz o que vai para ele (só o texto do edital e dos anexos) e pede concordância; sem ela, fica `nenhum`. Sem a chave, diz qual variável definir; com a chave só na variável, oferece guardá-la no keyring.
-- **O que grava:** no projeto, `[pastas]` (relativas à raiz quando dentro dela) e `[candidato] ultimo`; o perfil global `~/.concurso/candidatos/<slug>.toml` com o nome digitado; e, na configuração global `~/.concurso/config.toml`, `[candidatos] conhecidos` (lista de slugs) e `[llm]` (`provedor`, `url`, `modelo`, `variavel_chave`, `consentimento` e, na fase 7, `consentimento_livros`). A chave de API nunca vai para o TOML.
+- **O que grava:** no projeto, `[pastas]` (relativas à raiz quando dentro dela) e `[candidato] ultimo`; o perfil global `~/.concurso/candidatos/<slug>.toml` com o nome digitado e, quando informado, `cargo_almejado` (texto do cartão do menu; não entra na busca); e, na configuração global `~/.concurso/config.toml`, `[candidatos] conhecidos` (lista de slugs) e `[llm]` (`provedor`, `url`, `modelo`, `variavel_chave`, `consentimento` e, na fase 7, `consentimento_livros`). A chave de API nunca vai para o TOML.
 
 ## LLM opcional (fase 4)
 
@@ -611,7 +611,7 @@ analises/<slug>/<concurso>/                         # saída do candidato
 analises/comparativo_candidatos.md                  # com --all-candidates
 analises/<slug>/index.html                          # relatório HTML do candidato
 analises/<slug>/export/consolidado.<csv|parquet|md> # com `export`
-~/.concurso/candidatos/<slug>.toml                  # perfil global: nome e slug
+~/.concurso/candidatos/<slug>.toml                  # perfil global: nome, slug e cargo_almejado
 ```
 
 ```yaml
@@ -980,17 +980,17 @@ Artefatos da release: `concurso-analise-<versão>-windows-x64-setup.exe`, `concu
 
 | Token | Claro | Escuro |
 |---|---|---|
-| primária, texto sobre ela, primária como texto | `#14282B`, `#FFFFFF`, `#14282B` | `#4ADE80`, `#121E20`, `#4ADE80` |
-| info: fundo, ícone, texto | `#E6F0F0`, `#14282B`, `#14282B` | `#1A2C2F`, `#94A3B8`, `#E6ECEC` |
-| sucesso: fundo, ícone, texto | `#E6F4ED`, `#0E5A37`, `#0E5A37` | `#143324`, `#4ADE80`, `#4ADE80` |
-| erro: fundo, ícone, texto | `#FCEBE6`, `#8C2D0D`, `#8C2D0D` | `#3A1C14`, `#F87171`, `#F87171` |
-| alerta: fundo, ícone, texto | `#FEF3C7`, `#92400E`, `#92400E` | `#3B2D11`, `#FCD34D`, `#FCD34D` |
-| fundo, superfície | `#FAFAFA`, `#FFFFFF` | `#121E20`, `#1A2C2F` |
-| texto, texto suave, borda | `#14282B`, `#475569`, `#CBD5E1` | `#E6ECEC`, `#94A3B8`, `#2D4246` |
+| primária, texto sobre ela, primária como texto | `#14282B`, `#FFFFFF`, `#14282B` | `#4ADE80`, `#0D1719`, `#4ADE80` |
+| info: fundo, ícone, texto | `#E6EFF0`, `#14282B`, `#14282B` | `#1F353A`, `#A8BDC1`, `#EAF2F3` |
+| sucesso: fundo, ícone, texto | `#ECFDF5`, `#117A4B`, `#117A4B` | `#112A20`, `#4ADE80`, `#4ADE80` |
+| erro: fundo, ícone, texto | `#FEF2EE`, `#9A3412`, `#9A3412` | `#2D1812`, `#F28B66`, `#FBCFC0` |
+| alerta: fundo, ícone, texto | `#FFFBEB`, `#92400E`, `#92400E` | `#2A200D`, `#F59E0B`, `#FCD34D` |
+| fundo, superfície | `#F8FAFC`, `#FFFFFF` | `#0D1719`, `#142225` |
+| texto, texto suave, borda | `#14282B`, `#475569`, `#E2E8F0` | `#EAF2F3`, `#A8BDC1`, `#293F44` |
 
-Espaço `xs` 4 px, `sm` 8, `md` 16, `lg` 24, `xl` 32; raio 8 px (cartão), 12 px (diálogo) e pill 9999 px; alvo mínimo 44×44 px; elevação 1 `0 1px 2px rgb(0 0 0 / .08)` e 2 `0 8px 24px rgb(0 0 0 / .16)`; fonte do sistema (`-apple-system, "Segoe UI", Roboto, "Noto Sans", Ubuntu, sans-serif`). Texto sobre fundo e sobre superfície tem contraste de pelo menos 4,5:1, e ícone e foco, de 3:1; o teste calcula cada par. O Quasar recebe a primária como `var(--ca-primaria)`, para o modo escuro trocá-la pelo CSS. O modo (`[gui] tema`, enum `TemaGui`: `sistema`, `claro`, `escuro`) é escolhido em Configurações > Aparência (segmentado Auto / Claro / Escuro); `sistema` segue o sistema operacional. Status nunca depende só da cor: `gui/componentes/` (`cartao`, `Dialogo`, `aviso`, `situacao`, `estado_vazio`, `etapas`, `Assistente`) põe ícone e texto em cada tom (`info`, `sucesso`, `alerta`, `erro`), e o passo atual do assistente leva `aria-current="step"`.
+Espaço `xs` 4 px, `sm` 8, `md` 16, `lg` 24, `xl` 40, `2xl` 64; raio 10 px, cartão grande 14 px, diálogo 12 px e pill 9999 px; alvo mínimo 44×44 px; barra superior 6 px na primária; elevação 1 `0 1px 2px rgb(20 40 43 / .05), 0 6px 16px rgb(20 40 43 / .04)` e 2 `0 8px 24px rgb(0 0 0 / .16)`; fonte do sistema (`-apple-system, "Segoe UI", Roboto, "Noto Sans", Ubuntu, sans-serif`). Texto sobre fundo e sobre superfície tem contraste de pelo menos 4,5:1, e ícone e foco, de 3:1; o teste calcula cada par. O Quasar recebe a primária como `var(--ca-primaria)`, para o modo escuro trocá-la pelo CSS. O modo (`[gui] tema`, enum `TemaGui`: `sistema`, `claro`, `escuro`) é escolhido em Configurações > Aparência (segmentado Auto / Claro / Escuro); `sistema` segue o sistema operacional. Status nunca depende só da cor: `gui/componentes/` (`cartao`, `Dialogo`, `aviso`, `situacao`, `estado_vazio`, `etapas`, `Assistente`) põe ícone e texto em cada tom (`info`, `sucesso`, `alerta`, `erro`), e o passo atual do assistente leva `aria-current="step"`.
 
-**Onboarding (fase 6).** A tela `/inicio` é um assistente de 4 passos (nome; pasta, com as pastas de provas e análises em "Avançado"; opcionais desmarcados: IA para editais e aviso de versão nova; primeiro resultado: exemplo ou cadastro). Grava pelas mesmas `onboarding.aplicar` e `onboarding.gravar`; o aviso de versão nova grava `[atualizacao] verificar_ao_abrir`, e "Pular" no passo 3 não grava nenhum dos dois. A calibração da folha fica em Configurações (`aplicacao.inicio.salvar_calibracao`, que grava o mesmo `./.concurso/folha_calibrada.yaml`; a análise seguinte pela GUI é forçada, para reler as folhas), e o `doctor` fica no Sobre ("Conferir o ambiente"). Projeto sem concursos, sem relatório, sem recomendações ou sem prática mostra um estado vazio com a próxima ação.
+**Onboarding (fase 6).** A tela `/inicio` é um assistente de 4 passos (nome e cargo que você busca; pasta, com as pastas de provas e análises em "Avançado"; opcionais desmarcados: IA para editais e aviso de versão nova; primeiro resultado: exemplo ou cadastro). Grava pelas mesmas `onboarding.aplicar` e `onboarding.gravar`; o aviso de versão nova grava `[atualizacao] verificar_ao_abrir`, e "Pular" no passo 3 não grava nenhum dos dois. A calibração da folha fica em Configurações (`aplicacao.inicio.salvar_calibracao`, que grava o mesmo `./.concurso/folha_calibrada.yaml`; a análise seguinte pela GUI é forçada, para reler as folhas), e o `doctor` fica no Sobre ("Conferir o ambiente"). Projeto sem concursos, sem relatório, sem recomendações ou sem prática mostra um estado vazio com a próxima ação.
 
 Artefatos da release a partir da fase 6: os da fase 5, mais `atualizacao.json`, `atualizacao.json.sig` e `RELATORIO-SMOKE.md` (o resultado dos gates de cada sistema). O `--smoke` também imprime `partida: <s>` (falha acima de `CONCURSO_SMOKE_LIMITE_PARTIDA`, se definida) e confere o OCR numa imagem gerada.
 

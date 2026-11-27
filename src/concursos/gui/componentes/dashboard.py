@@ -1,27 +1,21 @@
-"""Bloco de dashboard (3 fontes) no topo de Minhas Provas — paridade com index.html."""
+"""Três cartões de resumo de Minhas Provas, na ordem do protótipo."""
 
 from pathlib import Path
 
 from nicegui import ui
 
 from concursos.analytics.dashboard_fontes import (
-    CTA_CONCURSOS,
-    CTA_SIMULADOS,
-    CTA_TEC,
-    KpiItem,
     MetasDashboard,
     RegistroSimulado,
-    SubDashboard,
-    kpis_concursos,
-    kpis_simulados,
     kpis_tec,
     metas_do_toml,
     metas_padrao,
 )
-from concursos.analytics.painel import Prova
 from concursos.config.contexto import ler_toml
 from concursos.gui import tema
+from concursos.gui.componentes.resumo_visual import cartao_metrica
 from concursos.gui.estado import ESTADO
+from concursos.gui.tema import Tom
 from concursos.pratica.constantes import PASTA_PRATICA
 
 
@@ -51,15 +45,6 @@ def _raiz_candidato() -> Path | None:
     return None
 
 
-def _provas_leves(raiz: Path) -> list[Prova]:
-    provas = []
-    for md in raiz.glob('*/relatorio.md'):
-        if md.parent.name in {PASTA_PRATICA, 'consolidado', 'export'}:
-            continue
-        provas.append(Prova(concurso=md.parent.name, titulo=md.parent.name, percentual=0.0))
-    return provas
-
-
 def _regs_simulados(raiz: Path) -> list[RegistroSimulado]:
     regs = []
     pratica = raiz / PASTA_PRATICA
@@ -70,79 +55,33 @@ def _regs_simulados(raiz: Path) -> list[RegistroSimulado]:
 
 
 def renderizar() -> None:
+    """Nota da última prova, acerto no TEC e simulados: um número por cartão."""
+    from concursos.aplicacao.resultados import resumo_visual
+    from concursos.gui.componentes.resumo_visual import ultimo
+
+    try:
+        ponto = ultimo(resumo_visual(ESTADO.contexto()))
+    except Exception:  # noqa: BLE001
+        ponto = None
     raiz = _raiz_candidato()
-    metas = _metas()
-    provas = _provas_leves(raiz) if raiz else []
-    # Preferir provas do painel se o index já tiver sido gerado — fallback leve
-    conc = kpis_concursos(provas, destino_base='/resultados?aba=concursos')
-    tec = (
-        kpis_tec(raiz, metas, destino_base='/resultados?aba=tec')
-        if raiz
-        else SubDashboard('tec', 'Prática no TEC', [], vazio='…', cta=CTA_TEC)
-    )
-    sim = kpis_simulados(
-        _regs_simulados(raiz) if raiz else [],
-        metas,
-        destino_base='/resultados?aba=simulados',
-    )
-    # Remap CTAs GUI
-    ctas = {
-        'concursos': ('/novo', CTA_CONCURSOS),
-        'tec': ('/?aba=tec', CTA_TEC),
-        'simulados': ('/estudar?aba=simulado', CTA_SIMULADOS),
-    }
-    subs = [
-        SubDashboard(
-            conc.id,
-            conc.titulo,
-            [KpiItem(k.rotulo, k.valor, '/resultados?aba=concursos', k.detalhe, k.selo) for k in conc.kpis],
-            conc.vazio,
-            conc.cta,
-            conc.extras,
-        ),
-        SubDashboard(
-            tec.id,
-            tec.titulo,
-            [KpiItem(k.rotulo, k.valor, '/resultados?aba=tec', k.detalhe, k.selo) for k in tec.kpis],
-            tec.vazio,
-            tec.cta,
-        ),
-        SubDashboard(
-            sim.id,
-            sim.titulo,
-            [KpiItem(k.rotulo, k.valor, '/resultados?aba=simulados', k.detalhe, k.selo) for k in sim.kpis],
-            sim.vazio,
-            sim.cta,
-        ),
-    ]
+    tec = kpis_tec(raiz, _metas()) if raiz else None
+    simulados = len(_regs_simulados(raiz)) if raiz else 0
+    if ponto is None:
+        nota, legenda_nota = 'Sem nota ainda', 'A última prova aparece aqui'
+    else:
+        nota = f'Nota {ponto.nota:.1f}%'.replace('.', ',')
+        legenda_nota = f'{ponto.concurso} (última prova)'
+    if tec is None or not tec.kpis:
+        acerto, legenda_tec = 'Sem prática ainda', 'Importe o relatório na aba abaixo'
+    else:
+        acerto, legenda_tec = tec.kpis[0].valor, 'Questões recentes'
+    feitos = 'realizado' if simulados == 1 else 'realizados'
     with (
         ui.element('div')
         .classes('w-full')
-        .style(f'display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));{tema.gap("md")}')
+        .style(f'display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));{tema.gap("md")}')
         .mark('dashboard-home')
     ):
-        for sub in subs:
-            with ui.card().classes('w-full ca-borda').style('box-shadow: none'):
-                ui.label(sub.titulo).classes('text-subtitle1 font-bold')
-                if sub.vazio:
-                    ui.label(sub.vazio).classes('text-sm ca-texto-suave')
-                    rota, rotulo = ctas[sub.id]
-                    ui.button(rotulo, on_click=lambda d=rota: ui.navigate.to(d)).props('outline').classes(
-                        'ca-alvo'
-                    )
-                else:
-                    for kpi in sub.kpis:
-                        with (
-                            ui.button(on_click=lambda d=kpi.destino: ui.navigate.to(d))
-                            .props('flat align=left')
-                            .classes('w-full ca-alvo')
-                            .style('height:auto;padding:8px')
-                        ):
-                            ui.label(kpi.rotulo).classes('text-caption ca-texto-suave')
-                            ui.label(kpi.valor).classes('text-body1 font-bold')
-                            if kpi.selo:
-                                ui.label(kpi.selo.texto).classes('text-caption')
-                    if sub.extras:
-                        with ui.expansion('Mais dados', icon='info').classes('w-full'):
-                            for e in sub.extras:
-                                ui.label(f'{e.rotulo}: {e.valor}').classes('text-sm')
+        cartao_metrica('Concursos', nota, legenda_nota, Tom.INFO)
+        cartao_metrica('Prática no TEC', acerto, legenda_tec, Tom.ALERTA)
+        cartao_metrica('Simulados', f'{simulados} {feitos}', 'Foco nos seus pontos fracos', Tom.SUCESSO)

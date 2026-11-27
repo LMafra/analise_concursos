@@ -60,6 +60,7 @@ class Respostas:
     doctor: bool
     calibracao: Calibracao | None = None
     llm: str | None = None
+    cargo: str | None = None
 
 
 def precisa_de_onboarding(contexto: Contexto) -> bool:
@@ -165,6 +166,10 @@ def gravar(contexto: Contexto, respostas: Respostas) -> None:
     if respostas.nome:
         candidato = slug(respostas.nome)
         gravar_perfil_global(contexto.home, respostas.nome, atualizar=True)
+        if respostas.cargo is not None:
+            from concursos.candidatos import gravar_cargo_almejado
+
+            gravar_cargo_almejado(contexto.home, respostas.nome, respostas.cargo)
         conhecidos = ler_toml(contexto.config_global).get('candidatos', {}).get('conhecidos', [])
         gravar_secao(contexto.config_global, 'candidatos', {'conhecidos': sorted({*conhecidos, candidato})})
         gravar_secao(contexto.config_projeto, 'candidato', {'ultimo': candidato})

@@ -9,17 +9,27 @@ from concursos.gui.paginas.encontrar import PainelEncontrar, PainelProvasAnterio
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.textos import mostrar_erro
 
-ABAS = {'encontrar': 'Encontrar concursos', 'provas': 'Provas anteriores'}
+ABAS = {
+    'encontrar': ('Encontrar concursos', 'travel_explore'),
+    'provas': ('Provas anteriores', 'history'),
+}
 
 
 def pagina(aba: str | None = None) -> None:
     if not exigir_projeto():
         return
-    with ui.column().classes('w-full').style(tema.gap('md')):
-        ui.label('Concursos').classes('text-2xl font-bold')
-        ui.label('Editais abertos e provas anteriores para planejar o que vem.').classes('ca-texto-suave')
+    from concursos.gui.componentes.campo import cabecalho_da_pagina
+
+    with ui.column().classes('w-full').style(tema.gap('lg')):
+        cabecalho_da_pagina(
+            'Concursos',
+            'Editais abertos compatíveis com seu objetivo e provas anteriores para treinar.',
+        )
         with ui.tabs().classes('w-full') as abas:
-            guias = {chave: ui.tab(titulo).mark(f'aba-{chave}') for chave, titulo in ABAS.items()}
+            guias = {
+                chave: ui.tab(titulo, icon=icone).mark(f'aba-{chave}')
+                for chave, (titulo, icone) in ABAS.items()
+            }
         with ui.tab_panels(abas, value=guias.get(aba or '', guias['encontrar'])).classes('w-full'):
             with ui.tab_panel(guias['encontrar']):
                 no_lugar(PainelEncontrar)

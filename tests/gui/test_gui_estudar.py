@@ -78,15 +78,18 @@ async def test_lista_mostra_tamanho_data_e_situacao_com_texto(user: User, projet
     ]
     await user.open('/estudar')
 
+    await user.should_see('Meus livros (2)')
     await user.should_see('Direito Constitucional Esquematizado.pdf')
-    await user.should_see('5,0 MB')
-    await user.should_see('Adicionado em 06/11/2026')
+    await user.should_see('Direito Constitucional · 5,0 MB')
     await user.should_see('Pronto para perguntas')
+    await user.should_see('Adicionar livro ao computador')
     await user.should_see(marker='livros-preparando')
-    await user.should_see('Português.epub: Lendo página 212 de 900 (já dá para buscar nas lidas)')
+    await user.should_see('Português.epub')
+    await user.should_see('Lendo página 212 de 900')
+    await user.should_see('Já dá para buscar nas páginas lidas.')
 
 
-async def test_adicionar_envia_disciplina_e_concurso_e_avisa_duplicado(
+async def test_adicionar_envia_a_disciplina_sem_concurso_e_avisa_duplicado(
     user: User, projeto, biblioteca, monkeypatch
 ):
     recebidos = {}
@@ -98,7 +101,6 @@ async def test_adicionar_envia_disciplina_e_concurso_e_avisa_duplicado(
 
     monkeypatch.setattr(estudo, 'adicionar_livros', adicionar)
     await user.open('/estudar')
-    user.find(marker='livro-concurso').elements.pop().value = ['sefaz-df-2026']
     upload = next(iter(user.find(marker='soltar-livros').elements))
     await upload.handle_uploads(
         [
@@ -112,7 +114,7 @@ async def test_adicionar_envia_disciplina_e_concurso_e_avisa_duplicado(
     assert recebidos == {
         'nomes': ['novo.pdf', 'repetido.pdf'],
         'disciplina': 'Geral',
-        'concursos': ['sefaz-df-2026'],
+        'concursos': (),
     }
 
 

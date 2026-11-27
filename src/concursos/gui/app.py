@@ -16,7 +16,7 @@ from concursos.config.contexto import resolver_home
 from concursos.erros import avisar
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
-from concursos.gui.componentes.marca import bloco_da_marca
+from concursos.gui.componentes.marca import bloco_da_marca, cartao_da_pessoa
 from concursos.gui.estado import ESTADO, projeto_inicial
 from concursos.gui.paginas import (
     analise,
@@ -32,6 +32,7 @@ from concursos.gui.paginas import (
     respostas,
     resultados,
     sobre,
+    tec,
 )
 from concursos.gui.tema import Tom
 from concursos.modelo import DecisaoJanela
@@ -57,7 +58,7 @@ ENDERECOS_ANTIGOS = {
     'descobrir': '/concursos?aba=encontrar',
     'provas': '/concursos?aba=provas',
     'notebook': '/configuracoes?secao=avancado',
-    'tec': '/?aba=tec',
+    'tec': '/tec',
 }
 
 
@@ -69,10 +70,6 @@ def descobrir_antigo() -> None:
     ui.navigate.to(ENDERECOS_ANTIGOS['descobrir'])
 
 
-def tec_antigo() -> None:
-    ui.navigate.to('/?aba=tec')
-
-
 ROTAS: dict[str, Callable[..., None]] = {
     '/': concursos.pagina,
     '/inicio': inicio.pagina,
@@ -82,7 +79,7 @@ ROTAS: dict[str, Callable[..., None]] = {
     '/resultados': resultados.pagina,
     '/estudar': estudar.pagina,
     '/concursos': radar.pagina,
-    '/tec': tec_antigo,
+    '/tec': tec.pagina,
     '/integracoes': integracoes_antigas,
     '/descobrir': descobrir_antigo,
     '/projeto': projeto.pagina,
@@ -106,60 +103,79 @@ def raiz() -> None:
         .props('bordered show-if-above breakpoint=1023 width=240')
         .style('background: var(--ca-superficie)') as menu
     ):
-        bloco_da_marca()
-        for caminho, nome, icone in MENU:
-            ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props(
-                'flat align=left'
-            ).classes('w-full ca-alvo').mark(f'menu-{caminho.strip("/") or "provas"}')
-        ui.separator().classes('q-my-sm')
-        for caminho, nome, icone in UTILITARIO:
-            ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props(
-                'flat align=left'
-            ).classes('w-full ca-alvo').mark(f'menu-{caminho.strip("/")}')
-        if ESTADO.no_navegador:
-            ui.button('Fechar o app', icon='power_settings_new', on_click=fechar_app).props(
-                'flat align=left'
-            ).classes('w-full ca-alvo').mark('fechar-app')
+        with ui.column().classes('fit justify-between no-wrap'):
+            with ui.column().classes('w-full').style(tema.gap('xs')):
+                for caminho, nome, icone in MENU + UTILITARIO:
+                    ui.button(nome, icon=icone, on_click=lambda c=caminho: ui.navigate.to(c)).props(
+                        f'flat align=left data-rota="{caminho}"'
+                    ).classes('w-full ca-alvo').mark(f'menu-{caminho.strip("/") or "provas"}')
+                if ESTADO.no_navegador:
+                    ui.button('Fechar o app', icon='power_settings_new', on_click=fechar_app).props(
+                        'flat align=left'
+                    ).classes('w-full ca-alvo').mark('fechar-app')
+            cartao_da_pessoa()
+        # O destaque fica no navegador: perguntar o endereço ao Python a cada instante estoura o tempo
+        # e a tela mostra o erro.
+        ui.add_head_html(
+            """
+            <script>
+            setInterval(() => {
+              const caminho = window.location.pathname;
+              document.querySelectorAll('.q-drawer [data-rota]').forEach((botao) => {
+                const rota = botao.getAttribute('data-rota');
+                const atual = caminho === rota || (rota !== '/' && caminho.startsWith(rota));
+                if (atual) botao.setAttribute('aria-current', 'page');
+                else botao.removeAttribute('aria-current');
+              });
+            }, 400);
+            </script>
+            """
+        )
     with ui.header().classes('items-center').style(tema.gap('sm')):
         ui.button(icon='menu', on_click=menu.toggle).props('flat round aria-label="Abrir menu"').classes(
             'ca-alvo'
         )
-        ui.label(NOME_DO_APP).classes('text-lg font-bold')
+        bloco_da_marca()
         ui.space()
-        campo_busca = (
-            ui.input(placeholder='Buscar concurso ou tópico')
-            .props('dense outlined clearable')
-            .classes('w-64')
-            .mark('busca-global')
-        )
-        resultados_busca = (
-            ui.column()
-            .classes('absolute z-10 shadow-md p-2 ca-borda')
-            .style(
-                'top: 3.5rem; right: 1rem; min-width: 16rem; display: none; background: var(--ca-superficie)'
+        with ui.column().classes('ca-busca'):
+            ui.label('Buscar concurso ou tópico').classes('ca-rotulo-campo')
+            campo_busca = (
+                ui.input(placeholder='Ex.: TRT 2025, recursos, crase…')
+                .props('dense outlined clearable')
+                .classes('w-64 ca-seletor')
+                .mark('busca-global')
             )
-        )
+            resultados_busca = (
+                ui.column()
+                .classes('absolute z-10 shadow-md p-2 ca-borda')
+                .style(
+                    'top: 3.5rem; right: 0; min-width: 16rem; display: none; background: var(--ca-superficie)'
+                )
+            )
 
-        def ao_buscar() -> None:
-            from concursos.aplicacao import busca
+            def ao_buscar() -> None:
+                from concursos.aplicacao import busca
 
-            resultados_busca.clear()
-            termo = campo_busca.value or ''
-            if ESTADO.projeto is None or not termo.strip():
-                resultados_busca.style('display: none')
-                return
-            achados = busca.procurar(ESTADO.contexto(), termo)
-            with resultados_busca:
-                if not achados:
-                    ui.label('Nada encontrado.').classes('text-sm')
-                for item in achados:
-                    ui.button(
-                        f'{item.tipo}: {item.rotulo}',
-                        on_click=lambda r=item.rota: ui.navigate.to(r),
-                    ).props('flat dense').classes('w-full')
-            resultados_busca.style('display: block')
+                resultados_busca.clear()
+                termo = campo_busca.value or ''
+                if ESTADO.projeto is None or not termo.strip():
+                    resultados_busca.style('display: none')
+                    return
+                achados = busca.procurar(ESTADO.contexto(), termo)
+                with resultados_busca:
+                    if not achados:
+                        ui.label('Nenhum concurso ou tópico encontrado.').classes('text-sm')
+                    for item in achados:
+                        ui.button(
+                            f'{item.tipo}: {item.rotulo}',
+                            on_click=lambda r=item.rota: ui.navigate.to(r),
+                        ).props('flat dense no-caps').classes('w-full')
+                resultados_busca.style('display: block')
 
-        campo_busca.on('update:model-value', ao_buscar)
+            campo_busca.on('update:model-value', ao_buscar)
+        with ui.row().classes('items-center ca-pilula no-wrap').mark('pilula-privacidade'):
+            ui.icon('lock', size='xs').props('aria-hidden=true')
+            ui.label('Seus dados ficam neste computador').classes('text-sm')
         ui.button(icon='new_releases', on_click=lambda: ui.navigate.to('/sobre')).props(
             'flat dense no-caps'
         ).bind_text_from(
@@ -274,8 +290,17 @@ def executar(
             'WebView2 não encontrado',
         )
     porta = porta or native.find_open_port()
-    if not nativa and abrir:
-        app.on_startup(lambda: abrir_no_navegador(f'http://{HOST}:{porta}/'))
+    endereco = f'http://{HOST}:{porta}/'
+    logger.info('Aberto em %s', endereco)
+    logger.info('Projeto: %s', ESTADO.projeto or 'nenhum')
+    logger.info('Para o log detalhado, rode de novo com --verbose.')
+
+    def ao_ficar_pronto() -> None:
+        logger.info('Pronto em %s', endereco)
+        if not nativa and abrir:
+            abrir_no_navegador(endereco)
+
+    app.on_startup(ao_ficar_pronto)
     if abrir and atualizacao.no_executavel():
         app.on_startup(verificar_ao_abrir)
     if nativa and abrir:

@@ -7,10 +7,9 @@ from nicegui import events, run, ui
 from concursos import planilha_tec
 from concursos.aplicacao import cadastro, captura_tec, pratica
 from concursos.aplicacao.opcoes import Opcoes
-from concursos.aplicacao.resultados import abrir_no_navegador
+from concursos.aplicacao.resultados import abrir_no_navegador, resultados
 from concursos.gui import tema
 from concursos.gui.componentes.aviso import aviso
-from concursos.gui.componentes.dialogo import ver_texto
 from concursos.gui.estado import ESTADO
 from concursos.gui.paginas.projeto import exigir_projeto
 from concursos.gui.tema import Tom
@@ -59,16 +58,15 @@ def conteudo() -> None:
 class PainelTec:
     def __init__(self) -> None:
         ui.label(
-            'Solte a planilha que você exportou do TEC (.csv ou .xlsx) ou os arquivos tec-erros-*.json da '
-            'captura (computador e tablet juntos) e, se usa o caderno de erros, o caderno-estado.json. A prática '
-            'entra na próxima análise.'
-        ).classes('text-sm')
-        ui.label(COMO_CONSEGUIR).classes('text-sm').mark('como-conseguir')
+            'Solte aqui o relatório do TEC (.csv ou .xlsx). Tudo fica salvo apenas neste computador.'
+        ).classes('ca-texto-suave')
+        with ui.expansion('Como conseguir o arquivo', icon='help').classes('w-full'):
+            ui.label(COMO_CONSEGUIR).classes('text-sm').mark('como-conseguir')
         self.upload = (
             ui.upload(
                 multiple=True,
                 auto_upload=True,
-                label='Soltar a planilha ou as exportações, ou clicar para escolher',
+                label='Soltar o relatório do TEC ou clicar para escolher',
                 on_multi_upload=self.receber,
             )
             .props('accept=".json,.csv,.xlsx"')
@@ -79,9 +77,9 @@ class PainelTec:
         self.resultado = ui.column().classes('w-full')
         self.envio: Path | None = None
         self.colunas: list[tuple[pratica.PrevisaoPlanilha, dict[str, ui.select]]] = []
-        saidas_da_ultima_analise()
-        ui.separator()
-        instrucoes_da_captura()
+        resumo_da_pratica()
+        with ui.expansion('Instalar a captura do TEC', icon='extension').classes('w-full'):
+            instrucoes_da_captura()
 
     async def receber(self, evento: events.MultiUploadEventArguments) -> None:
         contexto = ESTADO.contexto()
@@ -187,115 +185,39 @@ class PainelTec:
             self.envio = None
 
 
-def saidas_da_ultima_analise() -> None:
-    saidas = pratica.saidas_da_pratica(ESTADO.contexto())
-    tem_saida = saidas.resumo is not None or saidas.simulado is not None
-    if tem_saida:
-        with ui.row().style(tema.gap('sm')).mark('saidas-pratica'):
-            if saidas.resumo is not None:
-                ui.button(
-                    'Ver prioridades',
-                    icon='flag',
-                    on_click=lambda: ver_texto('Prioridades da prática', saidas.resumo),
-                ).props('outline').mark('ver-prioridades')
-            if saidas.simulado is not None:
-                ui.button(
-                    'Ver simulado com meus erros',
-                    icon='quiz',
-                    on_click=lambda: abrir_no_navegador(saidas.simulado),
-                ).props('outline').mark('ver-simulado-tec')
-    # Ações do ciclo (opt-in): sempre visíveis na página Importar do TEC.
-    with ui.row().style(tema.gap('sm')).mark('acoes-tec-ciclo'):
-        ui.button(
-            'Explicar erros no caderno de estudo',
-            icon='lightbulb',
-            on_click=explicar_erros,
-        ).props('outline').mark('explicar-tec')
-        ui.button(
-            'Buscar provas no PCI',
-            icon='search',
-            on_click=buscar_pci,
-        ).props('outline').mark('pci-tec')
-        ui.button(
-            'Repetir erros',
-            icon='replay',
-            on_click=abrir_repeticao,
-        ).props('outline').mark('repetir-tec')
-
-
-async def explicar_erros() -> None:
-    from concursos.aplicacao import tec_estudo
-
+def resumo_da_pratica() -> None:
+    """Uma linha de situação. O texto completo fica fechado, para a tela não virar um relatório."""
     try:
-        await run.io_bound(tec_estudo.explicar_erros_tec, Opcoes(ESTADO.contexto()))
-        ui.notify('Explicações enviadas ao caderno de estudo.', type='positive')
-    except Exception as erro:  # noqa: BLE001
-        mostrar_erro(erro)
-
-
-async def buscar_pci() -> None:
-    from concursos.aplicacao import tec_pci
-
-    try:
-        provas = await run.io_bound(tec_pci.buscar_provas_por_assunto, Opcoes(ESTADO.contexto()))
-        if provas:
-            ui.notify(f'{len(provas)} prova(s) relacionadas.', type='positive')
-        else:
-            ui.notify('Nenhuma prova encontrada (ou PCI desligado).', type='warning')
-    except Exception as erro:  # noqa: BLE001
-        mostrar_erro(erro)
-
-
-def abrir_repeticao() -> None:
-    from concursos.aplicacao import tec_repeticao
-
-    try:
-        questoes = tec_repeticao.carregar_erros_da_pratica(Opcoes(ESTADO.contexto()))
+        achados = resultados(ESTADO.contexto())
     except Exception as erro:  # noqa: BLE001
         mostrar_erro(erro)
         return
-    if not questoes:
-        ui.notify('Nenhuma questão errada para repetir.', type='warning')
+    if not achados.pratica:
         return
-    with ui.dialog() as dialogo, ui.card().classes('w-full max-w-2xl'):
-        ui.label('Repetir erros').classes('text-lg font-bold')
-        indice = {'i': 0}
+    situacao = _situacao_curta()
+    if situacao:
+        with ui.card().classes('w-full').style(tema.gap('xs')):
+            ui.label('Situação atual da prática no TEC').classes('text-sm ca-texto-suave')
+            ui.label(situacao).classes('text-h6 font-bold')
+    with ui.expansion('Ver o resumo', icon='article').classes('w-full'):
+        ui.markdown(achados.pratica).classes('w-full').mark('pratica')
 
-        enunciado = ui.markdown('')
-        alts_col = ui.column().classes('w-full')
-        campo = ui.input('Sua resposta').classes('w-full')
-        feedback = ui.label('')
 
-        def mostrar() -> None:
-            if indice['i'] >= len(questoes):
-                dialogo.close()
-                ui.notify('Repetição concluída.', type='positive')
-                return
-            q = questoes[indice['i']]
-            enunciado.set_content(f'**{q.mat} — {q.ass}**\n\n{q.enun}')
-            alts_col.clear()
-            with alts_col:
-                for alt in q.alts:
-                    ui.label(f'{alt.get("l", "?")}) {alt.get("t", "")}')
-            campo.value = ''
-            feedback.text = ''
+def _situacao_curta() -> str | None:
+    from concursos.analytics.dashboard_fontes import kpis_tec, metas_do_toml, metas_padrao
+    from concursos.config.contexto import ler_toml
 
-        def responder() -> None:
-            q = questoes[indice['i']]
-            resultado = tec_repeticao.registrar_tentativa(
-                Opcoes(ESTADO.contexto()), q.id, campo.value or '', q.gab, q.tipo
-            )
-            if resultado == 'acerto':
-                feedback.text = 'Acertou.'
-            else:
-                feedback.text = f'Errou. Gabarito: {q.gab}'
-            indice['i'] += 1
-            ui.timer(0.8, mostrar, once=True)
-
-        ui.button('Responder', on_click=responder)
-        ui.button('Fechar', on_click=dialogo.close).props('flat')
-        mostrar()
-    dialogo.open()
+    try:
+        contexto = ESTADO.contexto()
+        metas = metas_padrao()
+        if contexto.config_projeto.is_file():
+            metas = metas_do_toml(ler_toml(contexto.config_projeto))
+        painel = kpis_tec(contexto.analises_do_candidato, metas)
+    except Exception:  # noqa: BLE001
+        return None
+    if not painel.kpis:
+        return None
+    return painel.kpis[0].valor
 
 
 def analisar() -> None:
@@ -312,7 +234,6 @@ def passos(titulo: str, itens: list[str]) -> None:
 
 
 def instrucoes_da_captura() -> None:
-    ui.label('Instalar a captura do TEC').classes('text-lg font-bold')
     captura = captura_tec.localizar()
     if captura is None:
         with ui.column().mark('sem-captura'):

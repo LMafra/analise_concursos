@@ -68,7 +68,13 @@ def configurar(opcoes: Opcoes, respostas: onboarding.Respostas) -> Opcoes:
 
 def respostas_atuais(contexto: Contexto) -> onboarding.Respostas:
     """Os padrões do `init` para este projeto, como ponto de partida do formulário."""
-    return onboarding.perguntar(contexto, set(), None, {})
+    from concursos.candidatos import cargo_almejado, slug
+
+    respostas = onboarding.perguntar(contexto, set(), None, {})
+    if not respostas.nome:
+        return respostas
+    cargo = cargo_almejado(contexto.home, slug(respostas.nome))
+    return replace(respostas, cargo=cargo) if cargo else respostas
 
 
 def pasta_no_formulario(pasta: Path, raiz: Path) -> str:
@@ -82,6 +88,7 @@ def respostas_do_formulario(
     analises: str,
     doctor: bool,
     calibracao: Calibracao | None = None,
+    cargo: str | None = None,
 ) -> onboarding.Respostas:
     """As respostas do formulário; pastas relativas são relativas à pasta do projeto."""
     nome = validar_nome(nome)
@@ -98,6 +105,7 @@ def respostas_do_formulario(
         analises=na_raiz(analises, contexto.analises),
         doctor=doctor,
         calibracao=calibracao,
+        cargo=None if cargo is None else cargo.strip(),
     )
 
 
